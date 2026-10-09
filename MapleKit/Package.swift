@@ -22,6 +22,7 @@ let package = Package(
         // Pure Foundation. No SwiftUI/SwiftData: it must fit in the ~6 MB DeviceActivityMonitor extension.
         .target(
             name: "MapleCore",
+            resources: [.copy("Resources/species.json"), .copy("Resources/rewards.json")],
             swiftSettings: [.enableUpcomingFeature("MemberImportVisibility")]
         ),
         .target(name: "MapleDesign", dependencies: ["MapleCore"], swiftSettings: mainActorByDefault),
@@ -32,5 +33,6 @@ let package = Package(
         ),
         .target(name: "MapleServices", dependencies: ["MapleCore", "MapleData"], swiftSettings: mainActorByDefault),
         .testTarget(name: "MapleCoreTests", dependencies: ["MapleCore"]),
+        .testTarget(name: "MapleDesignTests", dependencies: ["MapleDesign", "MapleCore"]),
     ]
 )

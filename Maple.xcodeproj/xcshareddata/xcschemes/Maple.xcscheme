@@ -33,6 +33,16 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
+               BlueprintIdentifier = "MapleDesignTests"
+               BuildableName = "MapleDesignTests"
+               BlueprintName = "MapleDesignTests"
+               ReferencedContainer = "container:MapleKit">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
                BlueprintIdentifier = "MapleCoreTests"
                BuildableName = "MapleCoreTests"
                BlueprintName = "MapleCoreTests"

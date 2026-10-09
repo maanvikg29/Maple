@@ -2,37 +2,27 @@ import SwiftUI
 import MapleDesign
 
 enum AppTab: Hashable {
-    case today, sleep, focus, grove, insights
+    case home, rest, herbarium
 }
 
 struct RootView: View {
     @Environment(\.theme) private var theme
-    @State private var selection: AppTab = .today
+    @State private var selection: AppTab = .home
 
     var body: some View {
         TabView(selection: $selection) {
-            // Each tab owns its navigation stack, so screens can add toolbars, sheets and pushes.
-            Tab("Today", systemImage: "sun.horizon", value: AppTab.today) {
-                NavigationStack { TodayView() }
+            // Each tab owns its navigation stack, so screens can push, present sheets and add toolbars.
+            Tab("Home", systemImage: "tree", value: AppTab.home) {
+                NavigationStack { HomeView() }
             }
-            Tab("Sleep", systemImage: "moon.stars", value: AppTab.sleep) {
-                NavigationStack { SleepView() }
+            Tab("Rest", systemImage: "moon", value: AppTab.rest) {
+                NavigationStack { RestView() }
             }
-            Tab("Focus", systemImage: "timer", value: AppTab.focus) {
-                NavigationStack { FocusView() }
-            }
-            Tab("Grove", systemImage: "leaf", value: AppTab.grove) {
-                NavigationStack { GroveView() }
-            }
-            Tab("Insights", systemImage: "chart.bar.xaxis", value: AppTab.insights) {
-                NavigationStack { InsightsView() }
+            Tab("Herbarium", systemImage: "book.closed", value: AppTab.herbarium) {
+                NavigationStack { HerbariumView() }
             }
         }
         .tint(theme.colors.textPrimary)
+        .tabBarMinimizeBehavior(.onScrollDown)
     }
-}
-
-#Preview {
-    RootView()
-        .preferredColorScheme(.dark)
 }

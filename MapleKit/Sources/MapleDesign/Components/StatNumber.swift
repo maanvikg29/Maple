@@ -1,50 +1,72 @@
 import SwiftUI
 
-/// A large, readable number with a small label, e.g. "7h 42m · Last night".
-/// Grows with Dynamic Type and reads as one element in VoiceOver.
+/// A large, readable number, optionally with units at half size ("1h 20m").
+/// Grows with Dynamic Type (capped), rolls when it changes, and reads as one element in VoiceOver.
 public struct StatNumber: View {
     public enum Size: Sendable {
-        /// One number that leads a card.
+        /// Home's one hero numeral (64pt, max 88).
         case hero
-        /// Numbers shown side by side.
-        case compact
+        /// The wellbeing score (48pt, max 72).
+        case score
+        /// Totals such as the herbarium count (34pt).
+        case stat
+        /// Inline numbers in rows (17pt).
+        case inline
+    }
+
+    /// A piece of the number: digits in the numeral style, units smaller and secondary.
+    public struct Part: Sendable, Hashable {
+        public let text: String
+        public let isUnit: Bool
+
+        public static func value(_ text: String) -> Part { Part(text: text, isUnit: false) }
+        public static func unit(_ text: String) -> Part { Part(text: text, isUnit: true) }
     }
 
     @Environment(\.theme) private var theme
-    @ScaledMetric(relativeTo: .largeTitle) private var heroSize: CGFloat = 52
-    @ScaledMetric(relativeTo: .title) private var compactSize: CGFloat = 34
+    @ScaledMetric(relativeTo: .largeTitle) private var heroSize: CGFloat = 64
+    @ScaledMetric(relativeTo: .largeTitle) private var scoreSize: CGFloat = 48
+    @ScaledMetric(relativeTo: .title) private var statSize: CGFloat = 34
+    @ScaledMetric(relativeTo: .body) private var inlineSize: CGFloat = 17
 
-    private let value: String
-    private let unit: String?
-    private let label: String
+    private let parts: [Part]
     private let size: Size
+    private let accessibilityText: String?
 
-    public init(_ value: String, unit: String? = nil, label: String, size: Size = .hero) {
-        self.value = value
-        self.unit = unit
-        self.label = label
+    /// - Parameter accessibilityText: Full spoken form, e.g. "One hour twenty minutes".
+    public init(_ parts: [Part], size: Size = .hero, accessibilityText: String? = nil) {
+        self.parts = parts
         self.size = size
+        self.accessibilityText = accessibilityText
+    }
+
+    public init(_ value: String, size: Size = .hero, accessibilityText: String? = nil) {
+        self.init([.value(value)], size: size, accessibilityText: accessibilityText)
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: theme.spacing.xxs) {
-            HStack(alignment: .firstTextBaseline, spacing: theme.spacing.xxs) {
-                Text(value)
-                    .font(MapleFont.stat(size: size == .hero ? heroSize : compactSize))
-                    .foregroundStyle(theme.colors.textPrimary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                if let unit {
-                    Text(unit)
-                        .font(MapleFont.headline)
-                        .foregroundStyle(theme.colors.textSecondary)
-                        .lineLimit(1)
-                }
+        HStack(alignment: .firstTextBaseline, spacing: 1) {
+            ForEach(Array(parts.enumerated()), id: \.offset) { _, part in
+                Text(part.text)
+                    .font(part.isUnit ? MapleFont.numeralUnit(size: numeralSize / 2) : MapleFont.numeral(size: numeralSize))
+                    .tracking(part.isUnit || size != .hero ? 0 : -1.5)
+                    .foregroundStyle(part.isUnit ? theme.colors.textSecondary : theme.colors.textPrimary)
+                    .contentTransition(.numericText())
             }
-            Text(label)
-                .font(MapleFont.caption)
-                .foregroundStyle(theme.colors.textSecondary)
         }
-        .accessibilityElement(children: .combine)
+        .lineLimit(1)
+        .minimumScaleFactor(0.6)
+        .mapleAnimation(theme.motion.gentle, value: parts)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityText ?? parts.map(\.text).joined())
+    }
+
+    private var numeralSize: CGFloat {
+        switch size {
+        case .hero: min(heroSize, 88)
+        case .score: min(scoreSize, 72)
+        case .stat: statSize
+        case .inline: inlineSize
+        }
     }
 }

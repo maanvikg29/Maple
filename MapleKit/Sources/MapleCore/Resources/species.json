@@ -1,0 +1,2833 @@
+[
+ {
+  "id": "acuminatum",
+  "name": "Acer acuminatum",
+  "common": "",
+  "series": "Arguta",
+  "range": "Western Himalaya (Pakistan to Nepal)",
+  "regions": [
+   "HM"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.45,
+  "margin": 2,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "acutum",
+  "name": "Acer acutum",
+  "common": "",
+  "series": "Platanoidea",
+  "range": "Eastern China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.45,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "albopurpurascens",
+  "name": "Acer albopurpurascens",
+  "common": "",
+  "series": "Trifida",
+  "range": "Taiwan",
+  "regions": [
+   "EA"
+  ],
+  "form": "unlobed",
+  "lobes": 1,
+  "depth": 0.0,
+  "margin": 0,
+  "evergreen": true,
+  "autumn": "G",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "amamiense",
+  "name": "Acer amamiense",
+  "common": "Amami maple",
+  "series": "Palmata",
+  "range": "Amami Ōshima, Japan",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.4,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "k",
+  "note": "Known from a single hillside on one island."
+ },
+ {
+  "id": "amplum",
+  "name": "Acer amplum",
+  "common": "Broad maple",
+  "series": "Platanoidea",
+  "range": "Central and southern China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.35,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "argutum",
+  "name": "Acer argutum",
+  "common": "Deep-veined maple",
+  "series": "Arguta",
+  "range": "Japan",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.4,
+  "margin": 2,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "barbinerve",
+  "name": "Acer barbinerve",
+  "common": "Bearded maple",
+  "series": "Arguta",
+  "range": "NE China, Korea, Russian Far East",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.45,
+  "margin": 2,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "binzayedii",
+  "name": "Acer binzayedii",
+  "common": "",
+  "series": "Saccharodendron",
+  "range": "Jalisco, Mexico",
+  "regions": [
+   "CA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.4,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "O",
+  "confidence": "i",
+  "note": "Described in 2017 from cloud forest in western Mexico."
+ },
+ {
+  "id": "brevipes",
+  "name": "Acer brevipes",
+  "common": "",
+  "series": "Unplaced",
+  "range": "Vietnam",
+  "regions": [
+   "SEA"
+  ],
+  "form": "unlobed",
+  "lobes": 1,
+  "depth": 0.0,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "O",
+  "confidence": "u",
+  "note": ""
+ },
+ {
+  "id": "buergerianum",
+  "name": "Acer buergerianum",
+  "common": "Trident maple",
+  "series": "Trifida",
+  "range": "Eastern China, Taiwan",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.3,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "O",
+  "confidence": "k",
+  "note": "A favourite for bonsai."
+ },
+ {
+  "id": "caesium",
+  "name": "Acer caesium",
+  "common": "Indian maple",
+  "series": "Acer",
+  "range": "Himalaya to SW China",
+  "regions": [
+   "HM",
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.35,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "calcaratum",
+  "name": "Acer calcaratum",
+  "common": "",
+  "series": "Palmata",
+  "range": "Eastern Himalaya, Yunnan, Indochina",
+  "regions": [
+   "HM",
+   "EA",
+   "SEA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.6,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "campbellii",
+  "name": "Acer campbellii",
+  "common": "Campbell's maple",
+  "series": "Palmata",
+  "range": "Eastern Himalaya to SW China and Vietnam",
+  "regions": [
+   "HM",
+   "EA",
+   "SEA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.5,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "campestre",
+  "name": "Acer campestre",
+  "common": "Field maple",
+  "series": "Platanoidea",
+  "range": "Europe, North Africa, SW Asia",
+  "regions": [
+   "EU",
+   "AF",
+   "WA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.5,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "k",
+  "note": "Britain's only native maple."
+ },
+ {
+  "id": "capillipes",
+  "name": "Acer capillipes",
+  "common": "Red snakebark maple",
+  "series": "Macrantha",
+  "range": "Japan",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.2,
+  "margin": 2,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "cappadocicum",
+  "name": "Acer cappadocicum",
+  "common": "Cappadocian maple",
+  "series": "Platanoidea",
+  "range": "Caucasus and Turkey to the Himalaya and China",
+  "regions": [
+   "WA",
+   "HM",
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 7,
+  "depth": 0.35,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "carpinifolium",
+  "name": "Acer carpinifolium",
+  "common": "Hornbeam maple",
+  "series": "Indivisa",
+  "range": "Japan",
+  "regions": [
+   "EA"
+  ],
+  "form": "unlobed",
+  "lobes": 1,
+  "depth": 0.0,
+  "margin": 2,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "k",
+  "note": "Its leaves look so much like hornbeam that it is often misidentified."
+ },
+ {
+  "id": "caudatifolium",
+  "name": "Acer caudatifolium",
+  "common": "Kawakami maple",
+  "series": "Macrantha",
+  "range": "Taiwan",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.25,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "caudatum",
+  "name": "Acer caudatum",
+  "common": "Tail-leaf maple",
+  "series": "Caudata",
+  "range": "Himalaya, western China, Myanmar",
+  "regions": [
+   "HM",
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.35,
+  "margin": 2,
+  "evergreen": false,
+  "autumn": "O",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "chiangdaoense",
+  "name": "Acer chiangdaoense",
+  "common": "",
+  "series": "Trifida",
+  "range": "Doi Chiang Dao, northern Thailand",
+  "regions": [
+   "SEA"
+  ],
+  "form": "unlobed",
+  "lobes": 1,
+  "depth": 0.0,
+  "margin": 0,
+  "evergreen": true,
+  "autumn": "G",
+  "confidence": "u",
+  "note": ""
+ },
+ {
+  "id": "chienii",
+  "name": "Acer chienii",
+  "common": "",
+  "series": "Macrantha",
+  "range": "Yunnan, China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.2,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "chingii",
+  "name": "Acer chingii",
+  "common": "",
+  "series": "Palmata",
+  "range": "Guangxi, China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.4,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "chunii",
+  "name": "Acer chunii",
+  "common": "",
+  "series": "Platanoidea",
+  "range": "Southern China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.35,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "cinerascentiforme",
+  "name": "Acer cinerascentiforme",
+  "common": "",
+  "series": "Monspessulana",
+  "range": "Lebanon and Syria",
+  "regions": [
+   "WA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.35,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "u",
+  "note": ""
+ },
+ {
+  "id": "circinatum",
+  "name": "Acer circinatum",
+  "common": "Vine maple",
+  "series": "Palmata",
+  "range": "Pacific Northwest of North America",
+  "regions": [
+   "NA"
+  ],
+  "form": "palmate",
+  "lobes": 9,
+  "depth": 0.3,
+  "margin": 2,
+  "evergreen": false,
+  "autumn": "O",
+  "confidence": "k",
+  "note": "Often sprawls like a vine in forest shade."
+ },
+ {
+  "id": "cissifolium",
+  "name": "Acer cissifolium",
+  "common": "Ivy-leaved maple",
+  "series": "Cissifolia",
+  "range": "Japan",
+  "regions": [
+   "EA"
+  ],
+  "form": "trifoliate",
+  "lobes": 3,
+  "depth": 0.0,
+  "margin": 2,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "confertifolium",
+  "name": "Acer confertifolium",
+  "common": "",
+  "series": "Palmata",
+  "range": "Southern China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.35,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "cordatum",
+  "name": "Acer cordatum",
+  "common": "",
+  "series": "Penninervia",
+  "range": "Central and southern China",
+  "regions": [
+   "EA"
+  ],
+  "form": "unlobed",
+  "lobes": 1,
+  "depth": 0.0,
+  "margin": 1,
+  "evergreen": true,
+  "autumn": "G",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "coriaceifolium",
+  "name": "Acer coriaceifolium",
+  "common": "Leatherleaf maple",
+  "series": "Trifida",
+  "range": "Central and southern China",
+  "regions": [
+   "EA"
+  ],
+  "form": "unlobed",
+  "lobes": 1,
+  "depth": 0.0,
+  "margin": 0,
+  "evergreen": true,
+  "autumn": "G",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "crassum",
+  "name": "Acer crassum",
+  "common": "",
+  "series": "Penninervia",
+  "range": "Yunnan, China",
+  "regions": [
+   "EA"
+  ],
+  "form": "unlobed",
+  "lobes": 1,
+  "depth": 0.0,
+  "margin": 0,
+  "evergreen": true,
+  "autumn": "G",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "crataegifolium",
+  "name": "Acer crataegifolium",
+  "common": "Hawthorn maple",
+  "series": "Macrantha",
+  "range": "Japan",
+  "regions": [
+   "EA"
+  ],
+  "form": "unlobed",
+  "lobes": 1,
+  "depth": 0.0,
+  "margin": 2,
+  "evergreen": false,
+  "autumn": "O",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "davidii",
+  "name": "Acer davidii",
+  "common": "Père David's maple",
+  "series": "Macrantha",
+  "range": "Central and southern China, Myanmar",
+  "regions": [
+   "EA"
+  ],
+  "form": "unlobed",
+  "lobes": 1,
+  "depth": 0.0,
+  "margin": 2,
+  "evergreen": false,
+  "autumn": "O",
+  "confidence": "k",
+  "note": "The classic snakebark maple, with green-and-white striped bark."
+ },
+ {
+  "id": "diabolicum",
+  "name": "Acer diabolicum",
+  "common": "Horned maple",
+  "series": "Lithocarpa",
+  "range": "Japan",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.35,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "distylum",
+  "name": "Acer distylum",
+  "common": "Lime-leaved maple",
+  "series": "Distyla",
+  "range": "Japan",
+  "regions": [
+   "EA"
+  ],
+  "form": "unlobed",
+  "lobes": 1,
+  "depth": 0.0,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "duplicatoserratum",
+  "name": "Acer duplicatoserratum",
+  "common": "",
+  "series": "Palmata",
+  "range": "Taiwan",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 7,
+  "depth": 0.55,
+  "margin": 2,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "elegantulum",
+  "name": "Acer elegantulum",
+  "common": "",
+  "series": "Palmata",
+  "range": "SE China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.5,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "erianthum",
+  "name": "Acer erianthum",
+  "common": "",
+  "series": "Palmata",
+  "range": "Central China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.4,
+  "margin": 2,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "erythranthum",
+  "name": "Acer erythranthum",
+  "common": "",
+  "series": "Penninervia",
+  "range": "Laos and Vietnam",
+  "regions": [
+   "SEA"
+  ],
+  "form": "unlobed",
+  "lobes": 1,
+  "depth": 0.0,
+  "margin": 0,
+  "evergreen": true,
+  "autumn": "G",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "fabri",
+  "name": "Acer fabri",
+  "common": "Faber's maple",
+  "series": "Penninervia",
+  "range": "Southern China, Vietnam",
+  "regions": [
+   "EA",
+   "SEA"
+  ],
+  "form": "unlobed",
+  "lobes": 1,
+  "depth": 0.0,
+  "margin": 0,
+  "evergreen": true,
+  "autumn": "G",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "fenzelianum",
+  "name": "Acer fenzelianum",
+  "common": "Fenzl's maple",
+  "series": "Palmata",
+  "range": "Northern Vietnam, southern China",
+  "regions": [
+   "SEA",
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.4,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "floridanum",
+  "name": "Acer floridanum",
+  "common": "Florida maple",
+  "series": "Saccharodendron",
+  "range": "SE United States",
+  "regions": [
+   "NA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.35,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "O",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "forrestii",
+  "name": "Acer forrestii",
+  "common": "Forrest's maple",
+  "series": "Macrantha",
+  "range": "SW China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.25,
+  "margin": 2,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "fulvescens",
+  "name": "Acer fulvescens",
+  "common": "",
+  "series": "Platanoidea",
+  "range": "Western China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.35,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "glabrum",
+  "name": "Acer glabrum",
+  "common": "Rocky Mountain maple",
+  "series": "Glabra",
+  "range": "Western North America",
+  "regions": [
+   "NA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.5,
+  "margin": 2,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "gracilifolium",
+  "name": "Acer gracilifolium",
+  "common": "",
+  "series": "Trifida",
+  "range": "Sichuan, China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.3,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "O",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "granatense",
+  "name": "Acer granatense",
+  "common": "",
+  "series": "Monspessulana",
+  "range": "Southern Spain, Balearics, NW Africa",
+  "regions": [
+   "EU",
+   "AF"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.35,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "grandidentatum",
+  "name": "Acer grandidentatum",
+  "common": "Bigtooth maple",
+  "series": "Saccharodendron",
+  "range": "Western United States, northern Mexico",
+  "regions": [
+   "NA",
+   "CA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.4,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "S",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "griseum",
+  "name": "Acer griseum",
+  "common": "Paperbark maple",
+  "series": "Grisea",
+  "range": "Central China",
+  "regions": [
+   "EA"
+  ],
+  "form": "trifoliate",
+  "lobes": 3,
+  "depth": 0.0,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "S",
+  "confidence": "k",
+  "note": "Cinnamon bark that peels in thin curls."
+ },
+ {
+  "id": "heldreichii",
+  "name": "Acer heldreichii",
+  "common": "Greek maple",
+  "series": "Acer",
+  "range": "Balkans",
+  "regions": [
+   "EU"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.7,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "henryi",
+  "name": "Acer henryi",
+  "common": "Henry's maple",
+  "series": "Cissifolia",
+  "range": "Central China",
+  "regions": [
+   "EA"
+  ],
+  "form": "trifoliate",
+  "lobes": 3,
+  "depth": 0.0,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "hilaense",
+  "name": "Acer hilaense",
+  "common": "",
+  "series": "Penninervia",
+  "range": "Guizhou, China",
+  "regions": [
+   "EA"
+  ],
+  "form": "unlobed",
+  "lobes": 1,
+  "depth": 0.0,
+  "margin": 0,
+  "evergreen": true,
+  "autumn": "G",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "hyrcanum",
+  "name": "Acer hyrcanum",
+  "common": "Balkan maple",
+  "series": "Monspessulana",
+  "range": "Balkans, Turkey, Caucasus, Iran",
+  "regions": [
+   "EU",
+   "WA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.45,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "insulare",
+  "name": "Acer insulare",
+  "common": "",
+  "series": "Macrantha",
+  "range": "Ryukyu Islands and Taiwan",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.2,
+  "margin": 2,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "iranicum",
+  "name": "Acer iranicum",
+  "common": "",
+  "series": "Monspessulana",
+  "range": "Northern Iran",
+  "regions": [
+   "WA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.35,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "u",
+  "note": ""
+ },
+ {
+  "id": "japonicum",
+  "name": "Acer japonicum",
+  "common": "Fullmoon maple",
+  "series": "Palmata",
+  "range": "Japan",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 9,
+  "depth": 0.4,
+  "margin": 2,
+  "evergreen": false,
+  "autumn": "S",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "komarovii",
+  "name": "Acer komarovii",
+  "common": "Komarov's maple",
+  "series": "Macrantha",
+  "range": "Russian Far East, Korea, NE China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.35,
+  "margin": 2,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "kungshanense",
+  "name": "Acer kungshanense",
+  "common": "",
+  "series": "Lithocarpa",
+  "range": "Yunnan, China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.3,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "kuomeii",
+  "name": "Acer kuomeii",
+  "common": "",
+  "series": "Palmata",
+  "range": "Yunnan, China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.45,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "kwangnanense",
+  "name": "Acer kwangnanense",
+  "common": "",
+  "series": "Penninervia",
+  "range": "Yunnan, China",
+  "regions": [
+   "EA"
+  ],
+  "form": "unlobed",
+  "lobes": 1,
+  "depth": 0.0,
+  "margin": 0,
+  "evergreen": true,
+  "autumn": "G",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "kweilinense",
+  "name": "Acer kweilinense",
+  "common": "",
+  "series": "Palmata",
+  "range": "Guangxi, China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.45,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "laevigatum",
+  "name": "Acer laevigatum",
+  "common": "Smoothbark maple",
+  "series": "Penninervia",
+  "range": "Himalaya, southern China, Indochina",
+  "regions": [
+   "HM",
+   "EA",
+   "SEA"
+  ],
+  "form": "unlobed",
+  "lobes": 1,
+  "depth": 0.0,
+  "margin": 1,
+  "evergreen": true,
+  "autumn": "G",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "laurinum",
+  "name": "Acer laurinum",
+  "common": "",
+  "series": "Hyptiocarpa",
+  "range": "Malesia, southern China, Indochina",
+  "regions": [
+   "SEA",
+   "EA"
+  ],
+  "form": "unlobed",
+  "lobes": 1,
+  "depth": 0.0,
+  "margin": 0,
+  "evergreen": true,
+  "autumn": "G",
+  "confidence": "k",
+  "note": "The only maple whose wild range crosses the equator."
+ },
+ {
+  "id": "laxiflorum",
+  "name": "Acer laxiflorum",
+  "common": "",
+  "series": "Macrantha",
+  "range": "Western China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.2,
+  "margin": 2,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "leipoense",
+  "name": "Acer leipoense",
+  "common": "",
+  "series": "Lithocarpa",
+  "range": "Sichuan, China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.35,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "leptophyllum",
+  "name": "Acer leptophyllum",
+  "common": "",
+  "series": "Unplaced",
+  "range": "SE China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.3,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "O",
+  "confidence": "u",
+  "note": ""
+ },
+ {
+  "id": "leucoderme",
+  "name": "Acer leucoderme",
+  "common": "Chalk maple",
+  "series": "Saccharodendron",
+  "range": "SE United States",
+  "regions": [
+   "NA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.35,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "S",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "lobelii",
+  "name": "Acer lobelii",
+  "common": "Lobel's maple",
+  "series": "Platanoidea",
+  "range": "Southern Italy",
+  "regions": [
+   "EU"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.3,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "longipes",
+  "name": "Acer longipes",
+  "common": "",
+  "series": "Platanoidea",
+  "range": "Central China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.35,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "lucidum",
+  "name": "Acer lucidum",
+  "common": "",
+  "series": "Trifida",
+  "range": "Southern China",
+  "regions": [
+   "EA"
+  ],
+  "form": "unlobed",
+  "lobes": 1,
+  "depth": 0.0,
+  "margin": 0,
+  "evergreen": true,
+  "autumn": "G",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "lungshengense",
+  "name": "Acer lungshengense",
+  "common": "",
+  "series": "Lithocarpa",
+  "range": "Guangxi, China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.3,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "macrophyllum",
+  "name": "Acer macrophyllum",
+  "common": "Bigleaf maple",
+  "series": "Macrophylla",
+  "range": "Pacific coast of North America",
+  "regions": [
+   "NA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.65,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "k",
+  "note": "Has the largest leaves of any maple, sometimes over 30 cm across."
+ },
+ {
+  "id": "mandshuricum",
+  "name": "Acer mandshuricum",
+  "common": "Manchurian maple",
+  "series": "Mandshurica",
+  "range": "NE China, Korea, Russian Far East",
+  "regions": [
+   "EA"
+  ],
+  "form": "trifoliate",
+  "lobes": 3,
+  "depth": 0.0,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "S",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "mapienense",
+  "name": "Acer mapienense",
+  "common": "",
+  "series": "Unplaced",
+  "range": "Mabian, Sichuan, China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.3,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "u",
+  "note": ""
+ },
+ {
+  "id": "maximowiczianum",
+  "name": "Acer maximowiczianum",
+  "common": "Nikko maple",
+  "series": "Grisea",
+  "range": "Japan, central China",
+  "regions": [
+   "EA"
+  ],
+  "form": "trifoliate",
+  "lobes": 3,
+  "depth": 0.0,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "maximowiczii",
+  "name": "Acer maximowiczii",
+  "common": "",
+  "series": "Macrantha",
+  "range": "Central China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.3,
+  "margin": 2,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "mazandaranicum",
+  "name": "Acer mazandaranicum",
+  "common": "",
+  "series": "Monspessulana",
+  "range": "Mazandaran, northern Iran",
+  "regions": [
+   "WA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.35,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "u",
+  "note": ""
+ },
+ {
+  "id": "metcalfii",
+  "name": "Acer metcalfii",
+  "common": "",
+  "series": "Macrantha",
+  "range": "SE China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.25,
+  "margin": 2,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "miaoshanicum",
+  "name": "Acer miaoshanicum",
+  "common": "",
+  "series": "Palmata",
+  "range": "Guangxi, China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.45,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "micranthum",
+  "name": "Acer micranthum",
+  "common": "",
+  "series": "Macrantha",
+  "range": "Japan",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.5,
+  "margin": 2,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "miyabei",
+  "name": "Acer miyabei",
+  "common": "Miyabe's maple",
+  "series": "Platanoidea",
+  "range": "Japan",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.4,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "monspessulanum",
+  "name": "Acer monspessulanum",
+  "common": "Montpellier maple",
+  "series": "Monspessulana",
+  "range": "Mediterranean to Iran",
+  "regions": [
+   "EU",
+   "AF",
+   "WA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.4,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "morifolium",
+  "name": "Acer morifolium",
+  "common": "",
+  "series": "Macrantha",
+  "range": "Ryukyu Islands, Japan",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.15,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "negundo",
+  "name": "Acer negundo",
+  "common": "Box elder",
+  "series": "Negundo",
+  "range": "North and Central America",
+  "regions": [
+   "NA",
+   "CA"
+  ],
+  "form": "pinnate",
+  "lobes": 5,
+  "depth": 0.0,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "k",
+  "note": "Its compound leaves fool many people into thinking it is an ash."
+ },
+ {
+  "id": "nigrum",
+  "name": "Acer nigrum",
+  "common": "Black maple",
+  "series": "Saccharodendron",
+  "range": "Eastern North America",
+  "regions": [
+   "NA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.35,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "nipponicum",
+  "name": "Acer nipponicum",
+  "common": "Nippon maple",
+  "series": "Parviflora",
+  "range": "Japan",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.25,
+  "margin": 2,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "oblongum",
+  "name": "Acer oblongum",
+  "common": "Himalayan maple",
+  "series": "Trifida",
+  "range": "Himalaya, southern China, Indochina",
+  "regions": [
+   "HM",
+   "EA",
+   "SEA"
+  ],
+  "form": "unlobed",
+  "lobes": 1,
+  "depth": 0.0,
+  "margin": 0,
+  "evergreen": true,
+  "autumn": "G",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "obtusifolium",
+  "name": "Acer obtusifolium",
+  "common": "Syrian maple",
+  "series": "Monspessulana",
+  "range": "Cyprus and the Levant",
+  "regions": [
+   "WA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.2,
+  "margin": 0,
+  "evergreen": true,
+  "autumn": "G",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "okamotoanum",
+  "name": "Acer okamotoanum",
+  "common": "",
+  "series": "Platanoidea",
+  "range": "Ulleungdo island, Korea",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.35,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "oligocarpum",
+  "name": "Acer oligocarpum",
+  "common": "",
+  "series": "Penninervia",
+  "range": "Guangxi, China",
+  "regions": [
+   "EA"
+  ],
+  "form": "unlobed",
+  "lobes": 1,
+  "depth": 0.0,
+  "margin": 0,
+  "evergreen": true,
+  "autumn": "G",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "oliverianum",
+  "name": "Acer oliverianum",
+  "common": "Oliver's maple",
+  "series": "Palmata",
+  "range": "Central and southern China, Taiwan",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.45,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "opalus",
+  "name": "Acer opalus",
+  "common": "Italian maple",
+  "series": "Monspessulana",
+  "range": "Southern and western Europe, North Africa",
+  "regions": [
+   "EU",
+   "AF"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.3,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "orthocampestre",
+  "name": "Acer orthocampestre",
+  "common": "",
+  "series": "Platanoidea",
+  "range": "NE Turkey and SW Georgia",
+  "regions": [
+   "WA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.5,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "i",
+  "note": "Split from field maple in 2014 using DNA evidence."
+ },
+ {
+  "id": "paihengii",
+  "name": "Acer paihengii",
+  "common": "",
+  "series": "Trifida",
+  "range": "Yunnan, China",
+  "regions": [
+   "EA"
+  ],
+  "form": "unlobed",
+  "lobes": 1,
+  "depth": 0.0,
+  "margin": 0,
+  "evergreen": true,
+  "autumn": "G",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "palmatum",
+  "name": "Acer palmatum",
+  "common": "Japanese maple",
+  "series": "Palmata",
+  "range": "Japan, Korea, eastern China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 7,
+  "depth": 0.75,
+  "margin": 2,
+  "evergreen": false,
+  "autumn": "S",
+  "confidence": "k",
+  "note": "Over a thousand named garden cultivars."
+ },
+ {
+  "id": "pauciflorum",
+  "name": "Acer pauciflorum",
+  "common": "",
+  "series": "Palmata",
+  "range": "Eastern China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.5,
+  "margin": 2,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "paxii",
+  "name": "Acer paxii",
+  "common": "Pax's maple",
+  "series": "Trifida",
+  "range": "SW China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.25,
+  "margin": 0,
+  "evergreen": true,
+  "autumn": "G",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "pectinatum",
+  "name": "Acer pectinatum",
+  "common": "",
+  "series": "Macrantha",
+  "range": "Himalaya to Yunnan",
+  "regions": [
+   "HM",
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.3,
+  "margin": 2,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "pensylvanicum",
+  "name": "Acer pensylvanicum",
+  "common": "Striped maple",
+  "series": "Macrantha",
+  "range": "Eastern North America",
+  "regions": [
+   "NA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.25,
+  "margin": 2,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "k",
+  "note": "The only snakebark maple outside Asia."
+ },
+ {
+  "id": "pentaphyllum",
+  "name": "Acer pentaphyllum",
+  "common": "",
+  "series": "Pentaphylla",
+  "range": "Sichuan, China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmcompound",
+  "lobes": 5,
+  "depth": 0.0,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "O",
+  "confidence": "k",
+  "note": "Leaves split into five narrow leaflets; very rare in the wild."
+ },
+ {
+  "id": "pentapomicum",
+  "name": "Acer pentapomicum",
+  "common": "",
+  "series": "Pubescentia",
+  "range": "Afghanistan, Pakistan, western Himalaya",
+  "regions": [
+   "WA",
+   "HM"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.35,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "pictum",
+  "name": "Acer pictum",
+  "common": "Painted maple",
+  "series": "Platanoidea",
+  "range": "NE Asia and Japan",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.4,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "pilosum",
+  "name": "Acer pilosum",
+  "common": "",
+  "series": "Pubescentia",
+  "range": "Central China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.45,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "platanoides",
+  "name": "Acer platanoides",
+  "common": "Norway maple",
+  "series": "Platanoidea",
+  "range": "Europe to the Caucasus",
+  "regions": [
+   "EU",
+   "WA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.45,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "poliophyllum",
+  "name": "Acer poliophyllum",
+  "common": "",
+  "series": "Trifida",
+  "range": "Guizhou, China",
+  "regions": [
+   "EA"
+  ],
+  "form": "unlobed",
+  "lobes": 1,
+  "depth": 0.0,
+  "margin": 0,
+  "evergreen": true,
+  "autumn": "G",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "pseudoplatanus",
+  "name": "Acer pseudoplatanus",
+  "common": "Sycamore maple",
+  "series": "Acer",
+  "range": "Central and southern Europe, western Asia",
+  "regions": [
+   "EU",
+   "WA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.45,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "pseudosieboldianum",
+  "name": "Acer pseudosieboldianum",
+  "common": "Korean maple",
+  "series": "Palmata",
+  "range": "Korea, NE China, Russian Far East",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 9,
+  "depth": 0.55,
+  "margin": 2,
+  "evergreen": false,
+  "autumn": "S",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "pseudowilsonii",
+  "name": "Acer pseudowilsonii",
+  "common": "",
+  "series": "Palmata",
+  "range": "Yunnan, China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.45,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "pubinerve",
+  "name": "Acer pubinerve",
+  "common": "",
+  "series": "Palmata",
+  "range": "Eastern China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.45,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "pubipetiolatum",
+  "name": "Acer pubipetiolatum",
+  "common": "",
+  "series": "Penninervia",
+  "range": "Yunnan, China",
+  "regions": [
+   "EA"
+  ],
+  "form": "unlobed",
+  "lobes": 1,
+  "depth": 0.0,
+  "margin": 0,
+  "evergreen": true,
+  "autumn": "G",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "pycnanthum",
+  "name": "Acer pycnanthum",
+  "common": "Japanese red maple",
+  "series": "Rubra",
+  "range": "Central Honshu, Japan",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.15,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "k",
+  "note": "Asian sister species of the American red maple."
+ },
+ {
+  "id": "robustum",
+  "name": "Acer robustum",
+  "common": "",
+  "series": "Palmata",
+  "range": "Central China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 7,
+  "depth": 0.5,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "rubrum",
+  "name": "Acer rubrum",
+  "common": "Red maple",
+  "series": "Rubra",
+  "range": "Eastern North America",
+  "regions": [
+   "NA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.4,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "S",
+  "confidence": "k",
+  "note": "The most common native tree in eastern North America."
+ },
+ {
+  "id": "rufinerve",
+  "name": "Acer rufinerve",
+  "common": "Grey-budded snakebark maple",
+  "series": "Macrantha",
+  "range": "Japan",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.3,
+  "margin": 2,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "saccharinum",
+  "name": "Acer saccharinum",
+  "common": "Silver maple",
+  "series": "Rubra",
+  "range": "Eastern North America",
+  "regions": [
+   "NA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.8,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "saccharum",
+  "name": "Acer saccharum",
+  "common": "Sugar maple",
+  "series": "Saccharodendron",
+  "range": "Eastern North America",
+  "regions": [
+   "NA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.45,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "O",
+  "confidence": "k",
+  "note": "The main source of maple syrup."
+ },
+ {
+  "id": "sempervirens",
+  "name": "Acer sempervirens",
+  "common": "Cretan maple",
+  "series": "Monspessulana",
+  "range": "Crete, Greece, Turkey",
+  "regions": [
+   "EU",
+   "WA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.2,
+  "margin": 0,
+  "evergreen": true,
+  "autumn": "G",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "serrulatum",
+  "name": "Acer serrulatum",
+  "common": "",
+  "series": "Palmata",
+  "range": "Taiwan",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.4,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "shangszeense",
+  "name": "Acer shangszeense",
+  "common": "",
+  "series": "Palmata",
+  "range": "Jiangxi, China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.4,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "u",
+  "note": ""
+ },
+ {
+  "id": "shenkanense",
+  "name": "Acer shenkanense",
+  "common": "",
+  "series": "Platanoidea",
+  "range": "Western China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.35,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "shenzhenensis",
+  "name": "Acer shenzhenensis",
+  "common": "",
+  "series": "Unplaced",
+  "range": "Shenzhen, Guangdong, China",
+  "regions": [
+   "EA"
+  ],
+  "form": "unlobed",
+  "lobes": 1,
+  "depth": 0.0,
+  "margin": 0,
+  "evergreen": true,
+  "autumn": "G",
+  "confidence": "u",
+  "note": ""
+ },
+ {
+  "id": "shihweii",
+  "name": "Acer shihweii",
+  "common": "",
+  "series": "Trifida",
+  "range": "SE China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.25,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "O",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "shirasawanum",
+  "name": "Acer shirasawanum",
+  "common": "Shirasawa's maple",
+  "series": "Palmata",
+  "range": "Japan",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 11,
+  "depth": 0.4,
+  "margin": 2,
+  "evergreen": false,
+  "autumn": "O",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "sieboldianum",
+  "name": "Acer sieboldianum",
+  "common": "Siebold's maple",
+  "series": "Palmata",
+  "range": "Japan",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 9,
+  "depth": 0.45,
+  "margin": 2,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "sikkimense",
+  "name": "Acer sikkimense",
+  "common": "Sikkim maple",
+  "series": "Macrantha",
+  "range": "Eastern Himalaya to Yunnan and Myanmar",
+  "regions": [
+   "HM",
+   "EA",
+   "SEA"
+  ],
+  "form": "unlobed",
+  "lobes": 1,
+  "depth": 0.0,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "sino-oblongum",
+  "name": "Acer sino-oblongum",
+  "common": "",
+  "series": "Penninervia",
+  "range": "Southern China",
+  "regions": [
+   "EA"
+  ],
+  "form": "unlobed",
+  "lobes": 1,
+  "depth": 0.0,
+  "margin": 0,
+  "evergreen": true,
+  "autumn": "G",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "sinopurpurascens",
+  "name": "Acer sinopurpurascens",
+  "common": "",
+  "series": "Lithocarpa",
+  "range": "Eastern China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.4,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "skutchii",
+  "name": "Acer skutchii",
+  "common": "Skutch's maple",
+  "series": "Saccharodendron",
+  "range": "Mexico and Guatemala",
+  "regions": [
+   "CA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.4,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "O",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "sosnowskyi",
+  "name": "Acer sosnowskyi",
+  "common": "Sosnowsky's maple",
+  "series": "Acer",
+  "range": "Georgia (Caucasus)",
+  "regions": [
+   "WA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.4,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "spicatum",
+  "name": "Acer spicatum",
+  "common": "Mountain maple",
+  "series": "Spicata",
+  "range": "Eastern North America",
+  "regions": [
+   "NA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.35,
+  "margin": 2,
+  "evergreen": false,
+  "autumn": "O",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "stachyophyllum",
+  "name": "Acer stachyophyllum",
+  "common": "Birch-leaved maple",
+  "series": "Arguta",
+  "range": "Himalaya to central China",
+  "regions": [
+   "HM",
+   "EA"
+  ],
+  "form": "unlobed",
+  "lobes": 1,
+  "depth": 0.0,
+  "margin": 2,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "sterculiaceum",
+  "name": "Acer sterculiaceum",
+  "common": "Franchet's maple",
+  "series": "Lithocarpa",
+  "range": "Himalaya to SW China",
+  "regions": [
+   "HM",
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.4,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "sutchuenense",
+  "name": "Acer sutchuenense",
+  "common": "",
+  "series": "Emeiensia",
+  "range": "Central China",
+  "regions": [
+   "EA"
+  ],
+  "form": "trifoliate",
+  "lobes": 3,
+  "depth": 0.0,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "sycopseoides",
+  "name": "Acer sycopseoides",
+  "common": "",
+  "series": "Trifida",
+  "range": "Guangxi and Guizhou, China",
+  "regions": [
+   "EA"
+  ],
+  "form": "unlobed",
+  "lobes": 1,
+  "depth": 0.0,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "O",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "tataricum",
+  "name": "Acer tataricum",
+  "common": "Tatar maple",
+  "series": "Ginnala",
+  "range": "SE Europe to East Asia",
+  "regions": [
+   "EU",
+   "WA",
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.25,
+  "margin": 2,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "k",
+  "note": "Includes the Amur maple, sometimes treated as its own species."
+ },
+ {
+  "id": "tegmentosum",
+  "name": "Acer tegmentosum",
+  "common": "Manchu striped maple",
+  "series": "Macrantha",
+  "range": "Russian Far East, NE China, Korea",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.25,
+  "margin": 2,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "tenellum",
+  "name": "Acer tenellum",
+  "common": "",
+  "series": "Platanoidea",
+  "range": "Sichuan and Hubei, China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.25,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "tenuifolium",
+  "name": "Acer tenuifolium",
+  "common": "",
+  "series": "Palmata",
+  "range": "Japan",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 7,
+  "depth": 0.6,
+  "margin": 2,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "thomsonii",
+  "name": "Acer thomsonii",
+  "common": "",
+  "series": "Lithocarpa",
+  "range": "Himalaya to SW China",
+  "regions": [
+   "HM",
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.2,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "tibetense",
+  "name": "Acer tibetense",
+  "common": "",
+  "series": "Platanoidea",
+  "range": "Tibet",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.35,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "tonkinense",
+  "name": "Acer tonkinense",
+  "common": "",
+  "series": "Palmata",
+  "range": "Northern Vietnam, southern China",
+  "regions": [
+   "SEA",
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.25,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "triflorum",
+  "name": "Acer triflorum",
+  "common": "Three-flowered maple",
+  "series": "Grisea",
+  "range": "NE China, Korea",
+  "regions": [
+   "EA"
+  ],
+  "form": "trifoliate",
+  "lobes": 3,
+  "depth": 0.0,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "S",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "truncatum",
+  "name": "Acer truncatum",
+  "common": "Shandong maple",
+  "series": "Platanoidea",
+  "range": "Northern China, Korea",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.45,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "O",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "tschonoskii",
+  "name": "Acer tschonoskii",
+  "common": "",
+  "series": "Macrantha",
+  "range": "Japan, Russian Far East",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.3,
+  "margin": 2,
+  "evergreen": false,
+  "autumn": "O",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "tsinglingense",
+  "name": "Acer tsinglingense",
+  "common": "",
+  "series": "Lithocarpa",
+  "range": "Qinling Mountains, China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.3,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "tutcheri",
+  "name": "Acer tutcheri",
+  "common": "Tutcher's maple",
+  "series": "Palmata",
+  "range": "SE China, Taiwan",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.4,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "ukurunduense",
+  "name": "Acer ukurunduense",
+  "common": "Ukurundu maple",
+  "series": "Spicata",
+  "range": "NE Asia and Japan",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.4,
+  "margin": 2,
+  "evergreen": false,
+  "autumn": "O",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "undulatum",
+  "name": "Acer undulatum",
+  "common": "",
+  "series": "Monspessulana",
+  "range": "Greece and Turkey",
+  "regions": [
+   "EU",
+   "WA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.3,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "u",
+  "note": "Kew now treats this as part of Acer hyrcanum."
+ },
+ {
+  "id": "velutinum",
+  "name": "Acer velutinum",
+  "common": "Velvet maple",
+  "series": "Acer",
+  "range": "Caucasus and northern Iran",
+  "regions": [
+   "WA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.4,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "wangchii",
+  "name": "Acer wangchii",
+  "common": "",
+  "series": "Penninervia",
+  "range": "Guangxi, China",
+  "regions": [
+   "EA"
+  ],
+  "form": "unlobed",
+  "lobes": 1,
+  "depth": 0.0,
+  "margin": 0,
+  "evergreen": true,
+  "autumn": "G",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "wardii",
+  "name": "Acer wardii",
+  "common": "Ward's maple",
+  "series": "Wardiana",
+  "range": "Eastern Himalaya, Myanmar, Yunnan",
+  "regions": [
+   "HM",
+   "EA",
+   "SEA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.35,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "wilsonii",
+  "name": "Acer wilsonii",
+  "common": "Wilson's maple",
+  "series": "Palmata",
+  "range": "Southern China, Indochina",
+  "regions": [
+   "EA",
+   "SEA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.45,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "R",
+  "confidence": "k",
+  "note": ""
+ },
+ {
+  "id": "yangbiense",
+  "name": "Acer yangbiense",
+  "common": "Yangbi maple",
+  "series": "Acer",
+  "range": "Yangbi, Yunnan, China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 5,
+  "depth": 0.35,
+  "margin": 1,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "k",
+  "note": "Only a handful of wild trees are known."
+ },
+ {
+  "id": "yinkunii",
+  "name": "Acer yinkunii",
+  "common": "",
+  "series": "Trifida",
+  "range": "Hunan, China",
+  "regions": [
+   "EA"
+  ],
+  "form": "unlobed",
+  "lobes": 1,
+  "depth": 0.0,
+  "margin": 0,
+  "evergreen": true,
+  "autumn": "G",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "yui",
+  "name": "Acer yui",
+  "common": "",
+  "series": "Trifida",
+  "range": "Gansu, China",
+  "regions": [
+   "EA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.25,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "O",
+  "confidence": "i",
+  "note": ""
+ },
+ {
+  "id": "zarei",
+  "name": "Acer zarei",
+  "common": "",
+  "series": "Monspessulana",
+  "range": "Iran",
+  "regions": [
+   "WA"
+  ],
+  "form": "palmate",
+  "lobes": 3,
+  "depth": 0.35,
+  "margin": 0,
+  "evergreen": false,
+  "autumn": "Y",
+  "confidence": "u",
+  "note": ""
+ }
+]

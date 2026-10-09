@@ -2,6 +2,12 @@
 
 Newest first. Each entry: what was decided, why, and what it affects.
 
+## 2026-10-10 — "% of members who have this leaf" uses CloudKit
+Each leaf shows the share of Maple members who own it (like Opal gems). Counts live in Maple's CloudKit public database: only anonymous per-leaf unlock counts leave the device, never health data. No third-party processor. Needs the paid Developer Program, so until then the app shows "Not enough members yet" (never a made-up number). The stats sit behind a `LeafOwnershipStats` protocol so the backend can change.
+
+## 2026-10-10 — Leaves are milestone rewards; catalogue is the supplied 155 species
+Every species in `MapleCore/Resources/species.json` (supplied catalogue, 155 living *Acer* species) is a one-time reward unlocked by a specific milestone, like Opal's gems. Leaves are drawn natively by a Swift port of the supplied `leaf-generator.js`, so they can appear in any colour and size. Reference material lives in `Catalog/`.
+
 ## 2026-10-10 — Build output lives outside the repo
 The repo sits in `~/Documents`, which iCloud Drive syncs. iCloud adds file-provider attributes that make `codesign` reject build products ("resource fork, Finder information, or similar detritus not allowed"). Scripts build into `~/Library/Developer/Xcode/DerivedData/Maple`, which is also Xcode's default.
 

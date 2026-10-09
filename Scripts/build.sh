@@ -5,9 +5,11 @@
 set -euo pipefail
 cd "${0:A:h}/.."
 SIMULATOR="${SIMULATOR:-iPhone 17}"
+# One DerivedData folder per checkout, so parallel worktrees never share build state.
+DERIVED_DATA="${DERIVED_DATA:-$HOME/Library/Developer/Xcode/DerivedData/Maple-$(pwd -P | shasum | cut -c1-8)}"
 xcodebuild build \
   -project Maple.xcodeproj -scheme Maple -configuration Debug \
   -destination "platform=iOS Simulator,name=$SIMULATOR" \
-  -derivedDataPath "$HOME/Library/Developer/Xcode/DerivedData/Maple" \
+  -derivedDataPath "$DERIVED_DATA" \
   "$@"
-echo "App: $HOME/Library/Developer/Xcode/DerivedData/Maple/Build/Products/Debug-iphonesimulator/Maple.app"
+echo "App: $DERIVED_DATA/Build/Products/Debug-iphonesimulator/Maple.app"

@@ -1,0 +1,788 @@
+{
+ "opal": {
+  "principles": [
+   {
+    "name": "Stage one hero object in a lit scene, not in a card",
+    "description": "The Opal home screen is built around a single object, the gem, placed in a full-bleed 3D environment. It has no container, border or card. The scene covers roughly the top 45% of the first screen and fades into black, and everything else on the page sits below it and supports it. For Maple, the tree (with its leaves) should be staged this way: a full-bleed night scene with sky gradient, ground/plinth and one soft light pool. It should not be a 72pt leaf inside a GlowCard.",
+    "evidence": "Seen in App Store screenshot 6 ('For better sleep, focus, and rest.') and in the opalapp.com render Frame 1171280249: the gem sits on a black puck on a rock plinth inside a canyon, lit by one shaft of light, with no surrounding UI chrome. Maple M0 (m0-today.png) puts the leaf at about 14% of screen width inside the first of three identical bordered cards."
+   },
+   {
+    "name": "The hero sets the tint",
+    "description": "The colour of the current gem becomes the accent for the whole home screen: the score numeral, the trend glyph, the sub-score capsule strokes, the captions and the colour of the light shaft. Changing the gem is literally called 'Apply Theme'. For Maple, the current season or leaf species should tint the score and its breakdown (spring green, gold, crimson, frost). The amber #E8A35C stays reserved for newly earned rewards and the streak.",
+    "evidence": "Verified by comparing two official renders. With the blue-white opal, the score '85' and the capsules are icy blue and the light is cool. With the green-orange gem (opalapp.com 'Your day in one score'), the same UI is pale yellow-green and the light cone is warm. help.opalapp.com/article/how-to-choose-your-gem: long-press the gem, swipe, tap 'Apply Theme', and the gem changes on the Home tab and in the widget."
+   },
+   {
+    "name": "One number, then three, then everything else",
+    "description": "The hierarchy is strict: one big score, a hairline bracket that branches into exactly three sub-scores (Sleep / Focus / Rest), and only then cards. The branching connector draws the composition of the score. For Maple these connectors can literally be drawn as branches from the trunk to the Sleep / Focus / Screen sub-scores.",
+    "evidence": "From the App Store screenshot at full resolution: 'Score' label, numeral '85' with a ▲, then 1px low-opacity bracket lines down to three capsules (moon 50, hourglass 86, tree 100) captioned Sleep, Focus, Rest. The opalapp.com copy describes the Opal Score as combining sleep, focus and rest signals into one measure."
+   },
+   {
+    "name": "Explain the score; this is where Opal falls short",
+    "description": "Opal's users complain that the score breakdown page is never explained: what 'Ok' means, what 'Avg' is compared against, and why bars of different lengths can carry the same label. Maple's planned 'transparent breakdown' should beat Opal here. Each row should state its rule in plain words (e.g. 'Phone down before 23:00 — 0 min in bed = Great') and say what would improve it.",
+    "evidence": "community.opalapp.com thread 10906: the score page lists Phone in Bed, First hour phone use, Sitting, Sleep, First pickup, Last scroll and two Screen Time rows, with ratings and segmented or continuous bars. The poster asks for definitions and tooltips, and the reply confirms the UI does not explain any of it."
+   },
+   {
+    "name": "Black does the work; light is local",
+    "description": "The background is close to pure black. Colour and glow come only from the hero (the gem's bloom and the light shaft) and from per-item colour blooms in the collection. Cards have no outer glow. They are separated from the background by a 1px top-lit gradient hairline and a very slight change in fill. For Maple, take the blue outer glow off every GlowCard and keep glow for leaves and the tree. Navy works better as the night-sky gradient behind the tree than as the fill of every card.",
+    "evidence": "Computed CSS on opalapp.com: body background rgb(4,4,4). Gem cards have a transparent fill and a ::before 1px border, linear-gradient(rgba(255,255,255,.10) to rgba(255,255,255,.02)), with no box-shadow. The colour comes from a glow image (blue-glow.webp, 625x625, opacity 0.7) clipped inside the card, plus a gem halo layer at opacity 0.5. Maple M0 GlowCard: navy fill, white-to-blue border and a blue shadow of radius 18 on every card."
+   },
+   {
+    "name": "Few containers, each one live",
+    "description": "Opal's first home screen shows exactly one card under the hero (My Apps), and it holds live state (2 active rules, locked app icons). There are no explanatory paragraphs and no 'coming soon' cards. A feature appears only when it has state to show. Maple M0's three equal-weight cards (icon, title, paragraph, 'Arrives in M1' pill) are what make it read as templated or vibecoded.",
+    "evidence": "From Frame 1171280249 and App Store screenshot 6. Compare docs/screenshots/m0-today.png: three cards with the same template and the same border glow, describing features instead of showing data."
+   },
+   {
+    "name": "Locked rewards look like raw material",
+    "description": "Locked milestones are shown as uncut grey rocks with a thin progress bar. They are not padlocks and not greyed-out copies of the gem. Revealing one cracks the rock open. For Maple, locked leaves could be bare twigs or buds, closed seeds, or a vein-only skeleton leaf that unfurls into colour when earned.",
+    "evidence": "screensdesign.com captures (3.x era): the Milestones grid of grey rocks named Invested (3 days), Steadfast (7 days), Radiant (30 days), Prismatic, Legendary, each with a mini progress bar. The First Gem reveal starts as a grey rock with a tap-to-reveal caption, followed by a shattering frame. opalapp.com/blog/the-milestone-reveal-moment: the concept comes from how opals are mined."
+   },
+   {
+    "name": "The reveal is a ritual with physics, sound and haptics",
+    "description": "Earning a reward gets a dedicated full-screen black moment: a small header, the object in the centre, one caption-sized instruction, tap, a physical break-apart (debris flying off-screen), a reward sound and tuned haptics, then the name, the condition and one CTA. The home screen stays calm because all the drama goes here. This maps directly to Maple's morning leaf reveal.",
+    "evidence": "Opal blog 'the milestone reveal moment': 3D animations by a gem specialist animator, an iOS engineer tuning haptics, 'bits of dirt flying off the screen', reward sounds, and more than 2 million reveals. screensdesign captures: header 'Gem Unlocked / First Gem', rock, 'TAP TO REVEAL YOUR GEM', the gem with a teal bloom, then a pastel-gradient 'Save' button."
+   },
+   {
+    "name": "Named, tiered and seasonal collectibles",
+    "description": "Each reward has a name and a plain unlock condition. Names escalate as adjectives by threshold (Driven at 10h, Determined at 50h, Diligent at 100h, Dutiful at 500h, Devoted at 1,000h focus). There are also calendar-limited ones (Spring, Summer Solstice, Winter Holidays, Earth Day, Holi, Ramadan, Easter, Passover, Valentine's) and social ones (Loyal, Soulful, Popular). Detail sheets show rarity. Maple's species and seasonal-colour catalogue fits this structure directly.",
+    "evidence": "The opalapp.com 'Focus Gems' section lists every gem with its unlock condition. The screensdesign First Gem detail sheet shows a small gold chip that appears to read 'Owned by 98%' (low-res capture, so partly inferred)."
+   },
+   {
+    "name": "Restrained navigation; status lives in the header",
+    "description": "Three tabs in a floating glass capsule. Profile and milestones are behind the avatar, and the streak is a small amber flame plus a number in the header, not a card. Maple's five tabs (Today, Sleep, Focus, Grove, Insights) are two too many for this style.",
+    "evidence": "Frame 1171280249 / 1171280248 tab bar: Home, My Apps, Timer. Header: amber flame '77' and a circular avatar. The older 3.x version had 4 tabs (Home, Blocks, Leaderboard, Profile; screensdesign). Oura made a similar cut from 5 tabs to 3 (Oura blog)."
+   },
+   {
+    "name": "Use physical metaphors for tools",
+    "description": "Opal's focus timer is a 3D-rendered object: a chunky device with a seven-segment LCD showing 30:00, set inside the same rock world. Below it sit a −/30m/+ stepper and a full-width Start capsule. Maple's bedtime or focus countdown could likewise be one crafted object (a moon dial, a lantern) instead of a text card.",
+    "evidence": "App Store screenshot 5 ('One tap. Total focus.') and the opalapp.com render Frame 1171280248 (Timer)."
+   }
+  ],
+  "home_screen_anatomy": "Opal 4.x home. Sources: App Store screenshot 6 at 1242x2688, and the opalapp.com render 'Frame 1171280249.png', which includes the tab bar. Vertical positions are measured from the renders as a percentage of screen height (393x852pt iPhone). They are approximate.\n\n0. The status bar sits directly over the scene. There is no navigation-bar background.\n1. Header row at ~10%. On the left is the custom 'Opal' wordmark, white at ~90%, about the visual size of a 28pt title, with a ~16pt margin. On the right are a streak indicator (small amber flame glyph plus '77' in amber, with no chip background) and a ~32pt circular avatar (an illustrated classical bust) with a thin light ring. There is no large title, no greeting and no settings gear.\n2. Hero scene, full-bleed, from 0% to ~48%. A 3D render of a dark grey rocky canyon or cave. Rock walls frame the left and right edges, a starfield shows through the gap, and one soft volumetric light shaft from top centre falls on the gem. The gem's centre is at ~24% height. It is ~26–30% of screen width and ~16–19% of screen height, and it sits on a small black cylindrical puck on a flat rock plinth. The scene dissolves into black at the bottom with no hard edge. Visually this is ~45% of the first screen and the only saturated colour on it.\n3. Score block at ~41–46%, overlapping the plinth. A small regular 'Score' label sits above a large semibold numeral '85' (about 3x the label size; its cap height is about a quarter of the gem's height), with a small solid ▲ trend glyph to the right. All of it is tinted with the gem's hue.\n4. Breakdown at ~52–57%. A 1px low-opacity bracket branches from under the numeral to three capsules: [moon 50] [hourglass 86] [tree 100]. Each capsule's outline is a partial progress stroke in the gem tint (Sleep at 50 is about half lit, Rest at 100 is nearly fully lit). Small tinted semibold captions read Sleep / Focus / Rest.\n5. One card starting at ~62%. Full width minus ~16pt margins, ~24–28pt radius, a charcoal fill only slightly lighter than the background, and a faint top highlight. Inside: a header 'My Apps >' (secondary grey with a chevron, sentence case), a row with a shield glyph and '2 active rules', a hairline divider, then a row of app icons in rounded squares with lock glyphs labelled 'Unblock'.\n6. A floating glass pill 'Manage Apps' (grid icon) overlaps the bottom of that card.\n7. A floating glass capsule tab bar at ~91%: Home (ring icon), My Apps (2x2 grid), Timer (play triangle), each with a tiny label.\n\nBelow the fold (from release notes, not seen directly): a Screen Time card with today's total and most-used apps (v4.3.1), and insight cards (v4.10). The insight card style appears in App Store screenshot 4. It is a frosted glass card with an 'Insights >' header, a centred bed line-icon, a two-line bold sentence giving the user's typical phone-down time with the time range in the accent tint, a 'Most Used Before Bed' list of three apps showing average minutes, and a glass capsule CTA 'Learn Bedtime Tips'.\n\nOlder 2023 home (Opal blog): today's screen time, Focus Score %, and pickups at the top; then a scrubbable hourly bar chart in green (focus) and red (distracted); then a per-app list. The gem was decorative, and its colour stood for positive focus time.\n\nWeight ranking on the 4.x first screen: hero scene >> score numeral > three capsules > card > tab bar. Everything below the hero is greyscale except the borrowed tint.",
+  "hero_visual": "Lighting recipe, consistent across the app, the website and the detail sheets (observed):\n- The background is black or near-black.\n- One key light from above: a visible volumetric cone on the home screen.\n- A soft radial bloom directly behind the object, in the object's own hue. On the web this is a separate glow PNG at 50–70% opacity.\n- The object always sits on the same small black cylindrical pedestal or puck (opalapp.com uses a dedicated 'gem-stand.png' under every gem).\n- The object has bright rim and specular highlights, so it reads as physical and glassy.\n- The environment (rock walls) darkens the frame edges like a vignette.\n\nOn Home, the gem is ~26–30% of screen width, horizontally centred, with its centre at ~24% of screen height, inside a full-bleed scene that takes up the top ~45% and fades to black. No card or border surrounds it. The gem's hue changes the score and capsule tint and the colour of the light cone: cool icy light for the blue-white opal, warm yellow light for the green-orange gem.\n\nGem detail sheet (3.x capture): the gem is ~45% of width, centred on the puck, with a large teal bloom behind it on black.\n\nReveal screen: the object is centred at ~45–50% width on pure black, with no environment.\n\nMotion of the hero: the Opal blog says Apple's Screen Time privacy rules forced the home gem into a sandboxed extension that allowed no animation. The home gem was therefore essentially a still render, and its premium feel comes from render quality and lighting, not movement. (It is not confirmed whether 4.x has since added motion.) The stated design intent was for the gem to keep 'growing brighter, more vibrant, and more intricate as your focus improves', so the hero evolves with progress.\n\nUsers choose which gem is the hero by long-pressing it, swiping, and tapping 'Apply Theme'. The choice also applies to the widget.\n\nMaple translation (recommendation): full-bleed night sky (#05070D at the top to #0B1426), a low ground hill or plinth, the procedural Canvas tree centred, one soft moonlight pool from above, and a low-opacity bloom behind the canopy in the dominant leaf colour. No GlowCard around it. The tree should take ~40–45% of the first screen.",
+  "typography": "Verified from opalapp.com computed CSS: the font is the system stack (system-ui / -apple-system, i.e. SF Pro).\n- Hero H1: 81.6px, weight 700, letter-spacing −0.82px (−1%), line-height 1.1.\n- Section headings: 51.9px, weight 600, line-height 1.2.\n- Body: 18.5px, weight 400, white at 80% opacity, line-height ~1.6–1.7.\n- Gem labels: 14.8px, weight 400, white at 80%, centred.\n- Eyebrows ('Focus Gems ®', 'Opal Score ®'): small regular text inside a dark pill with a hairline border, not tracked caps.\n\nIn-app (observed from renders; sizes are estimates):\n- Wordmark: custom.\n- Score numeral: SF Pro semibold. It is the default SF Pro, not Rounded (flat-topped 5) and not monospaced, at roughly 44–56pt, with a solid ▲ trend glyph next to it.\n- 'Score' label: ~15pt regular.\n- Capsule values: ~15–17pt semibold with an inline SF Symbol.\n- Captions under capsules: ~12pt semibold, tinted.\n- Card headers: ~15–17pt medium, secondary grey, sentence case with a chevron ('My Apps >', 'Insights >', 'Rules >'), placed inside the card.\n- Nav titles: centred ~17pt semibold ('Rules'). Page titles: left-aligned ~28pt semibold ('Timer', 'Apps').\n\nNumber styling:\n- Durations are written '1h 23m' with a space and units at the same size and weight.\n- Comparisons read like '4h 04m a day', with the better value in the accent tint.\n- Under a ring numeral there is a small tracked uppercase qualifier ('LESS THAN USUAL').\n- The website counter of hours saved uses rolling odometer digits.\n\nReward moments only (3.x captures): a condensed bold uppercase display face for 'DAY STREAK', 'FOCUS HOURS', 'FIRST GEM' and the huge streak numeral, set in gold or teal, plus tiny tracked caps CTAs ('TAP TO REVEAL YOUR GEM').\n\nThe timer uses skeuomorphic seven-segment LCD digits.\n\nHome uses sentence case throughout, with no tracked-caps section eyebrows. Maple M0's 'YOUR MAPLE' eyebrow and its large-title 'Rest well' are both absent from Opal's home pattern.",
+  "color_and_light": "Background: opalapp.com body is rgb(4,4,4) (verified). App screens are black or near-black, and the rock environment is desaturated charcoal grey.\n\nColour sources are strictly limited (observed):\n1. The hero gem, its bloom and the light shaft.\n2. The same hue borrowed as a tint for the score numeral, the trend glyph, the capsule strokes and captions, and highlighted values in insight text. This is icy blue-white (~#CFE6F5, estimated) for the opal and pale yellow-green for the green gem.\n3. Amber or gold only for the streak (flame glyph plus count in the header; flame, numeral and 'DAY STREAK' on the streak screen, where a warm amber radial bloom fills the top third on black).\n4. Green and red only in data bars (2023 chart; score-page bars).\n5. Soft pastel gradients only on primary CTAs: lavender 'Start'; yellow-green to cyan 'Save'. These have dark text.\n\nGlow technique on the web (verified CSS): glow is an image (blue-glow.webp, ice-glow.webp, yellow-glow.webp). It is placed at about 2.5x the card size (625px glow behind a 250px card), at opacity 0.7, offset negatively and clipped by overflow:hidden. A gem-specific halo image sits at opacity 0.5 behind each gem. There are no box-shadow glows on cards.\n\nMarketing backgrounds (App Store) use a pale icy-blue gradient with floating rock fragments. This is brand framing, not in-app.\n\nRelevance to Maple: Opal's sparing amber for the streak matches Maple's #E8A35C reward role almost exactly. The main difference from Maple M0 is that Opal never puts coloured glow on generic containers.",
+  "surfaces_and_cards": "Web gem card (verified CSS):\n- 250x313px (4:5 aspect), border-radius 42px (~17% of width).\n- Transparent fill on #040404, with a 1px gradient hairline border via a masked ::before: rgba(255,255,255,0.10) at the top to rgba(255,255,255,0.02) at the bottom. The border is lit from above and fades out downward.\n- Padding 16/32/32, overflow hidden, an internal colour glow image at 70% opacity.\n- Gem image 186x232 with its halo at 50% opacity, pedestal image 186x56, label 15px at 80% white.\n- Hover: scale transform over 0.3s.\n- Cards sit 48px apart in a marquee.\n\nIn-app (observed):\n- First screen of Home: exactly 1 card below the hero.\n- Card fill is charcoal, barely lighter than the background (~#141416–#1C1C1E, estimated), with a faint top-edge highlight, radius ~24–28pt and ~16pt side margins. No visible drop shadow or outer glow.\n- Rules screen: a 2-column grid of square-ish cards (~24pt radius). Each has a soft radial spotlight at the top (icy white fading to black) that gives a top-lit, slightly 3D feel. Top-left icon flow (calendar → shield), a status chip ('7 left', 'in 12h', or '⚠ Issue Detected' in yellow), a semibold title ('10PM—8AM'), and a sublabel with tiny app icons. Inactive or paused cards drop to ~40% opacity.\n- Insights card: frosted translucent glass with background blur, hairline light border and centred content.\n- Elevation comes from translucency and top light, never from shadows.\n\nCards per screen: Home 1 (plus the hero); Rules 4–5 small tiles; Timer 0 cards (one hero object plus controls), then a horizontal 'For You' carousel of photo cards.",
+  "buttons_and_controls": "Observed in renders and captures:\n\nPrimary buttons:\n- Full-width capsules, ~50pt tall, with a soft pastel gradient fill: lavender-to-grey 'Start' with a ▶ glyph on Timer; yellow-green to cyan 'Save' with dark text on the gem-unlocked screen.\n- 'Current Gem' on the gem detail sheet is a full-width dark grey capsule with a ✓.\n\nSecondary buttons:\n- Glass capsules: translucent, blurred, with a thin light border ('Learn Bedtime Tips', the floating 'Manage Apps' pill with a grid icon).\n- Outlined capsules in the reward colour on milestone screens ('My Progress →' in a gold outline).\n\nSteppers: a −/+ pair of ~44pt glass circles flanking a wide glass capsule showing the value ('30m', ~22pt medium).\n\nToggle-as-chip: a small capsule 'Block Apps No' with a shield glyph, the label in white and the value in dimmer grey.\n\nStatus chips: small dark capsules ('7 left', 'in 12h'), plus a warning chip with yellow text.\n\nHeader buttons: ~36pt circular glass back button (chevron) top-left; ~36pt circular '+' with an icy-blue gradient fill top-right.\n\nScore sub-score capsules: outline capsules (~2:1 aspect) whose stroke doubles as a progress meter in the tint colour. They read as both button and gauge.\n\nUnblock tiles: app icons inside rounded squares with a lock glyph and a small 'Unblock' label, in a glass tray.\n\nNo filled-colour rectangular buttons and no heavy shadows anywhere.",
+  "navigation": "Opal 4.x (observed in the opalapp.com renders): 3 top-level tabs in a floating, inset glass capsule tab bar about 60% of screen width, centred above the home indicator: Home (ring/opal icon), My Apps (2x2 grid), Timer (play triangle), each with a tiny label.\n- Profile, MileStones and stats are reached from the avatar at top right.\n- The streak is a header glyph that leads to the streak screen.\n- Rules is reached from a 'Rules >' header link and a centred-title push screen with a circular back button and a '+' button.\n- Milestones and gem detail open as sheets (a grabber is visible in the captures).\n\nOpal 3.x (screensdesign captures): 4 tabs (Home, Blocks, Leaderboard, Profile) plus a persistent mini session sheet docked above the tab bar ('Session 00:57:05 · My Event', with a chevron), similar to Apple Music's mini player.\n\nThe release notes for 4.0 describe renaming Blocks to Rules and Breaks to Unblock, and adding Timer, Opal Score and Autofocus. The structure was consolidated.\n\nComparable: Oura cut 5 tabs (Home, Readiness, Sleep, Activity, Resilience) to 3 (Today, Vitals, My Health).\n\nImplication for Maple (recommendation): collapse the 5 tabs to 3, e.g. Home (tree + tonight/morning state), a Rest/Focus tools tab, and Herbarium. Put Insights under Home cards or the profile, and put the streak and leaf count in the header.",
+  "motion": "Verified:\n- On opalapp.com the gem collection is a slow horizontal marquee with a 60s loop (class 'c-marquee cc-60s'; transform observed advancing between screenshots).\n- Cards scale on hover over 0.3s.\n- Sections fade up on scroll ('cc-fade-up').\n- The hours-saved counter rolls odometer-style. Digits were caught mid-roll in two screenshots.\n\nVerified (Opal blog, milestone reveal):\n- The reveal is a 3D animation by a specialist gem animator: tap the rock, it breaks open with debris flying off the screen, and reward sounds plus hand-tuned haptics play.\n- The home gem lives in a sandboxed Screen Time extension that allowed no animation, so the home hero was static.\n\nObserved in still captures (motion inferred):\n- The 'Driven Gem' achievement shows the earned gem large in the centre, with other gems and sparkle particles floating around it in black space. This implies a slow drift or orbit.\n- The streak screen has a glowing flame with a large warm bloom (probably a flicker).\n\nInferred overall pattern: the persistent screens are almost motionless, and every bit of animation, sound and haptics is spent on reward and reveal moments. This fits Maple's 'sleepy, not hyper' brief.\n\nMaple suggestion: a very slow canopy sway or breathing (6–10s cycles), the occasional single leaf drift, and a one-time unfurl or reveal ritual with a soft haptic on the morning check-in. Everything should become static under Reduce Motion, as Opal's home already effectively is.",
+  "reward_collection_ui": "Milestones sheet (3.x captures, low-res):\n- 'MileStones' title left; top right shows a percentage collected with a thin progress bar.\n- Sections by category. Each section has a hero: a glowing glyph (gold flame for DAY STREAK, teal-green hourglass for FOCUS HOURS), a condensed uppercase coloured title, a one-line grey explanation, and an outlined capsule 'My Progress →'.\n- Under each section, a 3-column grid of milestones. Locked items are uncut grey rocks with a thin progress bar beneath, then the name and requirement: Invested (3 days), Steadfast (7 days), Radiant (30 days), Prismatic, Legendary.\n\nProfile (3.x):\n- Hexagon avatar plus a generated 'gem name' username.\n- A horizontal row of owned gem thumbnails (coloured) followed by locked ones (grey rocks).\n- Two side-by-side cards (Day Streak, Focus Hours), each with its glowing glyph and a 'next milestone' progress row.\n\nGem detail sheet:\n- Uppercase condensed name ('FIRST GEM'), the condition below it ('You Installed Opal'), and a small gold rarity chip (appears to read 'Owned by 98%').\n- The gem large on its pedestal with a colour-matched bloom, an unlock date row, a one-line description, a full-width '✓ Current Gem' button (sets it as the home theme), and a share icon at top right. Share produces an image card; the photo picker capture shows the First Gem card saved as an image.\n\nReveal flow:\n- Black screen with header 'Gem Unlocked' / name.\n- A grey rock in the centre with the tiny caption 'TAP TO REVEAL YOUR GEM'.\n- The rock shatters to reveal the iridescent gem with its bloom.\n- Then a congratulations line and a pastel 'Save' CTA.\n\nStreak screen: a huge glowing flame, a large gold numeral, 'DAY STREAK', one explanatory sentence, a 7-day row in a hairline-bordered card (completed days are filled gold circles with ✓), and a dim gold footer with a bit of lore (the etymology of 'focus' as hearth).\n\nWebsite 'Hall of gems': two rows of 4:5 cards in a 60s marquee.\n\nCatalogue structure (opalapp.com):\n- Progression gems named as escalating adjectives: Driven 10h, Determined 50h, Diligent 100h, Dutiful 500h, Devoted 1,000h focus.\n- Usage gems: Motivated 2 days, Committed 5 days, Balanced 10 days.\n- Social gems: Loyal 1 friend, Soulful 3, Popular 10.\n- Status gems: Original (early adopter), Unwavering (Pro), First (install).\n- Calendar-limited gems: Spring (first day of spring), Summer (solstice), Winter (holidays), Earth Day, Easter, Holi, Ramadan, Passover, Love (Valentine's).\n\nThis maps one-to-one onto Maple's species and seasonal colours, with the rare frosted winter leaf as a limited-time item.",
+  "what_makes_it_feel_premium_not_generic": [
+   "The hero is a crafted, physically lit 3D object in an environment (cave, light shaft, pedestal), not an SF Symbol or flat vector inside a card. Maple's procedural tree needs comparable craft: real branching, leaf variation, light falloff and ground contact shadow.",
+   "One focal point per screen. Home has a gem; Timer has an LCD clock object; the reveal has a rock. Nothing competes for attention.",
+   "Colour comes from content (the gem), and the rest of the UI borrows it. Chrome is greyscale, so the reward always looks precious.",
+   "No glow on containers. Cards use a 1px top-lit hairline (10% to 2% white) and nearly the same fill as the background, so they recede and the hero glows.",
+   "Consistent presentation grammar: every gem sits on the same black puck with the same bloom recipe on the website, the home screen and the detail sheet. That repetition reads as a system, not one-off decoration.",
+   "A data hierarchy that reads in one second: big number, three sub-numbers joined by hairline branches, then cards. No paragraphs on Home.",
+   "Copy is short, human and a little witty. The block screen says you set this rule yesterday and past you was right. There's a Focus Haiku option and etymology lore on the streak screen, and users are called 'gems'. There is no dev-speak (contrast Maple's 'Arrives in M1').",
+   "Rewards are rituals: tap to reveal, physical debris, sound, tuned haptics, a name and a rarity figure. This makes a collectible feel earned, not dispensed.",
+   "Locked items are shown as raw material (uncut rock), which creates anticipation instead of the 'greyed-out list' feel.",
+   "Controls are glass capsules and circles with hairline borders, and primary CTAs use soft pastel gradients. There are no saturated filled rectangles and no heavy shadows.",
+   "Navigation is restrained: 3 floating tabs, with the streak and profile in the header. Fewer, deeper screens instead of many shallow tabs of placeholder cards.",
+   "Marketing-grade renders are used in the product itself (the same cave world on the website hero and in the app), so the brand world is continuous."
+  ],
+  "other_reference_apps": [
+   {
+    "app": "Oura",
+    "lesson": "Make Home a time-aware front page, not a fixed stack. Oura cut 5 tabs to 3 (Today, Vitals, My Health). Today is modelled on a news app's top stories: score shortcuts at the top, then one daily highlight that changes with the time of day you open the app, then a timeline. For Maple: evenings lead with the wind-down/bedtime countdown, mornings lead with last night's leaf reveal, and the tree stays the constant hero. (Verified from Oura's 'new Oura app experience' blog. Oura's scenic time-of-day header imagery is from prior knowledge, not re-verified.)"
+   },
+   {
+    "app": "Rise Science",
+    "lesson": "Lead with one plain headline number that changes behaviour (sleep debt in hours over the last 14 nights), with a derived 0–100 score secondary to it. Rise is explicit about its window and keeps a deliberate 14-night scope. For Maple: one tonight number (time until wind-down) and a transparent wellbeing score whose window and rules are stated on screen. (Verified from Rise help centre and blog; visual style not verified.)"
+   },
+   {
+    "app": "Endel",
+    "lesson": "A monochrome UI where the only expressive visual is a generative graphic tied to the current state: thin white lines and sparkling dots on black, with organic, never jarring motion. For Maple: render the night sky and tree procedurally in Canvas with fine linework and slow drift, let the app's state (season, streak, time of night) drive the visuals, and keep everything else monochrome. (Verified from the Readymag feature and screensdesign review.)"
+   },
+   {
+    "app": "Forest",
+    "lesson": "Proof that a growing-tree loop and a large species catalogue (90 to 100+ tree species unlocked by milestones, reviewed as a forest map by week, month or year) sustain long-term engagement. Its punitive mechanic, where the tree withers if you leave the app, is exactly what Maple rejects. Borrow the catalogue and the week/month/year herbarium views, and keep Maple's rule that bad nights only make the tree quieter and never remove leaves. (Verified from the App Store listing and release notes.)"
+   }
+  ],
+  "sources": [
+   "https://apps.apple.com/us/app/opal-screen-time-for-focus/id1497465230 (listing now titled 'Opal: Screen Time Control', subtitle 'Focus, App Blocker & Timer'; Editors' Choice; release notes 4.0–4.18)",
+   "App Store screenshot 6 'For better sleep, focus, and rest.' (Opal 4.x home): https://is1-ssl.mzstatic.com/image/thumb/PurpleSource221/v4/19/65/56/1965561b-d632-ba9f-7980-ffd98e19a480/6_white_AppStore.jpg/1290x2796bb.webp",
+   "App Store screenshots 1–5 (screen-time ring, block screen, Apps/Rules, Insights card, LCD Timer): https://is1-ssl.mzstatic.com/image/thumb/PurpleSource221/v4/4a/09/57/4a0957f1-c3d9-1b39-c1ac-8699c13c0780/AppstoreArtboard_1.jpg/600x1300bb.webp (and AppstoreArtboard_2 to _5)",
+   "https://opalapp.com/ (opal.so redirects here): Focus Gems catalogue, hero cave, computed CSS for type and gem cards",
+   "https://cdn.prod.website-files.com/5ffc51a847b677701a3da52b/6a0f4ba9d5acd11627a02099_Frame%201171280249.png (home render with tab bar, green gem theme)",
+   "https://cdn.prod.website-files.com/5ffc51a847b677701a3da52b/6a0f4bba74a1ced3868b93a3_Frame%201171280247.png (Rules grid render)",
+   "https://cdn.prod.website-files.com/5ffc51a847b677701a3da52b/6a0f4cb2991fdeee2e3cffb3_Frame%201171280248.png (Timer render)",
+   "https://opalapp.com/blog/the-milestone-reveal-moment",
+   "https://opalapp.com/blog/introducing-the-new-opal-home-screen-track-your-screen-time-and-improve-your-focus",
+   "https://opalapp.com/blog/designing-for-wellbeing",
+   "https://help.opalapp.com/article/how-to-choose-your-gem",
+   "https://community.opalapp.com/t/feature-request-give-user-more-valuable-information-in-opal-score-overview-ux-feedback-on-opal-score-page/10906",
+   "https://screensdesign.com/apps/opal-screen-time-control/ (164 captured screens, 3.x era: reveal, milestones, streak, gem detail, profile)",
+   "https://ouraring.com/blog/new-oura-app-experience/",
+   "https://help.risescience.com/hc/en-us/articles/40621710877719-Can-I-see-my-sleep-debt-progress-over-time",
+   "https://www.risescience.com/blog/best-sleep-debt-tracking-app",
+   "https://blog.readymag.com/tune-in-drop-out-how-endel-helps-get-into-the-flow-via-immersive-soundscapes-5ab08d932687/",
+   "https://screensdesign.com/showcase/endel-focus-sleep-sounds",
+   "https://apps.apple.com/us/app/forest-focus-for-productivity/id866450515",
+   "Local: /Users/maanvikgupta/Documents/Claude proj w guds/Maple/docs/screenshots/m0-today.png and m0-design-system.png (current Maple UI, for contrast)"
+  ],
+  "confidence_notes": "VERIFIED directly (I looked at the image or page myself):\n- The Opal 4.x home layout and its elements: header wordmark, amber flame '77', avatar, cave scene, gem on puck, Score 85 ▲, the bracket to Sleep 50 / Focus 86 / Rest 100 capsules, the My Apps card, the Manage Apps pill, and the 3-tab glass bar labelled Home / My Apps / Timer. Checked against App Store screenshot 6 at full resolution and the opalapp.com render.\n- The gem-tint theming: compared the blue versus green renders, and the help article names the action 'Apply Theme'.\n- The Rules grid, Timer LCD and Insights card visuals.\n- opalapp.com computed CSS: body rgb(4,4,4); H1 81.6px/700/−1% tracking; section headings 52px/600; body 18.5px at 80% white; gem card 250x313, radius 42, 1px gradient border 10%→2% white, glow image at 0.7 opacity, halo at 0.5, hover scale 0.3s, 60s marquee, 48px gap.\n- The gem names and unlock conditions.\n- Blog facts: the reveal design team, dirt debris, sounds, haptics, 2M+ reveals, the sandboxed extension that prevented home animation, and the gem brightening concept.\n- The community complaints about the score page.\n- The Oura 5-to-3 tab change and Today structure; Rise sleep-debt-first hierarchy; Endel monochrome line visuals; Forest species count and withering mechanic.\n\nVERIFIED but from older or low-res sources: the reveal, milestones grid, streak screen, gem detail sheet and 3.x profile/4-tab structure come from screensdesign.com captures of an earlier 3.x build at ~640px. Rock-shaped locked items, the condensed uppercase titles and the gold/teal glyphs are clearly visible. Small text such as the rarity chip ('Owned by 98%') and the milestone requirements is partly guessed from blur. These reward screens may have been restyled in 4.x.\n\nINFERRED or ESTIMATED:\n- All pt sizes and percentage positions are measured from marketing renders, which are slightly perspective-free mockups. Treat them as ±15%.\n- Hex values for in-app card fills, the icy tint and amber are eyeballed, not sampled.\n- 'Capsule outline is a progress meter' is a visual inference from stroke coverage matching the values.\n- Whether 4.x animates the home gem is unknown; the blog's no-animation constraint may predate 4.x.\n- Motion of the reveal and achievement screens is inferred from stills plus the blog's description.\n- The score numeral being SF Pro (not Rounded) semibold is inferred from glyph shapes.\n- Oura's scenic time-of-day backgrounds are from prior knowledge, not re-verified.\n- The Maple recommendations (3 tabs, tree staging, tint-by-season, locked buds or skeleton leaves) are my design inferences, not sourced facts.\n\nNOT FOUND: Mobbin coverage of Opal, a Dribbble or Behance case study by the Opal team, and Reddit threads with concrete UI detail. The @spottedinprod reveal video referenced in the blog could not be viewed.\n\nNote: the App Store listing title has changed from 'Opal: Screen Time for Focus' to 'Opal: Screen Time Control'."
+ },
+ "critique": {
+  "overall_verdict": "The user is right. M0 reads as stock AI-generated SwiftUI: one generic component (an SF Symbol, a bold title, two grey lines and a pill, inside a bordered navy card with a glow) is copied onto every tab. The product's one idea, the maple tree, is missing from the home screen. The only maple on screen is a 56pt Canadian-flag polygon tucked into the corner of a card. Nothing on the home screen is real data. There are no numbers, no tree, no collection and no motion, just a roadmap with \"Arrives in M1\" stickers. The glow border, which should signal \"special\", sits on every surface, so it reads as a template effect. It also leaves grey halos between the stacked cards. Opal is the opposite: one luminous hero object on near-black (its gem), one or two big numbers, a bright primary action, and very little chrome. The fix is structural, not cosmetic. (1) Replace the Today card stack with a custom header plus a full-bleed tree \"stage\" that takes about 55–60% of the first screen, then one big-number stat row, then one or two compact contextual rows. (2) Replace the flag polygon with a family of drawn, botanical leaf species. (3) Use glow and borders only on the hero, the reward moments and the primary CTA. (4) Cut the tab bar to 3–4 tabs, with sleep and focus started from Home. (5) Remove all milestone placeholders from the UI. The palette, token architecture, motion tokens, accessibility work and calm copy voice are good foundations and should stay. Note: the leaf catalog the user mentioned isn't in the repo yet (I searched the project for catalog, leaf and image files), so the species list below is a starting proposal to reconcile with it.",
+  "issues": [
+   {
+    "area": "Home screen / hero (TodayView.swift)",
+    "problem": "There is no maple on display. The 'hero' is a horizontal HStack with a 56pt LeafGlyph on the left and an overline, headline and body text on the right, inside the same GlowCard as everything else. It covers about 15% of the screen and has the same visual weight as the two placeholder cards below it. The user explicitly asked for 'a home page with the maple on display'.",
+    "why_it_reads_generic_or_vibecoded": "It's the default 'list of cards' home that AI scaffolds produce. Nothing is the obvious focal point, and the brand object is shown as a thumbnail icon instead of a living thing. Opal's home is built around one large rendered object; this one is built around a VStack.",
+    "fix": "Build a TreeStage view: an unboxed, full-width Canvas tree with no card, border or fill, sitting straight on the background and using about 55–60% of the first viewport height. Add a soft radial light behind it, tinted by season and time of night. Overlay or place directly under it the leaf count as a large StatNumber (e.g. '12 leaves'), with streak and season as one quiet secondary line. Empty state: draw a bare sapling with a single bud, not an earned amber leaf. Keep the line 'Keep tonight's bedtime and you'll find it here in the morning' as the caption under the sapling. Tapping the tree opens the Grove/Herbarium.",
+    "severity": "high"
+   },
+   {
+    "area": "PlaceholderCard template, every tab (Shared/PlaceholderCard.swift, Sleep/Focus/Grove/Insights views)",
+    "problem": "Every screen is a stack of the same component: grey SF Symbol (title2) at top-left, a semibold headline, 2–3 lines of grey callout, an 'Arrives in Mx' capsule. Five tabs, eleven cards, one layout. No screen has a shape of its own.",
+    "why_it_reads_generic_or_vibecoded": "Icon, title and description in a rounded card is the classic AI 'feature card'. It's a landing-page feature grid presented as an app. When every tab has the same layout, nobody designed the individual screens.",
+    "fix": "Delete PlaceholderCard from shipping UI. Build each screen around its real content. Sleep: a large bedtime clock or arc with wind-down and wake times as big numbers. Focus: one large timer dial with a start pill. Grove: tree plus herbarium grid. Insights: one chart with a transparent score breakdown. For features that aren't built yet, either hide the entry or show a real but dormant control (e.g. a disabled 'Sounds' row) without explaining the roadmap.",
+    "severity": "high"
+   },
+   {
+    "area": "Placeholder copy and milestone pills",
+    "problem": "'Arrives in M1', 'Arrives in M2' and 'Export and delete arrive in M7' (Settings) expose internal milestone codes. The body copy describes features instead of being them, e.g. 'A countdown to wind-down and bedtime, based on the schedule you set up in onboarding.' It even mentions 'onboarding', which users never think about.",
+    "why_it_reads_generic_or_vibecoded": "Shipping dev-plan vocabulary and explanatory blurbs is the clearest sign that a model generated the UI from a spec document. Premium apps show state ('Wind-down in 1h 20m'), not descriptions of state.",
+    "fix": "Remove every milestone string from the UI and keep the roadmap in docs/. Write state-first, short copy: 'Wind-down 22:30 · Bed 23:00', 'Last night: 7h 12m', 'No leaf yet — tonight's the night.' Each line should be 6 words or fewer where possible, with the number carrying the meaning.",
+    "severity": "high"
+   },
+   {
+    "area": "Leaf glyph (MapleLeafShape.swift / LeafGlyph)",
+    "problem": "The leaf is a 27-point straight-line polygon of the Canadian flag silhouette, with a rectangular spike for a stem, no veins, no curvature and no serration variety. It's filled with an opacity-only diagonal gradient (0.95 to 0.7) plus a 18% white stroke and a coloured shadow. All four 'seasons' are the same silhouette recoloured, and spring #9CBF86 and summer #6E9A6B are hard to tell apart at this size.",
+    "why_it_reads_generic_or_vibecoded": "It reads as the 🍁 emoji or a flag, not a botanical object, and polygon-to-Path code is an obvious AI shortcut. It also makes the user's main ask ('lot of other types of maple leaves') impossible, because you can't build a collection from one silhouette with a hue swap.",
+    "fix": "Build a LeafSpecies model where each species has its own drawn outline using quadratic/cubic curves, a petiole that tapers and curves, primary veins drawn as separate strokes at about 25–35% opacity, and a fine serration pass on the edge. Candidate species: Sugar (5-lobed, rounded sinuses), Red (3-lobed, serrated), Silver (deeply cut), Japanese palmate (7–9 slender lobes), Japanese laceleaf (dissected), Norway (broad, pointed), Field (small, blunt lobes), Bigleaf (huge), Vine (round, 7–9 shallow lobes), Amur (3-lobed, elongated centre), Paperbark (trifoliate), Striped/Moosewood (goose-foot). Then layer colourways on top: spring green, summer green, gold, crimson, frosted, plus a rare variegated or two-tone. Shading: a radial light from the top-left plus a slightly darker midrib side, with no outer shadow at small sizes. Each leaf should look like a pressed specimen, which also suits the herbarium.",
+    "severity": "high"
+   },
+   {
+    "area": "Border and glow treatment (GlowCard / glowSurface / MapleButtonStyle)",
+    "problem": "Every surface gets the same treatment: a 1pt white (22%) to blue (10%) gradient stroke, plus a blue shadow (radius 18, 16% opacity). That covers cards, primary buttons and the leaves showcase. In the screenshot, stacked cards' halos merge into muddy grey bands in the 24pt gaps, and the white top-edge highlight repeats down the page like a ladder.",
+    "why_it_reads_generic_or_vibecoded": "A gradient-border glow card on dark navy is the 'dark glassmorphism dashboard' cliché that AI tools produce by default. Applied everywhere, it stops meaning 'special' and becomes texture.",
+    "fix": "Use three levels of surface. Level 0: content sits directly on the background, with no card. Level 1: quiet tiles with a fill of about #0E182C (or white at 4%), no border and no shadow, used for secondary rows. Level 2: the spec's thin white/soft-blue border plus a very faint glow, used ONLY for the primary CTA, the morning leaf-reveal card and the share card. Drop the glow radius to about 24 at about 8–10% so it reads as ambient light, not a drop shadow. Never stack two Level-2 elements next to each other.",
+    "severity": "high"
+   },
+   {
+    "area": "Information architecture / tab bar (RootView.swift)",
+    "problem": "There are five tabs (Today, Sleep, Focus, Grove, Insights) with stock SF Symbols: sun.horizon, moon.stars, timer, a generic leaf (not a maple) and chart.bar.xaxis. Three of the five tabs hold only 2–3 placeholder cards. The tint is textPrimary, so selected and unselected icons are both white, and selection is shown only by a darker recessed capsule on a light glass bar. The tab bar is the brightest large surface on screen.",
+    "why_it_reads_generic_or_vibecoded": "One tab per feature is the scaffold default ('make a tab for each section of the spec'). The stock filled symbols in mismatched styles (sun, moon with sparkles, stopwatch, leaf, bar chart) look like a starter template. A generic leaf for a maple app is a brand miss.",
+    "fix": "Go to 3–4 tabs, e.g. Home (tree), Grove (herbarium and collection), Insights, and optionally Sessions. Sleep wind-down, focus start and sounds become primary actions launched from Home as sheets or full-screen modes, which is how Opal starts a session. Use a custom maple-leaf tab icon for Grove. Show the unselected state at textSecondary and the selected state at textPrimary. Keep the system Liquid Glass bar but darken its tint so it sits below the hero visually.",
+    "severity": "medium"
+   },
+   {
+    "area": "Large-title navigation pattern and header",
+    "problem": "FeatureScreen uses .navigationTitle, so every screen opens with a 34pt system large title ('Rest well', 'Sleep', 'Focus') and a lone Liquid Glass gear button on its own row above it. Together they use about 180pt of the most valuable space before any content. The title is SF Pro Bold, which ignores the tokens' claim that headings are SF Rounded.",
+    "why_it_reads_generic_or_vibecoded": "This is the stock iOS Settings/Health look. A time-of-day greeting as the page title ('Good morning') is a common AI home-screen pattern, and it carries no information.",
+    "fix": "Hide the nav bar on Home and draw a compact custom header: a small rounded date or context line ('Fri · Bedtime in 1h 20m') on the left and a small avatar/settings button on the right, about 44pt tall in total. Hand the space it frees to the tree. Use inline titles or no titles on the other tabs, and keep large titles only for list-like screens such as Settings. If a greeting stays, make it a small secondary line, not the H1.",
+    "severity": "medium"
+   },
+   {
+    "area": "Type hierarchy (Tokens.swift MapleFont, TodayView)",
+    "problem": "The screen has three tiers: a large nav title, then 17pt headlines, then grey callout, repeated identically in each card. There is no large number anywhere, even though the spec says 'large readable numbers' and StatNumber exists. MapleFont.display is just .largeTitle (34pt), so the system has no true display or hero numeral size. The design-system type ramp is the five default text styles.",
+    "why_it_reads_generic_or_vibecoded": "A flat, repeated hierarchy with grey paragraphs is how generated UIs look when nobody decided what the user should read first. Opal leads with one big number, then a label, then very little else.",
+    "fix": "Add hero tokens: a 64–80pt SF Rounded numeral for the single key metric, scaled with @ScaledMetric, and a 28–34pt secondary numeral for stat rows, both monospacedDigit. Give Home exactly one hero number (leaf count or bedtime countdown) and at most three secondary numbers. Cut body paragraphs to one line. Make all headings SF Rounded consistently, including custom headers.",
+    "severity": "medium"
+   },
+   {
+    "area": "Spacing rhythm and density (FeatureScreen, GlowCard)",
+    "problem": "Everything uses the same rhythm: 24pt card padding, 24pt gaps, 20pt margins. Each placeholder card is about 240pt tall for two lines of text, so the first screen shows three boxes and very little information. Generosity without grouping looks empty, not calm.",
+    "why_it_reads_generic_or_vibecoded": "Uniform VStack spacing is the default output when no layout grid or grouping has been designed. Real calm comes from a big quiet hero plus tight, well-grouped secondary rows, not from evenly padded boxes.",
+    "fix": "Use deliberate contrast. A large hero gets 40–56pt of breathing room above and below. Secondary content is grouped in compact rows: a 56–64pt row height, 12pt between rows, 32pt between groups. Use a 24pt screen margin for the hero area if it helps the tree breathe, and keep 20pt for lists.",
+    "severity": "medium"
+   },
+   {
+    "area": "Primary button (MapleButtonStyle)",
+    "problem": "The primary button is a navy (#18264A) fill with the same glow border as the cards and white text. Secondary is a border at 10% opacity. In a screen full of glow cards, the primary action is indistinguishable from a card. Nothing says 'tap here'.",
+    "why_it_reads_generic_or_vibecoded": "When the button and the container share one treatment, the button reads as a template component, not a designed call to action. Opal's key actions are bright, solid pills that clearly sit above the dark UI.",
+    "fix": "Make the primary CTA a solid textPrimary (#F2F5FA) capsule with a near-black #05070D label, 56pt tall, SF Rounded semibold, plus the one allowed soft glow. Or keep the bordered navy pill for secondary use only. Use at most one primary CTA per screen, e.g. 'Start wind-down' in the evening and 'See last night's leaf' in the morning. Amber stays off buttons, per the spec.",
+    "severity": "medium"
+   },
+   {
+    "area": "Colour and background (MapleBackground, LeafPalette)",
+    "problem": "The background is a flat linear #05070D to #0B1426 gradient, and cards are #111D35 on top, so the whole screen is one navy hue with lighter boxes and no light source or depth. The autumnGold leaf (#E8A35C) is the same hex as the reward accent, so in October the 'season' leaf and the 'reward' colour are identical and amber stops meaning reward. Crimson exists as a token but is unused. Frost #C9DCE8 next to white text looks like a disabled white icon.",
+    "why_it_reads_generic_or_vibecoded": "Navy-on-navy boxes with no ambient light are the default dark-theme look. Premium dark apps like Opal use true near-black with a coloured light bloom behind the hero, so the content glows rather than the containers.",
+    "fix": "Keep #05070D as the base and add a large, very soft radial bloom behind the tree, tinted by season (gold, green or frost at 10–15%) and dimmer late at night. Push card fills closer to the background (about #0C1527) so the hero is the brightest thing on screen. Separate the leaf palette from the reward token: give autumn gold a slightly different hue (e.g. #D99A4E) and reserve #E8A35C for reward UI. Spread spring and summer further apart (one yellow-green, one deep blue-green). Give frost a faint blue edge and an inner highlight so it reads as ice, not as white.",
+    "severity": "medium"
+   },
+   {
+    "area": "Decorative icons",
+    "problem": "Each placeholder card opens with a grey SF Symbol (moon.zzz, sunrise, bed.double, waveform, hand.raised, timer, tree, book.closed and so on) that adds no information. The Settings privacy rows use lock.shield and square.and.arrow.up.",
+    "why_it_reads_generic_or_vibecoded": "An SF Symbol above every heading is a hallmark of generated UI: the icon just restates the title.",
+    "fix": "Remove icons that only restate the title. Where an icon is needed, use a small custom set that matches the leaf illustration style (thin rounded stroke, consistent weight), or replace the icon with real visual data such as a mini bedtime arc, a sound waveform or a timer ring.",
+    "severity": "low"
+   },
+   {
+    "area": "Design-system screen (DesignSystemView.swift)",
+    "problem": "Six swatches in a grid; 'Background' and 'Raised' are visually indistinguishable and have no hex values or usage notes. The leaves are shown as four recoloured copies of one polygon. The type ramp is just the names 'Display / Title / Headline' set in themselves. The components section has one card type and one button. The whole thing is bordered GlowCards again.",
+    "why_it_reads_generic_or_vibecoded": "This is the default 'design system page' a model generates. It shows the system is thin: one surface, one button, no hero, no leaf variety, no elevation levels.",
+    "fix": "Turn it into a working reference that matches the redesign. Show each swatch with its hex and its role ('reward only'). Show the three surface levels side by side. Add a leaf catalog grid of every species in every colourway, with the rare ones flagged. Add a numeral scale (hero, secondary, inline). Show the tree in 3–4 growth stages and in each season. Show the primary and secondary CTAs on real backgrounds. Lay it out with section dividers instead of boxing every section.",
+    "severity": "low"
+   },
+   {
+    "area": "Motion and liveliness",
+    "problem": "Nothing on Home moves. Motion.drift exists for 'the tree's sway' but there's no tree and no ambient motion. The glow is static, so the screen feels like a mockup.",
+    "why_it_reads_generic_or_vibecoded": "Static card stacks feel like a template screenshot. Opal's hero object breathes, which signals craft.",
+    "fix": "Give the tree stage a slow sway (3–6s cycles, a few degrees) and occasional drifting particles (falling leaf in autumn, snow in winter). Animate the bloom with a slow breathing glow. Make the morning leaf reveal a slow fade with a drift-down. Route everything through mapleAnimation and show a still frame under Reduce Motion. Use TimelineView with a low frame budget for the Canvas.",
+    "severity": "low"
+   }
+  ],
+  "keep": [
+   "The base palette from the user's spec, as encoded in Tokens.swift: #05070D, #0B1426, #111D35, #F2F5FA, #8A96AD, and amber #E8A35C reserved for rewards. The restraint is right; the problem is how it's applied.",
+   "A single Tokens.swift with a Theme injected through @Environment(\\.theme), plus spacing, radius, glow and motion structs. Extend it (surface levels, hero numerals, leaf species), don't replace it.",
+   "Motion tokens (gentle 0.6s, calm 1.0s, drift 3.2s) and the mapleAnimation(_:value:) Reduce Motion wrapper. Sleepy timings are correct.",
+   "StatNumber: SF Rounded, monospacedDigit, @ScaledMetric, unit and label, combined for VoiceOver. It's the right primitive for the big-number row and should finally be used on Home.",
+   "SectionLabel (small tracked uppercase overline with the header trait), used sparingly for one or two group labels per screen.",
+   "The calm, non-judgmental copy voice: 'Waiting for its first leaf', 'Keep tonight's bedtime and you'll find it here in the morning', 'Bad nights never take leaves away', 'Never leaves your iPhone'.",
+   "The seasonal leaf palette concept (spring, summer, gold, crimson, frost) and the real-season Season(for:hemisphere:) logic. Tune the hues and add species shapes on top.",
+   "The thin white-to-soft-blue border idea from the spec, kept but limited to the primary CTA, leaf-reveal and share cards.",
+   "Accessibility groundwork: accessibilityElement(children: .combine), decorative images hidden, header traits, Dynamic Type text styles, minimumScaleFactor on numbers.",
+   "The structure of one NavigationStack per tab, with Settings as a sheet, and the in-app Design System reference screen as a concept.",
+   "Continuous-corner shapes (RoundedRectangle style: .continuous) and the 4pt spacing scale."
+  ]
+ },
+ "verdicts": [
+  {
+   "scores": [
+    {
+     "proposal": "Proposal 1: Sanctuary",
+     "criteria": [
+      {
+       "criterion": "premium_feel",
+       "score": 9,
+       "why": "The first screen has zero containers: header, unboxed tree, one 64pt numeral with a caption, a Level-0 next-leaf line and at most one capsule. Light comes from the scene (moon pool, a leaf-coloured bloom with saturation clamped to 0.45, rim-lit bark, contact shadow). Glow is budgeted with numeric caps (18% tree, 35% reveal, 10% UI). That restraint reads as designed. Minor risk: the solid #EEF2F8 primary capsule may be the brightest thing on a night screen."
+      },
+      {
+       "criterion": "opal_inspiration",
+       "score": 9,
+       "why": "It translates Opal's grammar rather than copying it. One hero object in a lit scene; the hero sets the tint through the season tint; status sits in the header with an amber streak; drama goes into a bud-opening reveal (Opal's rock crack, reinterpreted); locked items are skeletons (raw material). The score with branch connectors is moved below the fold and drawn as twigs, so the first screen is not an Opal clone. It also names the clone risk and lists Maple-only elements to keep."
+      },
+      {
+       "criterion": "brand_fidelity",
+       "score": 9,
+       "why": "It keeps the full palette. Amber is strictly 'earned' and listed exhaustively. The autumn leaf gold (#D1A020) is split from reward amber. Navy moves into the sky. The spec's border+glow is kept but rationed, and the refinement is stated openly. SF Rounded numerals, sleepy motion tokens (nothing faster than 0.6s except press) and Reduce Motion stills are all covered. The New York italic for scientific names is a well-justified, scoped addition. Small deviation: the primary drops the spec's thin border."
+      },
+      {
+       "criterion": "hero_quality",
+       "score": 9,
+       "why": "This is the most thought-through tree. Growth runs on two independent axes: structure grows with tended days via 1-exp(-d/90) and never shrinks; leaves are per-species clusters. It specifies seeded skeletons and buds at free tips, and an amber halo that decays over 24h. Each species turns on its own seeded day across the first 3 weeks of autumn, and evergreens become the 'jewels' of the winter tree. On-tree colours are desaturated 10% and dimmed at night. Layered sway runs at 3 amplitudes with phase lag, and there is a layered-raster performance plan. Risk: up to about 1,400 leaves at full collection could look busy, though it acknowledges this."
+      },
+      {
+       "criterion": "collection_quality",
+       "score": 8,
+       "why": "The herbarium is complete and honest. An 'Almost yours' row only shows leaves reachable within 60 days. Path/Region/Colour grouping uses sticky headers with one-line rules. Owned tiles get an inner bloom (the Opal gem-card glow) and locked tiles are vein skeletons; the next 3 per path carry a progress hairline; an ≈ mark flags approximate leaves. The empty state shows all 155 skeletons. The detail view has specimen-label rows and a Summer/Autumn/Frost switch. Weaknesses: every one of the 155 cells sits in a #0C1527 Level-1 box, which risks a wall of identical tiles. Sections never collapse, so the Bedtime section alone is 32 tiles deep. The Common/Rare tier words lean toward game-like."
+      },
+      {
+       "criterion": "anti_generic",
+       "score": 9,
+       "why": "The anti-vibecode rules are concrete and testable: zero cards on the first Home screen, exactly one hero numeral of 56pt or more, at most one Level-2 element, no SF Symbol above headings, Home copy of 7 words or fewer, no roadmap strings, radii only from tokens. Each screen gets its own object (tree, moon dial, timer, leaf). The DEBUG design-system page renders real components."
+      }
+     ],
+     "total": 53,
+     "best_ideas_to_keep": [
+      "Rule: zero cards, containers or list rows on Home's first screen; header, tree, one number, one next-leaf line, at most one button",
+      "Two-axis growth: trunk and branch structure grows with tended days and never shrinks; earned species appear as leaf clusters; the tree's day-to-day mood is carried only by light and how much it moves",
+      "Each species turns colour on its own seeded day across the first 3 weeks of autumn; evergreens stay green as the 'jewels' of the winter tree; leaves never fall",
+      "Canopy bloom coloured by the count-weighted average of visible leaf colours, saturation clamped to 0.45, plus 10% on-tree desaturation and night dimming, to keep 100+ reds and golds calm",
+      "The next 1-5 earnable leaves shown as closed buds at free branch tips; the amber halo on a new cluster decays linearly over 24h",
+      "Reveal: touch and hold a bud, a ring fills with three soft haptic ticks, the leaf unfurls behind a mask from petiole to tip, veins draw in before the fill, one decaying continuous haptic; a visible 'Open' button for VoiceOver and Switch Control",
+      "MemberShare formatter rules: never round a non-zero value to 0% or a partial value to 100%; 'Under 0.1%'. The shipped default provider always returns 'insufficient', so the UI is honest before a backend exists",
+      "'Almost yours' only lists leaves within 60 days at the user's 14-day pace; out-of-season evergreens excluded",
+      "Empty herbarium still shows all 155 skeletons, so the scale and shape variety are visible on day one",
+      "Specimen-label rows in leaf detail (Native range, Leaf form, Autumn swatch, Series, Note, Accuracy) set like a real herbarium sheet, with New York italic scientific names",
+      "Night state: no primary button, 'Your maple is resting. So should you.', one glass 'Sleep sounds' capsule",
+      "Layered-raster sway performance plan (3 cached layers rotated per frame, flutter capped at the nearest 40 clusters)"
+     ],
+     "weaknesses": [
+      "Herbarium cells are all Level-1 navy boxes, so 155 of them risk reading as a templated grid",
+      "No section collapsing, so long paths (Bedtime 32, Focus 30) force long scrolls",
+      "Tier words (Common / Familiar / Exceptional) push toward a gamified feel and need care",
+      "The solid #EEF2F8 primary capsule may outshine the tree at evening and night; it also drops the spec's thin border",
+      "An amber bud glyph inside the 'Reveal your leaf' button bends its own rule that amber never touches buttons",
+      "A fully mature autumn tree with 155 species × up to 9 leaves still risks visual noise despite the mitigations"
+     ]
+    },
+    {
+     "proposal": "Proposal 2: Maple: Ritual Clock",
+     "criteria": [
+      {
+       "criterion": "premium_feel",
+       "score": 8.5,
+       "why": "The art direction is rich: the sky changes by phase (dawn glow, dusk with an 18pt crescent moon and a light cone from it, a dimmed night). Each leaf on the tree is shaded with a 2-stop gradient and a 0.5pt rim so crimson survives on black. Specimens sit on contact shadows. The first screen stacks more: count caption, eyebrow, numeral, subline, CTA and a Level-1 next-leaf tile. Below the fold are 5 groups (week, almost there, score, insight, sounds), so it is less serene than Sanctuary."
+      },
+      {
+       "criterion": "opal_inspiration",
+       "score": 8,
+       "why": "It gets the Opal lessons right: a hero scene, header status, tint from the hero, a reveal ritual, locked items as raw material, 4:5 spotlight cards like Opal's Rules tiles, and a score with branches below the fold. It also borrows Oura's time-aware front page. The physical-object tools (moon dial, tick-ring timer) translate Opal's LCD timer well. Slightly more literal in places (4:5 cards with a top spotlight)."
+      },
+      {
+       "criterion": "brand_fidelity",
+       "score": 8,
+       "why": "It keeps amber strictly for rewards and removes the autumnGold collision. Autumn tint #E5937F is set about 20° of hue away from amber, and the 'percent sign means member share only' rule is good. But it adds new hues (violet haze #2A2547, dawn rose #C98F86) that push past the 'restrained' palette. Scientific names in SF Pro italic are less distinctive. Reusing 'Rest well' as the night eyebrow echoes the old greeting. A leaf that 'detaches and quietly reappears' conflicts with the brand promise that leaves are never lost."
+      },
+      {
+       "criterion": "hero_quality",
+       "score": 8.5,
+       "why": "Strong silhouette direction: an open-grown sugar-maple dome about 1.3:1, 70% of leaves on the outer shell with the interior darkened, key light from the moon, root flares, stage at 54% of the first screen. Per-species instance counts (clamp 240/n, 3, 24) keep the crown full at any collection size. Buds scale with progress, and the full set earns a moon halo ring as a trophy. Downsides: autumn leaves detach and reappear (semantically risky). Growth keyed only to unlock count makes growth jumpy and ties tree size purely to rewards."
+      },
+      {
+       "criterion": "collection_quality",
+       "score": 9,
+       "why": "The best collection ideas of the three. The pressed colourway is the season the leaf was earned in, so a winter-earned leaf is naturally the rare frosted one. A locked skeleton fills with colour from the petiole up in proportion to progress. Earned cells get a bloom while locked cells have no fill, which makes a strong owned/locked contrast. Sections collapse to earned + next 3 + 'Show 29 more', so 155 is browsable. Percent appears only for member share. 'Too early to tell · 312 of 500 counted' turns the gap into a shared goal. Fewer than 10 owners shows 'Very few members'. A Kew source line adds credibility, and the ≈ chip is dashed."
+      },
+      {
+       "criterion": "anti_generic",
+       "score": 8,
+       "why": "Good rules: no percent signs except member share, no padlocks, one Level-2 element, a distinct layout per tab (scene, instrument, herbarium), no SF Symbol over titles. Weaker: the first screen has an eyebrow, numeral and subline stack plus a card tile. The below-fold stack of 5 sections is close to the 'feature list' pattern it criticises. Some sections are specced with milestone gating ('from M4'), which invites placeholder creep."
+      }
+     ],
+     "total": 50,
+     "best_ideas_to_keep": [
+      "Pressed colourway is the season the leaf was earned in (frosted winter leaves become naturally rare); the detail view switches Pressed / Summer / Autumn",
+      "A locked skeleton fills with its pressed colour from the petiole upward in proportion to progress, a uniquely Maple progress visual",
+      "Percent signs reserved for member share; progress is always an amount ('2h 20m to go', '7 of 10 nights')",
+      "Herbarium sections collapse to earned + next 3 locked + 'Show N more'",
+      "Earned cells use a Level-1 fill with the leaf's own clipped bloom; locked cells have no fill at all, which gives strong visual contrast",
+      "Insufficient-sample copy framed as a shared goal ('Shown once 500 members are counted · 312 so far'); owner counts under 10 show 'Very few members'",
+      "Crown art direction: 70% of leaves on the outer shell, interior darkened 15%, per-leaf two-stop gradient and 0.5pt white rim so dark crimson reads on black, LOD path under 14pt",
+      "Instance count per species (clamp(240/n, 3, 24)) so a young collection still reads as a full crown",
+      "A subtle crescent moon as the key light source in evening and night, with the light cone coming from it",
+      "Trophy: a faint moon halo ring behind the crown at 155/155",
+      "Seasons path with recurring calendar windows (Fullmoon maple on any full-moon night) that carry no fear of missing out",
+      "Source line in leaf detail ('Plants of the World Online, Royal Botanic Gardens, Kew') and a dashed '≈ Approximate drawing' chip"
+     ],
+     "weaknesses": [
+      "Autumn leaves that 'detach and quietly reappear' contradict the promise that leaves are never lost; replace them with samaras or decorative motes",
+      "Extra scene hues (violet haze, dawn rose) risk breaking 'not oversaturated, restraint over flash'",
+      "More elements stacked on the first screen (count caption + eyebrow + numeral + subline + CTA + tile)",
+      "5 below-fold sections drift back toward a feature-card list",
+      "Scientific names in SF Pro italic lose the herbarium voice New York italic would give",
+      "Growth driven only by unlock count makes tree structure jump with rewards rather than grow daily"
+     ]
+    },
+    {
+     "proposal": "Proposal 3: Moonlit Grove (Grove + Stats)",
+     "criteria": [
+      {
+       "criterion": "premium_feel",
+       "score": 7.5,
+       "why": "Good scene craft (moonbeam wedge, hill rim light, bloom using the screen blend mode), a moonlight-gradient primary, and specimen grammar everywhere. But the first screen is the densest of the three: header, tree, a 64pt ledger numeral with caption, branch hairlines, three 22pt stat columns, a moment context row, the CTA, and an 88pt next-leaf tile with 5 internal lines. It reads closer to a dashboard than a sanctuary."
+      },
+      {
+       "criterion": "opal_inspiration",
+       "score": 6.5,
+       "why": "It is the closest to a straight copy: one big number, a hairline bracket and three sub-stats right under the hero on the first screen; 'TAP TO UNFURL' in tracked caps (Opal's 'TAP TO REVEAL YOUR GEM'); 4:5 Up-next cards. It does adapt well in places (specimen grammar as Maple's puck, samaras), but the Home layout is Opal's grammar with labels swapped."
+      },
+      {
+       "criterion": "brand_fidelity",
+       "score": 7,
+       "why": "It keeps the palette and moves navy into the sky. But amber is used for progress fills (next-leaf bar, Up-next card bars, detail bar), which dilutes 'amber = earned'. With 5 Up-next cards it breaks its own 'at most 3 amber per screen' rule. Tracked caps in the ritual go against the sentence-case direction. It does keep the spec's border and glow on the primary button, which is faithful."
+      },
+      {
+       "criterion": "hero_quality",
+       "score": 6.5,
+       "why": "Exactly one leaf per species on the tree is conceptually clean and makes each leaf tappable. But a 250×190 crown with 37 leaves of 11-16pt spread over 160+ slots will read as a bare, sparse tree for the first months. The tree band is the smallest (264pt, about 30% of the screen; 49% including the fading scene), well under Opal's hero weight. Good ideas: samaras instead of falling leaves, a vitality floor of 0.4, and a long-press full-screen Tree view."
+      },
+      {
+       "criterion": "collection_quality",
+       "score": 8,
+       "why": "The cell treatment is the most premium: no box, just the leaf rotated −8° on its own-colour bloom with a contact shadow. Groupings are rich (path, region, leaf form, autumn colour, botanical series) with 'n of m' counts. Clear variant states: seasonal 'Returns 1 Dec', 'Needs Screen Time' with Turn on, approximate ≈, unseen dot, path-complete underline. Weaknesses: amber progress bars, no section collapsing, and detail as a sheet loses the zoom-from-tile continuity."
+      },
+      {
+       "criterion": "anti_generic",
+       "score": 7,
+       "why": "Many sound rules (no padlocks, empty states always drawn, no blame copy, specimen grammar). But a 3-column stat row with captions under a big numeral, plus a card tile, is the most common 'wellness dashboard' composition. It could still look templated once built, and it breaks its own amber cap."
+      }
+     ],
+     "total": 42.5,
+     "best_ideas_to_keep": [
+      "One shared specimen presentation grammar for every large leaf (rotated −8°, own-colour radial bloom, contact-shadow ellipse) across grid, detail, reveal and share card: Maple's equivalent of Opal's black puck",
+      "Herbarium cells with no box, just the leaf on its bloom and contact shadow; the collection reads as pressed specimens, not tiles",
+      "Samaras (winged seeds) spin down as autumn motes instead of leaves, so nothing reads as losing a leaf",
+      "Vitality floor of 0.4: bad weeks only dim and still the tree, never below a floor",
+      "Long-press the Home tree for a full-screen Tree view where each specimen is tappable",
+      "'Needs Screen Time' locked state with a 'Turn on' pill in the section header; the seasonal caption 'Returns 1 Dec'",
+      "No-blame copy: 'Quiet night. Every leaf is still here.'",
+      "Moonlight gradient primary capsule (#E4EAF5→#B7C3D9, dark label) that keeps the spec's thin border and soft glow",
+      "Reveal queue with '2 more waiting' / 'Reveal all'; overnight leaves never revealed at night",
+      "Path-complete moment: amber underline plus a slow fan of that path's leaves"
+     ],
+     "weaknesses": [
+      "The first screen is too dense (ledger + 3 stats + moment + CTA + 5-line tile), which reads as a dashboard",
+      "The numeral, bracket and three sub-stats under the hero copy Opal's home almost verbatim",
+      "One leaf per species makes the tree sparse and bare for most of the first months; the hero band is the smallest of the three",
+      "Amber is used for progress bars, diluting the reward meaning and breaking its own 3-amber cap",
+      "'TAP TO UNFURL' tracked caps go against the sentence-case brand direction",
+      "No collapsing of long herbarium sections; leaf detail as a sheet loses the zoom continuity from the tile"
+     ]
+    }
+   ],
+   "winner": "Proposal 1: Sanctuary",
+   "rationale": "Through a visual and brand lens, Sanctuary is the strongest. It is the only proposal whose first Home screen is truly a staged scene with no containers: header, an unboxed lit tree, one number, one next-leaf line, and at most one button. Its tree art direction is the most complete and the most coherent with the brief:\n- Structure grows daily and never shrinks.\n- Species become leaf clusters.\n- Each species turns on its own seeded autumn day; evergreens carry the winter tree.\n- Colour discipline is explicit: 10% desaturation, a clamped bloom, night dimming.\n- Amber is rationed by an exhaustive whitelist.\nIt also takes Opal's lessons without cloning Opal's home layout, pushing the score and its branches below the fold.\n\nRitual Clock is a close second and has the best collection ideas:\n- A pressed colourway taken from the season the leaf was earned in.\n- Skeletons that fill with colour as progress grows.\n- Percent signs reserved for member share.\n- Collapsing sections.\nIts first screen is busier, it adds extra sky hues, and it lets leaves 'fall and reappear', which undercuts the promise that no leaf is ever lost.\n\nMoonlit Grove has the best leaf presentation grammar (specimen on bloom with a contact shadow, no tile) and the samara idea. But its Home is a near-copy of Opal's score bracket, it is too dense, its tree is sparse and small, and it spends amber on progress bars.\n\nThe synthesis should be built on Sanctuary's Home and tree. It should graft in Ritual Clock's collection mechanics and Moonlit Grove's specimen grammar, samaras and 'Needs Screen Time' states.",
+   "must_fix_in_synthesis": [
+    "Leaf density on the tree. Use per-species clusters with a total-leaf budget (about 240-465 leaves, Ritual Clock style) and LOD outlines under 14pt. A 1-5 species tree must look intentional and full, not bare (Moonlit Grove's failure). A 155-species autumn tree must stay calm (Sanctuary's 1,400-leaf risk). Validate with snapshots at 0, 1, 5, 15, 40, 90 and 155 species in every season.",
+    "No visual implies a collected leaf leaving. Drop Ritual Clock's 'detaches and reappears' leaf. Use samaras (autumn), snow, fireflies or pollen as decorative motes only.",
+    "Amber discipline in one canonical list: streak, waiting bud, new-leaf halo or dot, reveal bloom, kept-night circles, optionally the owned-count bar. Never progress bars toward locked leaves (fix Moonlit Grove). Never inside button labels or fills (fix Sanctuary's amber bud glyph in the CTA, or document it as the one exception). Progress uses the season tint.",
+    "Season tint must be distinguishable from reward amber (#E8A35C) and from leaf gold (#D1A020), especially autumn (#E2B4A0 / #E5937F / #E3A49E). Pick one value and verify on device and with colour-blind simulators.",
+    "Herbarium grid must not become a wall of 155 identical navy boxes. Earned cells get the leaf's own clipped bloom and specimen grammar. Locked cells are unfilled vein skeletons. The next rung per path shows the progress-fill skeleton. Long sections collapse to earned + next 3 + 'Show N more'.",
+    "Use one specimen presentation grammar everywhere a leaf is shown large (grid, detail, reveal, share card, avatar): bloom + slight rotation + contact shadow.",
+    "Keep the Home first screen to header, tree stage (about 47-54% of height), one hero numeral with one caption, one next-leaf line, and at most one primary. The '23 of 155' count must fit without adding another stacked element (fold it into the header or the tree caption). No stat-column dashboard on the first screen.",
+    "Primary button: reconcile with the spec (thin border + subtle glow) and make sure it does not outshine the tree at evening and night. A softer moonlight gradient beats solid #EEF2F8. No primary at night.",
+    "Choose one serif decision: New York italic for scientific names only, used consistently in tiles, detail, reveal and share card. Sentence case everywhere, with no tracked-caps exception in the reveal.",
+    "Unify member-share rules into one spec: one minimum-sample threshold (500 vs 1,000), one formatter (no rounding of non-zero to 0% or partial to 100%), owner-count k-anonymity ('Very few members' under 10), stale 'As of <date>', unavailable offline, insufficient with a progress-to-threshold framing, and no share line on the share card unless the state is a real value. Decide whether tier words (Common/Rare) stay; if kept, keep them neutral and never leaderboard-like.",
+    "Approximate (confidence i/u) labelling identical everywhere: tiles (≈), detail chip and footnote, reveal, share card, VoiceOver.",
+    "Screen Time-dependent paths (wind-down, mornings) need a designed 'Needs Screen Time' state so about 50 leaves never look silently unreachable.",
+    "Sky palette: keep extra hues (dawn rose, violet haze) at very low opacity or drop them; base sky stays #05070D→#0B1426 with a moon-light key.",
+    "Pick one growth model and state it. Recommended: Sanctuary's tended-days structure (daily, monotonic) plus species clusters. Optionally add Ritual Clock's 155/155 moon-halo trophy.",
+    "Make sure the Liquid Glass tab bar is tinted dark enough not to be the brightest surface over the scene; test the Reduce Transparency fallback.",
+    "Reduce Motion: every screen still renders a complete static frame; reveal becomes a 0.6s crossfade; haptics kept."
+   ]
+  },
+  {
+   "scores": [
+    {
+     "proposal": "Proposal 1: Sanctuary",
+     "criteria": [
+      {
+       "criterion": "retention",
+       "score": 8.5,
+       "why": "A NowState resolver gives one time-aware hero number and one CTA per phase. A pending reveal overrides everything with an amber bud. Tree structure grows on every tended day, so there is a visible daily reward even when no leaf drops. Weaknesses: the leaf count ('23 of 155') never appears on the first screen, so the collection goal is only implied by the tree. Score and insights sit below the fold."
+      },
+      {
+       "criterion": "reward_loop",
+       "score": 9,
+       "why": "The most complete reward system. Seven ladders sum to 155 and are validated by RewardLadderTests. Uncharted is a meta-reward: one u-species for every 12 leaves pressed, which also quarantines placeholder drawings. Tier words come only from real percentages. A graft moment adds a 24h amber halo on the tree. The MemberShare enum and formatter edge rules are exhaustive and never round to 0% or 100%. Drawbacks: 22 evergreens can only be earned in winter, so about 14% of the catalogue is dead for roughly 9 months and a new user in October can't touch it. The 1,000-member threshold has no visible progress toward it."
+      },
+      {
+       "criterion": "first_run_clarity",
+       "score": 9,
+       "why": "The Seed stage shows a sprout with a neutral (not amber) bud and the line 'Your maple starts tonight'. The next-leaf row reads 'Sugar maple · Tonight', and the day CTA 'Start a 25-minute focus' earns Japanese maple the same day. A new user can get up to 4 leaves in 24h. The Herbarium empty state shows all 155 skeletons. Minor: the new-user caption is 11 words, which breaks its own 7-word rule."
+      },
+      {
+       "criterion": "scalability",
+       "score": 8.5,
+       "why": "The first screen is fixed at header, tree, number, next-leaf line and CTA. Score and week appear below the fold only once 3 days of data exist. Tools live in Rest and settings in Profile. New features have a clear home with no first-screen cost. The risk, which the proposal acknowledges, is that some users never scroll."
+      },
+      {
+       "criterion": "swiftui_feasibility",
+       "score": 8.5,
+       "why": "Concrete and testable. Deterministic TreeLayout uses SplitMix64. The three-layer ImageRenderer raster is rotated per frame, so sway is nearly free. Flutter is capped at 40 to 60 clusters, with a 4ms Instruments target. Taps go through the inverse sway transform. The reveal uses a KeyframeAnimator, and LeafShareProvider ships with an honest Unconfigured default. Concerns: up to about 1,400 leaf instances, rigid whole-layer rotation that may look stiff, and 22pt tap targets on dense 10–14pt clusters."
+      },
+      {
+       "criterion": "accessibility",
+       "score": 8.5,
+       "why": "Thorough. The stage is fixed at AX sizes, the numeral is scaled and capped, and the grid goes 3, then 2 columns, then a list. The tree is one VoiceOver element with custom actions. The hold-to-open reveal has an 'Open' button and an accessibility action. Reduce Motion, Reduce Transparency and Increase Contrast are all specified, and haptics are kept. Ding: tertiary #5A6680 on #05070D is about 3.4:1, yet it is used for 13pt dates."
+      }
+     ],
+     "total": 52,
+     "best_ideas_to_keep": [
+      "Two growth axes. Tended days drive branch structure, which is monotonic and never shrinks. Earned species drive leaf clusters. This is the most coherent answer to 'how does the tree grow when leaves are milestones'.",
+      "Home first screen at Level 0: zero cards, one hero numeral, one next-leaf line, at most one CTA. NowState.resolve as a pure, snapshot-tested resolver.",
+      "A pending-reveal amber bud on the tree overrides the CTA ('Reveal your leaf'), the only time amber touches a button. A newly grafted cluster's amber halo decays over 24h.",
+      "Morning has no CTA by design ('Phone-free mornings grow Mountain maple'). The screen doesn't invite phone use when the behaviour being rewarded is putting it down.",
+      "An Uncharted path (one u-confidence species for every 12 leaves pressed) quarantines placeholder drawings as an honestly labelled bonus tier.",
+      "rewards.json alongside species.json, with RewardLadderTests: each species exactly once, strictly increasing thresholds, the first rungs all confidence k.",
+      "The MemberShare enum (loading/value/stale/insufficient/unavailable/zero) and formatter edge rules ('Under 0.1%', never 0% or 100% for non-total values). Tier words derive only from real values. UnconfiguredLeafShareProvider returns .insufficient in production until a backend exists.",
+      "Performance plan: rasterise trunk, minor branches and clusters into layers when data changes, compose with per-layer phase-lagged rotation, pause off-screen, and drop to 15fps in Low Power Mode.",
+      "Early rungs alternate form and autumn colour, so the first leaves look different from each other.",
+      "The Herbarium empty state shows all 155 skeletons with no 'nothing here' illustration. The share card shows a percentage only in the value state.",
+      "The DEBUG Design System renders the tree at 6 stages × 4 seasons, all species and all MemberShare states."
+     ],
+     "weaknesses": [
+      "The collection count is missing from the Home first screen.",
+      "22 winter-only evergreens make about 14% of the catalogue unavailable for 9 months and create seasonal FOMO.",
+      "The 1,000-active-sharing-member threshold gives no sense of progress. At launch every leaf reads 'Too few members yet to say' indefinitely.",
+      "Hold-to-open (0.8s) adds friction at about 10–20 reveals in week 1, and there is no batch or 'reveal all' path.",
+      "Up to 1,400 leaf instances. Rigid layer rotation may read as stiff, and tapping individual 10–14pt clusters is unreliable.",
+      "Tertiary text colour #5A6680 fails 4.5:1 contrast for 13pt dates.",
+      "The autumn particle is a falling leaf 'copy'. Users can still read it as leaves being lost."
+     ]
+    },
+    {
+     "proposal": "Proposal 2: Maple: Ritual Clock",
+     "criteria": [
+      {
+       "criterion": "retention",
+       "score": 9,
+       "why": "The best daily-loop design. RitualClock phases come from the user's own schedule, not the wall clock, so there is a reason to open both morning and evening. The time-aware hero numeral sits next to a '23 of 155 leaves ›' caption, so both today and the collection are visible. Home reflects a running focus session ('Focusing 18:42'). At night the next-leaf row and below-fold content are hidden for sleep hygiene."
+      },
+      {
+       "criterion": "reward_loop",
+       "score": 8.5,
+       "why": "Strong collectible ideas. Next-rung skeletons fill with colour from the petiole as progress grows. The pressed colourway is the season the leaf was earned in, which makes a winter-earned leaf genuinely rare and frosted. '%' is reserved for member share and progress is always an amount. The 'Too early to tell · 312 of 500 counted' framing and a k-anonymity floor ('Very few members') are good. Steady weeks make evergreens non-consecutive and kind. Weaknesses: iconic species are locked behind calendar windows (Japanese maple only in the autumn-equinox fortnight; Red maple needs leaves in all four seasons, up to a year). Ladders run to 1,000 bedtimes. There is no batch-reveal story."
+      },
+      {
+       "criterion": "first_run_clarity",
+       "score": 8,
+       "why": "A sapling with a single bud is Sugar maple. The 'Tonight' chip replaces a 0-of-1 bar, the streak is hidden under 2, and the sapling caption is clear. The day state is inconsistent: with 0 focus, the subline says 'Brings Vine maple closer', a 10h leaf, rather than the 30-minute first focus rung. Only one path to a first leaf is foregrounded."
+      },
+      {
+       "criterion": "scalability",
+       "score": 7.5,
+       "why": "The Rituals tab cleanly absorbs Wind-down, Focus and Sounds. But below the fold Home already lists five sections (This week, Almost there, Score, Insight, Sleep sounds). 'Almost there' duplicates both the Next leaf tile and the Leaves tab rail, and Sleep sounds duplicates Rituals. Home is drifting toward a feed."
+      },
+      {
+       "criterion": "swiftui_feasibility",
+       "score": 8,
+       "why": "Plausible plan. Per-branch-group drawLayer transforms, resolved symbols, LOD paths, a raster fallback and an FNV-hash port to match the reference SVGs exactly. A pacing simulation test is specified. Concerns: vector-drawing about 465 serrated leaves per frame at 30fps before falling back, the sky backdrop pinned in a ZStack while the tree scrolls (parallax mismatch), and reveal sequencing via Task.sleep instead of keyframes."
+      },
+      {
+       "criterion": "accessibility",
+       "score": 9,
+       "why": "A custom rotor (Earned / Almost there), and the Almost there rail becomes a vertical stack at AX sizes. Tap (not hold) opens the reveal, followed by an announcement. Explicit contrast ratios, tertiary never used for required text, and Reduce Motion, Reduce Transparency and Increase Contrast handled. The tree is one element with value and custom actions."
+      }
+     ],
+     "total": 50,
+     "best_ideas_to_keep": [
+      "The RitualClock phase is computed from the user's schedule (wake/wind-down/bed), with a weekday/weekend split and time-zone awareness noted in its risks.",
+      "A '23 of 155 leaves ›' caption under the tree keeps the collection goal on the first screen without a card.",
+      "Home reflects a running focus session (eyebrow 'Focusing', countdown numeral, secondary 'End session').",
+      "Locked next-rung leaves are skeletons that fill with their pressed colour from the petiole upward in proportion to progress, a beautiful progress visual for the tile, the carousel and the reveal.",
+      "The pressed colourway is the season the leaf was earned in, so winter-earned leaves are the rare frosted ones (the spec's 'rare frosted winter' delivered without FOMO).",
+      "'%' is reserved for member share. Personal progress is always an amount ('2h 20m to go'), and personal pace estimates always say 'about'.",
+      "Member share: 'Too early to tell · 312 of 500 counted' turns the empty state into a shared goal. A k-anonymity floor ('Very few members' when owners < 10). A 'hidden' state for remote kill.",
+      "Steady weeks (weeks with 5 or more on-time nights) for the evergreen path: progress without consecutive-streak punishment.",
+      "Paths that need Screen Time show 'Needs Screen Time · Turn on ›' instead of a dead progress bar.",
+      "Herbarium sections collapse to earned + next 3 + 'Show 29 more', which makes 155 browsable.",
+      "The leaf instance formula clamp(240 / n, 3, 24) keeps the tree full from leaf 1 and bounded at 155.",
+      "A pacing simulation test (365 days, typical and light users) asserting bands and reachability.",
+      "The night tree goes static after 60s of no interaction (battery).",
+      "A season tint deliberately about 20° of hue away from amber, with the autumnGold leaf token removed."
+     ],
+     "weaknesses": [
+      "Iconic early species (Japanese maple, Red maple, Fullmoon) are locked in calendar windows or year-long conditions, so a new user can't get the most recognisable leaves early.",
+      "Below the fold is crowded and redundant (Almost there ×2 across Home and Leaves, Sleep sounds duplicates Rituals).",
+      "First-run day copy points at a far rung (Vine maple, 10h) instead of the first focus leaf.",
+      "Tree structure grows only with the leaf count, so weeks without a new leaf show no growth.",
+      "The autumn 'leaf detaches and reappears' particle risks reading as leaf loss.",
+      "Ladders up to 1,000 bedtimes and focus hours feel unreachable, and there is no batch-reveal handling for heavy unlock days.",
+      "Heavier per-frame vector rendering than P1's raster plan."
+     ]
+    },
+    {
+     "proposal": "Proposal 3: Moonlit Grove (Grove + Stats)",
+     "criteria": [
+      {
+       "criterion": "retention",
+       "score": 7.5,
+       "why": "The leaf ledger, three sub-stats and Moment row give an action and progress, and 'Tonight counts' tagging in the evening is a sharp motivator. But the hero numeral is the leaf count, which rarely changes, not a time-aware number. Today's state is demoted to a 15pt context row. The tree gets only 264pt."
+      },
+      {
+       "criterion": "reward_loop",
+       "score": 7,
+       "why": "Good pieces: 'Reveal all' queues, overnight leaves never revealed at night, an opt-in prompt after the first reveal, and a precise rule definition line. But: one leaf per species makes the tree barren for the first weeks (1–10 leaves on a crown). There are 19 calendar-window leaves (heavy FOMO). The Evergreen path is 24 rungs of best-streak up to 365 nights, punitive in effect, and it forces the 2 u-placeholder evergreens into milestone tiers, which contradicts its own risk note (species.json: evergreens are 8 k, 14 i, 2 u). Amber is used for the next-leaf progress bars, which dilutes 'amber = earned'. Whole-number rounding loses detail below 1%."
+      },
+      {
+       "criterion": "first_run_clarity",
+       "score": 8.5,
+       "why": "A 'Two ways to start' tile (Sugar maple tonight, Japanese maple via one 25-minute focus) is the clearest onboarding of the three. Sub-stats are hidden instead of showing zeros or dashes. The sapling and caption are clear, and the ledger fades in after the first reveal."
+      },
+      {
+       "criterion": "scalability",
+       "score": 6.5,
+       "why": "The first screen already has about 7 numbers (37/155, 7h 12m, 3h 40m, 12, 1h 20m, 23:00, 4 of 7). The Opal 'one, then three' slot is spent on leaves and streak, which pushes the planned wellbeing score off Home into Insights. Morning check-in, sounds and the score have nowhere to go without crowding."
+      },
+      {
+       "criterion": "swiftui_feasibility",
+       "score": 8.5,
+       "why": "The cheapest render: at most 155 leaves, Canvas symbols resolved per species, hierarchical per-segment sway (the most natural motion), rendersAsynchronously, and pausing via onScrollVisibilityChange. Straightforward Herbarium (searchable, pinned headers, sheet detail). It is feasible mainly because it draws so little, which is the product's weakness."
+      },
+      {
+       "criterion": "accessibility",
+       "score": 8,
+       "why": "ViewThatFits collapses the stat row at AX sizes, there are heading traits, a 2-column then list grid, combined elements and contrast checks. Dings: the long-press full-screen Tree view has no stated accessible alternative, 'TAP TO UNFURL' uses tracked caps, and the detail as a sheet loses the zoom context."
+      }
+     ],
+     "total": 46,
+     "best_ideas_to_keep": [
+      "Samaras (maple seeds) instead of falling leaves for the autumn particle, so nothing ever reads as losing a collected leaf.",
+      "A 'Tonight counts' tag on the next-leaf row in the evening ties tonight's behaviour to a specific reward.",
+      "A 'Two ways to start' first-run tile: Sugar maple (keep tonight's bedtime) and Japanese maple (one 25-minute focus).",
+      "Overnight unlocks are never revealed at night; they queue for the morning. 'Reveal all' plus 'n more waiting' handle heavy unlock days.",
+      "The opt-in contribution prompt is asked once, right after the first reveal, when the value is obvious. The payload is an anonymous earned-species bitset only.",
+      "Every rule shows a precise definition line ('On time = asleep within 20 min of 23:00') so unlocks never feel arbitrary.",
+      "A full-screen 'Tree view' where each specimen is tappable, solving tiny on-tree hit targets.",
+      "A shared presentation grammar for every large leaf (rotated −8°, own-colour bloom, contact-shadow ellipse) across grid, detail, reveal and share card.",
+      "A vitality floor of 0.4 with explicit mappings to bloom, sway, motes and saturation, so 'quiet' is bounded and never dead.",
+      "Hide sub-stats instead of showing 0 or '—' for new users. Copy such as 'Quiet night. Every leaf is still here.'"
+     ],
+     "weaknesses": [
+      "One leaf per species makes the early tree barren and the collection hard to read on the tree.",
+      "19 calendar-window species and a 24-rung best-streak Evergreen path (up to 365) create FOMO and punishing pacing.",
+      "The first screen is number-dense and spends the Opal score slot on leaves, leaving no room for the wellbeing score.",
+      "Amber on next-leaf progress bars breaks the 'amber = earned' rule.",
+      "The tree stage (264pt) is the smallest hero of the three, against the critique's 55–60% target.",
+      "Rarity is rounded to whole numbers, and the 7-day minimum before showing rarity adds another opaque gate."
+     ]
+    }
+   ],
+   "winner": "Proposal 1: Sanctuary",
+   "rationale": "Through a product and feasibility lens, Sanctuary is the strongest base. It has the most coherent growth model: tended days grow the branches and earned species grow the leaf clusters. Under that model, milestone-paced leaves and daily habits each have a visible job. The first screen is the calmest and the most likely to scale: a header, the tree, one time-aware number, one next-leaf line and at most one CTA. It also has the most rigorous reward and member-share engineering: ladders with unit tests, an Uncharted path that quarantines placeholder species, an exhaustive MemberShare formatter, and an honest Unconfigured provider by default. Its rendering plan is concrete and performance-aware (layered raster sway plus Instruments targets).\n\nRitual Clock is a close second. It wins on daily-loop mechanics (phases from the user's schedule, the count caption, a running session shown on Home) and on collectible charm (skeletons that fill as progress grows, the colourway of the season a leaf was pressed in, '%' reserved for share, '312 of 500 counted'). But Home's below-fold area is getting crowded, and iconic species sit behind calendar windows.\n\nMoonlit Grove has the best first-run tile and some sharp details: samaras instead of falling leaves, never revealing at night, and 'Tonight counts'. Its product core is weaker, though. One leaf per species leaves the early tree barren. 19 seasonal leaves and a 365-night streak ladder push toward FOMO and grind. Its number-dense ledger takes the slot meant for the wellbeing score.\n\nI checked the catalogue at MapleKit/Sources/MapleCore/Resources/species.json:\n- 155 species: 89 k, 55 i, 11 u.\n- 24 evergreens: 8 k, 14 i, 2 u.\n- Region and autumn counts match the proposals' figures.\n- All named early-rung species exist with confidence k.\n\nAll three proposals share three unsolved feasibility gaps:\n1. About 48–50 leaves depend on Screen Time / Family Controls.\n2. No member-share backend has been chosen, and the feature conflicts with the 'never leaves your iPhone' privacy stance.\n3. Reveal fatigue at roughly 10–20 unlocks in week 1.",
+   "must_fix_in_synthesis": [
+    "Put the collection on Home's first screen without adding a second hero. Use P2's '23 of 155 leaves ›' caption under the tree, alongside P1's single time-aware hero numeral.",
+    "Tree density: don't use one leaf per species (P3). Use P2's clamp(240/n, 3, 24) instances or P1's 3+stage clusters, with a hard total cap of about 400–500 instances. Rasterise the layers so the tree looks full from leaf 1 and stays performant at 155.",
+    "Adopt P1's two-axis growth: tended days give monotonic structure, species give leaves. State it in copy and in the accessibility label so users understand why the tree grew without a new leaf.",
+    "Cap time-limited leaves at about 6–8 recurring windows. Never gate iconic first-rung species (Japanese, Red, Sugar, Fullmoon) behind calendar windows. Make the evergreen path earnable year-round, preferably with P2's steady weeks. Do not use P1's 22 winter-only leaves or P3's 365-night streak ladder.",
+    "Keep all u-confidence species in P1's Uncharted bonus path, out of the milestone ladders, and label them approximate everywhere, including share cards.",
+    "Screen Time dependency: about 48–50 leaves (wind-down, mornings) need Family Controls, a paid program and an on-device-only API. Define a manual fallback (for example a 'Goodnight / phone down' confirmation) or a 'Needs Screen Time' state. Exclude unavailable paths from next-leaf selection, Almost-there rails and pacing targets.",
+    "Member share: choose one threshold (about 500 sharing members) and show progress toward it ('312 of 500 counted'). Add a k-anonymity floor for small owner counts. Use P1's formatter rules (never 0% or 100% for non-total values; 'Under 0.1%'). Ship UnconfiguredLeafShareProvider in production and keep mocks in DEBUG only.",
+    "Pick a concrete aggregation backend: a tiny endpoint with a daily aggregate plus App Attest, rather than CloudKit public counters with write contention. Upload an anonymous earned-species bitset only, as opt-in, prompted after the first reveal. Update the 'never leaves your iPhone' copy, Privacy settings and the nutrition label.",
+    "Reveal fatigue: support a queue with '1 of n', a 'Reveal all' path, and a shorter ritual after the first few. Default to tap to open; a 0.8s hold should be optional. Never reveal at night; queue overnight unlocks for the morning (P3).",
+    "Amber discipline: progress bars and fills use the season tint, never amber (fixes P3). Keep amber for streak, waiting bud, new-leaf halo or dot, and earned-share chip only. Verify the autumn tint against gold #D1A020 and amber #E8A35C on device and under colour-blind simulators.",
+    "Contrast: don't use #5A6680 tertiary for any required text (about 3.4:1). Use it for decorative strokes only, as P2 does.",
+    "Autumn particles should be samaras (P3), not 'falling copies' of leaves, so nothing ever reads as losing a collected leaf.",
+    "Next-leaf selection and copy must point at a genuinely reachable rung (the first focus leaf for a new user, not a 10h leaf). Prefer 'Tonight counts' leaves in the evening. Exclude out-of-season and unavailable paths.",
+    "Unify rule definitions across paths (grace window for an on-time bedtime: 15 vs 20 min). Show a one-line definition in leaf detail so unlocks never feel arbitrary.",
+    "Keep below-fold Home scoped to score with its transparent breakdown and one week insight, each gated on real data. Drop the duplicated Almost-there and Sleep-sounds rows that already live in Herbarium and Rest.",
+    "Tree interaction: 10–14pt clusters are too small to tap reliably. Route tree taps to the Herbarium filtered to 'On your tree', or to P3's full-screen Tree view, with an accessible alternative. Per-leaf VoiceOver access goes through the Herbarium.",
+    "Add P2's 365-day pacing simulation for typical, light and no-Screen-Time users alongside P1's RewardLadderTests, and keep the ladders as retunable data with permanent unlocks.",
+    "Profile the tree on device early: target under 4ms per frame, a 30fps cap, 15fps or a static frame in Low Power Mode, pause off-screen and at night after inactivity, and a Reduce Motion still frame. Ship nothing on Home until the procedural tree beats a still render (fallback: hand-authored skeletons per stage)."
+   ]
+  }
+ ],
+ "proposals": [
+  "Sanctuary",
+  "Maple: Ritual Clock",
+  "Moonlit Grove (Grove + Stats)"
+ ],
+ "rewardsVerdict": {
+  "overall": "Coverage passes. I checked it against species.json: all 155 ids are used exactly once, there are no unknown ids, every ladder length matches its assignment count, and no two leaves share a rung. All 24 evergreens are placed, and the per-milestone counts are right (71 / 101 / 131 / 143 / 150 / 155).\n\nI simulated pacing day by day: 200 runs for each profile, with calendar weeks and northern-hemisphere seasons from a 10 Oct 2026 start. With every feature shipped, the plan's own committed profile gets about 4 leaves by the first morning, 10 in week one, 26 in month one, 81 by month six and 117 by year one. That matches the draft's claims, with month one slightly over target. Three things don't hold up:\n\n- **Completion:** the median is day 681, about 22 months, not 580–630 days. And 31% of committed users never finish within 1,000 days, because the 60-night bedtime run is luck-dependent.\n- **Launch pacing:** at the real M1 launch (sleep only), a committed user gets just 6 leaves in week one and 13 in month one, against a target of 20–25. A casual user gets 9.\n- **Heavy focusers:** someone focusing 4 h/day, 5 days a week, clears all 12 focus-hours leaves in about 112 days.\n\nThe biggest structural risks:\n1. Every sleep leaf (70 of the 71 M1 leaves) depends on HealthKit 'asleep' samples. An iPhone without a Watch or third-party tracker doesn't produce them, so those users can't earn them.\n2. Unverified M2 focus timers and Screen Time app selections, which you set yourself, let about 53 leaves be farmed.\n3. The rarity design is neither private (App Attest links reports over time, and the 155 bits are correlated and re-noised every week) nor accurate (about ±2.3 pp at 1,000 reports, so leaves nobody owns can show '2%').\n4. The top rungs of the bedtime-run ladder bring back streak anxiety, and their best-ever progress bars mislead.\n\nSmaller issues: copy that doesn't match the metrics, placeholder ('u') leaves crowning 10 categories, tier names that clash with measured %, a morning reveal that works against phone-free mornings, and several internal inconsistencies.",
+  "problems": [
+   {
+    "area": "measurability",
+    "severity": "high",
+    "problem": "All 7 sleep categories need HealthKit 'asleep' samples (≥3 h, onset from the first 20-min asleep block, final wake): nights_tracked, on_time_bedtimes, bedtime_run, steady_weeks, seasons_in_rhythm, steady_mornings and full_nights. That is 70 of the 71 M1 leaves and 45% of the whole collection. Maple is iPhone-only, its Watch app is M8, and user-entered samples are ignored. On current iOS an iPhone alone writes only 'In Bed' samples (from Apple's Sleep schedule), never asleep stages. Even with a Watch, sleep is recorded only when Apple's own Sleep Focus or schedule is on, and that is separate from Maple's schedule. A user with no Watch gets Sugar maple at setup and then nothing at M1; the day-one hook (Red and Japanese maple) never fires. 41 leaves hang on the single 'on-time onset' signal.",
+    "fix": "Define a source ladder in MapleCore. (1) Asleep samples from Watch or trusted trackers. (2) Otherwise, iPhone 'In Bed' samples, using in-bed start as the onset proxy and in-bed end as the wake time. Label these 'estimated from iPhone'; they count for nights tracked, bedtimes and mornings, but full nights stay off unless asleep data exists. Onboarding detects which sources exist and walks the user through turning on Apple's Sleep schedule / 'Track Time in Bed with iPhone'. Leaves that truly need a Watch get a clear 'Needs Apple Watch or a sleep tracker' state instead of 0 progress. Tree stage, trunk and the rarity denominator must not penalise users who don't have that hardware."
+   },
+   {
+    "area": "gaming",
+    "severity": "high",
+    "problem": "Focus can be farmed with an idle timer. M2 has no blocking or presence check, and a session counts whether it was completed or ended early. Leaving a 4 h timer running daily unlocks the legendary A. pentaphyllum (320 h) in about 80 days, and a daily idle 20-min session farms all 11 focus-days leaves. Sessions are timed with wall-clock Date, so moving the device clock forward mid-session credits hours instantly. A legitimate heavy user (4 h/day, 5 days a week) finishes the 12-rung hours ladder in about 112 days against an 18–24-month design. In practice the 4 h/day cap becomes a target, which rewards near-daily 4 h focus with no rest days.",
+    "fix": "Time sessions with a monotonic clock (ContinuousClock or systemUptime). Before M3, credit only sessions with a chosen planned length of 90 min or less, ended by a confirm tap from a Live Activity or notification within 10 min of the planned end; unconfirmed sessions credit 25 min at most. From M3, unblocked sessions count at 50%. Replace the daily cap with a weekly one (for example 10 h/week, so rest days cost nothing). Move the upper rungs (130–320 h) to a 'focus weeks' ladder (weeks with ≥3 focus days of ≥25 min), so the fastest possible pace is one rung a week and the top stays about 15 months or more away."
+   },
+   {
+    "area": "percent-stat",
+    "severity": "high",
+    "problem": "The privacy claims don't hold. (1) To verify App Attest assertions, the server must store each device's keyId, public key and counter. That is a per-device row, and it links every weekly report from the same install, which contradicts 'never stores a row per member'. (2) The 155 bits are fully correlated: ladders are monotone prefixes. With 10% flips, a 10–15-bit ladder still reveals the user's ladder position almost exactly, for example 'on-time bedtimes 210–259' or 'full nights ≥290'. Total ε per report is about 155 × ln 9 ≈ 340, not 2.2. (3) The same bits are re-noised every week without memoisation, so linked reports average the noise away. (4) These are coarse health-derived values, so 'health data never leaves the device' is misleading. Default-on conflicts with guideline 5.1.3(i) (sharing only with permission), with GDPR Art. 9 explicit consent, and with the project's own 'health-derived data stays local' decision. 'Usage Data' understates the privacy label.",
+    "fix": "Take App Attest off the report path. A separate token issuer checks App Attest/DeviceCheck once per period and issues an unlinkable blind-signed token (Privacy Pass, RFC 9474/9578), which is redeemed with the report over OHTTP. Then do one of two things. Preferred: aggregate with DAP/Prio (for example ISRG Divvi Up, Prio3 SumVec), so no single server ever sees a vector and counts are exact. Or, if you stay with local DP: each period, report one randomly sampled category's ladder level with k-ary randomized response, memoised per (category, level), as in RAPPOR's permanent RR. Make it strictly opt-in, with explicit consent in onboarding. Declare it as Health & Fitness, not linked to identity, and keep a short DPIA."
+   },
+   {
+    "area": "percent-stat",
+    "severity": "high",
+    "problem": "Accuracy at the 1,000-report gate breaks 'never show a fabricated number'. With f = 0.1 and n = 1,000, a leaf with true share 0 has an estimate SD of about 1.2 pp (95% interval ±2.3 pp). Whole percents are shown when the estimate is ≥2% with no interval check. About 4.6% of zero-owned leaves will cross that line each week, so about 3 of the roughly 60 rare or legendary leaves would show '2%' or '3%' when nobody can own them yet (no one can reach 540 nights in the first 18 months). Honest bounds also need far more data than the rules imply: 'Under 1%' needs about 5,400 reports, 'Under 0.5%' about 21,600, and 'Under 0.1%' about 540,000. The always-on 'Under 0.1%' clamp is therefore fake precision. Values also jitter by 1–2 pp week to week.",
+    "fix": "Gate every displayed number on its interval: show a percent only when the lower bound is above 0 and the half-width is no more than 25% of the estimate; otherwise show the tightest bound the data supports ('Under 3%' at about 1k reports). Add structural zeros: no member can have a rung whose threshold exceeds the days since that category shipped, so show 'No one yet' or the bound for those. Apply isotonic regression down each ladder, so rung k is never shown as more common than rung k−1. Pool 4 weeks, and only publish changes larger than the interval. Raise the gate to about 5k reports, or use DAP, whose exact counts make 1k fine."
+   },
+   {
+    "area": "gaming",
+    "severity": "high",
+    "problem": "The 30 Screen Time leaves (scroll-free 12, phone-free 10, shield 8) count against an app selection the user chooses, and the only rule is that it must be non-empty. Picking one never-used app makes every wind-down scroll-free and every shield night 'kept'. That is 19% of the collection unlocked by a one-time trick, and it also inflates the rarity stats.",
+    "fix": "Require a meaningful selection: at least one category token (FamilyActivitySelection exposes token counts) or at least 3 app tokens, with Social and Entertainment pre-selected by default. Show a 'This selection counts for leaves' check. Changes to the selection apply after 7 days, not just from the next window. Exclude nights where the shield's own selection was edited that day. Accept the remaining risk, but count these categories only for members whose selection meets the rule when computing rarity."
+   },
+   {
+    "area": "wellbeing",
+    "severity": "high",
+    "problem": "The bedtime-run top rungs are luck-driven streaks that bring back 'don't break it' anxiety. Results from the simulation:\n- Committed profile (86% of tracked nights on time): 31% never reach the 60-run (legendary) and 12% never reach 50 within 1,000 days.\n- At 80% of tracked nights on time: 87% never get 60, 72% never 50, 37% never 40.\n- With realistic weekend clustering (Friday and Saturday 50% late, weekdays 10%): only 30% ever reach 40, 10% reach 50 and 3% reach 60.\nThree evergreens, paihengii, wangchii and chiangdaoense, are locked behind this. The progress bar uses the best-ever run, so after a break the home screen says 'Manchurian maple, 13 of 14 nights in a row' when the user needs 12 more. Next-leaf ranking then wrongly treats it as the closest leaf. A night with onset more than 2 h before bedtime (illness, exhaustion) counts as 'late' and can end a run.",
+    "fix": "Cap bedtime_run at 30 nights. Move paihengii, wangchii and chiangdaoense to cumulative consistency rungs (extend steady_weeks, or add a 'steady fortnights' ladder). Show the live run as the progress bar, with best-ever as a quiet marker ('best: 13'), and rank next leaf by threshold minus the live run. Treat early onset (more than 2 h before bedtime) as neutral, or as on time. Unlock text: 'Keep a 7-night bedtime run (one slip a week is fine)'."
+   },
+   {
+    "area": "wellbeing",
+    "severity": "medium",
+    "problem": "Phone-free mornings are measured from scheduled wake, not actual wake. Sleeping in through the 30-min window earns the leaf, which rewards oversleeping, and someone who wakes early and scrolls, then stops at scheduled wake, also earns it. Separately, the morning check-in, where every overnight leaf is revealed, pulls users to the phone the moment they wake, which works against the phone-free first 30 minutes and against steady wake habits.",
+    "fix": "Count a phone-free morning only if HealthKit's final wake falls between target wake − 30 min and target wake + 15 min. Otherwise the morning is neutral and counts nothing. Open the reveal only after wake + 30 min (or once the morning window ends). Send no morning notification; a lock-screen widget can quietly say '1 leaf is waiting'. Don't let Maple itself be exempt from the morning selection."
+   },
+   {
+    "area": "measurability",
+    "severity": "medium",
+    "problem": "Sound nights doesn't measure what its copy says. The metric only needs 15 min of playback starting between wind-down and bedtime + 3 h. It doesn't check sleep, and audio plays in the background while the user scrolls other apps. The +3 h window rewards being up and active long after bedtime. 'Fall asleep to Maple sounds' is therefore inaccurate, and the category is really an in-app feature-usage reward, which contradicts 'no leaf for time spent in Maple'.",
+    "fix": "Narrow the window to wind-down start through bedtime + 30 min (the on-time grace), and require the same night to be on time (or scroll-free once M3 ships). Reword to 'Wind down with a Maple sound on N nights'. Alternatively, fold sound nights into wind_down_rituals as one ritual type and re-home its 7 species."
+   },
+   {
+    "area": "pacing",
+    "severity": "medium",
+    "problem": "At the real M1 launch only the 71 sleep leaves exist. Simulated committed users get 3 leaves by the first morning, 6 in week one, 13 in month one, 38 at month six and 54 at year one. Casual users get 9 in month one. That misses the 20–25 month-one target by about half, at exactly the moment first impressions form. With all features, the full collection takes a median of 681 days (about 22 months, not 20–21), and 31% of committed users never finish because of the 60-run.",
+    "fix": "Densify the early M1 rungs before launch: on-time [1,3,5,7,10,14,21,…], nights tracked [1,3,7,14,21,30,…], steady mornings [3,7,14,25,…], full nights [3,7,14,…]. Raise the M1 tops slightly to keep the 18–24-month span. Re-run this simulation as a unit test on LeafEngine, with M1-only, all-features and casual profiles, and assert the targets."
+   },
+   {
+    "area": "measurability",
+    "severity": "medium",
+    "problem": "Day one fails for evening installs, the most common install time for a sleep app. Two rules collide: the on-time target is 'the schedule in force at 18:00', and counting starts 'the first night after setup'. Someone who installs at 22:00 has no schedule in force at 18:00, so the next morning can't award Japanese maple. Tonight's night may not count at all, so Red maple doesn't arrive either.",
+    "fix": "The first schedule ever saved applies immediately if it's saved at least 30 min before its target bedtime. Tonight counts if setup finishes before sleep onset. Only later edits use the 18:00 cut-off."
+   },
+   {
+    "area": "measurability",
+    "severity": "medium",
+    "problem": "'Each night is evaluated once, after the morning', but Watch sleep data often reaches the iPhone hours later, so a late sync loses the night with no way to recover it. LeafEngine is a pure function of HealthKit, and SleepNightSummary is local-only, so on a new iPhone (Health still syncing), after a Health data deletion or after HealthKit access is revoked, the recomputed counters drop. That makes visible progress go down.",
+    "fix": "Evaluate provisionally in the morning and re-evaluate any night for 72 h when new samples arrive; results can only upgrade. Keep per-category high-water marks in the local store and show max(recomputed, high-water). An earned unlock is never revoked."
+   },
+   {
+    "area": "other",
+    "severity": "medium",
+    "problem": "Unlock records sync through the CloudKit synced store, keyed by species id with date and season. Species ids map 1:1 to health thresholds (for example amamiense means 470 on-time sleep nights), so this puts health-derived personal information in iCloud. That contradicts the project's own decision to keep health-derived data local under guideline 5.1.3(ii).",
+    "fix": "Store unlocks from HealthKit categories in the localHealth store and re-derive them per device from HealthKit (which Apple syncs end-to-end encrypted), backed by device backup. Sync only unlocks from non-health categories (focus, rituals, challenges). Document the choice in docs/decisions.md."
+   },
+   {
+    "area": "species-fit",
+    "severity": "medium",
+    "problem": "The top rewards are mostly approximate. 10 of the 18 category tops are 'u' placeholder leaves and 2 more are 'i', so after about 20 months the user gets a leaf labelled 'Approximate'. Five legendaries (zarei, iranicum, mazandaranicum, undulatum, cinerascentiforme) share identical Monspessulana traits (palmate, 3 lobes, depth 0.30–0.35, smooth margin, gold). Their SVGs differ only by hash jitter, so they are visually near-clones of each other and of Montpellier maple, a common-tier leaf. phone_free_mornings even ends with two of them in a row.",
+    "fix": "Put striking, documented (k) species at the tops. For example, swap mapienense with maximowiczii (scroll-free 210), zarei with nipponicum (mornings 140) and mazandaranicum with skutchii or leucoderme, and spread the Monspessulana placeholders across mid-rare rungs in different categories. Have the generator give 'u' leaves a distinct pressed-specimen treatment (sketched outline, herbarium tag), so sameness reads as intentional."
+   },
+   {
+    "area": "clarity",
+    "severity": "medium",
+    "problem": "The next leaf and the tree's bud can visibly lose progress. Next leaf is re-picked continuously by fewest estimated days. After a focus session or a new week, it can jump from a leaf at 90% to one at 20%, so the bud on the tree shrinks. The 14-day rate is undefined for new users and for week- and season-based categories (seasons progress in zero-then-jump steps), which makes the estimate infinite or wrong.",
+    "fix": "Make the target sticky: it changes only on unlock or when the user pins a leaf (say yes to pinning, as Opal does). Before 14 days of data, use the committed-profile rates as a prior. Give each category its own estimator (weeks: weekly rate; seasons: steady weeks this season against the 8 needed and the weeks left; runs: threshold minus live run). Optionally show up to 3 small buds rather than one moving bud."
+   },
+   {
+    "area": "percent-stat",
+    "severity": "medium",
+    "problem": "The DeviceCheck rule (bit 0 = parity of the last reported week) can't enforce one report per week. A device that skips a week has the same parity as the current week and is wrongly rejected. Apple's last_update_time is only month-granular, so 2 bits can't encode ISO weeks. Separately, the denominator definitions conflict: 'active in the last 28 days' vs 'reports received this ISO week'. Weekly BGAppRefreshTask delivery is unreliable, so the sample over-represents engaged users and inflates ownership percentages.",
+    "fix": "Move rate limiting to the token issuer (one token per attested key per period), or report monthly and use DeviceCheck's month-granular last_update_time. Define one denominator: reports received in the period. Publish it with the figure, and add a one-line caveat on the detail view ('of members who shared this month')."
+   },
+   {
+    "area": "clarity",
+    "severity": "low",
+    "problem": "The tier names clash with the measured percentage. Tiers are effort labels, but they're named like rarity, so the UI will show 'Common · 12% of members' or 'Rare · 41%'. Four hand-set tiers also disagree with the plan's own day-based rule in simulation: triflorum (median day 9 → common), lobelii (day 178 → uncommon), pycnanthum (day 8 → first-steps) and cappadocicum (day 22 → common). Saccharum is the single, so top, rung of first_steps, which makes it 'legendary' under the stated rule.",
+    "fix": "Rename the tiers as effort or journey labels (for example First steps / Early / Seasoned / Devoted / Lifetime) and keep the measured % as the only rarity. Derive tiers automatically from the pacing simulation, and exempt one-rung categories from the 'top rung is legendary' rule."
+   },
+   {
+    "area": "clarity",
+    "severity": "low",
+    "problem": "Several unlock texts don't match their metrics:\n- 'Finish your first focus session' requires a session of 20 min or more.\n- 'Fall asleep to Maple sounds' (see the sound-nights item).\n- '…nights in a row' hides the forgiving rule.\n- 'Stay steady for a whole season' doesn't say it means 8 steady weeks within Dec–Feb or a similar season, or that it only counts when the season closes.\n- 'Have 1 steady week' is vague.\n- 'Keep the first 30 minutes phone-free' omits that it covers your chosen apps, allows under 2 min, and starts at wake time.\n- 'Wind down without scrolling' omits the 5-minute threshold on the chosen apps.\n- 'Rarity appears once 1,000 members check in' collides with the morning check-in wording.",
+    "fix": "Proposed wording:\n- 'Focus for 20 minutes in one session'\n- 'Fall asleep on time 5 nights in one week'\n- 'Have 8 steady weeks in one season (counts when the season ends)'\n- 'Stay off your morning apps for the first 30 minutes after waking, N mornings'\n- 'Stay under 5 minutes on your wind-down apps, N nights'\n- 'Rarity appears once 1,000 members share stats'\nAlso put the precise rule on the detail view."
+   },
+   {
+    "area": "wellbeing",
+    "severity": "low",
+    "problem": "Some smaller wellbeing gaps:\n- Focus minutes during the wind-down window count; only the sleep window is excluded. That rewards working right up to bedtime.\n- Full nights total all asleep time in an 18:00–18:00 window, so a 5 h night plus a 2 h nap counts as 'full'.\n- Untracked nights pause a run for up to 3 in a row. That invites taking the Watch off on nights you'll be late, and it breaks the run on a 4-night trip without a charger.\n- Untracked nights also make the tree dim.",
+    "fix": "Exclude the whole wind-down window from focus credit. Use only the main sleep episode for duration and onset. Allow one 'pause' per 7 nights shared between late and untracked nights, with unlimited neutral pauses beyond that (no break, no credit). Treat untracked nights as neutral, not low, for vitality."
+   },
+   {
+    "area": "measurability",
+    "severity": "low",
+    "problem": "Per-weekday schedules mean 7 wind-down windows, 7 morning windows and 7 shield windows, which is 21 or more DeviceActivity activities. That exceeds DeviceActivityCenter's cap (about 20; startMonitoring throws .excessiveActivities). DeviceActivityMonitor callbacks (intervalDidEnd, thresholds) are also known to be occasionally missed or fired early, so honest users will sometimes lose nights.",
+    "fix": "Use one rolling activity per window type, re-armed for the next day in intervalDidEnd (or weekday/weekend pairs). Treat a missing start or end callback as 'not monitored' (neutral), and track the miss rate in device QA."
+   },
+   {
+    "area": "gaming",
+    "severity": "low",
+    "problem": "Ignoring HKMetadataKeyWasUserEntered doesn't stop fake sleep. Third-party apps (and some manual-entry tracker apps) write asleep samples without that key, so anyone can write a perfect 23:00–07:00 night. Mood check-ins (7 leaves) also reward a one-tap daily app open, which contradicts 'no leaf for app opens'.",
+    "fix": "Weight sources: Apple Watch and known hardware trackers (via HKDevice/HKSource) count fully; other sources count but are excluded from rarity reporting. Change mood_checkins to 'reflection weeks' (weeks with ≥3 check-ins), so it doesn't build a daily tap habit."
+   },
+   {
+    "area": "other",
+    "severity": "low",
+    "problem": "The tree caps users through no fault of their own. Grand maple needs all 155 leaves, including 5 opt-in community-challenge leaves and 30 Screen Time leaves (paid entitlement plus user permission). Trunk girth comes from nights tracked, so users without a Watch keep a thin trunk forever. Drawing 155 clusters × 3–5 generated leaf paths (up to about 775 paths of about 100 points each) with continuous sway in Canvas is heavy on battery at bedtime.",
+    "fix": "Set stages by the share of leaves earnable for that user (categories they have enabled or can access), with Grand maple at all earnable or at least 120. Base trunk girth on active weeks in any category. Pre-render each species per season to a cached image, draw those, pause sway in Low Power Mode, and keep 60 fps animation off during wind-down."
+   },
+   {
+    "area": "species-fit",
+    "severity": "low",
+    "problem": "The draft contradicts itself in places:\n- 'The 11 u placeholders are the legendary tops of 11 categories': phone_free_mornings holds two (undulatum at 220 and mazandaranicum at 260), so it's 10.\n- 'All 24 evergreens sit on long-run consistency ladders': shenzhenensis is on community challenges.\n- 'Famous species on the first rungs… Norway, trident, paperbark': these need M2/M3. Paperbark, the hero leaf, also needs the Family Controls distribution entitlement, which isn't approved yet.",
+    "fix": "Correct the summary text. Move shenzhenensis to a consistency ladder, and put a documented, multi-region species on the community-challenge top. Write down a fallback home for the M3 leaves (especially griseum) in case the entitlement is denied or delayed."
+   },
+   {
+    "area": "other",
+    "severity": "low",
+    "problem": "There are no versioning rules for the static rewards table. Re-tuning after launch (for example densifying M1 rungs or moving the bedtime-run evergreens) could raise a threshold above a user's progress, or move a species they're partway toward. Both make progress go down.",
+    "fix": "Version the rewards table and enforce in tests: after shipping, thresholds can only go down, a species can move only while nobody can have progress toward it (an unshipped category), and new species become new top rungs. LeafEngine keeps an unlock from any table version."
+   }
+  ]
+ }
+}
