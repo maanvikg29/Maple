@@ -55,12 +55,15 @@ public struct CollectionSnapshot: Sendable, Equatable, Codable {
     public var revealsOpened: Int
     /// The current bedtime run, for Home's streak (the counter keeps the best run).
     public var currentBedtimeRun: Int
+    /// Goodnight taps and settled nights: the source of the sleep categories (spec §5.1).
+    public var nights: NightLedger
 
     public init(
         profileID: UUID, createdAt: Date, unlocks: [LeafUnlock] = [], revealedAt: [String: Date] = [:],
         counters: [RewardCategoryID: Double] = [:], history: [DailyCounters] = [], tendedDays: [LocalDay] = [],
         recentNights: [NightRecord] = [], pinnedSpeciesID: String? = nil, featuredSpeciesID: String? = nil,
-        rarityConsent: RarityConsent = .notAsked, revealsOpened: Int = 0, currentBedtimeRun: Int = 0
+        rarityConsent: RarityConsent = .notAsked, revealsOpened: Int = 0, currentBedtimeRun: Int = 0,
+        nights: NightLedger = NightLedger()
     ) {
         self.version = Self.currentVersion
         self.profileID = profileID
@@ -76,6 +79,7 @@ public struct CollectionSnapshot: Sendable, Equatable, Codable {
         self.rarityConsent = rarityConsent
         self.revealsOpened = revealsOpened
         self.currentBedtimeRun = currentBedtimeRun
+        self.nights = nights
     }
 
     /// A first-run collection: nothing earned yet.
@@ -92,7 +96,7 @@ public struct CollectionSnapshot: Sendable, Equatable, Codable {
 
     private enum CodingKeys: String, CodingKey {
         case version, profileID, createdAt, unlocks, revealedAt, counters, history, tendedDays, recentNights
-        case pinnedSpeciesID, featuredSpeciesID, rarityConsent, revealsOpened, currentBedtimeRun
+        case pinnedSpeciesID, featuredSpeciesID, rarityConsent, revealsOpened, currentBedtimeRun, nights
     }
 
     public init(from decoder: any Decoder) throws {
@@ -111,6 +115,7 @@ public struct CollectionSnapshot: Sendable, Equatable, Codable {
         rarityConsent = try c.decodeIfPresent(RarityConsent.self, forKey: .rarityConsent) ?? .notAsked
         revealsOpened = try c.decodeIfPresent(Int.self, forKey: .revealsOpened) ?? 0
         currentBedtimeRun = try c.decodeIfPresent(Int.self, forKey: .currentBedtimeRun) ?? 0
+        nights = try c.decodeIfPresent(NightLedger.self, forKey: .nights) ?? NightLedger()
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -129,5 +134,6 @@ public struct CollectionSnapshot: Sendable, Equatable, Codable {
         try c.encode(rarityConsent, forKey: .rarityConsent)
         try c.encode(revealsOpened, forKey: .revealsOpened)
         try c.encode(currentBedtimeRun, forKey: .currentBedtimeRun)
+        try c.encode(nights, forKey: .nights)
     }
 }

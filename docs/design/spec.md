@@ -183,7 +183,7 @@ Vertical rhythm:
 | Next-leaf row | 56 | 12 |
 | Primary capsule | 52 | — |
 
-Stage height = `min(410, max(320, availableHeight × 0.47))`. At accessibility text sizes it is fixed at 320 and Home scrolls.
+Stage height = `min(410, max(320, availableHeight × 0.47))`. At larger text sizes the stage yields height (down to 150pt, `HeroFit`) so the numeral, caption, next-leaf row and capsule stay above the tab bar on the first screen; when even 150pt leaves no room, the capsule is pinned just above the tab bar and the rest scrolls under it. The sky shrinks with the stage, so its top edge comes into view under the header; `SkyBackdropExtension` continues it upward (the gradient's top colour with the morning and day light pools carried across), so no seam shows there.
 
 ### 3.2 Elements
 
@@ -1341,9 +1341,10 @@ Sections are separated by 0.5pt hairlines, not boxed. It shows:
 - All text scales.
 - `heroNumeral` is capped at 88 and `scoreNumeral` at 72. Numerals use `minimumScaleFactor(0.6)`.
 - At accessibility sizes:
-  - Home's stage is fixed at 320 and Home scrolls;
-  - the NowBlock caption may wrap to 2 lines;
-  - the primary label may wrap to 2 lines and the capsule grows;
+  - Home's stage (and Rest's dial) yield height, down to 150pt, so the first screen's action stays above the tab bar; at the two largest sizes the capsule is pinned just above the tab bar and the rest scrolls under it (`HeroFit`, §3.1);
+  - the NowBlock caption may wrap to 3 lines; the tree caption drops the stage name rather than truncate;
+  - the primary label may wrap to 2 lines and the capsule grows; a `GlassCapsule` label does the same;
+  - the Tree view's subtitle drops the stage name, then the days, rather than cut off the count, and the tree is fitted below the top bar as it is drawn;
   - the score capsules become 3 left-aligned rows (label left, value right) through `ViewThatFits`, and the twigs are hidden.
 - **Herbarium columns:** 3 up to `.xLarge`; 2 up to `.xxxLarge`; at accessibility sizes, a 1-column list of 72pt rows with a 48pt leaf on the left. The Almost-there rail becomes a vertical stack.
 - Drawings (tree, leaves) never scale with text.

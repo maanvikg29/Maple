@@ -105,6 +105,19 @@ nonisolated public struct RevealSession: Sendable, Equatable {
         return Array(items[(index + 1)...])
     }
 
+    /// Every leaf not opened yet in this sitting, the one on screen included while it is closed.
+    public var unopened: [Item] {
+        items.indices.filter { openedAt[$0] == nil }.map { items[$0] }
+    }
+
+    /// Whether the next tap may still open what it would open: the closed bud on screen, or with "Open all" every
+    /// leaf after it. `openable` is what may be opened now (`CollectionStore.revealable(at:)`); once Evening has
+    /// turned into Wind-down mid-sitting it no longer holds them, and the rest waits for the morning (D8).
+    public func mayOpen(all: Bool = false, openable: Set<String>) -> Bool {
+        let leaves = all ? remaining : (isCurrentOpen ? [] : current.map { [$0] } ?? [])
+        return leaves.allSatisfy { openable.contains($0.speciesID) }
+    }
+
     /// The ritual for the leaf at `position`: the full one for the first 3 reveals ever and for uncommon, rare and
     /// legendary leaves (D8), the crossfade under Reduce Motion.
     public func ritual(at position: Int, reduceMotion: Bool) -> RevealRitual {

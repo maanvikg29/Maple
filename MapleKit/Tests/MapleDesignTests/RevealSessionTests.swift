@@ -47,6 +47,23 @@ struct RevealSessionTests {
 
     // MARK: Opening
 
+    @Test("Once Wind-down begins mid-sitting, closed buds stay closed; what was opened is still placed")
+    func phaseBoundary() {
+        var session = RevealSession(queue: threeCommons, revealsBefore: 20)
+        let evening: Set<String> = ["negundo", "glabrum", "macrophyllum"]
+        #expect(session.mayOpen(openable: evening))
+        #expect(!session.mayOpen(openable: []))
+        session.open(at: Self.now)
+        // The bud on screen is open, so a tap opens nothing more; "Open all" would open the other two.
+        #expect(session.mayOpen(openable: []))
+        #expect(session.mayOpen(all: true, openable: evening))
+        #expect(!session.mayOpen(all: true, openable: []))
+        session.advance()
+        #expect(!session.mayOpen(openable: []))
+        #expect(session.unopened.map(\.speciesID) == ["glabrum", "macrophyllum"])
+        #expect(session.opened == ["negundo"])
+    }
+
     @Test("A tap opens the current leaf once; the haptic plays once")
     func openOnce() {
         var session = RevealSession(queue: threeCommons, revealsBefore: 20)

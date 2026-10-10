@@ -13,6 +13,8 @@ public struct MapleStores {
     public let clock: MapleClock
     /// `-MapleDemoSeason`; nil uses the real season.
     public let seasonOverride: Season?
+    /// The member's real files (false for DEBUG demos, which live in memory). Only these record nights.
+    public var isLive = false
 
     public static let collectionFile = "collection.json"
     public static let scheduleFile = "schedule.json"
@@ -28,19 +30,41 @@ public struct MapleStores {
     }
 
     /// The member's own collection, schedule and rarity cache, saved in `directory`.
+    ///
+    /// The calendar is the autoupdating one, so a new time zone moves phases and days with the member; the app
+    /// calls `collection.systemTimeChanged()` on a time-zone change to refresh what screens already drew.
     public static func live(
-        directory: URL = MapleContainer.directory(), calendar: Calendar = .current, now: Date = .now
+        directory: URL = MapleContainer.directory(), calendar: Calendar = .autoupdatingCurrent, now: Date = .now
     ) -> MapleStores {
         let context = CollectionContext(calendar: calendar, hemisphere: .current)
         let collection = CollectionStore(
             storage: JSONStorage(.file(directory.appending(path: collectionFile))), context: context, now: now
         )
+        collection.followsSystemCalendar = true
         let schedule = ScheduleStore(storage: JSONStorage(.file(directory.appending(path: scheduleFile))), collection: collection)
         let shares = LeafShareStore(
             provider: UnconfiguredLeafShareProvider(), storage: JSONStorage(.file(directory.appending(path: sharesFile))),
             features: context.features, clock: .live
         )
-        return MapleStores(collection: collection, schedule: schedule, shares: shares, clock: .live, seasonOverride: nil)
+        var stores = MapleStores(collection: collection, schedule: schedule, shares: shares, clock: .live, seasonOverride: nil)
+        stores.isLive = true
+        return stores
+    }
+
+    /// Whether the collection and schedule files could both be read (see `CollectionStore.isAvailable`).
+    public var isAvailable: Bool { collection.isAvailable && schedule.isAvailable }
+
+    /// Reads the collection and schedule again if launch couldn't (before the first unlock after a restart).
+    /// - Returns: Whether either one changed from its placeholder, so the first-run step must be decided again.
+    @discardableResult
+    public func reloadIfUnavailable() -> Bool {
+        let collectionReloaded = collection.reloadIfUnavailable()
+        let scheduleReloaded = schedule.reloadIfUnavailable()
+        if collectionReloaded, !scheduleReloaded {
+            // The collection's placeholder had the standard schedule; give it the member's again.
+            collection.schedule = schedule.schedule
+        }
+        return collectionReloaded || scheduleReloaded
     }
 
     #if DEBUG

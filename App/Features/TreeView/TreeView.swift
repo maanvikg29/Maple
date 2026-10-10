@@ -8,13 +8,11 @@ import MapleServices
 /// reveal. "See all leaves" switches to the Herbarium showing earned leaves.
 ///
 /// `TreeView(focusing: id)` is leaf detail's "Show on my maple" (spec §5.6): it opens at 2× on that species'
-/// rosette and pulses its amber halo twice over 2 s.
+/// rosette and pulses its amber halo twice over 2 s. The same link on a detail pushed from here pops back and
+/// re-centres this viewport rather than closing and reopening the cover.
 struct TreeView: View {
-    /// A species to centre on, zoomed in, with its halo pulsing twice.
-    let focusing: String?
-
     init(focusing: String? = nil) {
-        self.focusing = focusing
+        _focus = State(initialValue: TreeFocus(speciesID: focusing))
     }
 
     @Environment(CollectionStore.self) private var collection
@@ -24,6 +22,8 @@ struct TreeView: View {
     @Environment(\.dismiss) private var dismiss
 
     @Namespace private var zoomNamespace
+    /// The species to centre on, zoomed in, with its halo pulsing twice; a new request re-centres.
+    @State private var focus: TreeFocus
     @State private var pushedLeaf: String?
     @State private var reveal: RevealRequest?
 
@@ -32,11 +32,12 @@ struct TreeView: View {
             // The collection is read once a minute; pinching and panning only redraw the viewport below.
             TimelineView(.everyMinute) { timeline in
                 let content = HomeContent(collection: collection, now: clock.date(forTimeline: timeline.date))
+                // Every rosette's VoiceOver label, built here once per minute or change, never per gesture frame.
+                let labels = rosetteLabels(content)
                 GeometryReader { proxy in
                     TreeViewport(
-                        content: content, size: proxy.size, safeArea: proxy.safeAreaInsets, focusing: focusing,
-                        zoomNamespace: zoomNamespace,
-                        pressedDate: { collection.unlock(for: $0)?.date },
+                        content: content, size: proxy.size, safeArea: proxy.safeAreaInsets, focus: focus,
+                        zoomNamespace: zoomNamespace, labels: labels,
                         openLeaf: { pushedLeaf = $0 },
                         openWaitingLeaf: { id in presentingRevealWithoutSlide { reveal = RevealRequest(speciesID: id) } },
                         seeAllLeaves: {
@@ -47,17 +48,45 @@ struct TreeView: View {
                     )
                 }
             }
+            // Covered by a pushed leaf or the reveal, the close-up holds a still frame.
+            .environment(\.treeScenesPaused, pushedLeaf != nil || reveal != nil)
             .background(theme.colors.background)
             .toolbarVisibility(.hidden, for: .navigationBar)
             .navigationDestination(item: $pushedLeaf) { speciesID in
                 LeafDetailView(speciesID: speciesID)
                     .navigationTransition(.zoom(sourceID: speciesID, in: zoomNamespace))
+                    // "Show on my maple" here: back to this maple, centred on the leaf.
+                    .environment(\.showOnMaple, ShowOnMapleAction { id in
+                        focus = TreeFocus(speciesID: id, request: focus.request + 1)
+                        pushedLeaf = nil
+                    })
             }
         }
         .fullScreenCover(item: $reveal) { request in
             RevealFlow(startingWith: request.speciesID)
         }
     }
+
+    /// "Red maple, pressed 4 October", plus the approximate-drawing note, for every leaf on the tree.
+    private func rosetteLabels(_ content: HomeContent) -> [String: String] {
+        let pressed = Dictionary(collection.unlocks.map { ($0.speciesID, $0.date) }, uniquingKeysWith: { first, _ in first })
+        var labels: [String: String] = [:]
+        for leaf in content.tree.species where labels[leaf.speciesID] == nil {
+            let species = LeafCatalog.shared.species(id: leaf.speciesID)
+            var label = HomeSpeech.rosette(name: species?.displayName ?? leaf.speciesID, pressed: pressed[leaf.speciesID])
+            if let approximate = species?.confidence.approximateSpokenLabel {
+                label += ". " + approximate
+            }
+            labels[leaf.speciesID] = label
+        }
+        return labels
+    }
+}
+
+/// Which leaf the Tree view centres on; each new request (a later "Show on my maple") re-centres and pulses again.
+struct TreeFocus: Equatable {
+    var speciesID: String?
+    var request = 0
 }
 
 /// The scene, its gestures, the bars and the VoiceOver elements. Holds the zoom and pan.
@@ -66,9 +95,10 @@ private struct TreeViewport: View {
     /// The safe area's size; the scene extends under the status bar and home indicator.
     let size: CGSize
     let safeArea: EdgeInsets
-    let focusing: String?
+    let focus: TreeFocus
     let zoomNamespace: Namespace.ID
-    let pressedDate: (String) -> Date?
+    /// VoiceOver labels by species.
+    let labels: [String: String]
     let openLeaf: (String) -> Void
     let openWaitingLeaf: (String) -> Void
     let seeAllLeaves: () -> Void
@@ -76,6 +106,7 @@ private struct TreeViewport: View {
 
     /// "Show on my maple" opens at 2×.
     private static let focusZoom: CGFloat = 2
+    /// The top bar's height at the default text size; larger sizes measure it.
     private static let topBarHeight: CGFloat = 52
     private static let bottomBarHeight: CGFloat = 52
 
@@ -89,41 +120,52 @@ private struct TreeViewport: View {
     @State private var pinchStart: (zoom: CGFloat, pan: CGSize)?
     @State private var dragStart: CGSize?
     @State private var focusHalo = 0.0
+    /// Taps on the tree, which keep a night-time close-up awake.
+    @State private var interactions = 0
+    /// The top bar as drawn: it grows at large text sizes, and the tree is fitted below it.
+    @State private var measuredTopBar: CGFloat = Self.topBarHeight
 
     init(
-        content: HomeContent, size: CGSize, safeArea: EdgeInsets, focusing: String?, zoomNamespace: Namespace.ID,
-        pressedDate: @escaping (String) -> Date?, openLeaf: @escaping (String) -> Void,
+        content: HomeContent, size: CGSize, safeArea: EdgeInsets, focus: TreeFocus, zoomNamespace: Namespace.ID,
+        labels: [String: String], openLeaf: @escaping (String) -> Void,
         openWaitingLeaf: @escaping (String) -> Void, seeAllLeaves: @escaping () -> Void, close: @escaping () -> Void
     ) {
         self.content = content
         self.size = size
         self.safeArea = safeArea
-        self.focusing = focusing
+        self.focus = focus
         self.zoomNamespace = zoomNamespace
-        self.pressedDate = pressedDate
+        self.labels = labels
         self.openLeaf = openLeaf
         self.openWaitingLeaf = openWaitingLeaf
         self.seeAllLeaves = seeAllLeaves
         self.close = close
-        // A species that is not on the tree (not yet earned, or still waiting) opens the whole maple at 1×.
-        let isOnTree = focusing.map { id in content.tree.species.contains { $0.speciesID == id } } ?? false
+        let isOnTree = Self.isOnTree(focus.speciesID, content: content)
         _zoom = State(initialValue: isOnTree ? Self.focusZoom : 1)
         _followsFocus = State(initialValue: isOnTree)
     }
 
+    /// A species that is not on the tree (not yet earned, or still waiting) shows the whole maple at 1×.
+    private static func isOnTree(_ speciesID: String?, content: HomeContent) -> Bool {
+        speciesID.map { id in content.tree.species.contains { $0.speciesID == id } } ?? false
+    }
+
+    private var focusing: String? { focus.speciesID }
+
     var body: some View {
         // The scene fills the whole screen; the bars stay inside the safe area.
         let viewport = CGSize(width: size.width, height: size.height + safeArea.top + safeArea.bottom)
-        let geometry = TreeCloseUpGeometry(
+        let layout = TreeCloseUpGeometry.cachedLayout(
             model: content.tree, viewport: viewport,
             insets: EdgeInsets(
-                top: safeArea.top + Self.topBarHeight + theme.spacing.lg, leading: 0,
+                top: safeArea.top + measuredTopBar + theme.spacing.lg, leading: 0,
                 bottom: safeArea.bottom + Self.bottomBarHeight + theme.spacing.md, trailing: 0
             )
         )
+        let geometry = layout.geometry
         let pan = effectivePan(in: geometry)
         ZStack(alignment: .topLeading) {
-            TreeCloseUp(model: content.tree, geometry: geometry, zoom: zoom, pan: pan)
+            TreeCloseUp(model: content.tree, geometry: geometry, zoom: zoom, pan: pan, interactions: interactions)
                 .frame(width: viewport.width, height: viewport.height)
                 .contentShape(Rectangle())
                 .gesture(magnify(geometry).simultaneously(with: drag(geometry)))
@@ -131,7 +173,7 @@ private struct TreeViewport: View {
                     tap(at: location, geometry: geometry, pan: pan)
                 }
                 .overlay(alignment: .topLeading) { focusHaloView(geometry, pan: pan) }
-                .overlay(alignment: .topLeading) { leafElements(geometry, pan: pan) }
+                .overlay(alignment: .topLeading) { leafElements(layout, pan: pan) }
                 .offset(y: -safeArea.top)
 
             // Zoomed in, leaves pass under the title: a soft fade keeps it legible (the sky needs none at 1×).
@@ -143,7 +185,7 @@ private struct TreeViewport: View {
                 ],
                 startPoint: .top, endPoint: .bottom
             )
-            .frame(width: viewport.width, height: safeArea.top + Self.topBarHeight + theme.spacing.xxxl)
+            .frame(width: viewport.width, height: safeArea.top + measuredTopBar + theme.spacing.xxxl)
             .offset(y: -safeArea.top)
             .opacity(zoom > 1.01 ? 1 : 0)
             .mapleAnimation(theme.motion.gentle, value: zoom > 1.01)
@@ -159,7 +201,23 @@ private struct TreeViewport: View {
             }
             .frame(width: size.width, height: size.height)
         }
-        .task { await pulseFocusHalo() }
+        .task(id: focus) {
+            // A later "Show on my maple" pops its detail first; the halo pulses once the maple is back in view.
+            if focus.request > 0 { try? await Task.sleep(for: .milliseconds(450)) }
+            await pulseFocusHalo()
+        }
+        .onChange(of: focus) { refocus() }
+    }
+
+    /// Centres the newly focused leaf at 2× (or shows the whole maple when it isn't on the tree).
+    private func refocus() {
+        let isOnTree = Self.isOnTree(focus.speciesID, content: content)
+        zoom = isOnTree ? Self.focusZoom : 1
+        storedPan = .zero
+        followsFocus = isOnTree
+        pinchStart = nil
+        dragStart = nil
+        focusHalo = 0
     }
 
     private var topBar: some View {
@@ -192,6 +250,7 @@ private struct TreeViewport: View {
             .padding(.horizontal, theme.spacing.sm)
         }
         .frame(minHeight: Self.topBarHeight)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { measuredTopBar = max(Self.topBarHeight, $0) }
     }
 
     /// "Young maple · 23 of 155 · 41 days" (opened leaves only, like every "N of 155").
@@ -260,6 +319,7 @@ private struct TreeViewport: View {
     }
 
     private func tap(at location: CGPoint, geometry: TreeCloseUpGeometry, pan: CGSize) {
+        interactions += 1
         switch geometry.hit(at: location, zoom: zoom, pan: pan) {
         case .waitingBud(let speciesID):
             openWaitingLeaf(speciesID)
@@ -280,7 +340,7 @@ private struct TreeViewport: View {
 
     /// Twice over 2 s: up, down, up, down. Under Reduce Motion it shows, holds and fades once.
     private func pulseFocusHalo() async {
-        guard focusing != nil, focusHalo == 0 else { return }
+        guard focusing != nil, focusHalo == 0, !Task.isCancelled else { return }
         let steps: [Double] = reduceMotion ? [1, 1, 1, 0] : [1, 0, 1, 0]
         for value in steps {
             withAnimation(.easeInOut(duration: 0.5)) { focusHalo = value }
@@ -309,8 +369,9 @@ private struct TreeViewport: View {
 
     /// One element per species (its primary rosette), left to right and top to bottom, plus the waiting bud. They
     /// are also the zoom transitions' sources. Taps go to the tree's own hit test, which picks the nearest rosette.
-    private func leafElements(_ geometry: TreeCloseUpGeometry, pan: CGSize) -> some View {
-        let ordered = geometry.readingOrder(zoom: zoom, pan: pan)
+    private func leafElements(_ layout: TreeCloseUpLayout, pan: CGSize) -> some View {
+        let geometry = layout.geometry
+        let ordered = layout.readingOrder
         let side = TreeCloseUpGeometry.hitRadius * 2
         return ZStack(alignment: .topLeading) {
             ForEach(Array(ordered.enumerated()), id: \.element.id) { index, target in
@@ -320,7 +381,7 @@ private struct TreeViewport: View {
                     .matchedTransitionSource(id: target.speciesID, in: zoomNamespace)
                     .offset(x: point.x - side / 2, y: point.y - side / 2)
                     .accessibilityElement()
-                    .accessibilityLabel(rosetteLabel(target.speciesID))
+                    .accessibilityLabel(labels[target.speciesID] ?? target.speciesID)
                     .accessibilityAddTraits(.isButton)
                     .accessibilitySortPriority(Double(ordered.count - index))
                     .accessibilityAction { openLeaf(target.speciesID) }
@@ -339,15 +400,6 @@ private struct TreeViewport: View {
             }
         }
         .allowsHitTesting(false)
-    }
-
-    private func rosetteLabel(_ speciesID: String) -> String {
-        let species = LeafCatalog.shared.species(id: speciesID)
-        var label = HomeSpeech.rosette(name: species?.displayName ?? speciesID, pressed: pressedDate(speciesID))
-        if let approximate = species?.confidence.approximateSpokenLabel {
-            label += ". " + approximate
-        }
-        return label
     }
 }
 

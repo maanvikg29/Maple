@@ -85,7 +85,7 @@ struct CollectionStoreTests {
         #expect(store.treeInputs(at: now).species.map(\.speciesID) == ["saccharum"])
         #expect(store.nowState(at: now, locale: Locale(identifier: "en_GB")).phase == .day)
         #expect(store.totals.leaves == 1)
-        #expect(store.vitality.value == 1)
+        #expect(store.vitality(at: now).value == 1)
     }
 
     @Test("Mark all seen, the bedtime run and nights")
@@ -106,8 +106,8 @@ struct CollectionStoreTests {
         #expect(store.snapshot.counters[.bedtimeRun] == 3)            // the best run is kept
 
         store.recordNight(NightRecord(day: LocalDay(year: 2026, month: 10, day: 3), onTime: false, fullNight: nil, scrollFree: nil))
-        #expect(store.vitality.value == 0.4)
-        #expect(store.vitality.isQuiet)
+        #expect(store.vitality(at: at(2026, 10, 4, 7)).value == 0.4)
+        #expect(store.vitality(at: at(2026, 10, 4, 7)).isQuiet)
     }
 
     @Test("Progress is cached per change, and recomputed after one")

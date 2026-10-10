@@ -179,6 +179,13 @@ struct HomeTests {
         #expect(HomeSpeech.rosette(name: "Red maple", pressed: date, locale: british, calendar: calendar)
             == "Red maple, pressed 10 October")
         #expect(HomeSpeech.rosette(name: "Red maple", pressed: nil) == "Red maple")
+
+        // Formatters are reused, but never across time zones or locales.
+        var tokyo = calendar
+        tokyo.timeZone = TimeZone(identifier: "Asia/Tokyo")!
+        #expect(HomeDateText.dayMonth(date, locale: british, calendar: tokyo) == "11 October")
+        #expect(HomeDateText.dayMonth(date, locale: british, calendar: calendar) == "10 October")
+        #expect(HomeDateText.dayMonth(date, locale: Locale(identifier: "en_US"), calendar: calendar) == "October 10")
     }
 
     // MARK: Streak nights

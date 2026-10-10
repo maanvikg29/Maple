@@ -50,8 +50,56 @@ public struct SkyBackdrop: View {
         let vitality = vitality
         return Canvas { context, size in
             let frame = TreeSceneFrame(size: size)
-            TreeSkyPainter.draw(palette, frame: frame, time: time, vitality: vitality, crown: CGPoint(x: 201, y: 300), background: background, in: context)
+            TreeSkyPainter.draw(palette, frame: frame, time: time, vitality: vitality, crown: Self.crown, background: background, in: context)
             TreePainter.drawDissolve(frame: frame, color: background, in: context)
         }
+    }
+
+    /// Where the moonlight reaches toward (reference frame).
+    static let crown = CGPoint(x: 201, y: 300)
+}
+
+/// The sky above a `SkyBackdrop`, continuing it upward: the gradient's top colour with the morning and day light
+/// pools and the moonlight carried across, so no seam shows where the two meet. Home lays one directly above its
+/// backdrop; it shows when the scroll is pulled down, and under the header when the stage is shrunk for
+/// accessibility text sizes (which brings the backdrop's top edge into view). Always one still frame: the stars
+/// and the moon lie below it.
+///
+/// ```swift
+/// VStack(spacing: 0) {
+///     SkyBackdropExtension(phase: .morning, backdropSize: size).frame(width: size.width, height: 600)
+///     SkyBackdrop(phase: .morning, season: .autumn).frame(width: size.width, height: size.height)
+/// }
+/// ```
+public struct SkyBackdropExtension: View {
+    private let phase: NowPhase
+    private let backdropSize: CGSize
+
+    @Environment(\.theme) private var theme
+
+    /// - Parameter backdropSize: The size the `SkyBackdrop` below is laid out at.
+    public init(phase: NowPhase, backdropSize: CGSize) {
+        self.phase = phase
+        self.backdropSize = backdropSize
+    }
+
+    public var body: some View {
+        let palette = theme.colors.scene.sky(for: phase)
+        let background = theme.colors.background
+        let backdropSize = backdropSize
+        Canvas { context, size in
+            let frame = Self.frame(backdropSize: backdropSize, size: size)
+            TreeSkyPainter.draw(palette, frame: frame, time: nil, vitality: 1, crown: SkyBackdrop.crown, background: background, in: context)
+        }
+        .accessibilityHidden(true)
+    }
+
+    /// The backdrop's scene frame seen from the extension: the same scale, with the scene starting at the
+    /// extension's bottom edge, so everything the backdrop draws past its top edge lands here.
+    static func frame(backdropSize: CGSize, size: CGSize) -> TreeSceneFrame {
+        var frame = TreeSceneFrame(size: backdropSize)
+        frame.origin.y += size.height
+        frame.size = size
+        return frame
     }
 }

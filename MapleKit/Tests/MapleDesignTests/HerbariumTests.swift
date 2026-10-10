@@ -176,6 +176,29 @@ struct HerbariumLayoutTests {
         #expect(northAmerica.count == "1 of \(total)") // the Sugar maple
     }
 
+    @Test("Rotors list drawn tiles only, once each, with ids that match their section's tile")
+    func rotors() throws {
+        let campestre = species("campestre")
+        let entries = collection(earned: ["saccharum", "campestre", "rubrum"])
+        // Region grouping draws a two-region species twice; the rotor lists it once, at its first tile.
+        let regions = HerbariumLayout.sections(entries, grouping: .region)
+        let rotor = HerbariumLayout.earnedRotor(regions)
+        #expect(rotor.filter { $0.name == campestre.displayName }.count == 1)
+        #expect(Set(rotor.map(\.id)).count == rotor.count)
+        let first = try #require(regions.first { $0.entries.contains { $0.id == "campestre" } })
+        #expect(rotor.contains { $0.id == HerbariumLayout.rotorID(section: first.id, species: "campestre") })
+        // The Locked chip draws no earned tile, so the rotor is empty rather than pointing at nothing.
+        #expect(HerbariumLayout.earnedRotor(HerbariumLayout.sections(entries, scope: .locked)).isEmpty)
+        #expect(HerbariumLayout.earnedRotor(HerbariumLayout.sections(entries)).count == 3)
+    }
+
+    @Test("Rarest first is offered only once some leaf has rarity")
+    func rarestOffered() {
+        #expect(!HerbariumSort.offered(hasRarity: false).contains(.rarestFirst))
+        #expect(HerbariumSort.offered(hasRarity: false) == [.nextToEarn, .newestFirst, .alphabetical])
+        #expect(HerbariumSort.offered(hasRarity: true) == HerbariumSort.allCases)
+    }
+
     @Test("Autumn-colour groups carry their colour dot; form and tier groups follow their spec order")
     func otherGroupings() {
         let entries = collection()

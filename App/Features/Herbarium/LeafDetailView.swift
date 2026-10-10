@@ -26,6 +26,8 @@ struct LeafDetailView: View {
     @Environment(CollectionStore.self) private var collection
     @Environment(LeafShareStore.self) private var shares
     @Environment(AppRouter.self) private var router
+    /// Set by a presentation that handles "Show on my maple" itself (the Tree view, the Search sheet).
+    @Environment(\.showOnMaple) private var showOnMapleHere
 
     let speciesID: String
     @State private var colourway: ColourwayChoice = .pressed
@@ -66,8 +68,16 @@ struct LeafDetailView: View {
         .onAppear {
             if collection.unlock(for: speciesID)?.revealed == true { collection.markSeen(speciesID) }
         }
-        .task(id: shareCardKey) { renderShareCard() }
+        .task(id: shareCardKey) {
+            // After the zoom push has settled, never on its first frames; the PNG itself is encoded only on share.
+            try? await Task.sleep(for: Self.shareCardDelay)
+            guard !Task.isCancelled else { return }
+            renderShareCard()
+        }
     }
+
+    /// The zoom push takes about half a second; the share card renders after it.
+    private static let shareCardDelay: Duration = .milliseconds(650)
 
     // MARK: Page
 
@@ -135,6 +145,7 @@ struct LeafDetailView: View {
                     Label("Share", systemImage: "square.and.arrow.up")
                 }
                 .buttonStyle(.iconCircle)
+                .transition(.opacity)
             }
         }
         .padding(.horizontal, theme.spacing.gridMargin - 4)
@@ -267,7 +278,9 @@ struct LeafDetailView: View {
 
     private func statusActions(_ species: LeafSpecies) -> StatusTile.Actions {
         StatusTile.Actions(
-            showOnMaple: { router.showOnMaple(speciesID) },
+            showOnMaple: {
+                if let showOnMapleHere { showOnMapleHere(speciesID) } else { router.showOnMaple(speciesID) }
+            },
             open: { presentingRevealWithoutSlide { showsReveal = true } },
             startWindDown: { showsWindDown = true },
             turnOn: { openPermissionSettings(openURL) },
@@ -298,11 +311,12 @@ struct LeafDetailView: View {
             return
         }
         let copy = HerbariumCopy(locale: locale, timeZone: timeZone)
-        shareImage = ShareCardImage.render(
+        let image = ShareCardImage.render(
             species: species, colourway: unlock.colourway,
             pressedLine: copy.shareCardLine(pressedOn: unlock.date, progress: progress),
             share: shares.share(for: speciesID), theme: theme, season: season
         )
+        withAnimation(theme.motion.gentle) { shareImage = image }
     }
 }
 

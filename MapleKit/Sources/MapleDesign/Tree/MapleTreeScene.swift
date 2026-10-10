@@ -24,7 +24,8 @@ import SwiftUI
 /// Motion is sleepy and cheap. Layout and drawing happen once per data change, into pre-rasterised layers (sky,
 /// bloom, ground, twigs, trunk and limbs, rosettes, flutter sprites); each frame only composes those images with a
 /// layered sway about the trunk base and draws the twinkling stars, waiting bud and particles. The timeline pauses
-/// off screen, when the app is inactive, in Low Power Mode and after a minute at night. Under Reduce Motion, or
+/// off screen, when the app is inactive, in Low Power Mode, under a full-screen cover (`\.treeScenesPaused`) and
+/// after a minute at night without interaction. Under Reduce Motion, or
 /// with `model.time` set, the scene is one complete still frame; data changes crossfade (0.6 s under Reduce Motion,
 /// otherwise the 1.6 s graft), and phase changes drift over 3.2 s.
 public struct MapleTreeScene: View {
@@ -39,8 +40,11 @@ public struct MapleTreeScene: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.displayScale) private var displayScale
     @State private var isOnScreen = true
+    @Environment(\.treeScenesPaused) private var isCovered
     @State private var isLowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
     @State private var nightFrozen = false
+    /// Bumped by every tap, so each interaction restarts the night's 60 s countdown to a still frame (spec §4.9).
+    @State private var wakes = 0
 
     /// - Parameters:
     ///   - model: Everything the scene shows.
@@ -91,7 +95,7 @@ public struct MapleTreeScene: View {
         .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange)) { _ in
             isLowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
         }
-        .task(id: FreezeKey(phase: model.phase, active: scenePhase == .active)) {
+        .task(id: FreezeKey(phase: model.phase, active: scenePhase == .active, wakes: wakes)) {
             // At night the tree settles to a still frame after a minute without interaction.
             nightFrozen = false
             guard model.phase == .night else { return }
@@ -100,12 +104,16 @@ public struct MapleTreeScene: View {
                 nightFrozen = true
             }
         }
-        .simultaneousGesture(TapGesture().onEnded { nightFrozen = false })
+        .simultaneousGesture(TapGesture().onEnded {
+            nightFrozen = false
+            wakes += 1
+        })
     }
 
     private struct FreezeKey: Hashable {
         var phase: NowPhase
         var active: Bool
+        var wakes: Int
     }
 
     /// The scene light: phase, season and vitality changes drift rather than cut.
@@ -124,7 +132,7 @@ public struct MapleTreeScene: View {
     }
 
     private var isStill: Bool {
-        model.time != nil || reduceMotion || isLowPower || !isOnScreen || scenePhase != .active || nightFrozen
+        model.time != nil || reduceMotion || isLowPower || !isOnScreen || scenePhase != .active || nightFrozen || isCovered
     }
 
     private var stillMotion: TreeSceneRenderer.Motion {
@@ -267,4 +275,10 @@ private struct OpenLeafAction: ViewModifier {
             content
         }
     }
+}
+
+extension EnvironmentValues {
+    /// Set while a full-screen cover (the reveal, wind-down mode, the Tree view) hides a maple scene: the scene and the
+    /// Tree view's close-up hold a still frame instead of animating unseen behind it.
+    @Entry public var treeScenesPaused = false
 }

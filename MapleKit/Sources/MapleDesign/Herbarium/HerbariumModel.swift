@@ -149,6 +149,39 @@ nonisolated public enum HerbariumSort: String, Sendable, CaseIterable, Identifia
         case .alphabetical: "A–Z"
         }
     }
+
+    /// The sorts the menu offers. "Rarest first" needs real rarity: without a single fresh share it would only
+    /// repeat rung order, so it is absent until there is one (spec §1.5).
+    public static func offered(hasRarity: Bool) -> [HerbariumSort] {
+        hasRarity ? allCases : allCases.filter { $0 != .rarestFirst }
+    }
+}
+
+/// One entry of a Herbarium VoiceOver rotor, pointing at a tile that is drawn.
+nonisolated public struct HerbariumRotorEntry: Sendable, Equatable, Identifiable {
+    /// The tile's rotor id (`HerbariumLayout.rotorID(section:species:)`).
+    public let id: String
+    public let name: String
+}
+
+nonisolated extension HerbariumLayout {
+    /// A tile's rotor id. Section-qualified, because a species can sit in two sections at once (Region grouping).
+    public static func rotorID(section: String, species: String) -> String {
+        "\(section)/\(species)"
+    }
+
+    /// The "Earned leaves" rotor: each earned leaf among the tiles `sections` draw, once (its first tile), in
+    /// screen order. Leaves a chip, a filter or a collapsed section hides are not in it.
+    public static func earnedRotor(_ sections: [HerbariumSection]) -> [HerbariumRotorEntry] {
+        var seen: Set<String> = []
+        var rotor: [HerbariumRotorEntry] = []
+        for section in sections {
+            for entry in section.entries where entry.isEarned && seen.insert(entry.id).inserted {
+                rotor.append(HerbariumRotorEntry(id: rotorID(section: section.id, species: entry.id), name: entry.species.displayName))
+            }
+        }
+        return rotor
+    }
 }
 
 /// The Filter sheet's choices (spec §5.4). Within a facet any choice matches; facets combine.

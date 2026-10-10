@@ -67,7 +67,7 @@ struct DemoDataTests {
         #expect(Set(snapshot.unlocks.map(\.season)).count >= 2)
         #expect(snapshot.unlocks.allSatisfy { $0.date < now })
         #expect(snapshot.unlocks.allSatisfy { $0.colourway == LeafColourway.pressed(in: $0.season, evergreen: LeafCatalog.shared.species(id: $0.speciesID)?.evergreen ?? false) })
-        #expect(snapshot.vitality.value > 0.8)
+        #expect(snapshot.vitality(at: now, calendar: utc).value > 0.8)
         #expect(snapshot.currentBedtimeRun >= 2)
         #expect(snapshot.recentNights.count == 7)
         let big = demo(155, days: 600)

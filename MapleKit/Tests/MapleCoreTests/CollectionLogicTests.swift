@@ -162,7 +162,9 @@ struct CollectionRevealTests {
         snapshot.recordNight(NightRecord(day: LocalDay(year: 2026, month: 9, day: 20), onTime: false, fullNight: nil, scrollFree: nil))
         #expect(snapshot.recentNights.count == 14)
         #expect(snapshot.recentNights.last == NightRecord(day: LocalDay(year: 2026, month: 9, day: 20), onTime: false, fullNight: nil, scrollFree: nil))
-        #expect(snapshot.vitality.value < 1)
+        #expect(snapshot.vitality(at: at(2026, 9, 21, 7), calendar: utc).value < 1)
+        // Six weeks later those nights are long gone: full vitality again (spec §4.8).
+        #expect(snapshot.vitality(at: at(2026, 11, 1, 7), calendar: utc).value == 1)
     }
 }
 

@@ -38,6 +38,11 @@ struct HerbariumEntries {
         entries.filter { $0.isEarned && $0.estimate != nil }.min { ($0.estimate?.percent ?? 100) < ($1.estimate?.percent ?? 100) }
     }
 
+    /// Some leaf has a fresh rarity value, so "Rarest first" can sort by it.
+    var hasRarity: Bool {
+        entries.contains { $0.estimate != nil }
+    }
+
     /// The chip's number; "Earned" counts opened leaves only.
     func count(_ scope: HerbariumScope) -> Int {
         scope.count(in: entries)

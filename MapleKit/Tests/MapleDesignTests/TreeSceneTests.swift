@@ -321,4 +321,31 @@ struct TreeSceneTests {
         #expect(quietChroma < fullChroma * 0.92, "quiet \(quietChroma) vs full \(fullChroma)")
         #expect(quietChroma > fullChroma * 0.6, "the quiet tree looks greyed")
     }
+
+    @Test("The sky continues above its backdrop with no seam, as under Home's header at large text sizes",
+          arguments: [NowPhase.morning, .day, .evening, .night])
+    func skyExtensionHasNoSeam(phase: NowPhase) throws {
+        // Home's sky at an accessibility text size: the 150 pt stage draws the scene at about 0.4, which brings the
+        // backdrop's top edge down into view. The morning and day light pools reach across that edge.
+        let backdrop = CGSize(width: 402, height: 224)
+        let above = 120
+        let renderer = ImageRenderer(content: VStack(spacing: 0) {
+            SkyBackdropExtension(phase: phase, backdropSize: backdrop)
+                .frame(width: backdrop.width, height: CGFloat(above))
+            SkyBackdrop(phase: phase, season: .autumn, time: instant)
+                .frame(width: backdrop.width, height: backdrop.height)
+        })
+        renderer.scale = 1
+        let image = try #require(renderer.cgImage)
+        let pixels = rgba(image)
+        var worst = 0
+        for x in stride(from: 2, to: Int(backdrop.width) - 2, by: 4) {
+            for channel in 0..<3 {
+                let lastAbove = Int(pixels[((above - 2) * image.width + x) * 4 + channel])
+                let firstBelow = Int(pixels[((above + 1) * image.width + x) * 4 + channel])
+                worst = max(worst, abs(lastAbove - firstBelow))
+            }
+        }
+        #expect(worst <= 3, "the \(phase) sky jumps by \(worst) at the backdrop's top edge")
+    }
 }

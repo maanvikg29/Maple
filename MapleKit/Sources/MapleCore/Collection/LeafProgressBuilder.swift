@@ -14,8 +14,13 @@ public struct LeafProgressBuilder: Sendable {
     }
 
     /// One row per species, in canonical order: categories as in §5.1, then each ladder from its lowest rung.
+    ///
+    /// - Parameter currentBedtimeRun: The live run. The Bedtime-runs counter keeps the best run, which awards the
+    ///   leaves; a locked run leaf needs that many nights in a row from *now*, so its amount, bar, remainder and
+    ///   estimate follow the live run (rewards.md: "The progress bar shows the live run"). Nil uses the counter.
     public func progress(
-        counters: [RewardCategoryID: Double], unlocks: [LeafUnlock], history: [DailyCounters], today: LocalDay, calendar: Calendar
+        counters: [RewardCategoryID: Double], unlocks: [LeafUnlock], history: [DailyCounters], today: LocalDay,
+        calendar: Calendar, currentBedtimeRun: Int? = nil
     ) -> [LeafProgress] {
         let unlocked = Dictionary(unlocks.map { ($0.speciesID, $0) }, uniquingKeysWith: { first, _ in first })
         var rows: [LeafProgress] = []
@@ -33,12 +38,16 @@ public struct LeafProgressBuilder: Sendable {
                 } else {
                     state = .locked
                 }
+                // A locked run leaf counts from the live run, never from the best one.
+                let progress = state == .locked && category.id == .bedtimeRun
+                    ? currentBedtimeRun.map { Double(max(0, $0)) } ?? current
+                    : current
                 let estimate: Double? = state == .locked && availability == .available
-                    ? LeafPace.estimatedDays(remaining: max(0, rung.threshold - current), rate: rate, category: category.id)
+                    ? LeafPace.estimatedDays(remaining: max(0, rung.threshold - progress), rate: rate, category: category.id)
                     : nil
                 rows.append(LeafProgress(
                     speciesID: rung.speciesID, category: category.id, threshold: rung.threshold, tier: rung.tier,
-                    current: current, availability: availability, state: state, estimatedDays: estimate
+                    current: progress, availability: availability, state: state, estimatedDays: estimate
                 ))
             }
         }

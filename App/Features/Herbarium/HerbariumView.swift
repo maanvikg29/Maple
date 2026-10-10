@@ -26,6 +26,8 @@ struct HerbariumView: View {
     @State private var sheet: HerbariumSheet?
     @State private var detail: LeafRoute?
     @State private var reveal: LeafRoute?
+    /// "Show on my maple" from a leaf found in Search: the sheet closes first, then Home opens the Tree view.
+    @State private var pendingShowOnMaple: String?
     /// The grid has scrolled under the status bar, which then gets the pinned headers' backing.
     @State private var isScrolled = false
     @Namespace private var zoom
@@ -43,10 +45,15 @@ struct HerbariumView: View {
             LeafDetailView(speciesID: route.speciesID, opening: route.opening)
                 .navigationTransition(.zoom(sourceID: route.id, in: zoom))
         }
-        .sheet(item: $sheet) { sheet in
+        .sheet(item: $sheet, onDismiss: showPendingOnMaple) { sheet in
             switch sheet {
             case .filter: HerbariumFilterSheet(filters: $filters)
-            case .search(let query): HerbariumSearchSheet(query: query)
+            case .search(let query):
+                HerbariumSearchSheet(query: query)
+                    .environment(\.showOnMaple, ShowOnMapleAction { id in
+                        pendingShowOnMaple = id
+                        self.sheet = nil
+                    })
             }
         }
         .fullScreenCover(item: $reveal) { route in
@@ -64,12 +71,13 @@ struct HerbariumView: View {
     private static let topID = "herbarium.top"
 
     private func content(_ model: HerbariumEntries) -> some View {
+        let sort = sortInUse(model)
         let sections = HerbariumLayout.sections(model.entries, grouping: grouping, sort: sort, scope: scope,
                                                 filters: filters, expanded: expanded)
         let almost = collection.almostThere(at: model.now)
         return ScrollViewReader { proxy in
             ScrollView {
-                page(model, almost: almost, sections: sections)
+                page(model, almost: almost, sections: sections, sort: sort)
             }
             .onScrollGeometryChange(for: Bool.self) { geometry in
                 geometry.contentOffset.y + geometry.contentInsets.top > 120
@@ -85,20 +93,29 @@ struct HerbariumView: View {
             .task { await HerbariumDemo.scroll(proxy) }
             #endif
         }
+        // Rotors list only tiles that are drawn: the sections as filtered and collapsed, and the rail while shown.
         .accessibilityRotor("Earned leaves") {
-            ForEach(model.entries.filter(\.isEarned)) { entry in
-                AccessibilityRotorEntry(Text(entry.species.displayName), id: entry.id, in: rotor)
+            ForEach(HerbariumLayout.earnedRotor(sections)) { entry in
+                AccessibilityRotorEntry(Text(entry.name), id: entry.id, in: rotor)
             }
         }
         .accessibilityRotor("Almost there") {
-            ForEach(almost) { progress in
+            ForEach(almost.count >= Self.almostThereMinimum ? almost : []) { progress in
                 AccessibilityRotorEntry(Text(LeafCatalog.shared.species(id: progress.speciesID)?.displayName ?? ""),
                                         id: "almost-\(progress.speciesID)", in: rotor)
             }
         }
     }
 
-    private func page(_ model: HerbariumEntries, almost: [LeafProgress], sections: [HerbariumSection]) -> some View {
+    /// The rail shows from 2 candidates (spec §5.3).
+    private static let almostThereMinimum = 2
+
+    /// The chosen sort, unless it is "Rarest first" and there is no rarity to sort by (then it isn't offered).
+    private func sortInUse(_ model: HerbariumEntries) -> HerbariumSort {
+        HerbariumSort.offered(hasRarity: model.hasRarity).contains(sort) ? sort : .nextToEarn
+    }
+
+    private func page(_ model: HerbariumEntries, almost: [LeafProgress], sections: [HerbariumSection], sort: HerbariumSort) -> some View {
         LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
             header
                 .padding(.horizontal, theme.spacing.gridMargin)
@@ -107,7 +124,7 @@ struct HerbariumView: View {
                 .padding(.horizontal, theme.spacing.gridMargin)
                 .padding(.top, theme.spacing.xs)
             almostThere(almost, phase: model.phase)
-            controls(model)
+            controls(model, sort: sort)
                 .padding(.horizontal, theme.spacing.gridMargin)
                 .padding(.top, theme.spacing.xl)
                 .padding(.bottom, theme.spacing.sm)
@@ -116,7 +133,7 @@ struct HerbariumView: View {
             } else {
                 ForEach(sections) { section in
                     Section {
-                        sectionBody(section)
+                        sectionBody(section, sort: sort)
                     } header: {
                         HerbariumSectionHeader(section, turnOn: turnOnAction(for: section.permission))
                     }
@@ -189,11 +206,14 @@ struct HerbariumView: View {
                     Text("Your rarest: \(rarest.species.displayName) · \(display)")
                         .font(MapleFont.footnote)
                         .foregroundStyle(theme.colors.textSecondary)
-                        .frame(minHeight: 28)
+                        // A full 44pt target (spec §9), drawn with the same 28pt rhythm as before.
+                        .frame(maxWidth: .infinity, minHeight: theme.spacing.minimumHitTarget, alignment: .leading)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .matchedTransitionSource(id: "rarest/\(rarest.id)", in: zoom)
-                .padding(.top, -4)
+                .padding(.top, -12)
+                .padding(.bottom, -8)
             }
         }
     }
@@ -217,7 +237,7 @@ struct HerbariumView: View {
     @ViewBuilder
     private func almostThere(_ leaves: [LeafProgress], phase: NowPhase) -> some View {
         // Hidden below 2 candidates (spec §5.3).
-        if leaves.count >= 2 {
+        if leaves.count >= Self.almostThereMinimum {
             VStack(alignment: .leading, spacing: theme.spacing.sm) {
                 Text("Almost there")
                     .font(MapleFont.sectionTitle)
@@ -266,7 +286,7 @@ struct HerbariumView: View {
     // MARK: Controls
 
     @ViewBuilder
-    private func controls(_ model: HerbariumEntries) -> some View {
+    private func controls(_ model: HerbariumEntries, sort: HerbariumSort) -> some View {
         // One row when it fits whole (chips never truncate); otherwise the chips wrap and the menu takes its own
         // line. Larger text sizes always wrap.
         if dynamicTypeSize <= .large {
@@ -274,17 +294,17 @@ struct HerbariumView: View {
                 HStack(spacing: theme.spacing.xs) {
                     scopeChips(model)
                     Spacer(minLength: theme.spacing.xs)
-                    groupMenu
+                    groupMenu(model, sort: sort)
                 }
                 VStack(alignment: .leading, spacing: 0) {
                     ChipFlow(lineSpacing: 0) { scopeChips(model) }
-                    groupMenu
+                    groupMenu(model, sort: sort)
                 }
             }
         } else {
             VStack(alignment: .leading, spacing: 0) {
                 ChipFlow(lineSpacing: 0) { scopeChips(model) }
-                groupMenu
+                groupMenu(model, sort: sort)
             }
         }
     }
@@ -299,7 +319,7 @@ struct HerbariumView: View {
         }
     }
 
-    private var groupMenu: some View {
+    private func groupMenu(_ model: HerbariumEntries, sort shown: HerbariumSort) -> some View {
         Menu {
             Section("Group by") {
                 Picker("Group by", selection: $grouping.animation(reduceMotion ? nil : theme.motion.gentle)) {
@@ -310,7 +330,7 @@ struct HerbariumView: View {
             }
             Section("Sort") {
                 Picker("Sort", selection: $sort.animation(reduceMotion ? nil : theme.motion.gentle)) {
-                    ForEach(HerbariumSort.allCases) { Text($0.title).tag($0) }
+                    ForEach(HerbariumSort.offered(hasRarity: model.hasRarity)) { Text($0.title).tag($0) }
                 }
                 .pickerStyle(.inline)
                 .labelsHidden()
@@ -332,14 +352,14 @@ struct HerbariumView: View {
         }
         .fixedSize()
         .accessibilityLabel("Group and sort")
-        .accessibilityValue("\(grouping.title), \(sort.title)")
+        .accessibilityValue("\(grouping.title), \(shown.title)")
     }
 
     // MARK: Sections
 
-    private func sectionBody(_ section: HerbariumSection) -> some View {
+    private func sectionBody(_ section: HerbariumSection, sort: HerbariumSort) -> some View {
         VStack(spacing: 0) {
-            grid(section)
+            grid(section, sort: sort)
             if let expandTitle = section.expandTitle {
                 Button {
                     withAnimation(reduceMotion ? nil : theme.motion.gentle) { _ = expanded.insert(section.id) }
@@ -361,23 +381,23 @@ struct HerbariumView: View {
     }
 
     @ViewBuilder
-    private func grid(_ section: HerbariumSection) -> some View {
+    private func grid(_ section: HerbariumSection, sort: HerbariumSort) -> some View {
         let columns = HerbariumColumns(dynamicTypeSize)
         if columns.count == 1 {
             LazyVStack(spacing: theme.spacing.gutter) {
-                ForEach(section.entries) { cell($0, in: section, layout: .row) }
+                ForEach(section.entries) { cell($0, in: section, layout: .row, sort: sort) }
             }
         } else {
             LazyVGrid(
                 columns: Array(repeating: GridItem(.flexible(), spacing: theme.spacing.gutter, alignment: .top), count: columns.count),
                 spacing: theme.spacing.gutter
             ) {
-                ForEach(section.entries) { cell($0, in: section, layout: .tile) }
+                ForEach(section.entries) { cell($0, in: section, layout: .tile, sort: sort) }
             }
         }
     }
 
-    private func cell(_ entry: HerbariumEntry, in section: HerbariumSection, layout: LeafCell.Layout) -> some View {
+    private func cell(_ entry: HerbariumEntry, in section: HerbariumSection, layout: LeafCell.Layout, sort: HerbariumSort) -> some View {
         let model = LeafCellModel(entry, season: season, showsRarity: sort == .rarestFirst)
         return Button {
             open(entry, source: section.id)
@@ -386,7 +406,7 @@ struct HerbariumView: View {
         }
         .buttonStyle(.leafCell)
         .matchedTransitionSource(id: "\(section.id)/\(entry.id)", in: zoom)
-        .accessibilityRotorEntry(id: entry.id, in: rotor)
+        .accessibilityRotorEntry(id: HerbariumLayout.rotorID(section: section.id, species: entry.id), in: rotor)
     }
 
     private var noMatches: some View {
@@ -418,6 +438,13 @@ struct HerbariumView: View {
     private func turnOnAction(for permission: LeafAvailability?) -> (() -> Void)? {
         guard let permission, HerbariumCopy.turnOnTitle(permission) != nil else { return nil }
         return { openPermissionSettings(openURL) }
+    }
+
+    /// The Search sheet has closed for "Show on my maple": now Home can open the Tree view.
+    private func showPendingOnMaple() {
+        guard let speciesID = pendingShowOnMaple else { return }
+        pendingShowOnMaple = nil
+        router.showOnMaple(speciesID)
     }
 
     /// The Tree view's "See all leaves" asks for the earned leaves only (spec §8.4); apply it once, then clear it.

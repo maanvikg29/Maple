@@ -1,5 +1,6 @@
 import Foundation
 import MapleCore
+import Synchronization
 
 /// What VoiceOver says on Home, the Tree view and the Streak sheet (spec §3.2, §4.11, §9): full words, full units,
 /// one sentence per idea. Pure, so every line is unit-tested.
@@ -146,12 +147,22 @@ nonisolated public enum HomeDateText {
         format(date, template: "dMMMM", locale: locale, calendar: calendar)
     }
 
+    /// One configured formatter per template, locale, calendar and time zone. Building one costs about 200 µs, and
+    /// the Tree view labels every rosette, so they are made once and reused (formatting is thread-safe; the lock
+    /// guards the table).
+    private static let formatters = Mutex<[String: DateFormatter]>([:])
+
     private static func format(_ date: Date, template: String, locale: Locale, calendar: Calendar) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = locale
-        formatter.calendar = calendar
-        formatter.timeZone = calendar.timeZone
-        formatter.setLocalizedDateFormatFromTemplate(template)
-        return formatter.string(from: date)
+        let key = "\(template)|\(locale.identifier)|\(calendar.identifier)|\(calendar.timeZone.identifier)"
+        return formatters.withLock { table in
+            if let formatter = table[key] { return formatter.string(from: date) }
+            let formatter = DateFormatter()
+            formatter.locale = locale
+            formatter.calendar = calendar
+            formatter.timeZone = calendar.timeZone
+            formatter.setLocalizedDateFormatFromTemplate(template)
+            table[key] = formatter
+            return formatter.string(from: date)
+        }
     }
 }

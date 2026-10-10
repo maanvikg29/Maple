@@ -182,6 +182,36 @@ nonisolated public struct TreeCloseUpGeometry: Sendable {
     }
 }
 
+/// The Tree view's geometry with its rosettes in reading order at 1×, built once per layout and screen.
+nonisolated public struct TreeCloseUpLayout: Sendable {
+    public let geometry: TreeCloseUpGeometry
+    /// Each species' primary rosette, rows top to bottom and left to right at 1×: the VoiceOver order.
+    public let readingOrder: [TreeCloseUpGeometry.Target]
+}
+
+extension TreeCloseUpGeometry {
+    private struct LayoutCacheKey: Equatable {
+        var layout: TreeSceneModel.LayoutKey
+        var viewport: CGSize
+        var insets: EdgeInsets
+    }
+
+    @MainActor private static var lastLayout: (key: LayoutCacheKey, layout: TreeCloseUpLayout)?
+
+    /// The geometry for `model` in `viewport`, reused while the tree's layout and the screen stay the same. The Tree
+    /// view re-evaluates on every pinch and pan update, and this keeps each of those frames from rebuilding every
+    /// rosette's target and sorting them again.
+    @MainActor
+    public static func cachedLayout(model: TreeSceneModel, viewport: CGSize, insets: EdgeInsets) -> TreeCloseUpLayout {
+        let key = LayoutCacheKey(layout: model.layoutKey, viewport: viewport, insets: insets)
+        if let lastLayout, lastLayout.key == key { return lastLayout.layout }
+        let geometry = TreeCloseUpGeometry(model: model, viewport: viewport, insets: insets)
+        let layout = TreeCloseUpLayout(geometry: geometry, readingOrder: geometry.readingOrder())
+        lastLayout = (key, layout)
+        return layout
+    }
+}
+
 extension TreeSceneFrame {
     /// A frame with its own scale, placed so the trunk base (201, 470) lands on `base`.
     nonisolated init(size: CGSize, scale: CGFloat, base: CGPoint) {
@@ -193,31 +223,39 @@ extension TreeSceneFrame {
 
 /// The Tree view's maple (spec §8.4): sky, bloom, ground, tree and buds drawn as vectors at the screen's own
 /// size, so it stays sharp at every zoom. It sways gently at 1× (still under Reduce Motion, in Low Power Mode,
-/// while zoomed and for large crowns); the caller handles gestures and accessibility.
+/// while zoomed, for large crowns, under a full-screen cover (`\.treeScenesPaused`) and, as on Home, after a
+/// minute at night without interaction); the caller handles gestures and accessibility.
 public struct TreeCloseUp: View {
     @Environment(\.theme) private var theme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.treeScenesPaused) private var isCovered
+    @State private var nightFrozen = false
 
     private let model: TreeSceneModel
     private let geometry: TreeCloseUpGeometry
     private let zoom: CGFloat
     private let pan: CGSize
+    private let interactions: Int
 
     /// Above this many rosettes the tree view holds still (as the Home flutter rule does past 60).
     static let swayingRosetteLimit = 60
 
-    public init(model: TreeSceneModel, geometry: TreeCloseUpGeometry, zoom: CGFloat, pan: CGSize) {
+    /// - Parameter interactions: A count the caller bumps on every tap; with zoom and pan changes it restarts the
+    ///   night's 60 s countdown to a still frame (spec §4.9).
+    public init(model: TreeSceneModel, geometry: TreeCloseUpGeometry, zoom: CGFloat, pan: CGSize, interactions: Int = 0) {
         self.model = model
         self.geometry = geometry
         self.zoom = zoom
         self.pan = pan
+        self.interactions = interactions
     }
 
     public var body: some View {
         let plan = TreeScenePlan.cached(for: model, theme: theme)
         let still = model.time != nil || reduceMotion || scenePhase != .active || zoom > 1.001
             || ProcessInfo.processInfo.isLowPowerModeEnabled || plan.rosettes.count > Self.swayingRosetteLimit
+            || isCovered || nightFrozen
         TimelineView(.animation(minimumInterval: 1 / 30, paused: still)) { timeline in
             let now = model.time ?? timeline.date
             let motion = still
@@ -228,6 +266,23 @@ public struct TreeCloseUp: View {
             canvas(plan, motion: motion)
         }
         .accessibilityHidden(true)
+        .task(id: FreezeKey(phase: model.phase, active: scenePhase == .active, interactions: interactions,
+                            zoom: Double(zoom), panX: Double(pan.width), panY: Double(pan.height))) {
+            // At night the tree settles to a still frame after a minute without interaction, as Home's does.
+            nightFrozen = false
+            guard model.phase == .night else { return }
+            try? await Task.sleep(for: .seconds(60))
+            if !Task.isCancelled { nightFrozen = true }
+        }
+    }
+
+    private struct FreezeKey: Equatable {
+        var phase: NowPhase
+        var active: Bool
+        var interactions: Int
+        var zoom: Double
+        var panX: Double
+        var panY: Double
     }
 
     private func canvas(_ plan: TreeScenePlan, motion: TreeSceneRenderer.Motion) -> some View {

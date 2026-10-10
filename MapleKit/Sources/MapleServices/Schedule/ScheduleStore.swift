@@ -24,6 +24,9 @@ public final class ScheduleStore {
     public private(set) var schedule: SleepSchedule
     /// When the schedule was last saved; nil until the member saves one.
     public private(set) var savedAt: Date?
+    /// False while the schedule file exists but can't be read yet (before the first unlock after a restart): the
+    /// store then shows the standard schedule, never saves over the file, and `reloadIfUnavailable()` reads it.
+    public private(set) var isAvailable: Bool
 
     @ObservationIgnored private let storage: JSONStorage<SavedSchedule>
     @ObservationIgnored private let collection: CollectionStore
@@ -31,10 +34,30 @@ public final class ScheduleStore {
     public init(storage: JSONStorage<SavedSchedule>, collection: CollectionStore) {
         self.storage = storage
         self.collection = collection
-        let saved = storage.load()
+        let read = storage.read()
+        let saved: SavedSchedule? = if case .value(let value) = read { value } else { nil }
+        if case .unavailable = read { isAvailable = false } else { isAvailable = true }
         schedule = saved?.schedule ?? .standard
         savedAt = saved?.savedAt
         collection.schedule = schedule
+    }
+
+    /// Reads the schedule again if it couldn't be read at launch.
+    /// - Returns: Whether the store now holds the member's real schedule (or knows there is none).
+    @discardableResult
+    public func reloadIfUnavailable() -> Bool {
+        guard !isAvailable else { return false }
+        let saved: SavedSchedule?
+        switch storage.read() {
+        case .value(let value): saved = value
+        case .absent: saved = nil
+        case .unavailable: return false
+        }
+        isAvailable = true
+        schedule = saved?.schedule ?? .standard
+        savedAt = saved?.savedAt
+        collection.schedule = schedule
+        return true
     }
 
     public var hasSavedSchedule: Bool { savedAt != nil }
@@ -63,6 +86,7 @@ public final class ScheduleStore {
     /// - Returns: Leaves unlocked by this save: the Sugar maple the first time, otherwise nothing.
     @discardableResult
     public func save(_ schedule: SleepSchedule, at date: Date) -> [LeafUnlock] {
+        if !isAvailable { reloadIfUnavailable() }
         self.schedule = schedule
         savedAt = date
         storage.save(SavedSchedule(schedule: schedule, savedAt: date))

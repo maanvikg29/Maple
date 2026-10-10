@@ -82,6 +82,7 @@ public struct GlassCapsuleStyle: ButtonStyle {
 private struct GlassCapsuleButton: View {
     @Environment(\.theme) private var theme
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let configuration: ButtonStyleConfiguration
     let size: GlassCapsuleStyle.Size
 
@@ -89,8 +90,10 @@ private struct GlassCapsuleButton: View {
         configuration.label
             .font(MapleFont.contextEmphasis)
             .foregroundStyle(isEnabled ? theme.colors.textPrimary : theme.colors.textSecondary)
-            // A capsule stays one line; at large sizes it shrinks a little, and containers stack capsules.
-            .lineLimit(1)
+            // One line, shrinking a little at large sizes; at accessibility sizes the label wraps to a second line
+            // and the capsule grows with it, as the moonlight capsule does, so it is never cut off (spec §9).
+            .multilineTextAlignment(.center)
+            .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
             .minimumScaleFactor(0.8)
             .opacity(configuration.isPressed ? 0.6 : 1)
             .padding(.horizontal, size.horizontalPadding)

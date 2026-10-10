@@ -13,32 +13,79 @@ import Observation
 public final class CollectionStore {
     public private(set) var snapshot: CollectionSnapshot
     private var contextStorage: CollectionContext
+    /// Bumped when the system clock or time zone changes, so every view that read the context refreshes even though
+    /// the autoupdating calendar compares equal to itself.
+    private var timeEpoch = 0
+    /// False while the collection file exists but can't be read yet (before the first unlock after a restart): the
+    /// store then holds an empty placeholder that is never saved, and `reloadIfUnavailable()` reads the real one.
+    public private(set) var isAvailable: Bool
+    /// Follows the system calendar's time zone (`systemTimeChanged()`). True for the member's live store.
+    @ObservationIgnored public var followsSystemCalendar = false
 
     @ObservationIgnored private let storage: JSONStorage<CollectionSnapshot>
     @ObservationIgnored private let engine = LeafEngine()
     @ObservationIgnored private var revision = 0
     @ObservationIgnored private var cache: (revision: Int, day: LocalDay, rows: [LeafProgress], byID: [String: LeafProgress], picker: NextLeafPicker)?
 
-    /// Loads the saved collection, or creates (and saves) an empty one with a new profile id and tree seed.
+    /// Loads the saved collection, or on a first run creates (and saves) an empty one with a new profile id and tree
+    /// seed. A file that is there but unreadable is never replaced: see `isAvailable`.
     /// - Parameter now: The first-launch time, kept as `createdAt`.
     public init(storage: JSONStorage<CollectionSnapshot>, context: CollectionContext = CollectionContext(), now: Date = .now) {
         self.storage = storage
         contextStorage = context
-        if let saved = storage.load() {
+        switch storage.read() {
+        case .value(let saved):
             snapshot = saved
-        } else {
+            isAvailable = true
+        case .absent:
+            snapshot = .empty(profileID: UUID(), createdAt: now)
+            isAvailable = true
+            storage.save(snapshot)
+        case .unavailable:
+            snapshot = .empty(profileID: UUID(), createdAt: now)
+            isAvailable = false
+        }
+    }
+
+    /// Reads the collection again if it couldn't be read at launch (call it when protected data becomes available,
+    /// or when the app becomes active).
+    /// - Returns: Whether the store now holds the member's real collection where it held the placeholder.
+    @discardableResult
+    public func reloadIfUnavailable(now: Date = .now) -> Bool {
+        guard !isAvailable else { return false }
+        switch storage.read() {
+        case .value(let saved):
+            snapshot = saved
+        case .absent:
             snapshot = .empty(profileID: UUID(), createdAt: now)
             storage.save(snapshot)
+        case .unavailable:
+            return false
         }
+        isAvailable = true
+        revision += 1
+        return true
     }
 
     /// Schedule, permissions, shipped releases, calendar, hemisphere and the DEBUG season override.
     public var context: CollectionContext {
-        get { contextStorage }
+        get {
+            _ = timeEpoch
+            return contextStorage
+        }
         set {
             contextStorage = newValue
             revision += 1
         }
+    }
+
+    /// The system clock or time zone changed (`NSSystemTimeZoneDidChange`, a significant time change): the live
+    /// store moves to the new zone, its cached progress is rebuilt, and every screen that read it refreshes.
+    public func systemTimeChanged() {
+        guard followsSystemCalendar else { return }
+        contextStorage.calendar = .autoupdatingCurrent
+        revision += 1
+        timeEpoch += 1
     }
 
     /// The member's sleep schedule. `ScheduleStore` keeps it in sync; screens change it through `ScheduleStore`.
@@ -92,10 +139,12 @@ public final class CollectionStore {
 
     /// Opens leaves that may be opened now, in queue order: the given ids, or all of them. Held leaves, and any
     /// leaf in wind-down or at night (except First steps), stay closed.
+    /// - Parameter eligibleAt: When the reveal began. Leaves that could be opened then are still placed if the
+    ///   member taps "Place on your maple" after Evening has turned into Wind-down.
     /// - Returns: The opened leaves, for the reveal to show.
     @discardableResult
-    public func openReveals(_ speciesIDs: [String]? = nil, at date: Date) -> [LeafUnlock] {
-        mutate { $0.openReveals(speciesIDs, at: date, context: context) }
+    public func openReveals(_ speciesIDs: [String]? = nil, at date: Date, eligibleAt: Date? = nil) -> [LeafUnlock] {
+        mutate { $0.openReveals(speciesIDs, at: date, eligibleAt: eligibleAt, context: context) }
     }
 
     /// The member has looked at a leaf; its unseen dot goes.
@@ -137,6 +186,22 @@ public final class CollectionStore {
         mutate { $0.recordNight(night) }
     }
 
+    /// Goodnight in wind-down mode: tonight's phone-down time. The night is judged once it is settled.
+    /// - Returns: Whether it was recorded (false before the maple is planted, or for a night already settled).
+    @discardableResult
+    public func recordGoodnight(at date: Date) -> Bool {
+        mutate { $0.recordGoodnight(at: date, context: context) }
+    }
+
+    /// Settles the nights whose next morning has started by `date` and records what they earned (Nights tracked,
+    /// On-time bedtimes, the bedtime run, Steady weeks, Seasons in rhythm). Each night is settled once, so call it
+    /// whenever the app comes to the foreground.
+    /// - Returns: Leaves unlocked; they can be opened at once in the morning.
+    @discardableResult
+    public func settleNights(at date: Date) -> [LeafUnlock] {
+        mutate { $0.settleNights(at: date, context: context, engine: engine) }
+    }
+
     // MARK: - Reading
 
     public var unlocks: [LeafUnlock] { snapshot.unlocks }
@@ -167,7 +232,8 @@ public final class CollectionStore {
     /// Structural growth g.
     public var growth: Double { TreeGrowth.structure(tendedDays: snapshot.tendedDayCount) }
     public var stage: TreeStage { TreeStage(speciesCount: openedCount) }
-    public var vitality: Vitality { snapshot.vitality }
+    /// The tree's vitality on the day of `date`, from the week of nights before it (spec §4.8).
+    public func vitality(at date: Date) -> Vitality { snapshot.vitality(at: date, calendar: context.calendar) }
     public var totals: ProfileTotals { snapshot.totals(context: context) }
 
     public func unlock(for speciesID: String) -> LeafUnlock? { snapshot.unlock(for: speciesID) }
@@ -221,12 +287,15 @@ public final class CollectionStore {
     // MARK: - Private
 
     private func mutate<Result>(_ change: (inout CollectionSnapshot) -> Result) -> Result {
+        // A change always lands on the member's real collection: read it first if launch couldn't.
+        if !isAvailable { reloadIfUnavailable() }
         var copy = snapshot
         let result = change(&copy)
         if copy != snapshot {
             snapshot = copy
             revision += 1
-            storage.save(copy)
+            // The placeholder is never written over a file that couldn't be read.
+            if isAvailable { storage.save(copy) }
         }
         return result
     }

@@ -5,6 +5,9 @@ public struct CollectionContext: Sendable, Equatable {
     public var schedule: SleepSchedule
     public var permissions: GrantedPermissions
     public var features: ShippedFeatures
+    /// The member's calendar and time zone. The app passes `Calendar.autoupdatingCurrent`, so a new time zone (a
+    /// flight, a trip) moves phases, days and held reveals with it; `CollectionStore.systemTimeChanged()` then
+    /// refreshes every screen that read it.
     public var calendar: Calendar
     public var hemisphere: Hemisphere
     /// DEBUG `-MapleDemoSeason`: the tree shows this season instead of the real one.
@@ -12,7 +15,7 @@ public struct CollectionContext: Sendable, Equatable {
 
     public init(
         schedule: SleepSchedule = .standard, permissions: GrantedPermissions = [], features: ShippedFeatures = .current,
-        calendar: Calendar = .current, hemisphere: Hemisphere = .current, seasonOverride: Season? = nil
+        calendar: Calendar = .autoupdatingCurrent, hemisphere: Hemisphere = .current, seasonOverride: Season? = nil
     ) {
         self.schedule = schedule
         self.permissions = permissions
@@ -81,10 +84,25 @@ extension CollectionSnapshot {
     }
 
     /// Opens leaves that may be opened now (`revealable`), in queue order: the given ids, or all of them.
-    /// - Returns: The opened leaves, now revealed.
+    ///
+    /// A reveal that began while leaves could be opened passes its start as `eligibleAt`: what was revealable then
+    /// is still placed when "Place on your maple" comes after Evening has turned into Wind-down (the member has
+    /// already watched those leaves open). Held leaves stay closed either way.
+    /// - Returns: The opened leaves, now revealed, stamped with `date`.
     @discardableResult
-    public mutating func openReveals(_ speciesIDs: [String]?, at date: Date, context: CollectionContext) -> [LeafUnlock] {
-        let allowed = revealable(at: date, context: context)
+    public mutating func openReveals(
+        _ speciesIDs: [String]?, at date: Date, eligibleAt: Date? = nil, context: CollectionContext
+    ) -> [LeafUnlock] {
+        var allowed = revealable(at: date, context: context)
+        if let eligibleAt, eligibleAt < date {
+            let now = Set(allowed.map(\.speciesID))
+            let earlier = revealable(at: eligibleAt, context: context).filter { !now.contains($0.speciesID) }
+            if !earlier.isEmpty {
+                // Back in unlock order, as `revealable` gives them.
+                let order = Dictionary(uniqueKeysWithValues: unlocks.enumerated().map { ($0.element.speciesID, $0.offset) })
+                allowed = (allowed + earlier).sorted { (order[$0.speciesID] ?? 0) < (order[$1.speciesID] ?? 0) }
+            }
+        }
         let chosen = speciesIDs.map { ids in allowed.filter { ids.contains($0.speciesID) } } ?? allowed
         var opened: [LeafUnlock] = []
         for leaf in chosen {
@@ -130,6 +148,44 @@ extension CollectionSnapshot {
             recentNights.removeFirst(recentNights.count - Self.nightsKept)
         }
     }
+
+    /// Goodnight in wind-down mode: tonight's phone-down time, judged against the schedule now in force once the
+    /// night is settled (`settleNights(at:context:engine:)`). Ignored before the maple is planted.
+    /// - Returns: Whether it was recorded (false for a night already settled).
+    @discardableResult
+    public mutating func recordGoodnight(at date: Date, context: CollectionContext) -> Bool {
+        guard hasPlantedMaple else { return false }
+        return nights.recordGoodnight(at: date, bedtime: context.schedule.bedtime, calendar: context.calendar)
+    }
+
+    /// Settles every night whose next morning has started by `date` (each once), from the first night after the
+    /// schedule was saved, and records what they earned: Nights tracked and On-time bedtimes per night, the live
+    /// bedtime run (the counter keeps the best), Steady weeks as weeks close and Seasons in rhythm, plus each
+    /// tracked night's outcome for vitality. Untracked nights add nothing (spec §5.1, rewards.md).
+    /// - Returns: Leaves the settled nights unlocked; they are pending at once in the morning.
+    @discardableResult
+    public mutating func settleNights(at date: Date, context: CollectionContext, engine: LeafEngine = LeafEngine()) -> [LeafUnlock] {
+        guard let setup = firstLeaf?.date else { return [] }
+        let calendar = context.calendar
+        let first = NightLedger.firstNight(setUpAt: setup, schedule: context.schedule, calendar: calendar)
+        let settled = nights.settle(at: date, from: first, run: currentBedtimeRun, schedule: context.schedule, calendar: calendar)
+        guard let last = settled.last else { return [] }
+        var increases: [RewardCategoryID: Double] = [:]
+        for night in settled {
+            if night.outcome.isTracked { increases[.nightsTracked, default: 0] += 1 }
+            if night.outcome == .onTime { increases[.onTimeBedtimes, default: 0] += 1 }
+            if night.closedSteadyWeek { increases[.steadyWeeks, default: 0] += 1 }
+            if night.completedSeason { increases[.seasonsInRhythm, default: 0] += 1 }
+            // Vitality: on time or late; early and untracked nights are neutral (rewards.md).
+            if night.outcome == .onTime || night.outcome == .late {
+                recordNight(NightRecord(day: night.night, onTime: night.outcome == .onTime, fullNight: nil, scrollFree: nil))
+            }
+        }
+        record(increases, at: date, calendar: calendar)
+        currentBedtimeRun = last.run
+        raise(.bedtimeRun, to: Double(last.run), at: date, calendar: calendar)
+        return runEngine(at: date, context: context, engine: engine)
+    }
 }
 
 // MARK: - Reading
@@ -160,8 +216,9 @@ extension CollectionSnapshot {
         return earned.last?.speciesID
     }
 
-    public var vitality: Vitality {
-        Vitality(last7Nights: recentNights)
+    /// The tree's vitality on the day of `date`, from the nights of the week before it (spec §4.8).
+    public func vitality(at date: Date, calendar: Calendar) -> Vitality {
+        Vitality(nights: recentNights, today: LocalDay(date, calendar: calendar), calendar: calendar)
     }
 
     public func pending(at date: Date, context: CollectionContext) -> [LeafUnlock] {
@@ -180,7 +237,7 @@ extension CollectionSnapshot {
     public func progress(at date: Date, context: CollectionContext) -> [LeafProgress] {
         LeafProgressBuilder(permissions: context.permissions, features: context.features)
             .progress(counters: counters, unlocks: unlocks, history: history, today: LocalDay(date, calendar: context.calendar),
-                      calendar: context.calendar)
+                      calendar: context.calendar, currentBedtimeRun: currentBedtimeRun)
     }
 
     public func picker(at date: Date, context: CollectionContext) -> NextLeafPicker {
@@ -233,7 +290,7 @@ extension CollectionSnapshot {
             featured: featuredLeaf,
             season: season(at: date, context: context),
             seasonDay: TreeFoliage.seasonDay(for: date, hemisphere: context.hemisphere, calendar: context.calendar),
-            vitality: vitality.value,
+            vitality: vitality(at: date, calendar: context.calendar).value,
             newLeafHalos: halos
         )
     }

@@ -5,10 +5,14 @@ import MapleServices
 
 /// Settings (spec §8.7): hemisphere, sleep goal and the reveal sound, as one Level-1 group. Every change saves at
 /// once through `AppSettings`; the hemisphere moves the seasons (and the tree) straight away.
+///
+/// The sleep goal only decides Full nights, which need sleep-stage data from Apple Health; until those leaves can
+/// be earned on this iPhone the row is absent (spec §1.5: a feature appears only when it has real state).
 struct SettingsView: View {
     @Environment(\.theme) private var theme
     @Environment(\.mapleClock) private var clock
     @Environment(AppSettings.self) private var settings
+    @Environment(CollectionStore.self) private var collection
 
     var body: some View {
         @Bindable var settings = settings
@@ -17,8 +21,10 @@ struct SettingsView: View {
                 ProfileSettingRow("Hemisphere", detail: Text(hemisphereDetail), stacked: true, controlIsLabelled: false) {
                     HemispherePicker(selection: $settings.hemisphere)
                 }
-                ProfileSettingRow("Sleep goal", detail: Text("A full night is at least this much sleep.")) {
-                    SleepGoalStepper()
+                if collection.availability(of: .fullNights) == .available {
+                    ProfileSettingRow("Sleep goal", detail: Text("A full night is at least this much sleep.")) {
+                        SleepGoalStepper()
+                    }
                 }
                 ProfileSettingRow("Reveal sound", detail: Text("A soft chime as a new leaf opens.")) {
                     ProfileToggle("Reveal sound", isOn: $settings.revealSound)

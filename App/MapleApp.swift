@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import MapleCore
 import MapleDesign
 import MapleServices
@@ -11,13 +12,16 @@ struct MapleApp: App {
     @State private var schedule: ScheduleStore
     @State private var shares: LeafShareStore
     @State private var settings: AppSettings
+    private let stores: MapleStores
     private let clock: MapleClock
     /// Where the first run starts or picks up (spec §8.8): until the Sugar maple is on the tree, the app opens on
-    /// the end of onboarding, already showing the right step in its first frame.
-    private let firstRun: FirstRunStep
+    /// the end of onboarding, already showing the right step in its first frame. Decided again if the files could
+    /// only be read after launch (a launch before the first unlock after a restart).
+    @State private var launch: LaunchGate
 
     init() {
         let stores = MapleStores.launch()
+        self.stores = stores
         _collection = State(initialValue: stores.collection)
         _schedule = State(initialValue: stores.schedule)
         _shares = State(initialValue: stores.shares)
@@ -27,25 +31,27 @@ struct MapleApp: App {
         let settings = AppSettings.launch()
         settings.apply(to: stores.collection)
         _settings = State(initialValue: settings)
-        firstRun = Self.firstRun(stores)
+        _launch = State(initialValue: LaunchGate(firstRun: Self.firstRun(stores)))
     }
 
     /// A member without the First-steps leaf on the tree plants their maple first, resuming wherever an earlier
     /// launch stopped (and repairing a save the app was stopped in the middle of). DEBUG demo collections are
     /// already planted (or deliberately empty) and open on the tabs, unless `-MapleDemoPresent onboarding` asks
     /// for the flow (which a planted collection skips).
-    private static func firstRun(_ stores: MapleStores) -> FirstRunStep {
+    static func firstRun(_ stores: MapleStores) -> FirstRunStep {
         #if DEBUG
         if DemoLaunchOptions.current.usesDemoCollection, UserDefaults.standard.string(forKey: "MapleDemoPresent") != "onboarding" {
             return .finished
         }
         #endif
+        // Files that can't be read yet are never repaired: the step is decided again once they can be.
+        guard stores.isAvailable else { return stores.schedule.firstRun }
         return stores.schedule.resumeFirstRun(at: stores.clock.now())
     }
 
     var body: some Scene {
         WindowGroup {
-            ThemedRoot(firstRun: firstRun)
+            ThemedRoot(stores: stores, launch: $launch)
                 .environment(collection)
                 .environment(schedule)
                 .environment(shares)
@@ -55,8 +61,21 @@ struct MapleApp: App {
     }
 }
 
+/// The first-run step the root opens on, and a generation that rebuilds the root when it is decided again.
+struct LaunchGate: Equatable {
+    var firstRun: FirstRunStep
+    var generation = 0
+}
+
 /// Picks the theme for the system contrast setting and the season for the member's hemisphere (or the DEBUG
-/// `-MapleDemoSeason` override), and refreshes rarity when the app comes to the foreground.
+/// `-MapleDemoSeason` override), and keeps the stores in step with the device:
+/// - files that couldn't be read at launch are read once protected data is available (or the app is active);
+/// - a time-zone or clock change moves the collection's calendar and refreshes every screen;
+/// - each foreground settles last night's Goodnight (and every five minutes while active, so a morning that
+///   arrives with the app open settles too), and refreshes rarity;
+/// - the season is read again on every foreground and at each significant time change (which iOS posts at local
+///   midnight), so a month boundary passed with the app open changes it everywhere. (A root `TimelineView` would do
+///   it too, but one at the root kept the first frame from ever committing.)
 private struct ThemedRoot: View {
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.scenePhase) private var scenePhase
@@ -64,19 +83,58 @@ private struct ThemedRoot: View {
     @Environment(CollectionStore.self) private var collection
     @Environment(LeafShareStore.self) private var shares
     @Environment(AppSettings.self) private var settings
-    let firstRun: FirstRunStep
+    let stores: MapleStores
+    @Binding var launch: LaunchGate
+    /// The moment the season was last read for; nil until the first foreground.
+    @State private var seasonDate: Date?
+
+    /// How often an open app checks for a night to settle.
+    private static let settleInterval: Duration = .seconds(300)
 
     var body: some View {
-        RootView(firstRun: firstRun)
+        RootView(firstRun: launch.firstRun)
+            .id(launch.generation)
             .environment(\.theme, contrast == .increased ? .mapleIncreasedContrast : .maple)
-            .environment(\.season, collection.season(at: clock.now()))
+            .environment(\.season, collection.season(at: seasonDate ?? clock.now()))
             .preferredColorScheme(.dark)
             .task(id: scenePhase) {
                 guard scenePhase == .active else { return }
+                seasonDate = clock.now()
+                reloadUnreadableFiles()
                 await shares.refreshIfNeeded()
+            }
+            .task(id: scenePhase) {
+                guard scenePhase == .active, stores.isLive else { return }
+                while !Task.isCancelled {
+                    collection.settleNights(at: clock.now())
+                    try? await Task.sleep(for: Self.settleInterval)
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.protectedDataDidBecomeAvailableNotification)) { _ in
+                reloadUnreadableFiles()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange)) { _ in
+                collection.systemTimeChanged()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
+                seasonDate = clock.now()
+                collection.systemTimeChanged()
+                if stores.isLive { collection.settleNights(at: clock.now()) }
             }
             .onChange(of: settings.resolvedHemisphere) {
                 settings.apply(to: collection)
             }
+    }
+
+    /// Reads the files a launch before the first unlock couldn't, then decides the first-run step again and
+    /// rebuilds the root on the member's real collection.
+    private func reloadUnreadableFiles() {
+        let settingsReloaded = settings.reloadIfUnavailable()
+        guard stores.reloadIfUnavailable() else {
+            if settingsReloaded { settings.apply(to: collection) }
+            return
+        }
+        settings.apply(to: collection)
+        launch = LaunchGate(firstRun: MapleApp.firstRun(stores), generation: launch.generation + 1)
     }
 }

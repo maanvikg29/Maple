@@ -22,6 +22,8 @@ struct HomeView: View {
     @State private var sheet: HomeSheet?
     @State private var cover: HomeCover?
     @State private var pushedLeaf: String?
+    /// "Show on my maple" asked while a sheet or cover was up: the Tree view opens once that has gone.
+    @State private var pendingTreeFocus: String?
     /// Wind-down mode's log: whether it is on, and tonight's Goodnight (spec §3.4).
     private let bedside = BedsideLog.shared
     #if DEBUG
@@ -40,13 +42,15 @@ struct HomeView: View {
                 screen(content, proxy: proxy)
             }
         }
+        // Under a full-screen cover (the reveal, wind-down mode, the Tree view) the scene holds a still frame.
+        .environment(\.treeScenesPaused, cover != nil)
         .background(theme.colors.background)
         .toolbarVisibility(.hidden, for: .navigationBar)
         .navigationDestination(item: $pushedLeaf) { speciesID in
             LeafDetailView(speciesID: speciesID)
                 .navigationTransition(.zoom(sourceID: speciesID, in: zoom))
         }
-        .sheet(item: $sheet) { sheet in
+        .sheet(item: $sheet, onDismiss: presentPendingTree) { sheet in
             switch sheet {
             case .profile:
                 ProfileView()
@@ -56,7 +60,7 @@ struct HomeView: View {
                 StreakSheet()
             }
         }
-        .fullScreenCover(item: $cover) { cover in
+        .fullScreenCover(item: $cover, onDismiss: presentPendingTree) { cover in
             switch cover {
             case .tree(let speciesID):
                 TreeView(focusing: speciesID)
@@ -78,18 +82,22 @@ struct HomeView: View {
         #endif
     }
 
-    /// Opens the Tree view centred on a leaf. Whatever Home is presenting goes first, so the cover can appear.
+    /// Opens the Tree view centred on a leaf. Whatever Home is presenting goes first; the Tree view follows from its
+    /// dismissal (`presentPendingTree`), never after a guessed delay.
     private func showOnMaple(_ speciesID: String) {
         guard sheet != nil || cover != nil else {
             cover = .tree(focusing: speciesID)
             return
         }
+        pendingTreeFocus = speciesID
         sheet = nil
         cover = nil
-        Task {
-            try? await Task.sleep(for: .seconds(0.6))
-            cover = .tree(focusing: speciesID)
-        }
+    }
+
+    private func presentPendingTree() {
+        guard let speciesID = pendingTreeFocus, sheet == nil, cover == nil else { return }
+        pendingTreeFocus = nil
+        cover = .tree(focusing: speciesID)
     }
 
     // MARK: Layout
@@ -298,10 +306,9 @@ final class HomeScrollState {
     var offset: CGFloat = 0
 }
 
-/// The sky behind the stage (spec §3.7, §4.4): registered with the tree's scene, extended upward in its top
-/// colour for overscroll, and held back by 60% of the scroll for a gentle parallax.
+/// The sky behind the stage (spec §3.7, §4.4): registered with the tree's scene, extended upward for overscroll
+/// (`SkyBackdropExtension`), and held back by 60% of the scroll for a gentle parallax.
 private struct HomeSky: View {
-    @Environment(\.theme) private var theme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     let phase: NowPhase
@@ -314,13 +321,14 @@ private struct HomeSky: View {
     private let overscrollRoom: CGFloat = 600
 
     var body: some View {
-        let palette = theme.colors.scene.sky(for: phase)
+        let backdrop = CGSize(width: width, height: HomeLayout.sceneSize.height * scale)
         VStack(spacing: 0) {
-            Rectangle()
-                .fill(palette.stops.first?.color ?? theme.colors.background)
+            // Carries the sky's light pools upward, so the backdrop's top edge never shows as a seam: it comes into
+            // view under the header when the stage is shrunk for large text.
+            SkyBackdropExtension(phase: phase, backdropSize: backdrop)
                 .frame(width: width, height: overscrollRoom)
             SkyBackdrop(phase: phase, season: season, vitality: vitality)
-                .frame(width: width, height: HomeLayout.sceneSize.height * scale)
+                .frame(width: backdrop.width, height: backdrop.height)
         }
         .offset(y: -overscrollRoom + HomeLayout.sceneOffset(scale: scale)
             + HomeLayout.skyCounterOffset(scrollOffset: scroll.offset, reduceMotion: reduceMotion))

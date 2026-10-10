@@ -11,8 +11,11 @@ import MapleServices
 ///   leaves; the short one otherwise; a 0.6 s crossfade under Reduce Motion. One soft haptic per opening.
 /// - Queues: "Next leaf", or "Open all {n}".
 /// - "Place on your maple" marks the opened leaves revealed in the collection, so Home grafts them onto the tree,
-///   then the cover fades out. The first morning reveal ends with the rarity consent sheet (D5).
-/// - Nothing opens in wind-down or at night (except First steps); the cover then says "Opens in the morning".
+///   then the cover fades out. The first morning reveal ends with the rarity consent sheet (D5). Leaves opened
+///   before Evening turned into Wind-down are still placed (`openReveals(_:at:eligibleAt:)`).
+/// - Nothing opens in wind-down or at night (except First steps); the cover then says "Opens in the morning". Each
+///   tap checks again, so a sitting that crosses into Wind-down stops at the next closed bud.
+/// - Settings › "Reveal sound" plays a soft chime as a bud opens (`RevealChime`).
 ///
 /// The cover is transparent and fades itself in and out over `gentle`; present it without the slide:
 ///
@@ -54,6 +57,7 @@ private struct RevealFlowScreen: View {
 
     @Environment(CollectionStore.self) private var collection
     @Environment(LeafShareStore.self) private var shares
+    @Environment(AppSettings.self) private var settings
     @Environment(\.mapleClock) private var clock
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -62,7 +66,11 @@ private struct RevealFlowScreen: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @State private var session: RevealSession?
+    /// When the sitting began: what could be opened then is still placed after Evening turns into Wind-down.
+    @State private var startedAt: Date?
     @State private var heldCount = 0
+    /// Leaves this sitting opened before it had to stop at the Wind-down boundary; closing places them.
+    @State private var heldOpened: [String] = []
     @State private var isShown = false
     @State private var openings = 0
     @State private var asksConsent = false
@@ -144,6 +152,7 @@ private struct RevealFlowScreen: View {
     private func start() {
         guard session == nil, heldCount == 0 else { return }
         let now = clock.now()
+        startedAt = now
         let queue = collection.revealable(at: now)
         if queue.isEmpty {
             heldCount = collection.waiting.count
@@ -161,30 +170,59 @@ private struct RevealFlowScreen: View {
     }
 
     private func open() {
+        guard let before = session, before.mayOpen(openable: openableNow()) else { return holdForMorning() }
         guard var current = session, let item = current.current, current.open(at: Date()) else { return }
         session = current
         openings += 1
-        prepareShareImage(item.speciesID, after: current.ritual(at: current.index, reduceMotion: reduceMotion).footerStart / 2)
+        chime()
+        // The share card is rendered once the ritual has settled, never during the unfurl.
+        prepareShareImage(item.speciesID, after: current.ritual(at: current.index, reduceMotion: reduceMotion).settledTime)
     }
 
     private func next() {
         guard var current = session else { return }
         current.advance()
+        guard current.mayOpen(openable: openableNow()) else { return holdForMorning() }
         withAnimation(theme.motion.gentle) { session = current }
     }
 
     private func openAll() {
+        guard let before = session, before.mayOpen(all: true, openable: openableNow()) else { return holdForMorning() }
         guard var current = session, current.openAll(at: Date()) else { return }
         withAnimation(theme.motion.gentle) { session = current }
         openings += 1
+        chime()
+    }
+
+    /// What may be opened at this moment.
+    private func openableNow() -> Set<String> {
+        Set(collection.revealable(at: clock.now()).map(\.speciesID))
+    }
+
+    /// Wind-down began during the sitting (D8): the closed buds wait for the morning ("Opens in the morning"), and
+    /// whatever was already opened is placed when the cover closes.
+    private func holdForMorning() {
+        guard let current = session else { return }
+        heldOpened = current.opened
+        withAnimation(theme.motion.gentle) {
+            heldCount = max(1, current.unopened.count)
+            session = nil
+        }
+    }
+
+    private func chime() {
+        guard settings.revealSound else { return }
+        RevealChime.shared.play()
     }
 
     /// "Place on your maple": the opened leaves go onto the tree, then the cover fades (or the consent sheet
     /// follows the first morning reveal).
     private func place() {
-        guard let session, !session.opened.isEmpty else { return finish() }
+        let opened = session?.opened ?? heldOpened
+        guard !opened.isEmpty else { return finish() }
         let now = clock.now()
-        placed = collection.openReveals(session.opened, at: now)
+        placed = collection.openReveals(opened, at: now, eligibleAt: startedAt)
+        heldOpened = []
         announce(placed)
         if !placed.isEmpty, collection.phase(at: now) == .morning, collection.rarityConsent == .notAsked {
             asksConsent = true
@@ -195,7 +233,7 @@ private struct RevealFlowScreen: View {
 
     /// The close circle on a closed bud: anything already opened is placed; the rest keeps waiting.
     private func close() {
-        if let session, !session.opened.isEmpty {
+        if !(session?.opened ?? heldOpened).isEmpty {
             place()
         } else {
             finish()
@@ -233,13 +271,15 @@ private struct RevealFlowScreen: View {
         AccessibilityNotification.Announcement("\(names.formatted(.list(type: .and))) placed on your maple.").post()
     }
 
-    /// Renders the share card off the critical first frames of the ritual.
+    /// Renders the share card once the ritual has settled, so the render never lands on an animating frame; the
+    /// share circle then fades in. Only the image is made here: the PNG is encoded when the member shares.
     private func prepareShareImage(_ speciesID: String, after delay: TimeInterval) {
         Task {
             if delay > 0 { try? await Task.sleep(for: .seconds(delay)) }
             guard shareImages[speciesID] == nil, let leaf = leaf(speciesID),
                   let date = collection.unlock(for: speciesID)?.date else { return }
-            shareImages[speciesID] = RevealShareCard.image(leaf: leaf, pressedOn: date, season: season, theme: theme)
+            let image = RevealShareCard.image(leaf: leaf, pressedOn: date, season: season, theme: theme)
+            withAnimation(theme.motion.gentle) { shareImages[speciesID] = image }
         }
     }
 

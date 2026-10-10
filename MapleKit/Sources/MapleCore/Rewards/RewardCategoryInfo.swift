@@ -80,13 +80,13 @@ public struct RewardCategoryInfo: Sendable {
             return
         case .nightsTracked:
             self.init(id, order: 1, requirement: .none, timeOfDay: .night, action: nil, release: .m1, designPace: 0.9,
-                      definition: "A night counts when Maple knows when you slept, from Apple Health.",
+                      definition: "A night counts when you tap Goodnight in wind-down mode.",
                       short: { "\($0) \(plural($0, "night"))" },
                       earned: { $0 == 1 ? "For your first tracked night" : "For \($0) tracked nights" })
             return
         case .onTimeBedtimes:
             self.init(id, order: 2, requirement: .none, timeOfDay: .night, action: .startWindDown, release: .m1, designPace: 0.7,
-                      definition: "Asleep no later than 30 minutes after your bedtime.",
+                      definition: "Goodnight no later than 30 minutes after your bedtime.",
                       short: { "\($0) on time" },
                       earned: { $0 == 1 ? "For your first on-time bedtime" : "For \($0) on-time bedtimes" })
             return

@@ -114,9 +114,12 @@ struct WindDownView: View {
         #endif
     }
 
+    /// Goodnight: the phone-down time. It is also tonight's bedtime for the sleep leaves (Nights tracked, On-time
+    /// bedtimes, runs and steady weeks), judged when the night is settled the next morning.
     private func sayGoodnight() {
         let now = clock.now()
         BedsideLog.shared.sayGoodnight(at: now)
+        collection.recordGoodnight(at: now)
         goodnightAt = now
         wakeCount += 1
     }

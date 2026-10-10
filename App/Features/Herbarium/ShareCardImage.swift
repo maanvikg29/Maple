@@ -1,19 +1,36 @@
 import SwiftUI
-import UIKit
+import ImageIO
 import UniformTypeIdentifiers
 import MapleCore
 import MapleDesign
 
 /// The share card as a PNG (spec §5.9): `ShareCardView` rendered at 360 × 450pt × 3 = 1080 × 1350, shared through
 /// `ShareLink`.
+///
+/// Rendering keeps the bitmap only. The PNG (around 100 ms of ImageIO work for a card this size) is encoded when
+/// the member actually shares, inside the transfer representation's exporter, which the share sheet runs off the
+/// main actor, so no screen stalls on it.
 nonisolated struct ShareCardImage: Transferable, Sendable {
-    let png: Data
+    let bitmap: CGImage
     let image: Image
     let name: String
 
     static var transferRepresentation: some TransferRepresentation {
-        DataRepresentation(exportedContentType: .png) { $0.png }
+        DataRepresentation(exportedContentType: .png) { try $0.pngData() }
             .suggestedFileName { "\($0.name).png" }
+    }
+
+    private struct EncodingFailed: Error {}
+
+    /// The card as PNG data.
+    func pngData() throws -> Data {
+        let data = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(data, UTType.png.identifier as CFString, 1, nil) else {
+            throw EncodingFailed()
+        }
+        CGImageDestinationAddImage(destination, bitmap, nil)
+        guard CGImageDestinationFinalize(destination) else { throw EncodingFailed() }
+        return data as Data
     }
 }
 
@@ -29,8 +46,10 @@ extension ShareCardImage {
         renderer.scale = ShareCardView.renderScale
         renderer.proposedSize = ProposedViewSize(ShareCardView.size)
         renderer.isOpaque = true
-        guard let image = renderer.uiImage, let png = image.pngData() else { return nil }
-        return ShareCardImage(png: png, image: Image(uiImage: image), name: species.displayName)
+        guard let bitmap = renderer.cgImage else { return nil }
+        return ShareCardImage(
+            bitmap: bitmap, image: Image(decorative: bitmap, scale: ShareCardView.renderScale), name: species.displayName
+        )
     }
 }
 

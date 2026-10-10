@@ -92,6 +92,8 @@ public final class AppSettings {
     nonisolated public static let sleepGoalStep = 30
 
     public private(set) var snapshot: SettingsSnapshot
+    /// False while the settings file exists but can't be read yet (before the first unlock after a restart).
+    public private(set) var isAvailable: Bool
 
     @ObservationIgnored private let storage: JSONStorage<SettingsSnapshot>
     @ObservationIgnored private let regionCode: String?
@@ -100,7 +102,31 @@ public final class AppSettings {
     public init(storage: JSONStorage<SettingsSnapshot>, regionCode: String? = Locale.current.region?.identifier) {
         self.storage = storage
         self.regionCode = regionCode
-        snapshot = storage.load() ?? SettingsSnapshot()
+        switch storage.read() {
+        case .value(let saved):
+            snapshot = saved
+            isAvailable = true
+        case .absent:
+            snapshot = SettingsSnapshot()
+            isAvailable = true
+        case .unavailable:
+            snapshot = SettingsSnapshot()
+            isAvailable = false
+        }
+    }
+
+    /// Reads the settings again if they couldn't be read at launch.
+    /// - Returns: Whether the store now holds the member's real settings (or knows there are none).
+    @discardableResult
+    public func reloadIfUnavailable() -> Bool {
+        guard !isAvailable else { return false }
+        switch storage.read() {
+        case .value(let saved): snapshot = saved
+        case .absent: snapshot = SettingsSnapshot()
+        case .unavailable: return false
+        }
+        isAvailable = true
+        return true
     }
 
     // MARK: Values
@@ -173,6 +199,8 @@ public final class AppSettings {
     // MARK: Private
 
     private func change(_ edit: (inout SettingsSnapshot) -> Void) {
+        // A change lands on the member's real settings, never on launch defaults saved over an unreadable file.
+        if !isAvailable { reloadIfUnavailable() }
         var copy = snapshot
         edit(&copy)
         guard copy != snapshot else { return }

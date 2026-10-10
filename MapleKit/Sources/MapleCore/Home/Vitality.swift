@@ -17,6 +17,17 @@ public struct Vitality: Sendable, Equatable {
         self.value = min(1, max(Self.minimum, value))
     }
 
+    /// Days a night stays in the window: the 7 nights before today, plus tonight once it is recorded.
+    public static let window = 7
+
+    /// The tree's vitality on `today` (spec §4.8, "computed once a day from the last 7 nights"): only nights that
+    /// began in the week up to today count, so nights from before a gap never dim the tree. With none, it is 1.
+    public init(nights: [NightRecord], today: LocalDay, calendar: Calendar) {
+        let earliest = today.adding(days: -Self.window, calendar: calendar)
+        self.init(last7Nights: nights.filter { $0.day >= earliest && $0.day <= today })
+    }
+
+    /// Scores the last 7 of `nights`, whatever their dates; `init(nights:today:calendar:)` picks the window first.
     public init(last7Nights nights: [NightRecord]) {
         let recent = nights.sorted { $0.day < $1.day }.suffix(7)
         func share(_ field: KeyPath<NightRecord, Bool?>) -> Double? {
