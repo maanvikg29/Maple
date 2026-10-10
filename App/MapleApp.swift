@@ -14,6 +14,9 @@ struct MapleApp: App {
     @State private var settings: AppSettings
     /// Apple Health: granted only once the member has been through Apple's prompt (DEBUG demos: their arguments).
     @State private var health: HealthPermission
+    /// The wind-down and morning-leaf reminders, and the notification center's delegate (set before launch ends,
+    /// so a tap that opens the app is heard). `ReminderUpkeep` keeps them scheduled.
+    @State private var reminders = NotificationScheduler.launch()
     private let stores: MapleStores
     private let clock: MapleClock
     /// Where the first run starts or picks up (spec §8.8): until the Sugar maple is on the tree, the app opens on
@@ -60,6 +63,7 @@ struct MapleApp: App {
                 .environment(shares)
                 .environment(settings)
                 .environment(health)
+                .environment(reminders)
                 .environment(\.mapleClock, clock)
         }
     }
@@ -97,6 +101,7 @@ private struct ThemedRoot: View {
     var body: some View {
         RootView(firstRun: launch.firstRun)
             .id(launch.generation)
+            .reminderUpkeep()
             .environment(\.theme, contrast == .increased ? .mapleIncreasedContrast : .maple)
             .environment(\.season, collection.season(at: seasonDate ?? clock.now()))
             .preferredColorScheme(.dark)

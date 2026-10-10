@@ -134,6 +134,24 @@ let unlocked = schedule.save(SleepSchedule(bedtime: ClockTime(hour: 23), wake: C
 
 `schedule.schedule` is `.standard` until the member saves one; `schedule.hasSavedSchedule` says whether they have. Saving applies the schedule to phases and held reveals at once, but a night already under way (an edit after 18:00) is still judged by the schedule it began with: edits apply from the next night (rewards.md), so a bedtime can't be moved after the fact. `windDownStart` and `minutesInBed` are on `SleepSchedule`.
 
+## Reminders (local notifications)
+
+Maple sends two notifications and nothing else: **"Time to wind down"** · "Bed at 23:00." at each night's wind-down start, and **"A new leaf is waiting"** · "Open it on your maple." ("2 new leaves are waiting" · "Open them on your maple.") at the start of a morning that has a leaf to open. `App/Features/Notifications/ReminderUpkeep.swift` keeps them scheduled; screens only read the scheduler.
+
+```swift
+@Environment(NotificationScheduler.self) private var reminders   // MapleApp injects it
+
+reminders.authorization                // .notDetermined, .denied or .allowed (read again on every foreground)
+await reminders.requestAuthorization() // iOS's prompt: alerts and sounds, never badges
+settings.windDownReminder              // AppSettings switches, on by default; sent only once iOS allows
+settings.morningLeafReminder
+```
+
+- **The plan.** `ReminderPlan(.init(nights:settings:waiting:windDownOpenedAt:now:calendar:locale:))` (MapleCore, pure) gives `requests` (deterministic identifiers `maple.reminder.<kind>.<night>`, fire dates as local wall-clock components, title, body, thread, interruption level) and `staleDelivered` (delivered reminders that no longer hold, cleared from Notification Center). Nights are `UpcomingNight` values (wind-down start, bedtime, wake, morning start); today they come from the one schedule (`UpcomingNight.nights(for:around:calendar:)`, marked `TODO(integrator)` for the weekday and weekend schedules). Waiting leaves carry `opensAt` (`RevealSchedule.releaseDate`), so a leaf earned at 22:00 is announced at the next morning start, and each leaf on one morning only. Wind-down is skipped once wind-down mode has been opened that night (`BedsideLog`'s start). Nothing fires between bedtime and the morning start; the morning one is passive and silent because it comes an hour before wake-up.
+- **Scheduling.** `reminders.reschedule(plan:)` makes Maple's pending requests exactly the plan's (only `maple.reminder.` identifiers, at most the next 7 days, nothing while iOS doesn't allow it). `ReminderUpkeep` calls it on every foreground and whenever its inputs change: a schedule save, a leaf earned or opened, a switch, wind-down mode opening, iOS's answer, a time-zone or clock change. DEBUG demo launches never reschedule.
+- **Taps and the foreground.** While Maple is open, wind-down shows nothing and the morning leaf shows as a banner. A tap on the morning leaf sets `reminders.pendingRoute = .reveal`; `ReminderUpkeep` takes it (`takeRoute()`) and opens `RevealFlow()` once the first leaf is placed and something can be opened now.
+- **Asking.** Settings shows the switches with a status line: "Allow reminders" opens `NotificationsPrimerSheet` (`NotificationsPrimerView` in MapleDesign: the member's featured leaf, two sentences, "Allow reminders", "Not now") before iOS has been asked, and "Turn on in Settings" opens Maple's notification settings once the member has said no. For the first run, onboarding places `NotificationsPrimerStep(onContinue:)` (App, full screen on `background`; skip it when `NotificationsPrimerStep.isNeeded(reminders)` is false); "Allow reminders" shows iOS's prompt and continues once it is answered, "Not now" continues at once.
+
 ## Recording behaviour
 
 Data sources call the collection; it runs the engine and returns new leaves. The M1 sleep categories (Nights tracked, On-time bedtimes, Bedtime runs, Steady weeks, Seasons in rhythm, Steady mornings, Full nights) come **only from Apple Health** (rewards.json data sources, spec D9: there is no manual self-report fallback). Wind-down mode's Goodnight tap is the phone-down time in the bedside log, for wind-down's own state and Home's "Morning, no Apple Health" numeral (§3.4); it feeds no counter, so no leaf can be earned by tapping.
