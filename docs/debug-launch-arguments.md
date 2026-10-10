@@ -16,17 +16,21 @@ DEBUG builds read these arguments, which `xcrun simctl launch <udid> com.maanvik
 | `-MapleDemoSchedule` | `HH:MM-HH:MM`, optionally `/minutes` (e.g. `00:30-08:30/60`) | Core (`DemoLaunchOptions`, added for Rest) | Replaces the saved sleep schedule (bedtime-wake, wind-down length; 45 minutes when left out), in memory. `-MapleDemoPhase` then freezes the clock inside that schedule's phase. Ignored with `-MapleDemoFresh`. |
 | `-MapleDemoGoodnight` | `YES` | Rest (`WindDownView`) | Wind-down mode opens as if Goodnight had just been tapped: "Phone down at …", then black 10 seconds after launch. Pair it with `-MapleDemoPresent winddown`. |
 | `-MapleDemoPresent` | see below | Each feature, in its own root view | Opens one sheet, cover or push on launch. |
+| `-MapleDemoProfile` | `settings`, `privacy`, `rarity`, `about`, `design` | Profile (`ProfileView`) | With `-MapleDemoPresent profile`: opens the Profile sheet pushed to that page. `rarity` opens Privacy and then its "How rarity works" explainer sheet; `design` is the DEBUG design system screen. |
+| `-MapleDemoDesignSection` | `colours`, `surfaces`, `type`, `controls`, `specimens`, `rarity`, `cells`, `trees`, `species` | Profile (`DesignSystemView`) | With `-MapleDemoProfile design`: scrolls the design system screen to that section once it opens. |
 
 `-MapleDemoPresent` values:
-- **App-level** (`App/DemoPresenter.swift`, over any tab): `reveal` (cover), `onboarding` (cover; pair it with `-MapleDemoFresh YES`), `profile` (sheet), `winddown` (cover)
+- **App-level** (`App/DemoPresenter.swift`, over any tab): `reveal` (cover), `onboarding` (cover; pair it with `-MapleDemoFresh YES`), `profile` (sheet; add `-MapleDemoProfile` for a page inside it), `winddown` (cover)
 - **Home:** `tree`, `streak`, `leaf:<speciesID>`
 - **Herbarium:** `leaf:<speciesID>`, `share:<speciesID>`, `rarity`, `filter`, `search`
 - **Rest:** `schedule` (the schedule editor at `.medium`), `schedule:bedtime` and `schedule:wake` (the editor at `.large` with that time's wheel open)
 
 Feature-level values are checked only by the feature that owns them, on its own tab, so combine them with `-MapleDemoTab`.
 
-Any Core argument makes the launch a demo: every store (collection, schedule, rarity cache) is held in memory, so nothing a demo does is ever saved. With only `-MapleDemoPhase`, `-MapleDemoSeason`, `-MapleDemoRarity`, `-MapleDemoPermissions` or `-MapleDemoSchedule`, the stores start from an in-memory copy of the member's own files. The wiring is `MapleStores.make(_:)` in MapleServices. Any `-MapleDemo…` argument also keeps wind-down mode's log (`bedside.json`) in memory.
+Any Core argument makes the launch a demo: every store (collection, schedule, rarity cache, settings) is held in memory, so nothing a demo does is ever saved. With only `-MapleDemoPhase`, `-MapleDemoSeason`, `-MapleDemoRarity`, `-MapleDemoPermissions` or `-MapleDemoSchedule`, the stores start from an in-memory copy of the member's own files. The wiring is `MapleStores.make(_:)` in MapleServices (settings: `AppSettings.launch()`). Any `-MapleDemo…` argument also keeps wind-down mode's log (`bedside.json`) in memory.
 
 Rest example (a non-default schedule in wind-down): `xcrun simctl launch booted com.maanvikgupta.maple -MapleDemoTab rest -MapleDemoSpecies 23 -MapleDemoPhase windDown -MapleDemoSchedule 00:30-08:30/60`
 
 Example: `xcrun simctl launch booted com.maanvikgupta.maple -MapleDemoSpecies 23 -MapleDemoDays 41 -MapleDemoWaiting 1 -MapleDemoPhase morning`
+
+Example (Privacy with consent on): `xcrun simctl launch booted com.maanvikgupta.maple -MapleDemoSpecies 23 -MapleDemoRarity YES -MapleDemoPresent profile -MapleDemoProfile privacy`

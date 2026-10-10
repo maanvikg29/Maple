@@ -10,6 +10,7 @@ struct MapleApp: App {
     @State private var collection: CollectionStore
     @State private var schedule: ScheduleStore
     @State private var shares: LeafShareStore
+    @State private var settings: AppSettings
     private let clock: MapleClock
 
     init() {
@@ -18,6 +19,11 @@ struct MapleApp: App {
         _schedule = State(initialValue: stores.schedule)
         _shares = State(initialValue: stores.shares)
         clock = stores.clock
+        // Hemisphere, sleep goal and reveal sound (Profile › Settings). Seasons follow the chosen hemisphere from
+        // the first frame; a DEBUG -MapleDemoSeason override still wins.
+        let settings = AppSettings.launch()
+        settings.apply(to: stores.collection)
+        _settings = State(initialValue: settings)
     }
 
     var body: some Scene {
@@ -26,6 +32,7 @@ struct MapleApp: App {
                 .environment(collection)
                 .environment(schedule)
                 .environment(shares)
+                .environment(settings)
                 .environment(\.mapleClock, clock)
         }
     }
@@ -39,6 +46,7 @@ private struct ThemedRoot: View {
     @Environment(\.mapleClock) private var clock
     @Environment(CollectionStore.self) private var collection
     @Environment(LeafShareStore.self) private var shares
+    @Environment(AppSettings.self) private var settings
 
     var body: some View {
         RootView()
@@ -48,6 +56,9 @@ private struct ThemedRoot: View {
             .task(id: scenePhase) {
                 guard scenePhase == .active else { return }
                 await shares.refreshIfNeeded()
+            }
+            .onChange(of: settings.resolvedHemisphere) {
+                settings.apply(to: collection)
             }
     }
 }
