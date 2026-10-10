@@ -27,3 +27,6 @@ ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES
 CLANG_WARN_DOCUMENTATION_COMMENTS = YES
 CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE
 GCC_WARN_UNUSED_VARIABLE = YES
+
+// Each developer's own team, bundle ID and tier (git-ignored; see Signing.xcconfig). Last, so it wins.
+#include? "Signing.local.xcconfig"

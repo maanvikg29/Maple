@@ -1,8 +1,12 @@
-// Signing.xcconfig — the only file you need to edit to run Maple on your iPhone.
+// Signing.xcconfig — shared defaults. Don't put your own team here: it's committed, so teammates would
+// overwrite each other.
 //
+// To run Maple on your iPhone:
 // 1. Xcode → Settings → Accounts → add your Apple ID.
-// 2. Paste your Team ID below (Xcode shows it next to the team name).
-// 3. Leave MAPLE_TIER = free until you join the paid Apple Developer Program.
+// 2. Copy Config/Signing.local.example.xcconfig to Config/Signing.local.xcconfig (git ignores it).
+// 3. Put your Team ID in it (Xcode shows it next to the team name). Anyone but the owner also sets their own
+//    bundle ID and App Group there, because bundle IDs belong to one Apple team.
+// 4. Leave MAPLE_TIER = free until your account is in the paid Apple Developer Program.
 //    `paid` turns on Family Controls (app blocking) and iCloud, which free teams can't provision.
 //
 // The Simulator needs none of this.

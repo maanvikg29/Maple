@@ -4,7 +4,13 @@ import os
 /// Where Maple keeps its files: the App Group container (shared with future extensions and widgets), or
 /// Application Support when the group isn't available.
 nonisolated public enum MapleContainer {
-    public static let appGroupIdentifier = "group.com.maanvikgupta.maple"
+    /// The app's `MapleAppGroup` Info.plist key, filled from the `MAPLE_APP_GROUP` build setting so each developer's
+    /// Signing.local.xcconfig can use their own group; Maple's own group where the key is missing (tests, previews).
+    public static let appGroupIdentifier: String = {
+        let configured = Bundle.main.object(forInfoDictionaryKey: "MapleAppGroup") as? String
+        if let configured, !configured.isEmpty, !configured.hasPrefix("$(") { return configured }
+        return "group.com.maanvikgupta.maple"
+    }()
 
     public static func directory(fileManager: FileManager = .default) -> URL {
         if let group = fileManager.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier) {

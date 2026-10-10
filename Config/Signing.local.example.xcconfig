@@ -1,0 +1,14 @@
+// Copy this file to Config/Signing.local.xcconfig and fill it in for YOUR Apple account.
+// Git ignores Signing.local.xcconfig, so each person keeps their own. Base.xcconfig reads it last, so anything
+// set here wins over the shared defaults.
+
+// Your Team ID: Xcode → Settings → Accounts → your team.
+DEVELOPMENT_TEAM = ABCDE12345
+
+// Bundle IDs belong to one Apple team. The owner keeps the defaults (com.maanvikgupta.maple); everyone else
+// uncomments these and uses their own name.
+// MAPLE_BUNDLE_ID = com.yourname.maple
+// MAPLE_APP_GROUP = group.com.yourname.maple
+
+// Only once your account is in the paid Apple Developer Program (turns on app blocking and iCloud).
+// MAPLE_TIER = paid

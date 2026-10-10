@@ -6,3 +6,6 @@ xcuserdata/
 *.xcuserstate
 *.xcscmblueprint
 .claude/
+
+# Each developer's own signing (see Config/Signing.xcconfig)
+Config/Signing.local.xcconfig
