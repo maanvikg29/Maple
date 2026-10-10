@@ -32,8 +32,8 @@ nonisolated public struct SettingsSnapshot: Codable, Sendable, Equatable {
 
     public var version: Int
     public var hemisphere: HemisphereChoice
-    /// The sleep need behind Full nights: asleep for at least this, less 30 minutes (rewards.json `full_nights`;
-    /// "7h unless you change it", spec §5.1).
+    /// The sleep need behind Full nights: asleep for at least this, less 30 minutes (rewards.json `full_nights`:
+    /// 7h 30m unless the member changes it, adjustable from 7 to 9 hours).
     public var sleepGoalMinutes: Int
     /// A soft sound as a leaf opens. Off by default (spec §8.7).
     public var revealSound: Bool
@@ -89,7 +89,7 @@ nonisolated public struct SettingsSnapshot: Codable, Sendable, Equatable {
 public final class AppSettings {
     nonisolated public static let file = "settings.json"
     nonisolated public static let defaultSleepGoalMinutes = CollectionContext.defaultSleepNeedMinutes
-    nonisolated public static let sleepGoalRange = (5 * 60)...(10 * 60)
+    nonisolated public static let sleepGoalRange = (7 * 60)...(9 * 60)
     nonisolated public static let sleepGoalStep = 30
 
     public private(set) var snapshot: SettingsSnapshot
@@ -143,7 +143,7 @@ public final class AppSettings {
     /// What Automatic means on this device.
     public var regionHemisphere: Hemisphere { HemisphereChoice.automatic.resolved(regionCode: regionCode) }
 
-    /// Between 5 and 10 hours, in 30-minute steps; other values are clamped and rounded down to a step.
+    /// Between 7 and 9 hours, in 30-minute steps; other values are clamped and rounded down to a step.
     public var sleepGoalMinutes: Int {
         get { snapshot.sleepGoalMinutes }
         set { change { $0.sleepGoalMinutes = Self.validSleepGoal(newValue) } }

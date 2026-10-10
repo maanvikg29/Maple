@@ -8,6 +8,13 @@ CURRENT_PROJECT_VERSION = 1
 // Entitlements follow the signing tier: Maple-free or Maple-paid.
 CODE_SIGN_ENTITLEMENTS = Config/Entitlements/Maple-$(MAPLE_TIER).entitlements
 
+// HealthKit background delivery (com.apple.developer.healthkit.background-delivery) is only in the paid tier's
+// entitlements: Apple doesn't document it for free teams (docs/entitlements.md). The app reads this flag from its
+// Info.plist and asks HealthKit for background delivery only when it is YES; free builds import in the foreground.
+MAPLE_HEALTH_BACKGROUND_DELIVERY_free = NO
+MAPLE_HEALTH_BACKGROUND_DELIVERY_paid = YES
+MAPLE_HEALTH_BACKGROUND_DELIVERY = $(MAPLE_HEALTH_BACKGROUND_DELIVERY_$(MAPLE_TIER))
+
 // Info.plist: generated keys below, merged with Config/Maple-Info.plist for keys Xcode can't generate.
 GENERATE_INFOPLIST_FILE = YES
 INFOPLIST_FILE = Config/Maple-Info.plist

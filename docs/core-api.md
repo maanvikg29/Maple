@@ -16,6 +16,7 @@ struct HomeView: View {
     @Environment(ScheduleStore.self) private var schedule       // wake, bedtime, wind-down length
     @Environment(LeafShareStore.self) private var shares        // "% of members have this leaf"
     @Environment(HealthPermission.self) private var health      // Apple Health: connected or not, and the prompt
+    @Environment(HealthSleepImporter.self) private var sleep    // Apple Health's sleep: last night, the no-sleep hint
     @Environment(\.mapleClock) private var clock               // "now"; never call Date()
     @Environment(\.season) private var season                  // real season, or -MapleDemoSeason
 }
@@ -53,7 +54,7 @@ if let action = state.action {                         // nil: no capsule at all
 - `state.waitingCount > 0` (morning, day and evening only) switches the next-leaf row to its waiting variant; `state.waitingLine` is its text ("2 new leaves are waiting"), and the action becomes `.openReveals(count:)`.
 - `state.contentOpacity` is 0.8 at night; `state.showsBelowTheFold` is false at night; `state.secondaryAction` is `.sleepSounds` at night once sounds ship.
 - `state.refreshesEverySecond` is true while focus runs: switch the NowBlock's timeline to `.periodic(from:by: 1)`.
-- Inputs that don't exist yet are optional and default to the documented fallbacks: `nowState(at:lastNight:goodnightAt:focus:windDownActive:checkInDue:)`. A morning with neither last night's sleep nor a Goodnight shows tonight's wind-down start as a clock time ("22:15" · "wind-down tonight · bed 23:00"), never a countdown; the day shows the countdown to wind-down until focus ships.
+- Inputs that don't exist yet are optional and default to the documented fallbacks: `nowState(at:lastNight:goodnightAt:focus:windDownActive:checkInDue:)`. Home passes `sleep.lastNightSleep(at: now)` as `lastNight` ("7h 12m" · "asleep 23:08 · up 06:20"; for iPhone's in-bed estimate the time in bed). A morning with neither last night's sleep nor a Goodnight shows tonight's wind-down start as a clock time ("22:15" · "wind-down tonight · bed 23:00"), never a countdown; the day shows the countdown to wind-down until focus ships.
 - Lower level: `NowPhase.resolve(date:schedule:calendar:)`, `PhaseWindows(schedule:)` (phase starts, `sampleDate(in:onDayOf:calendar:)` for previews), `HomeFormat` (durations "1h 20m", locale clock times).
 
 ## Leaves: progress, next leaf, buds, Almost there
@@ -138,12 +139,29 @@ let unlocked = schedule.save(SleepSchedule(bedtime: ClockTime(hour: 23), wake: C
 
 Data sources call the collection; it runs the engine and returns new leaves. The M1 sleep categories (Nights tracked, On-time bedtimes, Bedtime runs, Steady weeks, Seasons in rhythm, Steady mornings, Full nights) come **only from Apple Health** (rewards.json data sources, spec D9: there is no manual self-report fallback). Wind-down mode's Goodnight tap is the phone-down time in the bedside log, for wind-down's own state and Home's "Morning, no Apple Health" numeral (§3.4); it feeds no counter, so no leaf can be earned by tapping.
 
-M1's HealthKit importer makes one call, and nothing in the app makes it yet:
+M1's HealthKit importer (`HealthSleepImporter`, MapleServices) makes one call:
 
 ```swift
 let observations: [SleepNightObservation] = …            // one per night: the main episode, best source available
 collection.recordSleep(observations, at: clock.now())      // returns the leaves it unlocked
 ```
+
+`MapleApp` creates it once (`HealthSleepImporter.launch(stores:backgroundDelivery:)`) and injects it; it runs on every foreground, right after Apple's prompt (`HealthPrimerSheet`), and from an `HKObserverQuery` while the app runs (background delivery only in builds with its entitlement: docs/entitlements.md). It does nothing until Apple Health is connected and the maple is planted.
+
+```swift
+@Environment(HealthSleepImporter.self) private var sleep
+
+await sleep.importNow(at: clock.now())          // read what changed, rebuild the window's nights, record them
+sleep.lastNightSleep(at: now)                   // Home's morning numeral; nil when Apple Health has nothing for last night
+sleep.lastNight                                 // the most recent night it built (settled or provisional)
+sleep.hasReceivedSleep                          // a sleep sample that counts has arrived since connecting
+sleep.showsNoSleepHint(at: now)                 // connected 2+ nights with none: Privacy's line, and Home's row
+sleep.lastImportAt
+```
+
+- The pure part is in MapleCore/Health: `SleepSample` (HealthKit's sample as plain values), `SleepSourceResolver` (the A/B/C ladder: an Apple Watch by product type "Watch…" or device model "Watch", an allow-listed tracker's bundle id, which is a list to review; other apps; iPhone's own in-bed samples; typed-in samples never count), `SleepNightBuilder` (nights cut at 18:00 local in the sample's zone, one source per night, the longest cluster with gaps under 60 minutes merged, onset at the first 20-minute asleep block, final wake at the end of the last, awake time left out of the minutes asleep), `SleepImportWindow` and `SleepDataHint`.
+- It reads a bounded window: from the night before the install night (no backfill), at most the last 16 nights, so every night the ledger can still settle or upgrade is sent again on each run. An anchored query reads only what changed; deleted samples drop out and their nights are rebuilt (a night still pending takes the rebuilt observation when its source is as good; settled results only ever upgrade).
+- Its cache (`LocalHealth/sleep-import.json`: the window's samples and the anchor) is health data, so it is local only: protected until first unlock, excluded from backups, never synced (guideline 5.1.3(ii)). A locked iPhone keeps everything and reads again on unlock; no error clears it.
 
 `SleepNightObservation` (MapleCore) is the night (named by its evening; nights run 18:00 to 18:00), the main episode's sleep onset and final wake, the minutes asleep (nil for iPhone's in-bed estimate), its `SleepSource`, rewards.json's ladder: `.watchOrTracker` (A: asleep stages from an Apple Watch or an allow-listed tracker), `.otherApp` (B: asleep samples another app wrote), `.iPhoneInBed` (C: "estimated from iPhone", times only), and optionally `timeZoneIdentifier`, the zone the night was spent in (HealthKit's `HKMetadataKeyTimeZone` when the samples carry it). The importer resolves sources, groups samples into nights, drops user-entered samples and naps; `NightLedger` (MapleCore) judges what it is given:
 
@@ -203,4 +221,4 @@ DEBUG launch arguments are in `docs/debug-launch-arguments.md`. In previews, bui
 }
 ```
 
-`DemoData.snapshot(species:tendedDays:waiting:now:)` gives a plausible collection directly, and `PreviewLeafShareProvider` gives tier-correlated rarity. Both exist only in DEBUG. Demo stores are granted Apple Health and a sleep tracker unless `-MapleDemoPermissions` says otherwise, so a demo collection shows earned progress; add `.environment(stores.health)` for screens that offer "Turn on Apple Health".
+DEBUG `-MapleDemoSeedHealth` seeds synthetic sleep (into the simulator's Apple Health, or with `-MapleDemoSeedStore memory` straight into a demo launch's importer); demo collections (`-MapleDemoSpecies`…) are never fed nights. `DemoData.snapshot(species:tendedDays:waiting:now:)` gives a plausible collection directly, and `PreviewLeafShareProvider` gives tier-correlated rarity. Both exist only in DEBUG. Demo stores are granted Apple Health and a sleep tracker unless `-MapleDemoPermissions` says otherwise, so a demo collection shows earned progress; add `.environment(stores.health)` for screens that offer "Turn on Apple Health".

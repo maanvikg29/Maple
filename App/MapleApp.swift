@@ -14,6 +14,8 @@ struct MapleApp: App {
     @State private var settings: AppSettings
     /// Apple Health: granted only once the member has been through Apple's prompt (DEBUG demos: their arguments).
     @State private var health: HealthPermission
+    /// Apple Health's sleep, read into the collection: the sleep leaves' only source (spec D9).
+    @State private var sleep: HealthSleepImporter
     private let stores: MapleStores
     private let clock: MapleClock
     /// Where the first run starts or picks up (spec §8.8): until the Sugar maple is on the tree, the app opens on
@@ -34,6 +36,11 @@ struct MapleApp: App {
         let settings = AppSettings.launch()
         settings.apply(to: stores.collection)
         _settings = State(initialValue: settings)
+        // After the settings, whose sleep goal judges Full nights. Observing from launch imports new sleep while the
+        // app runs (and, in builds with the entitlement, when HealthKit wakes it in the background).
+        let sleep = HealthSleepImporter.launch(stores: stores, backgroundDelivery: Self.healthBackgroundDelivery)
+        sleep.startObserving(clock: stores.clock)
+        _sleep = State(initialValue: sleep)
         _launch = State(initialValue: LaunchGate(firstRun: Self.firstRun(stores)))
     }
 
@@ -52,6 +59,12 @@ struct MapleApp: App {
         return stores.schedule.resumeFirstRun(at: stores.clock.now())
     }
 
+    /// HealthKit background delivery needs its entitlement, which only the paid tier carries
+    /// (`MAPLE_HEALTH_BACKGROUND_DELIVERY` in Config/Maple.xcconfig; docs/entitlements.md).
+    static var healthBackgroundDelivery: Bool {
+        (Bundle.main.object(forInfoDictionaryKey: "MapleHealthBackgroundDelivery") as? String)?.uppercased() == "YES"
+    }
+
     var body: some Scene {
         WindowGroup {
             ThemedRoot(stores: stores, launch: $launch)
@@ -60,6 +73,7 @@ struct MapleApp: App {
                 .environment(shares)
                 .environment(settings)
                 .environment(health)
+                .environment(sleep)
                 .environment(\.mapleClock, clock)
         }
     }
@@ -76,8 +90,9 @@ struct LaunchGate: Equatable {
 /// - files that couldn't be read at launch are read once protected data is available (or the app is active);
 /// - a time-zone or clock change moves the collection's calendar and refreshes every screen;
 /// - each foreground checks Apple Health's permission against Apple's own record (so the sleep leaves are
-///   available exactly when Apple Health is connected) and refreshes rarity. Nights come only from Apple Health,
-///   which M1's importer reads (`CollectionStore.recordSleep(_:at:)`); nothing here settles them;
+///   available exactly when Apple Health is connected), imports Apple Health's sleep (`HealthSleepImporter`, which
+///   records the nights with `CollectionStore.recordSleep(_:at:)` and settles them) and refreshes rarity; an import
+///   the locked iPhone refused runs again once protected data is available;
 /// - the season is read again on every foreground and at each significant time change (which iOS posts at local
 ///   midnight), so a month boundary passed with the app open changes it everywhere. (A root `TimelineView` would do
 ///   it too, but one at the root kept the first frame from ever committing.)
@@ -89,6 +104,7 @@ private struct ThemedRoot: View {
     @Environment(LeafShareStore.self) private var shares
     @Environment(AppSettings.self) private var settings
     @Environment(HealthPermission.self) private var health
+    @Environment(HealthSleepImporter.self) private var sleep
     let stores: MapleStores
     @Binding var launch: LaunchGate
     /// The moment the season was last read for; nil until the first foreground.
@@ -106,10 +122,16 @@ private struct ThemedRoot: View {
                 reloadUnreadableFiles()
                 await health.refresh(at: clock.now())
                 health.apply(to: collection)
+                #if DEBUG
+                await HealthDemoSeeding.runIfRequested(collection: collection, health: health, sleep: sleep, clock: clock)
+                #endif
+                sleep.startObserving(clock: clock)
+                await sleep.importNow(at: clock.now())
                 await shares.refreshIfNeeded()
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.protectedDataDidBecomeAvailableNotification)) { _ in
                 reloadUnreadableFiles()
+                Task { await sleep.retryIfWaiting(at: clock.now()) }
             }
             .onReceive(NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange)) { _ in
                 collection.systemTimeChanged()
@@ -126,6 +148,7 @@ private struct ThemedRoot: View {
             }
             .onChange(of: health.isConnected) {
                 health.apply(to: collection)
+                if !health.isConnected { sleep.stopObserving() }
             }
     }
 

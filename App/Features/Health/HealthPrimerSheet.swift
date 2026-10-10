@@ -6,9 +6,9 @@ import MapleServices
 
 /// "Turn on Apple Health", from Home's needs-permission row, a Herbarium section header, leaf detail or Privacy:
 /// the calm primer (`HealthPrimerView`), whose "Continue" shows Apple's Health sheet through `HealthPermission`.
-/// Once the member closes Apple's sheet, Apple Health counts as connected and the sleep leaves become available
-/// everywhere; "Not now" leaves everything as it was. Present it with `.sheet(item:)`; it brings its own detent and
-/// background.
+/// Once the member closes Apple's sheet, Apple Health counts as connected, the sleep leaves become available
+/// everywhere and the importer reads Apple Health's sleep at once; "Not now" leaves everything as it was. Present it
+/// with `.sheet(item:)`; it brings its own detent and background.
 struct HealthPrimerSheet: View {
     @Environment(\.theme) private var theme
     @Environment(\.season) private var season
@@ -16,6 +16,7 @@ struct HealthPrimerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(HealthPermission.self) private var health
     @Environment(CollectionStore.self) private var collection
+    @Environment(HealthSleepImporter.self) private var sleep
 
     /// The leaf drawn above the words: the one the member came from, else the cheapest sleep leaf.
     let speciesID: String?
@@ -45,13 +46,17 @@ struct HealthPrimerSheet: View {
         return (speciesID ?? fallback).flatMap { LeafCatalog.shared.species(id: $0) }
     }
 
-    /// Apple's sheet over the primer; once the member closes it, the sleep leaves follow and the primer goes.
+    /// Apple's sheet over the primer; once the member closes it, the sleep leaves follow, the importer reads
+    /// whatever sleep Apple Health already has (from the night before the install night on), and the primer goes.
     private func connect() {
         guard !health.isRequesting else { return }
         Task {
-            await health.requestAccess(at: clock.now())
+            let connected = await health.requestAccess(at: clock.now())
             health.apply(to: collection)
             dismiss()
+            guard connected else { return }
+            sleep.startObserving(clock: clock)
+            await sleep.importNow(at: clock.now())
         }
     }
 }

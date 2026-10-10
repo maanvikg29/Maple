@@ -25,13 +25,25 @@ struct HomeContent {
     /// The leaf the tappable amber bud stands for.
     let waitingBudID: String?
     let grewToday: Bool
+    /// Apple Health is connected but has sent no sleep for two nights: the no-sleep hint takes the next-leaf row's
+    /// place (never the waiting row's).
+    let showsNoSleepHint: Bool
 
-    /// - Parameter bedside: Wind-down mode's state, so the CTA says "Return to wind-down" while it is on and the
-    ///   morning can show last night's Goodnight time.
-    init(collection: CollectionStore, now: Date, bedside: BedsideState = BedsideState()) {
+    /// - Parameters:
+    ///   - bedside: Wind-down mode's state, so the CTA says "Return to wind-down" while it is on and the morning can
+    ///     show last night's Goodnight time.
+    ///   - lastNight: Last night's sleep from Apple Health (`HealthSleepImporter.lastNightSleep(at:)`), the
+    ///     morning's numeral (spec §3.4).
+    ///   - noSleepHint: `HealthSleepImporter.showsNoSleepHint(at:)`.
+    init(
+        collection: CollectionStore, now: Date, bedside: BedsideState = BedsideState(), lastNight: LastNightSleep? = nil,
+        noSleepHint: Bool = false
+    ) {
         self.now = now
-        let state = collection.nowState(at: now, goodnightAt: bedside.goodnightAt, windDownActive: bedside.windDownActive)
+        let state = collection.nowState(at: now, lastNight: lastNight, goodnightAt: bedside.goodnightAt,
+                                        windDownActive: bedside.windDownActive)
         self.state = state
+        showsNoSleepHint = noSleepHint && state.waitingCount == 0
         let next = collection.nextLeaf(at: now)
         self.next = next
         permissionPrompt = next == nil ? collection.permissionPrompt(at: now) : nil
@@ -92,8 +104,10 @@ struct HomeContent {
     }
 
     /// The next-leaf row's content: the waiting variant while leaves can be opened, else the next leaf, else (with
-    /// nothing earnable until Apple Health is on) the needs-permission variant. Nil when there is nothing at all.
+    /// nothing earnable until Apple Health is on) the needs-permission variant. Nil when there is nothing at all, or
+    /// when the no-sleep hint stands in its place.
     var row: NextLeafRow.Content? {
+        if showsNoSleepHint { return nil }
         if state.waitingCount > 0 {
             return .waiting(count: state.waitingCount)
         }
