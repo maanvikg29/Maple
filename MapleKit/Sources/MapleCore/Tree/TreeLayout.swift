@@ -368,7 +368,7 @@ private struct Builder {
             for anchor in taken {
                 clear = min(clear, anchor.distance(to: p))
             }
-            let score = clear + bonus - 0.25 * p.distance(to: point)
+            let score = clear + bonus - 0.1 * p.distance(to: point)
             if best.map({ score > $0.score }) ?? true {
                 best = (place, score)
             }

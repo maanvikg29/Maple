@@ -37,12 +37,28 @@ nonisolated enum TreePainter {
         rotate(&context, by: angle, about: frame.base)
         context.drawLayer { layer in
             // Finer wood first, so every limb covers the base of the twigs growing from it.
-            let branches = plan.skeleton.branches.filter { depths.contains($0.depth) }.sorted { $0.depth > $1.depth }
+            let all = plan.skeleton.branches
+            let trunk = depths.contains(1) ? all.first { $0.depth == 1 } : nil
+            // The leaders rising straight out of the trunk top are drawn with it, as one piece of wood.
+            let leaders = trunk.map { trunk in
+                all.filter { branch in
+                    guard branch.depth == 2, let start = branch.points.first, let top = trunk.points.last else { return false }
+                    return hypot(start.x - top.x, start.y - top.y) < 0.01
+                }
+            } ?? []
+            let leaderIDs = Set(leaders.map(\.id))
+            let branches = all
+                .filter { depths.contains($0.depth) && $0.depth != 1 && !leaderIDs.contains($0.id) }
+                .sorted { $0.depth > $1.depth }
             for branch in branches {
                 drawBranch(branch, plan: plan, frame: frame, in: layer)
             }
+            // The roots go under the trunk, so its flared foot runs smoothly out into them.
             if depths.contains(1) {
                 drawRoots(plan, frame: frame, in: layer)
+            }
+            if let trunk {
+                drawTrunk(trunk, leaders: leaders, plan: plan, frame: frame, in: layer)
             }
             shadeUnderCanopy(plan, frame: frame, in: layer)
         }
@@ -310,7 +326,7 @@ nonisolated enum TreePainter {
     }
 
     /// A closed, tapering ribbon along the samples with a rounded end.
-    private static func ribbon(_ samples: [Sample], widthScale: CGFloat = 1, shift: (Sample) -> CGVector = { _ in .zero }, roundEnd: Bool = true) -> Path {
+    private static func ribbon(_ samples: [Sample], widthScale: CGFloat = 1, roundEnd: Bool = true, shift: (Sample) -> CGVector = { _ in .zero }) -> Path {
         var left: [CGPoint] = [], right: [CGPoint] = []
         for s in samples {
             let n = CGVector(dx: -s.tangent.dy, dy: s.tangent.dx)
@@ -337,13 +353,62 @@ nonisolated enum TreePainter {
         return path
     }
 
+    /// Draws one limb: its fill and lit bands, then its rim, furrows and snow.
     private static func drawBranch(_ branch: TreeSkeleton.Branch, plan: TreeScenePlan, frame: TreeSceneFrame, in context: GraphicsContext) {
-        var samples = samples(of: branch, frame: frame)
+        let samples = shaped(samples(of: branch, frame: frame), flare: branch.depth == 1, taper: true)
         guard samples.count >= 2 else { return }
+        fillWood(samples, roundEnd: true, plan: plan, frame: frame, in: context)
+        detailWood(samples, depth: branch.depth, seed: plan.model.seed &+ UInt64(branch.id), plan: plan, frame: frame, in: context)
+    }
+
+    /// The trunk and the leaders it forks into. Each leader is filled as one ribbon running up the trunk and on
+    /// into the leader, so the fork reads as one piece of wood rather than limbs set on a post. The leader facing
+    /// the light goes last: its lit band and rim carry the trunk's straight on up into it, and the others pick up
+    /// their own once they are clear of the crotch.
+    private static func drawTrunk(
+        _ trunk: TreeSkeleton.Branch, leaders: [TreeSkeleton.Branch], plan: TreeScenePlan, frame: TreeSceneFrame, in context: GraphicsContext
+    ) {
+        let trunkSamples = shaped(samples(of: trunk, frame: frame), flare: true, taper: false)
+        guard trunkSamples.count >= 2 else { return }
+        let fork = trunkSamples.count - 1
         let light = plan.sky.lightDirection
-        let maxWidth = samples.map(\.width).max() ?? 0
-        if branch.depth == 1 {
-            // Flare the trunk into the ground.
+        func facing(_ leader: TreeSkeleton.Branch) -> Double {
+            guard leader.points.count >= 2 else { return -.infinity }
+            let a = leader.points[0], b = leader.points[leader.points.count - 1]
+            let dx = b.x - a.x, dy = a.y - b.y
+            return (dx * light.dx + dy * light.dy) / max(1e-6, hypot(dx, dy))
+        }
+        var parts: [(samples: [Sample], id: Int)] = []
+        for leader in leaders.sorted(by: { facing($0) < facing($1) }) {
+            var joined = leader
+            joined.points = trunk.points + leader.points.dropFirst()
+            joined.widths = trunk.widths + leader.widths.dropFirst()
+            let samples = shaped(samples(of: joined, frame: frame), flare: true, taper: true)
+            guard samples.count > fork + 1 else { continue }
+            fillWood(samples, roundEnd: true, plan: plan, frame: frame, in: context)
+            parts.append((samples, leader.id))
+        }
+        guard let lit = parts.last else {
+            fillWood(trunkSamples, roundEnd: true, plan: plan, frame: frame, in: context)
+            detailWood(trunkSamples, depth: 1, seed: plan.model.seed &+ UInt64(trunk.id), plan: plan, frame: frame, in: context)
+            return
+        }
+        let crotch = trunkSamples[fork]
+        for part in parts.dropLast() {
+            let clear = part.samples.indices.dropFirst(fork).first { i in
+                hypot(part.samples[i].point.x - crotch.point.x, part.samples[i].point.y - crotch.point.y) > crotch.width
+            }
+            guard let clear, part.samples.count - clear >= 2 else { continue }
+            detailWood(Array(part.samples[clear...]), depth: 2, seed: plan.model.seed &+ UInt64(part.id), plan: plan, frame: frame, in: context)
+        }
+        detailWood(lit.samples, depth: 1, seed: plan.model.seed &+ UInt64(trunk.id), plan: plan, frame: frame, in: context)
+    }
+
+    /// Flares the trunk into the ground and tapers twig ends to a point rather than stopping blunt.
+    private static func shaped(_ samples: [Sample], flare: Bool, taper: Bool) -> [Sample] {
+        var samples = samples
+        guard samples.count >= 2 else { return samples }
+        if flare {
             let base = samples[0].point
             let w0 = samples[0].width
             for i in samples.indices {
@@ -351,77 +416,85 @@ nonisolated enum TreePainter {
                 samples[i].width *= 1 + 0.55 * exp(-rise / max(1, w0 * 0.75))
             }
         }
-        // Twig ends taper to a point rather than stopping blunt.
-        let n = samples.count
-        for (offset, factor) in [(1, 0.35), (2, 0.62), (3, 0.85)] where n - offset > 0 {
-            samples[n - offset].width *= factor
+        if taper {
+            let n = samples.count
+            for (offset, factor) in [(1, 0.35), (2, 0.62), (3, 0.85)] where n - offset > 0 {
+                samples[n - offset].width *= factor
+            }
         }
+        return samples
+    }
+
+    /// The wood itself: a base ribbon, then narrower bands shifted toward the light (fading where the limb points
+    /// at it), stepped to approximate a soft cylindrical gradient across the limb.
+    private static func fillWood(_ samples: [Sample], roundEnd: Bool, plan: TreeScenePlan, frame: TreeSceneFrame, in context: GraphicsContext) {
+        let light = plan.sky.lightDirection
+        let maxWidth = samples.map(\.width).max() ?? 0
         // Thin wood is lifted toward the tip colour so twigs read against the sky.
         let thinness = Double(min(1, max(0, (2.2 * frame.scale - maxWidth) / (1.8 * frame.scale))))
         let baseColor = thinness > 0 ? mix(plan.bark.dark, plan.bark.tip, thinness * 0.4) : plan.bark.dark
-        context.fill(ribbon(samples), with: .color(baseColor))
+        context.fill(ribbon(samples, roundEnd: roundEnd), with: .color(baseColor))
         guard maxWidth >= 1.1 * frame.scale else { return }
-
-        // The lit side: narrower bands shifted toward the light (fading where the limb points at it), stepped to
-        // approximate a soft cylindrical gradient across the limb.
         let litTone = thinness > 0 ? mix(plan.bark.light, plan.bark.tip, thinness * 0.6) : plan.bark.light
         let bands: [(width: CGFloat, shift: CGFloat, amount: Double)] = maxWidth >= 3 * frame.scale
             ? [(0.7, 0.14, 0.4), (0.48, 0.26, 0.72), (0.26, 0.36, 1)]
             : [(0.46, 0.25, 0.8)]
         for band in bands {
-            let path = ribbon(samples, widthScale: band.width) { s in
+            let path = ribbon(samples, widthScale: band.width, roundEnd: roundEnd) { s in
                 let along = light.dx * s.tangent.dx + light.dy * s.tangent.dy
                 return CGVector(dx: (light.dx - s.tangent.dx * along) * s.width * band.shift, dy: (light.dy - s.tangent.dy * along) * s.width * band.shift)
             }
             context.fill(path, with: .color(mix(baseColor, litTone, band.amount)))
         }
+    }
 
-        // Moonlit rim along the light-facing edge of the trunk and limbs (no outlines anywhere).
-        if branch.depth <= 3, maxWidth >= 2.2 * frame.scale {
-            var rim = Path()
-            var drawing = false
+    /// The moonlit rim along the light-facing edge of the trunk and limbs (no outlines anywhere), furrows in the
+    /// old bark of the trunk and leaders, and in winter a line of snow along the top of limbs running sideways.
+    private static func detailWood(_ samples: [Sample], depth: Int, seed: UInt64, plan: TreeScenePlan, frame: TreeSceneFrame, in context: GraphicsContext) {
+        let maxWidth = samples.map(\.width).max() ?? 0
+        guard depth <= 3, maxWidth >= 2.2 * frame.scale else { return }
+        let light = plan.sky.lightDirection
+        var rim = Path()
+        var drawing = false
+        for s in samples {
+            let along = light.dx * s.tangent.dx + light.dy * s.tangent.dy
+            var nx = light.dx - s.tangent.dx * along, ny = light.dy - s.tangent.dy * along
+            let strength = hypot(nx, ny)
+            guard strength > 0.35, s.width >= 1.8 * frame.scale else {
+                drawing = false
+                continue
+            }
+            nx /= strength
+            ny /= strength
+            let inset = min(0.45 * frame.scale, s.width * 0.2)
+            let p = CGPoint(x: s.point.x + nx * (s.width / 2 - inset), y: s.point.y + ny * (s.width / 2 - inset))
+            if drawing { rim.addLine(to: p) } else { rim.move(to: p) }
+            drawing = true
+        }
+        context.stroke(rim, with: .color(plan.bark.rim), style: StrokeStyle(lineWidth: 0.75 * frame.scale, lineCap: .round, lineJoin: .round))
+
+        if depth <= 2, maxWidth >= 6 * frame.scale {
+            drawFurrows(samples, seed: seed, frame: frame, in: context)
+        }
+
+        if let snow = plan.bark.snow {
+            var line = Path()
+            var on = false
             for s in samples {
-                let along = light.dx * s.tangent.dx + light.dy * s.tangent.dy
-                var nx = light.dx - s.tangent.dx * along, ny = light.dy - s.tangent.dy * along
-                let strength = hypot(nx, ny)
-                guard strength > 0.35, s.width >= 1.8 * frame.scale else {
-                    drawing = false
+                guard abs(s.tangent.dx) > 0.5 else {
+                    on = false
                     continue
                 }
-                nx /= strength
-                ny /= strength
-                let inset = min(0.45 * frame.scale, s.width * 0.2)
-                let p = CGPoint(x: s.point.x + nx * (s.width / 2 - inset), y: s.point.y + ny * (s.width / 2 - inset))
-                if drawing { rim.addLine(to: p) } else { rim.move(to: p) }
-                drawing = true
-            }
-            context.stroke(rim, with: .color(plan.bark.rim), style: StrokeStyle(lineWidth: 0.75 * frame.scale, lineCap: .round, lineJoin: .round))
-
-            // Shallow furrows in the old bark of the trunk and leaders.
-            if branch.depth <= 2, maxWidth >= 6 * frame.scale {
-                drawFurrows(samples, seed: plan.model.seed &+ UInt64(branch.id), frame: frame, in: context)
-            }
-
-            // Winter: a line of snow along the top of the trunk and limbs where they run out sideways.
-            if let snow = plan.bark.snow {
-                var line = Path()
-                var on = false
-                for s in samples {
-                    guard abs(s.tangent.dx) > 0.5 else {
-                        on = false
-                        continue
-                    }
-                    var nx = -s.tangent.dy, ny = s.tangent.dx
-                    if ny > 0 {
-                        nx = -nx
-                        ny = -ny
-                    }
-                    let p = CGPoint(x: s.point.x + nx * s.width * 0.42, y: s.point.y + ny * s.width * 0.42)
-                    if on { line.addLine(to: p) } else { line.move(to: p) }
-                    on = true
+                var nx = -s.tangent.dy, ny = s.tangent.dx
+                if ny > 0 {
+                    nx = -nx
+                    ny = -ny
                 }
-                context.stroke(line, with: .color(snow), style: StrokeStyle(lineWidth: frame.scale, lineCap: .round, lineJoin: .round))
+                let p = CGPoint(x: s.point.x + nx * s.width * 0.42, y: s.point.y + ny * s.width * 0.42)
+                if on { line.addLine(to: p) } else { line.move(to: p) }
+                on = true
             }
+            context.stroke(line, with: .color(snow), style: StrokeStyle(lineWidth: frame.scale, lineCap: .round, lineJoin: .round))
         }
     }
 
@@ -467,7 +540,7 @@ nonisolated enum TreePainter {
             )
             root.closeSubpath()
             let litSide = (side > 0) == (plan.sky.lightDirection.dx > 0)
-            context.fill(root, with: .color(litSide ? mix(plan.bark.dark, plan.bark.light, 0.55) : plan.bark.dark))
+            context.fill(root, with: .color(litSide ? mix(plan.bark.dark, plan.bark.light, 0.4) : plan.bark.dark))
         }
     }
 
@@ -594,14 +667,17 @@ nonisolated enum TreePainter {
     }
 
     static func drawBuds(_ plan: TreeScenePlan, frame: TreeSceneFrame, time: Double?, waiting: Bool, neutral: Bool, in context: GraphicsContext) {
+        // The Home next leaf is always the largest bud, however far along the other two are.
+        let furthest = plan.skeleton.buds.filter { !$0.isWaiting }.map(\.progress).max() ?? 0
         for bud in plan.skeleton.buds where bud.isWaiting ? waiting : neutral {
-            drawBud(bud.anchor, direction: bud.direction, progress: bud.progress, isNext: bud.isNext, isWaiting: bud.isWaiting, plan: plan, frame: frame, time: time, in: context)
+            let progress = bud.isNext ? max(bud.progress, furthest) : bud.progress
+            drawBud(bud.anchor, direction: bud.direction, progress: progress, isNext: bud.isNext, isWaiting: bud.isWaiting, plan: plan, frame: frame, time: time, in: context)
         }
     }
 
     static func drawBud(_ anchor: TreePoint, direction: TreePoint, progress: Double, isNext: Bool, isWaiting: Bool, plan: TreeScenePlan, frame: TreeSceneFrame, time: Double?, in context: GraphicsContext) {
         let s = frame.scale
-        let swell = isWaiting ? 1 : 0.4 + 0.6 * min(1, max(0, progress))
+        let swell = isWaiting ? 1 : (0.4 + 0.6 * min(1, max(0, progress))) * (isNext ? 1.15 : 1)
         let length = 9 * s * swell * (isWaiting ? 1.1 : 1), width = 6 * s * swell * (isWaiting ? 1.1 : 1)
         let base = frame.point(anchor)
         let angle = direction.angleFromUp

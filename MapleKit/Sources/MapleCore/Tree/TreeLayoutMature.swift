@@ -207,7 +207,8 @@ struct MatureTree: Sendable {
             cuts.append(Double(k) / Double(leaderCount) + rng.range(-0.04, 0.04))
         }
         cuts.append(1)
-        let leaderWidth = Self.trunkBaseWidth * Self.widthTaper * (leaderCount == 3 ? 0.92 : 1)
+        // Each leader tapers ×0.68 from the trunk's top; three share it a little more thinly (pipe model), at ×0.6.
+        let leaderWidth = Self.trunkBaseWidth * Self.widthTaper * (leaderCount == 3 ? 0.6 : Self.widthTaper)
         for (k, angle) in angles.enumerated() {
             let direction = TreePoint.direction(angleFromUp: angle)
             let region = Grower.Region(u: cuts[k]...cuts[k + 1], r: Self.innerRadius...1)
