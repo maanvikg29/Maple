@@ -15,6 +15,8 @@ public struct Theme: Sendable {
     public var spacing: Spacing
     public var radius: Radius
     public var motion: Motion
+    /// Surface levels and the caps on every content glow (spec §6.5).
+    public var elevation = Elevation()
 
     public init(colors: Colors, spacing: Spacing = Spacing(), radius: Radius = Radius(), motion: Motion = Motion()) {
         self.colors = colors
@@ -224,6 +226,30 @@ extension Theme {
         public var tile: CGFloat = 20
         public var largeTile: CGFloat = 28
         public var shareCard: CGFloat = 40
+
+        public init() {}
+    }
+
+    /// Elevation and glow (spec §6.5). Containers never cast shadows: Level 1 is a fill and a top-lit
+    /// hairline, and only the Level-2 share-card frame and the primary capsule glow. Light otherwise comes
+    /// from content, within these caps.
+    public struct Elevation: Sendable {
+        /// Width of the Level-1 inner hairline and of every Level-2 / glass border.
+        public var hairlineWidth: CGFloat = 1
+        /// The Level-1 hairline fades from `hairlineTop` to clear at this fraction of the height.
+        public var hairlineFade: CGFloat = 0.4
+        /// `glowLevel2` blur radius (share-card frame only).
+        public var level2GlowRadius: CGFloat = 24
+        /// `primaryGlow` blur radius (the primary capsule).
+        public var primaryGlowRadius: CGFloat = 20
+
+        // Content glow caps, as opacities.
+        public var treeBloomCap: Double = 0.18
+        public var tileLeafBloomCap: Double = 0.18
+        public var detailLeafBloomCap: Double = 0.22
+        public var revealAmberBloomCap: Double = 0.30
+        public var waitingBudCoreCap: Double = 0.60
+        public var primaryGlowCap: Double = 0.10
 
         public init() {}
     }

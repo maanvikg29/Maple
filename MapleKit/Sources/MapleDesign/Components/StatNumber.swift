@@ -10,6 +10,8 @@ public struct StatNumber: View {
         case score
         /// Totals such as the herbarium count (34pt).
         case stat
+        /// The Profile sheet's totals row (28pt).
+        case total
         /// Inline numbers in rows (17pt).
         case inline
     }
@@ -27,6 +29,7 @@ public struct StatNumber: View {
     @ScaledMetric(relativeTo: .largeTitle) private var heroSize: CGFloat = 64
     @ScaledMetric(relativeTo: .largeTitle) private var scoreSize: CGFloat = 48
     @ScaledMetric(relativeTo: .title) private var statSize: CGFloat = 34
+    @ScaledMetric(relativeTo: .title) private var totalSize: CGFloat = 28
     @ScaledMetric(relativeTo: .body) private var inlineSize: CGFloat = 17
 
     private let parts: [Part]
@@ -46,12 +49,14 @@ public struct StatNumber: View {
 
     public var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 1) {
-            ForEach(Array(parts.enumerated()), id: \.offset) { _, part in
+            ForEach(Array(parts.enumerated()), id: \.offset) { index, part in
                 Text(part.text)
                     .font(part.isUnit ? MapleFont.numeralUnit(size: numeralSize / 2) : MapleFont.numeral(size: numeralSize))
                     .tracking(part.isUnit || size != .hero ? 0 : -1.5)
                     .foregroundStyle(part.isUnit ? theme.colors.textSecondary : theme.colors.textPrimary)
                     .contentTransition(.numericText())
+                    // A word space between a unit and the next value: "1h 20m".
+                    .padding(.leading, Self.startsNewGroup(parts, at: index) ? numeralSize * 0.14 : 0)
             }
         }
         .lineLimit(1)
@@ -66,7 +71,13 @@ public struct StatNumber: View {
         case .hero: min(heroSize, 88)
         case .score: min(scoreSize, 72)
         case .stat: statSize
+        case .total: totalSize
         case .inline: inlineSize
         }
+    }
+
+    /// Whether the part at `index` is a value that follows a unit, and so needs a word space before it.
+    nonisolated static func startsNewGroup(_ parts: [Part], at index: Int) -> Bool {
+        index > 0 && parts.indices.contains(index) && !parts[index].isUnit && parts[index - 1].isUnit
     }
 }
