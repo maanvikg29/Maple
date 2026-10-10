@@ -93,23 +93,22 @@ private struct Builder {
         let girth = MatureTree.sample(mature.widthScale, at: g)
         var emergence = [Double](repeating: 0, count: nodes.count)
         var position = [TreePoint](repeating: .zero, count: nodes.count)
-        var flow = [Double](repeating: 0, count: nodes.count)
+        var width = [Double](repeating: 0, count: nodes.count)
         for j in nodes.indices {
             let e = mature.emergence(j, at: g)
             emergence[j] = e
-            flow[j] = e
             let parent = nodes[j].parent
             if parent >= 0 {
                 let v = nodes[j].position - nodes[parent].position
                 position[j] = position[parent] + TreePoint(x: v.x * kx, y: v.y * ky) * e
             }
-        }
-        for j in nodes.indices.reversed() where nodes[j].parent >= 0 {
-            flow[nodes[j].parent] += flow[j]
+            // Wood thickens with the whole tree; a new shoot starts slender and fills out as it lengthens.
+            let shoot = nodes[j].threshold >= 0 ? 0.55 + 0.45 * e : 1
+            width[j] = nodes[j].width * girth * shoot
         }
         self.emergence = emergence
         self.position = position
-        width = flow.map { girth * pow(max($0, 0), 1 / MatureTree.pipeExponent) }
+        self.width = width
         leafSize = MatureTree.leafSize(at: g)
         findTips(kx: kx, ky: ky)
     }
@@ -165,7 +164,7 @@ private struct Builder {
             result.append(TreeSkeleton.Segment(
                 node: j,
                 parentNode: parent,
-                depth: mature.chains[nodes[j].chain].depth,
+                depth: nodes[j].depth,
                 base: position[parent],
                 tip: position[j],
                 baseWidth: sameChain ? width[parent] : width[j],
@@ -248,7 +247,9 @@ private struct Builder {
         var rosetteSizes: [[Int]] = []
         for i in 0..<n {
             let count = total / n + (i < total % n ? 1 : 0)
-            let rosettes = max(1, min(count / 3, max((count + 5) / 6, Int((Double(count) / 5).rounded()))))
+            // Rosettes of 3–6 leaves, about 5 each; from 6 leaves on a species is at least two rosettes, so a
+            // young crown fills out instead of hanging one heavy fan per twig end.
+            let rosettes = count >= 6 ? max(2, min(count / 3, Int((Double(count) / 5).rounded()))) : 1
             rosetteSizes.append((0..<rosettes).map { r in count / rosettes + (r < count % rosettes ? 1 : 0) })
             plans[i].leafCount = rosetteSizes[i][0]
         }
@@ -354,20 +355,32 @@ private struct Builder {
         return anchors
     }
 
-    /// The nearest twig end with nothing on it, preferring one clear of other rosettes so a species' copies
-    /// spread over its part of the crown; then the nearest free lateral node along a twig; then the nearest
+    /// A place for a satellite rosette: the nearest free twig end, or point along a twig, with room around it
+    /// (2.5 leaf sizes clear of everything placed), so a species' copies stay near its own twig while the crown
+    /// fills evenly instead of crowding the twig ends; failing that, the roomiest free place; failing that, the
     /// twig end with the fewest sharers.
     private mutating func nearestFreePlace(to point: TreePoint, awayFrom taken: [TreePoint]) -> Place {
-        let free = tips.filter { occupancy[$0.id] == nil }
-        let clearance = leafSize * 1.5
-        let clear = free.filter { tip in taken.allSatisfy { $0.distance(to: tip.position) >= clearance } }
-        let pool = clear.isEmpty ? free : clear
-        if let tip = pool.min(by: { $0.position.distance(to: point) < $1.position.distance(to: point) }) {
-            return .tip(tip.id)
+        let room = leafSize * 2.5
+        let laterals = lateralNodes()
+        var best: (place: Place, score: Double)?
+        func consider(_ place: Place, at p: TreePoint, bonus: Double) {
+            var clear = room
+            for anchor in taken {
+                clear = min(clear, anchor.distance(to: p))
+            }
+            let score = clear + bonus - 0.25 * p.distance(to: point)
+            if best.map({ score > $0.score }) ?? true {
+                best = (place, score)
+            }
         }
-        let laterals = lateralNodes().filter { !lateralTaken.contains($0) }
-        if let node = laterals.min(by: { position[$0].distance(to: point) < position[$1].distance(to: point) }) {
-            return .lateral(node)
+        for tip in tips where occupancy[tip.id] == nil {
+            consider(.tip(tip.id), at: tip.position, bonus: leafSize * 0.25)
+        }
+        for node in laterals where !lateralTaken.contains(node) {
+            consider(.lateral(node), at: position[node], bonus: 0)
+        }
+        if let best {
+            return best.place
         }
         let shared = tips.min { a, b in
             let ca = occupancy[a.id]?.count ?? 0, cb = occupancy[b.id]?.count ?? 0

@@ -58,35 +58,48 @@ struct CrownEnvelope: Sendable {
         return r / lobes
     }
 
-    var bounds: (minX: Double, maxX: Double, minY: Double, maxY: Double) {
-        let pad = 1.12
-        return (
-            centerX - halfWidthLeft * pad - abs(topShift),
-            centerX + halfWidthRight * pad + abs(topShift),
-            equatorY - downHeight * pad,
-            equatorY + upHeight * pad
-        )
+    /// How far a shoot from `start` heading along `direction` can grow before it leaves the crown: the distance to
+    /// where it last exits the dome (a shoot starting below the dome first enters it). 0 if it never gets inside.
+    func reach(from start: TreePoint, along direction: TreePoint) -> Double {
+        let step = 2.0
+        var travelled = 0.0, lastInside = -1.0
+        while travelled < 480 {
+            let p = start + direction * travelled
+            if normalizedRadius(p) <= 1 {
+                lastInside = travelled
+            } else if lastInside >= 0 {
+                break
+            }
+            travelled += step
+        }
+        return max(0, lastInside)
     }
 }
 
-/// The fully grown skeleton for one seed, grown once by space colonisation and then revealed by `TreeLayout`
-/// as structural growth `g` rises. Every node records when it was born, so emergence is a pure function of g:
-/// nodes only appear and lengthen, and the topology never changes.
+/// The fully grown skeleton for one seed, built once by the recursion of spec §4.2 and then revealed by
+/// `TreeLayout` as structural growth `g` rises. Every segment belongs to one depth, and each depth emerges at its
+/// own threshold of g, so the topology never changes: segments only appear, lengthen and thicken.
+///
+/// The recursion: a short, stout trunk with a gentle S-curve forks low into 2–3 leaders (each with two side limbs
+/// along it); every branch then ends in a fork whose leading child carries on almost straight while the other
+/// splits off 22–38° to the side. Children are 0.74 × as long and 0.68 × as wide, each segment bends 4° upward,
+/// 12% of the finer shoots are pruned (seeded), and recursion stops at depth 8. Lengths are fitted to the crown
+/// dome, so the twig ends fill it evenly and the silhouette is the broad, asymmetric dome of an open-grown maple.
 struct MatureTree: Sendable {
     struct Node: Sendable {
         /// Mature position (tree space, points at g = 1 before the growth scale).
         var position: TreePoint
         /// −1 for the trunk base.
         var parent: Int
-        /// Growth iteration; 0 for the hand-built trunk and leaders.
-        var birth: Int
+        /// The recursion depth of the segment ending here: 1 trunk, 2 leaders, … 8 the finest twigs.
+        var depth: Int
+        /// Mature wood width at this node.
+        var width: Double
         var children: [Int] = []
         /// The chain this node's incoming segment belongs to.
         var chain: Int = -1
         /// g at which the incoming segment starts growing; −1 means grown from the start.
         var threshold: Double = -1
-        /// Mature subtree size (nodes, including this one).
-        var subtree: Int = 1
     }
 
     /// A run of nodes drawn as one smooth, tapering limb. Each chain ends at exactly one twig end.
@@ -96,7 +109,7 @@ struct MatureTree: Sendable {
         /// The node on the parent chain this chain grows from (−1 for the trunk).
         var attach: Int
         var parentChain: Int
-        /// 1 trunk, 2 leaders, 3 their limbs, … capped at 8.
+        /// 1 trunk, 2 leaders, 3 their limbs, … up to 8.
         var depth: Int
         /// Threshold of the chain's first node: when the twig sprouts.
         var sprout: Double
@@ -106,14 +119,21 @@ struct MatureTree: Sendable {
     static let matureWidth = 340.0
     /// Each segment grows from nothing to full length over this much g (spec §4.2).
     static let emergenceWindow = 0.10
-    /// The last segment starts growing at this g, so the structure is complete by g ≈ 0.9.
-    static let lastSprout = 0.80
-    /// Pipe-model exponent: a parent's cross-section carries its children's (da Vinci rule, area-like).
-    static let pipeExponent = 2.1
+    /// Depths 1–3 exist at g = 0; each later depth appears at its threshold (spec §4.2).
+    static let depthThresholds: [Double] = [-1, -1, -1, -1, 0.05, 0.18, 0.34, 0.52, 0.72]
+    static let maxDepth = 8
+    /// Child length and width relative to the parent (spec §4.2).
+    static let lengthRatio = 0.74
+    static let widthTaper = 0.68
+    /// Upward bend per segment, radians (spec §4.2: +4°).
+    static let upwardBend = 4 * Double.pi / 180
+    /// Seeded pruning of the finer shoots (spec §4.2: 12%).
+    static let pruning = 0.12
+    /// Trunk width at the ground when mature (spec §4.3).
+    static let trunkBaseWidth = 22.0
+    /// Twig ends stay outside this fraction of the crown's radius, so the fork and the limbs leaving it show.
+    static let innerRadius = 0.36
     static let curveSamples = 100
-    /// Growth is made denser until the mature crown has at least this many twig ends (155 species, buds and
-    /// the featured leaf, with room to spare).
-    static let targetTwigEnds = 160
     /// The seedling's trunk is this fraction of its mature length, and lengthens to full by g = 0.6.
     static let seedlingTrunk = 0.62
 
@@ -156,153 +176,58 @@ struct MatureTree: Sendable {
         var rng = SplitMix64(seed: SplitMix64.derive(seed, "maple.tree.structure"))
         let height = Self.matureHeight
         envelope = CrownEnvelope(height: height, width: Self.matureWidth, rng: &rng)
-        var nodes: [Node] = []
+        var grower = Grower(envelope: envelope, rng: SplitMix64(seed: SplitMix64.derive(seed, "maple.tree.branches")))
 
         // Trunk: short and stout with a gentle S-curve, forking low (0.28 × height).
         let forkY = height * rng.range(0.265, 0.295)
         let sway = rng.range(1.5, 3) * rng.sign()
         let lean = envelope.centerX * 0.3 + rng.range(-2.5, 2.5)
         let trunkSteps = 9
+        let trunk = grower.newChain(attach: -1, parentChain: -1, depth: 1)
         for i in 0...trunkSteps {
             let t = Double(i) / Double(trunkSteps)
             let x = sway * sin(2 * .pi * t) * (1 - 0.35 * t) + lean * t * t
-            nodes.append(Node(position: TreePoint(x: x, y: forkY * t), parent: i - 1, birth: 0))
+            let width = Self.trunkBaseWidth * pow(Self.widthTaper, t)
+            _ = grower.add(TreePoint(x: x, y: forkY * t), parent: i - 1, depth: 1, width: width, chain: trunk)
         }
-        let fork = nodes.count - 1
+        let fork = grower.nodes.count - 1
         forkNode = fork
 
-        // Leaders: 2 or 3 (3 with probability 0.6), short, spreading out of the fork. The crown itself is grown
-        // from their tips by colonisation, so the limbs find their own way into the dome.
+        // Leaders: 2 or 3 (3 with probability 0.6), spreading out of the fork toward the crown's shoulders. Each
+        // takes its own stretch of the crown's outline, and every fork below splits its stretch between its two
+        // children, so the twig ends spread evenly over the whole dome.
         let leaderCount = rng.unit() < 0.6 ? 3 : 2
         let degrees = Double.pi / 180
+        let crownTilt = (envelope.halfWidthRight - envelope.halfWidthLeft) / envelope.halfWidthLeft * 0.6
         let angles: [Double] = leaderCount == 3
-            ? [-rng.range(32, 42), rng.range(7, 13) * rng.sign(), rng.range(30, 40)].map { $0 * degrees }
-            : [-rng.range(22, 32), rng.range(22, 32)].map { $0 * degrees }
-        let crownTilt = (envelope.halfWidthRight - envelope.halfWidthLeft) / envelope.halfWidthLeft * 0.8
-        var growing: Set<Int> = []
-        for base in angles {
-            let length = height * rng.range(0.085, 0.12) * (abs(base) < 0.2 ? 1.15 : 1)
-            let steps = max(2, Int((length / 7).rounded()))
-            var position = nodes[fork].position
-            var parent = fork
-            for s in 1...steps {
-                let t = Double(s) / Double(steps)
-                let angle = (base + crownTilt) * TreeMath.lerp(1.15, 0.85, t)
-                position += TreePoint.direction(angleFromUp: angle) * (length / Double(steps))
-                nodes.append(Node(position: position, parent: parent, birth: 0))
-                parent = nodes.count - 1
-            }
-            growing.insert(parent)
+            ? [-rng.range(30, 40), rng.range(3, 9) * rng.sign(), rng.range(30, 40)].map { $0 * degrees + crownTilt }
+            : [-rng.range(20, 30), rng.range(20, 30)].map { $0 * degrees + crownTilt }
+        var cuts: [Double] = [0]
+        for k in 1..<leaderCount {
+            cuts.append(Double(k) / Double(leaderCount) + rng.range(-0.04, 0.04))
+        }
+        cuts.append(1)
+        let leaderWidth = Self.trunkBaseWidth * Self.widthTaper * (leaderCount == 3 ? 0.92 : 1)
+        for (k, angle) in angles.enumerated() {
+            let direction = TreePoint.direction(angleFromUp: angle)
+            let region = Grower.Region(u: cuts[k]...cuts[k + 1], r: Self.innerRadius...1)
+            let length = grower.fittedLength(from: grower.nodes[fork].position, region: region, depth: 2, nominal: 78)
+            let chain = grower.newChain(attach: fork, parentChain: trunk, depth: 2)
+            // Side limbs start on the outer side of an outer leader; the middle leader's side is seeded. Two
+            // leaders carry three limbs each, so every crown has about as many twigs.
+            let outward: Double = angle < -0.1 ? -1 : (angle > 0.1 ? 1 : rng.sign())
+            grower.grow(
+                from: fork, direction: direction, depth: 2, length: length, width: leaderWidth, chain: chain,
+                region: region, side: outward, limbs: leaderCount == 3 ? 2 : 3
+            )
         }
 
-        // Space colonisation, made denser until the crown has room for every species on its own twig.
-        let scaffold = nodes
-        for attractionCount in [4800, 6400] {
-            var attempt = rng
-            nodes = Self.colonise(scaffold, growing: growing, envelope: envelope, attractionCount: attractionCount, rng: &attempt)
-            var parents = Set<Int>()
-            for node in nodes where node.parent >= 0 {
-                parents.insert(node.parent)
-            }
-            if nodes.count - parents.count >= Self.targetTwigEnds {
-                break
-            }
-        }
-
-        // Children of the hand-built nodes (added before the loop) and subtree sizes.
+        // Emergence: depths 1–3 are the seedling; every later depth appears at its own threshold.
+        var nodes = grower.nodes
         for j in nodes.indices {
-            nodes[j].children = []
+            nodes[j].threshold = Self.depthThresholds[min(Self.maxDepth, nodes[j].depth)]
         }
-        for j in nodes.indices where nodes[j].parent >= 0 {
-            nodes[nodes[j].parent].children.append(j)
-        }
-        for j in nodes.indices.reversed() where nodes[j].parent >= 0 {
-            nodes[nodes[j].parent].subtree += nodes[j].subtree
-        }
-
-        // Chains: a node's earliest-born child continues its chain (ties: the larger subtree); others start
-        // new chains one level deeper. The trunk ends at the fork, where every leader starts its own chain.
-        var chains: [Chain] = [Chain(nodes: Array(0...fork), attach: -1, parentChain: -1, depth: 1, sprout: -1)]
-        for j in 0...fork {
-            nodes[j].chain = 0
-        }
-        var stack: [(start: Int, attach: Int, parentChain: Int, depth: Int)] = []
-        for child in nodes[fork].children.reversed() {
-            stack.append((child, fork, 0, 2))
-        }
-        func continuation(of node: Node) -> Int? {
-            node.children.min { a, b in
-                let na = nodes[a], nb = nodes[b]
-                return na.birth != nb.birth ? na.birth < nb.birth : (na.subtree != nb.subtree ? na.subtree > nb.subtree : a < b)
-            }
-        }
-        while let item = stack.popLast() {
-            let chainIndex = chains.count
-            var members: [Int] = []
-            var current: Int? = item.start
-            while let node = current {
-                members.append(node)
-                nodes[node].chain = chainIndex
-                let main = continuation(of: nodes[node])
-                for child in nodes[node].children.reversed() where child != main {
-                    stack.append((child, node, chainIndex, min(8, item.depth + 1)))
-                }
-                current = main
-            }
-            chains.append(Chain(nodes: members, attach: item.attach, parentChain: item.parentChain, depth: item.depth, sprout: -1))
-        }
-
-        // Smooth the colonised chains (the trunk and leaders are already smooth): space colonisation grows
-        // in short straight steps, and a few Laplacian passes turn them into continuous curves.
-        for _ in 0..<8 {
-            for chain in chains.dropFirst() {
-                let path = [chain.attach] + chain.nodes
-                guard path.count >= 3 else { continue }
-                var updated: [TreePoint] = []
-                for k in 1..<(path.count - 1) {
-                    let node = path[k]
-                    guard nodes[node].birth > 0 else {
-                        updated.append(nodes[node].position)
-                        continue
-                    }
-                    let mid = TreePoint.lerp(nodes[path[k - 1]].position, nodes[path[k + 1]].position, 0.5)
-                    updated.append(TreePoint.lerp(nodes[node].position, mid, 0.5))
-                }
-                for k in 1..<(path.count - 1) {
-                    nodes[path[k]].position = updated[k - 1]
-                }
-            }
-        }
-
-        // Emergence: the trunk, leaders and the first few colonisation passes form the seedling (g = 0).
-        // Later births are revealed in order, paced by cumulative node count so growth looks steady.
-        let maxBirth = nodes.map(\.birth).max() ?? 0
-        var bornAt = [Int](repeating: 0, count: maxBirth + 1)
-        for node in nodes where node.birth > 0 {
-            bornAt[node.birth] += 1
-        }
-        var cumulative = [Int](repeating: 0, count: maxBirth + 1)
-        for b in 1...max(1, maxBirth) where b <= maxBirth {
-            cumulative[b] = cumulative[b - 1] + bornAt[b]
-        }
-        // Seedling: the smallest number of passes that gives the sapling enough twig ends for its rosettes and buds.
-        var initialPasses = min(2, maxBirth)
-        while initialPasses < maxBirth {
-            let sprouted = chains.dropFirst().filter { nodes[$0.nodes[0]].birth <= initialPasses }.count
-            if sprouted >= 11 {
-                break
-            }
-            initialPasses += 1
-        }
-        let revealed = Double(max(1, cumulative[maxBirth] - cumulative[initialPasses]))
-        for j in nodes.indices {
-            let b = nodes[j].birth
-            if b <= initialPasses {
-                nodes[j].threshold = -1
-            } else {
-                nodes[j].threshold = Self.lastSprout * Double(cumulative[b - 1] - cumulative[initialPasses]) / revealed
-            }
-        }
+        var chains = grower.chains
         for c in chains.indices {
             chains[c].sprout = nodes[chains[c].nodes[0]].threshold
         }
@@ -317,99 +242,246 @@ struct MatureTree: Sendable {
         computeCurves()
     }
 
-    /// Space colonisation (Runions et al. 2007): attraction points fill the crown; each pass, every point pulls
-    /// on its nearest growing node, and nodes step toward the points pulling them. Returns the grown nodes.
-    private static func colonise(
-        _ scaffold: [Node], growing: Set<Int>, envelope: CrownEnvelope, attractionCount: Int, rng: inout SplitMix64
-    ) -> [Node] {
-        var nodes = scaffold
-        var points: [TreePoint] = []
-        points.reserveCapacity(attractionCount)
-        let box = envelope.bounds
-        var guardCount = 0
-        while points.count < attractionCount, guardCount < 200_000 {
-            guardCount += 1
-            let p = TreePoint(x: rng.range(box.minX, box.maxX), y: rng.range(box.minY, box.maxY))
-            let rho = envelope.normalizedRadius(p)
-            guard rho <= 1 else { continue }
-            if rng.unit() < 0.22 + 0.78 * rho * rho * rho {
-                points.append(p)
+    /// Builds the branching recursively, recording every node and the chains that join them into limbs.
+    ///
+    /// The crown is measured in polar terms around a focus low in the dome: `u` runs along the outline from the
+    /// left shoulder over the top to the right shoulder (0…1, by arc length) and `r` from the focus (0) to the
+    /// outline (1). Seen from the front, a dome's surface covers its whole disc, so twig ends belong everywhere in
+    /// it, not only on the rim. Every branch owns a *region* of (u, r); each fork splits its region between its
+    /// two children, along u or along r (the leading child keeps the outer part), so the twig ends spread evenly.
+    private struct Grower {
+        static let gatherDepth = 6
+        static let gathering = 0.66
+
+        struct Region {
+            var u: ClosedRange<Double>
+            var r: ClosedRange<Double>
+
+            var uMiddle: Double { (u.lowerBound + u.upperBound) / 2 }
+            /// The radius that halves the region's area.
+            var rMiddle: Double { ((r.lowerBound * r.lowerBound + r.upperBound * r.upperBound) / 2).squareRoot() }
+
+            /// The region drawn in toward its middle by `factor`, so the twigs inside it gather into one mass of
+            /// foliage with a little sky around it.
+            func gathered(by factor: Double) -> Region {
+                let du = (u.upperBound - u.lowerBound) * factor / 2, dr = (r.upperBound - r.lowerBound) * factor / 2
+                let mu = uMiddle, mr = (r.lowerBound + r.upperBound) / 2
+                return Region(u: (mu - du)...(mu + du), r: (mr - dr)...(mr + dr))
             }
         }
 
-        let step = 6.0
-        let influence = 46.0
-        let kill = 7.0
-        // Lateral buds open only every second node, two passes behind the tip, at most one per node: real shoots
-        // branch at spaced nodes, which keeps limbs from sprouting combs of parallel twigs.
-        let budSpacing = 2
-        var budIndex = [Int](repeating: 0, count: nodes.count)
-        func canGrow(_ j: Int, at iteration: Int) -> Bool {
-            let node = nodes[j]
-            if node.children.isEmpty {
-                return node.birth > 0 || growing.contains(j)
+        let envelope: CrownEnvelope
+        var rng: SplitMix64
+        var nodes: [Node] = []
+        var chains: [Chain] = []
+        let focus: TreePoint
+        /// The crown's outline, evenly spaced by arc length from the left shoulder to the right.
+        let outline: [TreePoint]
+        let outlineLength: Double
+        let meanRadius: Double
+
+        init(envelope: CrownEnvelope, rng: SplitMix64) {
+            self.envelope = envelope
+            self.rng = rng
+            let focus = TreePoint(x: envelope.centerX, y: envelope.equatorY - envelope.downHeight * 0.45)
+            self.focus = focus
+            let spread = 94 * Double.pi / 180
+            var raw: [TreePoint] = []
+            for i in 0...240 {
+                let angle = -spread + 2 * spread * Double(i) / 240
+                let direction = TreePoint.direction(angleFromUp: angle)
+                raw.append(focus + direction * envelope.reach(from: focus, along: direction))
             }
-            return node.birth > 0 && node.children.count == 1 && budIndex[j] % budSpacing == 0 && iteration - node.birth >= 2
-        }
-        var alive = [Bool](repeating: true, count: points.count)
-        var closest = [Int](repeating: -1, count: points.count)
-        var closestDistance = [Double](repeating: .infinity, count: points.count)
-        var candidates: [Int] = Array(growing)
-        var iteration = 0
-        while iteration < 200 {
-            iteration += 1
-            // Only nodes added since the last pass can become a point's closest node.
-            for p in points.indices where alive[p] {
-                var best = closestDistance[p]
-                var bestNode = closest[p]
-                for j in candidates {
-                    let d = points[p].distance(to: nodes[j].position)
-                    if d < best {
-                        best = d
-                        bestNode = j
-                    }
+            var lengths = [0.0]
+            for i in 1..<raw.count {
+                lengths.append(lengths[i - 1] + raw[i].distance(to: raw[i - 1]))
+            }
+            let total = max(1, lengths[lengths.count - 1])
+            var even: [TreePoint] = []
+            var j = 0
+            for i in 0...200 {
+                let target = total * Double(i) / 200
+                while j < lengths.count - 2, lengths[j + 1] < target {
+                    j += 1
                 }
-                closestDistance[p] = best
-                closest[p] = bestNode
-                if best < kill {
-                    alive[p] = false
-                }
+                let span = max(1e-9, lengths[j + 1] - lengths[j])
+                even.append(TreePoint.lerp(raw[j], raw[j + 1], min(1, max(0, (target - lengths[j]) / span))))
             }
-            candidates = []
-
-            let total = nodes.count
-            var pull = [TreePoint](repeating: .zero, count: total)
-            var count = [Int](repeating: 0, count: total)
-            for p in points.indices where alive[p] && closest[p] >= 0 && closestDistance[p] <= influence {
-                let j = closest[p]
-                pull[j] += (points[p] - nodes[j].position).normalized()
-                count[j] += 1
-            }
-            var grew = false
-            for j in 0..<total where count[j] > 0 && canGrow(j, at: iteration) {
-                let attraction = pull[j] * (1 / Double(count[j]))
-                guard attraction.length > 0.15 else { continue }
-                let parent = nodes[j].parent
-                let incoming = parent >= 0 ? (nodes[j].position - nodes[parent].position).normalized() : .up
-                let isLateral = !nodes[j].children.isEmpty
-                // Laterals leave at an angle; tips keep some momentum. A little seeded wander keeps limbs organic.
-                let wander = TreePoint.direction(angleFromUp: rng.range(0, 2 * .pi)) * 0.1
-                let direction = (attraction.normalized() + incoming * (isLateral ? 0.05 : 0.42) + TreePoint.up * 0.05 + wander).normalized()
-                let position = nodes[j].position + direction * step
-                let duplicate = nodes[j].children.contains { nodes[$0].position.distance(to: position) < step * 0.7 }
-                guard !duplicate else { continue }
-                nodes.append(Node(position: position, parent: j, birth: iteration))
-                budIndex.append(isLateral ? 1 : budIndex[j] + 1)
-                nodes[j].children.append(nodes.count - 1)
-                candidates.append(nodes.count - 1)
-                grew = true
-            }
-            if !grew {
-                break
-            }
+            outline = even
+            outlineLength = total
+            meanRadius = even.map { $0.distance(to: focus) }.reduce(0, +) / Double(even.count)
         }
 
-        return nodes
+        /// The crown point at outline position `u` and radius `r`.
+        func point(u: Double, r: Double) -> TreePoint {
+            let x = min(1, max(0, u)) * Double(outline.count - 1)
+            let i = min(outline.count - 2, Int(x))
+            let edge = TreePoint.lerp(outline[i], outline[i + 1], x - Double(i))
+            return focus + (edge - focus) * r
+        }
+
+        /// Where a region's twig ends gather: its middle by area.
+        func target(of region: Region) -> TreePoint {
+            point(u: region.uMiddle, r: region.rMiddle)
+        }
+
+        mutating func newChain(attach: Int, parentChain: Int, depth: Int) -> Int {
+            chains.append(Chain(nodes: [], attach: attach, parentChain: parentChain, depth: depth, sprout: -1))
+            return chains.count - 1
+        }
+
+        mutating func add(_ position: TreePoint, parent: Int, depth: Int, width: Double, chain: Int) -> Int {
+            nodes.append(Node(position: position, parent: parent, depth: depth, width: width, chain: chain))
+            let index = nodes.count - 1
+            if parent >= 0 {
+                nodes[parent].children.append(index)
+            }
+            chains[chain].nodes.append(index)
+            return index
+        }
+
+        /// A branch length that lets the branch and everything it will carry reach its region: the distance left
+        /// divided by how far the remaining depths reach (1 + 0.74 + 0.74² + … along a gently curving path),
+        /// kept near the nominal 0.74 × parent.
+        mutating func fittedLength(from start: TreePoint, region: Region, depth: Int, nominal: Double) -> Double {
+            let remaining = MatureTree.maxDepth - depth
+            let reachFactor = (1 - pow(MatureTree.lengthRatio, Double(remaining + 1))) / (1 - MatureTree.lengthRatio) * 0.88
+            let room = start.distance(to: target(of: region))
+            let fill = depth == MatureTree.maxDepth ? rng.range(0.8, 1.05) : rng.range(0.88, 1.02)
+            let fitted = room * fill / reachFactor
+            return min(max(fitted, nominal * 0.4), nominal * 1.4)
+        }
+
+        /// Splits a region in two across its longer side (its arc along u, or its depth along r), with a little
+        /// seeded play. Returns the lower-u (or inner) part first.
+        mutating func split(_ region: Region) -> (first: Region, second: Region, alongU: Bool) {
+            let arc = (region.u.upperBound - region.u.lowerBound) * outlineLength * region.rMiddle
+            let depth = (region.r.upperBound - region.r.lowerBound) * meanRadius
+            let alongU = arc >= depth * rng.range(0.8, 1.25)
+            if alongU {
+                let cut = region.u.lowerBound + (region.u.upperBound - region.u.lowerBound) * rng.range(0.42, 0.58)
+                return (Region(u: region.u.lowerBound...cut, r: region.r), Region(u: cut...region.u.upperBound, r: region.r), true)
+            }
+            // Equal areas, nudged outward so the rim is a little fuller than the inside.
+            let lo = region.r.lowerBound, hi = region.r.upperBound
+            let cut = min(hi, ((lo * lo + hi * hi) / 2).squareRoot() * rng.range(1.0, 1.06))
+            return (Region(u: region.u, r: lo...cut), Region(u: region.u, r: cut...hi), false)
+        }
+
+        /// Grows a branch of `depth` from node `attach`, then everything it carries, steering toward its region.
+        /// A leader carries `limbs` side limbs along its length, the first on `side` (±1).
+        mutating func grow(
+            from attach: Int, direction start: TreePoint, depth: Int, length: Double, width: Double, chain: Int,
+            region: Region, side: Double = 1, limbs: Int = 0
+        ) {
+            let steps = depth == 2 ? 6 : (depth <= 4 ? 3 : 2)
+            var direction = start
+            var position = nodes[attach].position
+            var parent = attach
+            var created: [Int] = []
+            let wobble = (depth <= 3 ? 2.0 : 4.5) * Double.pi / 180
+            let steer = (depth == 2 ? 5.0 : (depth <= 4 ? 9.0 : 12.0)) * Double.pi / 180
+            let goal = target(of: region)
+            for s in 1...steps {
+                var angle = direction.angleFromUp
+                // +4° upward per segment, spread over its steps.
+                let bend = MatureTree.upwardBend / Double(steps)
+                angle -= angle > 0 ? min(angle, bend) : max(angle, -bend)
+                // Steer gently toward the branch's region, with a little seeded wobble.
+                let toward = (goal - position).normalized(or: direction).angleFromUp
+                let turn = remainder(toward - angle, 2 * .pi)
+                angle += max(-steer, min(steer, turn)) + rng.range(-wobble, wobble)
+                direction = TreePoint.direction(angleFromUp: angle)
+                position += direction * (length / Double(steps))
+                let w = width * pow(MatureTree.widthTaper, Double(s) / Double(steps))
+                parent = add(position, parent: parent, depth: depth, width: w, chain: chain)
+                created.append(parent)
+            }
+
+            // Side limbs take the u-edges of the region, alternately outer and inner, from low on the leader up;
+            // the end fork shares what is left.
+            var forkRegion = region
+            if limbs > 0 {
+                let share = (region.u.upperBound - region.u.lowerBound) / Double(limbs + 2)
+                var limbSide = side
+                let places: [Double] = limbs == 2 ? [0.33, 0.67] : [0.28, 0.52, 0.76]
+                for (k, place) in places.prefix(limbs).enumerated() {
+                    let node = created[min(steps - 2, max(0, Int((place * Double(steps)).rounded()) - 1))]
+                    let cut = share * rng.range(0.9, 1.1)
+                    let lo = forkRegion.u.lowerBound, hi = forkRegion.u.upperBound
+                    let limbRegion = Region(u: limbSide < 0 ? lo...(lo + cut) : (hi - cut)...hi, r: region.r)
+                    forkRegion.u = limbSide < 0 ? (lo + cut)...hi : lo...(hi - cut)
+                    let along = (nodes[node].position - nodes[nodes[node].parent].position).normalized()
+                    let spread = rng.range(30, 38) * Double.pi / 180 * (k % 2 == 0 ? 1 : 0.8)
+                    let dir = TreePoint.direction(angleFromUp: along.angleFromUp + limbSide * spread)
+                    let l = fittedLength(from: nodes[node].position, region: limbRegion, depth: 3, nominal: length * MatureTree.lengthRatio)
+                    let c = newChain(attach: node, parentChain: chain, depth: 3)
+                    grow(
+                        from: node, direction: dir, depth: 3, length: l, width: nodes[node].width * MatureTree.widthTaper,
+                        chain: c, region: limbRegion
+                    )
+                    limbSide = -limbSide
+                }
+            }
+            guard depth < MatureTree.maxDepth else { return }
+
+            // The end fork: the leading child carries on almost straight, the other splits 22–38° to the side.
+            // Split along u, each takes its own side; split along r, the leading child keeps the outer part.
+            let tip = parent
+            let here = nodes[tip].position
+            let childDepth = depth + 1
+            let theta = rng.range(22, 38) * Double.pi / 180
+            let delta = rng.range(6, 14) * Double.pi / 180
+            let parts = split(forkRegion)
+            var lateralSide = rng.sign()
+            var leadRegion: Region, sideRegion: Region
+            if parts.alongU {
+                leadRegion = lateralSide > 0 ? parts.first : parts.second
+                sideRegion = lateralSide > 0 ? parts.second : parts.first
+            } else {
+                leadRegion = parts.second
+                sideRegion = parts.first
+                // The inner shoot turns toward the side its region lies on.
+                let inner = target(of: sideRegion)
+                let cross = direction.x * (inner.y - here.y) - direction.y * (inner.x - here.x)
+                lateralSide = cross > 0 ? -1 : 1
+            }
+            let a = direction.angleFromUp
+            let leadDirection = TreePoint.direction(angleFromUp: a - lateralSide * delta)
+            let sideDirection = TreePoint.direction(angleFromUp: a + lateralSide * theta)
+            var keepLead = true, keepSide = true
+            if childDepth >= 4 {
+                keepLead = rng.unit() >= MatureTree.pruning
+                keepSide = rng.unit() >= MatureTree.pruning
+                if !keepLead, !keepSide {
+                    keepLead = true
+                }
+            }
+            // A pruned shoot leaves its region to the one that remains.
+            if !keepSide {
+                leadRegion = forkRegion
+            }
+            if !keepLead {
+                sideRegion = forkRegion
+            }
+            // The finer twigs gather into masses of foliage, as a crown's leaves do at its branch ends.
+            if childDepth == Self.gatherDepth {
+                leadRegion = leadRegion.gathered(by: Self.gathering)
+                sideRegion = sideRegion.gathered(by: Self.gathering)
+            }
+            let nominal = length * MatureTree.lengthRatio
+            let childWidth = width * MatureTree.widthTaper
+            let leadLength = fittedLength(from: here, region: leadRegion, depth: childDepth, nominal: nominal)
+            let sideLength = fittedLength(from: here, region: sideRegion, depth: childDepth, nominal: nominal * 0.92)
+            if keepLead {
+                grow(from: tip, direction: leadDirection, depth: childDepth, length: leadLength, width: childWidth, chain: chain, region: leadRegion)
+            }
+            if keepSide {
+                // With the leading shoot pruned, the side shoot carries the limb on.
+                let c = keepLead ? newChain(attach: tip, parentChain: chain, depth: childDepth) : chain
+                grow(from: tip, direction: sideDirection, depth: childDepth, length: sideLength, width: childWidth, chain: c, region: sideRegion)
+            }
+        }
     }
 
     /// Primary-slot order: chains that sprout earlier come first, so the first k species always sit on k distinct
@@ -426,11 +498,8 @@ struct MatureTree: Sendable {
             // The position each twig end has when it sprouts: its deepest node grown at that moment.
             func front(_ c: Int) -> TreePoint {
                 let chain = chains[c]
-                if key < 0 {
-                    let grown = chain.nodes.last { nodes[$0].threshold < 0 } ?? chain.nodes[0]
-                    return nodes[grown].position
-                }
-                return nodes[chain.nodes[chain.nodes.count - 1]].position
+                let grown = chain.nodes.last { nodes[$0].threshold <= key } ?? chain.nodes[0]
+                return nodes[grown].position
             }
             let fronts = members.map(front)
             let meanX = fronts.map(\.x).reduce(0, +) / Double(max(1, fronts.count))
@@ -501,14 +570,12 @@ struct MatureTree: Sendable {
     /// lengthen and thicken.
     private mutating func computeCurves() {
         var rawX: [Double] = [], rawY: [Double] = [], rawWidth: [Double] = []
-        var subtree = [Double](repeating: 0, count: nodes.count)
         var position = [TreePoint](repeating: .zero, count: nodes.count)
         for i in 0...Self.curveSamples {
             let g = Double(i) / Double(Self.curveSamples)
             var minX = 0.0, maxX = 0.0, maxY = 0.0
             for j in nodes.indices {
                 let e = emergence(j, at: g)
-                subtree[j] = e
                 let parent = nodes[j].parent
                 guard parent >= 0 else { continue }
                 position[j] = position[parent] + (nodes[j].position - nodes[parent].position) * e
@@ -518,9 +585,6 @@ struct MatureTree: Sendable {
                     maxY = max(maxY, position[j].y)
                 }
             }
-            for j in nodes.indices.reversed() where nodes[j].parent >= 0 {
-                subtree[nodes[j].parent] += subtree[j]
-            }
             let leaf = Self.leafSize(at: g)
             let targetHeight = TreeMath.lerp(140, 350, g) - 0.92 * leaf
             let targetWidth = TreeMath.lerp(110, 340, g) - 2 * leaf
@@ -528,10 +592,10 @@ struct MatureTree: Sendable {
             let sx = min(max(targetWidth / max(1, maxX - minX), sy * 0.72), sy * 1.15)
             rawY.append(sy)
             rawX.append(sx)
-            rawWidth.append(TreeMath.lerp(4, 22, g) / pow(max(1, subtree[0]), 1 / Self.pipeExponent))
+            rawWidth.append(TreeMath.lerp(4, 22, g) / Self.trunkBaseWidth)
         }
         scaleX = Self.nonDecreasing(rawX)
         scaleY = Self.nonDecreasing(rawY)
-        widthScale = Self.nonDecreasing(rawWidth.map { max($0, 0.6) })
+        widthScale = Self.nonDecreasing(rawWidth)
     }
 }
