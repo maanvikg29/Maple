@@ -76,9 +76,10 @@ nonisolated enum TreePainter {
         layer.blendMode = .sourceAtop
         layer.translateBy(x: centre.x, y: centre.y)
         layer.scaleBy(x: 1, y: halfHeight / halfWidth)
+        // Gentle: the limbs recede, but never turn darker than the sky they cross.
         let gradient = Gradient(stops: [
-            .init(color: .black.opacity(0.34), location: 0),
-            .init(color: .black.opacity(0.26), location: 0.45),
+            .init(color: .black.opacity(0.18), location: 0),
+            .init(color: .black.opacity(0.13), location: 0.45),
             .init(color: .black.opacity(0), location: 1),
         ])
         layer.fill(
@@ -91,7 +92,7 @@ nonisolated enum TreePainter {
     /// rosette's extra angle; pass nil to skip fluttering rosettes entirely (they are drawn per frame elsewhere).
     static func drawFoliage(
         _ plan: TreeScenePlan, frame: TreeSceneFrame, angle: Double, time: Double?, includeFluttering: Bool,
-        includeWaitingBuds: Bool, now: Date, in context: GraphicsContext
+        includeWaitingBuds: Bool, includeHalos: Bool = true, now: Date, in context: GraphicsContext
     ) {
         guard !plan.model.species.isEmpty else {
             if includeWaitingBuds {
@@ -101,7 +102,6 @@ nonisolated enum TreePainter {
         }
         var context = context
         rotate(&context, by: angle, about: frame.base)
-        drawHalos(plan, frame: frame, now: now, in: context)
         context.drawLayer { layer in
             for index in plan.leafOrder {
                 let leaf = plan.leaves[index]
@@ -111,6 +111,10 @@ nonisolated enum TreePainter {
                 drawLeaf(leaf, rosette: rosette, extraAngle: extra, plan: plan, frame: frame, in: layer)
             }
             shadeCanopy(plan, frame: frame, in: layer)
+        }
+        // Over the rosettes (spec §4.4 order), so a new leaf's glow still shows in a full crown.
+        if includeHalos {
+            drawHalos(plan, frame: frame, now: now, in: context)
         }
         drawFlowers(plan, frame: frame, in: context)
         drawBuds(plan, frame: frame, time: time, waiting: includeWaitingBuds, neutral: true, in: context)
@@ -141,7 +145,7 @@ nonisolated enum TreePainter {
 
     static func flutterAngle(_ rosette: TreeScenePlan.RosettePaint, time: Double?) -> Double {
         guard let time, let period = rosette.flutterPeriod else { return 0 }
-        return 3 * .pi / 180 * sin(2 * .pi * time / period + rosette.flutterPhase)
+        return rosette.flutterAmplitude * sin(2 * .pi * time / period + rosette.flutterPhase)
     }
 
     private static func rotate(_ context: inout GraphicsContext, by angle: Double, about point: CGPoint) {
@@ -160,12 +164,10 @@ nonisolated enum TreePainter {
         let opacity = min(0.18, plan.bloomOpacity * breathe)
         var context = context
         context.blendMode = .plusLighter
-        let gradient = Gradient(stops: [
-            .init(color: plan.bloomColor.opacity(opacity), location: 0),
-            .init(color: plan.bloomColor.opacity(opacity * 0.5), location: 0.3),
-            .init(color: plan.bloomColor.opacity(opacity * 0.15), location: 0.65),
-            .init(color: plan.bloomColor.opacity(0), location: 1),
-        ])
+        // A smooth, bell-shaped falloff: no core or rim the eye could read as a shape.
+        let gradient = Gradient(stops: [0, 0.2, 0.4, 0.6, 0.8, 1].map { t in
+            .init(color: plan.bloomColor.opacity(opacity * exp(-4.2 * t * t) * (1 - t * t * t)), location: t)
+        })
         let rect = CGRect(x: centre.x - radius, y: centre.y - radius, width: radius * 2, height: radius * 2)
         context.fill(Path(ellipseIn: rect), with: .radialGradient(gradient, center: centre, startRadius: 0, endRadius: radius))
     }
@@ -219,12 +221,12 @@ nonisolated enum TreePainter {
             lineWidth: max(0.5, s)
         )
 
-        // Light pool under the crown, in the bloom colour.
+        // Light pool under the crown: the bloom's light on the ground, so it dims with it (spec §4.8).
         if !plan.model.species.isEmpty {
             let poolCentre = frame.scene(201, 476)
             let poolWidth = 260 * s * (0.55 + 0.45 * plan.model.growth)
             drawEllipticalGlow(
-                at: poolCentre, width: poolWidth, height: 40 * s, color: plan.bloomColor, opacity: 0.08, in: context
+                at: poolCentre, width: poolWidth, height: 40 * s, color: plan.bloomColor, opacity: 0.08 * plan.vitality, in: context
             )
         }
 
@@ -546,18 +548,22 @@ nonisolated enum TreePainter {
 
     // MARK: Leaves
 
+    /// Where a leaf's stalk ends on screen: its anchor, turned with the rosette's flutter about the twig end.
+    private static func stalkEnd(_ leaf: TreeScenePlan.LeafPaint, rosette: TreeScenePlan.RosettePaint, extraAngle: Double, frame: TreeSceneFrame) -> CGPoint {
+        let anchor = frame.point(leaf.anchor)
+        guard extraAngle != 0 else { return anchor }
+        // Flutter turns the whole rosette about its twig end.
+        let pivot = frame.point(rosette.anchor)
+        let dx = anchor.x - pivot.x, dy = anchor.y - pivot.y
+        let c = cos(extraAngle), s = sin(extraAngle)
+        return CGPoint(x: pivot.x + dx * c - dy * s, y: pivot.y + dx * s + dy * c)
+    }
+
     private static func leafTransform(_ leaf: TreeScenePlan.LeafPaint, scale leafScale: Double, rosette: TreeScenePlan.RosettePaint, extraAngle: Double, frame: TreeSceneFrame) -> CGAffineTransform {
         let geometry = leaf.geometry
         let stalkEnd = geometry.petiole.end.applying(geometry.placement)
         let k = leaf.size * leafScale * frame.scale / leaf.span
-        var anchor = frame.point(leaf.anchor)
-        if extraAngle != 0 {
-            // Flutter turns the whole rosette about its twig end.
-            let pivot = frame.point(rosette.anchor)
-            let dx = anchor.x - pivot.x, dy = anchor.y - pivot.y
-            let c = cos(extraAngle), s = sin(extraAngle)
-            anchor = CGPoint(x: pivot.x + dx * c - dy * s, y: pivot.y + dx * s + dy * c)
-        }
+        let anchor = Self.stalkEnd(leaf, rosette: rosette, extraAngle: extraAngle, frame: frame)
         return CGAffineTransform(translationX: anchor.x, y: anchor.y)
             .rotated(by: leaf.rotation + extraAngle)
             .scaledBy(x: k, y: k)
@@ -567,6 +573,14 @@ nonisolated enum TreePainter {
     private static func drawLeaf(_ leaf: TreeScenePlan.LeafPaint, rosette: TreeScenePlan.RosettePaint, extraAngle: Double, plan: TreeScenePlan, frame: TreeSceneFrame, in context: GraphicsContext) {
         let transform = leafTransform(leaf, scale: plan.leafScale, rosette: rosette, extraAngle: extraAngle, frame: frame)
         let pointSize = leaf.size * plan.leafScale
+        // Small leaves stand out from the twig on long stalks (TreeLayout): draw the stalk back to the twig.
+        let twig = frame.point(rosette.anchor), end = stalkEnd(leaf, rosette: rosette, extraAngle: extraAngle, frame: frame)
+        if hypot(end.x - twig.x, end.y - twig.y) > 0.8 * frame.scale {
+            var stalk = Path()
+            stalk.move(to: twig)
+            stalk.addLine(to: end)
+            context.stroke(stalk, with: .color(leaf.vein), style: StrokeStyle(lineWidth: 0.45 * frame.scale, lineCap: .round))
+        }
         LeafRenderer.draw(leaf.geometry, in: context, transform: transform, style: LeafStyle(fill: leaf.fill, vein: leaf.vein, detail: .fillOnly))
         if pointSize >= 9 {
             foldShade(leaf, transform: transform, light: plan.sky.lightDirection, in: context)
@@ -636,7 +650,9 @@ nonisolated enum TreePainter {
         }
     }
 
-    private static func drawHalos(_ plan: TreeScenePlan, frame: TreeSceneFrame, now: Date, in context: GraphicsContext) {
+    /// The amber glow over each newly placed species' primary rosette, fading over 24 h (spec §4.5).
+    static func drawHalos(_ plan: TreeScenePlan, frame: TreeSceneFrame, now: Date, in context: GraphicsContext) {
+        guard !plan.model.newLeafHalos.isEmpty else { return }
         for rosette in plan.rosettes {
             guard let placed = rosette.haloPlacedAt else { continue }
             let age = now.timeIntervalSince(placed)

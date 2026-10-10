@@ -4,9 +4,11 @@
 //   xcrun swift Scripts/snapshot/TreeContactSheet.swift [output-dir] [output-dir]/00-contact-sheet.png
 //
 // Species counts 0 (seed sprout), 1, 5, 15, 40, 90, 155 at the growth spec §4.5 pairs them with, in autumn
-// evening; 40 species in each season; each phase at 40 species; a quiet tree; a waiting bud; and a Reduce Motion
-// still. Every scene uses the same seed and a fixed instant, so renders are reproducible. Compiled by
-// Scripts/snapshot.sh together with MapleCore + MapleDesign; not part of the app.
+// evening; 40 species in each season; each phase at 40 species; a quiet tree; a waiting bud; a Reduce Motion
+// still; the Home demo stages (23 species on day 41, 90 on day 220, 155 on day 600) under a second seed; and
+// full beside quiet vitality (1 and 0.45) at 23 and 155 species. Every scene uses a fixed seed and instant, so
+// renders are reproducible. Compiled by Scripts/snapshot.sh together with MapleCore + MapleDesign; not part of
+// the app.
 import Foundation
 import SwiftUI
 
@@ -31,13 +33,14 @@ private let sceneSize = CGSize(width: 402, height: 560)
 @MainActor
 private func model(
     species count: Int, growth: Double, season: Season = .autumn, phase: NowPhase = .evening,
-    vitality: Double = 1, waiting: Int = 0, seasonDay: Int = 40, featured: Bool = true, halo: Bool = false
+    vitality: Double = 1, waiting: Int = 0, seasonDay: Int = 40, featured: Bool = true, halo: Bool = false,
+    seed: UInt64 = sceneSeed
 ) -> TreeSceneModel {
     let ids = Array(unlockOrder.prefix(count))
     let next = Array(unlockOrder.dropFirst(count + waiting).prefix(3))
     let waitingIDs = Array(unlockOrder.dropFirst(count).prefix(waiting))
     return TreeSceneModel(
-        seed: sceneSeed,
+        seed: seed,
         growth: growth,
         species: ids.map { TreeSceneModel.Leaf(speciesID: $0, pressed: .autumn) },
         buds: zip(next, [0.72, 0.4, 0.15]).map { TreeSceneModel.Bud(speciesID: $0, progress: $1) },
@@ -89,5 +92,18 @@ func snapshotScenes() -> [SnapshotScene] {
         }
     })
     scenes.append(scene("20-seed-waiting", model(species: 0, growth: 0, waiting: 1)))
+    // The Home demo stages, on another seed (two splayed leaders: the case that used to leave the middle bare).
+    for (index, (count, days)) in [(23, 41), (90, 220), (155, 600)].enumerated() {
+        let growth = TreeGrowth.structure(tendedDays: days)
+        scenes.append(scene(String(format: "%02d-demo-%03d-day-%03d", 21 + index, count, days), model(species: count, growth: growth, seed: 0x2A)))
+    }
+    // Full beside quiet (spec §4.8): dimmer and stiller, never greyed.
+    for (index, (count, days)) in [(23, 41), (155, 600)].enumerated() {
+        let growth = TreeGrowth.structure(tendedDays: days)
+        for (offset, vitality) in [1.0, 0.45].enumerated() {
+            let name = String(format: "%02d-vitality-%03d-", 24 + index * 2 + offset, count) + (vitality == 1 ? "full" : "quiet")
+            scenes.append(scene(name, model(species: count, growth: growth, vitality: vitality)))
+        }
+    }
     return scenes
 }

@@ -65,6 +65,8 @@ nonisolated struct TreeScenePlan: Sendable {
         /// Ambient flutter (spec §4.9): seeded period in seconds, or nil when this rosette stays still.
         var flutterPeriod: Double?
         var flutterPhase: Double
+        /// Flutter swing either way, radians: ±3° scaled by vitality, so a quiet tree is stiller (spec §4.8).
+        var flutterAmplitude: Double
         /// When an amber new-leaf halo started its 24 h fade, if this rosette carries one.
         var haloPlacedAt: Date?
     }
@@ -88,6 +90,8 @@ nonisolated struct TreeScenePlan: Sendable {
     let scene: Theme.SceneColors
     /// Leaf scale from vitality (0.94 → 1.0, spec §4.8).
     let leafScale: Double
+    /// Vitality v clamped to 0.4…1 (spec §4.8): scales the bloom, its ground pool, sway and flutter.
+    let vitality: Double
     var hasFlutter: Bool { rosettes.contains { $0.flutterPeriod != nil } }
 
     struct BarkPalette: Sendable {
@@ -113,6 +117,7 @@ nonisolated struct TreeScenePlan: Sendable {
         }
         cotyledon = colors.scene.cotyledon
         let vitality = min(1, max(0.4, model.vitality))
+        self.vitality = vitality
         let brightness = sky.treeBrightness
         let catalog = LeafCatalog.shared
 
@@ -169,16 +174,8 @@ nonisolated struct TreeScenePlan: Sendable {
         }
         leaves = paints
 
-        // Bloom: instance-weighted average leaf colour, saturation clamped to 0.45.
-        let count = Double(max(1, paints.count))
-        let average = LeafColor(
-            red: Int(bloomSum.r / count), green: Int(bloomSum.g / count), blue: Int(bloomSum.b / count)
-        )
-        let hsl = average.hsl
-        let bloom = paints.isEmpty
-            ? LeafColor(0x9DB4E6)
-            : LeafColor(hue: hsl.hue, saturation: min(0.45, hsl.saturation), lightness: hsl.lightness)
-        bloomColor = .tree(bloom)
+        // Bloom: the hue of the instance-weighted average leaf colour, saturation clamped to 0.45, as light.
+        bloomColor = .tree(Self.bloomColor(averageOf: bloomSum, count: paints.count))
         bloomOpacity = min(0.18, sky.bloomOpacity * vitality)
 
         // Rosettes: flutter for at most the 40 nearest the crown front, and only on smaller crowns.
@@ -202,6 +199,7 @@ nonisolated struct TreeScenePlan: Sendable {
                 isInner: rosette.isInner,
                 flutterPeriod: fluttering.contains(index) ? period : nil,
                 flutterPhase: rng.range(0, 2 * .pi),
+                flutterAmplitude: 3 * .pi / 180 * vitality,
                 haloPlacedAt: rosette.kind == .primary ? haloSpecies[rosette.speciesID] : nil
             )
         }
@@ -231,6 +229,24 @@ nonisolated struct TreeScenePlan: Sendable {
             snow: model.season == .winter ? Color.white.opacity(0.35) : nil
         )
     }
+
+    /// The canopy bloom's colour (spec §4.4): the hue of the instance-weighted average leaf colour, with
+    /// saturation clamped to 0.45, at the lightness of light rather than of pigment.
+    ///
+    /// The plain average of autumn reds, oranges and golds is a mid-dark brown (lightness about 0.45). Added
+    /// onto the navy sky it cancels the sky's blue into a flat grey-brown, which reads as a dark smudge inside
+    /// the crown, not as light. Lifted to `bloomLightness` the same hue adds evenly across the channels: the sky
+    /// stays blue and the crown's middle simply glows a little warmer.
+    static func bloomColor(averageOf sum: (r: Double, g: Double, b: Double), count: Int) -> LeafColor {
+        guard count > 0 else { return LeafColor(0x9DB4E6) }
+        let n = Double(count)
+        let average = LeafColor(red: Int(sum.r / n), green: Int(sum.g / n), blue: Int(sum.b / n))
+        let hsl = average.hsl
+        return LeafColor(hue: hsl.hue, saturation: min(0.45, hsl.saturation), lightness: max(bloomLightness, hsl.lightness))
+    }
+
+    /// The bloom's lightness floor.
+    static let bloomLightness = 0.8
 
     // MARK: Cache
 

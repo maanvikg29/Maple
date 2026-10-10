@@ -85,6 +85,7 @@ struct CrownEnvelope: Sendable {
 /// splits off 22–38° to the side. Children are 0.74 × as long and 0.68 × as wide, each segment bends 4° upward,
 /// 12% of the finer shoots are pruned (seeded), and recursion stops at depth 8. Lengths are fitted to the crown
 /// dome, so the twig ends fill it evenly and the silhouette is the broad, asymmetric dome of an open-grown maple.
+/// Short interior shoots then reach whatever part of the dome no limb does, so leaves can hang right through it.
 struct MatureTree: Sendable {
     struct Node: Sendable {
         /// Mature position (tree space, points at g = 1 before the growth scale).
@@ -133,13 +134,21 @@ struct MatureTree: Sendable {
     static let trunkBaseWidth = 22.0
     /// Twig ends stay outside this fraction of the crown's radius, so the fork and the limbs leaving it show.
     static let innerRadius = 0.2
+    /// The crown's outline runs this far either side of straight up around its focus, degrees.
+    static let outlineSweep = 118.0
+    /// Interior shoots fill any part of the dome farther than this from every limb (mature points), at most
+    /// `maxInteriorShoots` of them.
+    static let interiorGap = 15.0
+    static let maxInteriorShoots = 24
     static let curveSamples = 100
     /// The seedling's trunk is this fraction of its mature length, and lengthens to full by g = 0.6.
     static let seedlingTrunk = 0.8
 
     var nodes: [Node]
     var chains: [Chain]
-    /// Non-trunk chains in primary-slot order: by sprout time, then from the crown outward, alternating sides.
+    /// Every place a rosette can hang, indexed by slot id (`TreeLayoutSlots.swift`).
+    var slots: [Slot]
+    /// Slot ids in the permanent order species take them: every prefix spreads over the whole crown.
     var slotOrder: [Int]
     var envelope: CrownEnvelope
     var forkNode: Int
@@ -223,6 +232,9 @@ struct MatureTree: Sendable {
             )
         }
 
+        // Short leafy shoots into whatever part of the dome no limb reaches, so the crown is leafy through.
+        grower.growInteriorShoots(fork: fork)
+
         // Emergence: depths 1–3 are the seedling; every later depth appears at its own threshold.
         var nodes = grower.nodes
         for j in nodes.indices {
@@ -235,12 +247,14 @@ struct MatureTree: Sendable {
 
         self.nodes = nodes
         self.chains = chains
+        slots = []
         slotOrder = []
         scaleX = []
         scaleY = []
         widthScale = []
-        slotOrder = Self.orderSlots(nodes: nodes, chains: chains)
         computeCurves()
+        slots = Self.findSlots(nodes: nodes, chains: chains, envelope: envelope, forkNode: fork)
+        slotOrder = orderedSlotIDs()
     }
 
     /// Builds the branching recursively, recording every node and the chains that join them into limbs.
@@ -288,7 +302,7 @@ struct MatureTree: Sendable {
             self.rng = rng
             let focus = TreePoint(x: envelope.centerX, y: envelope.equatorY - envelope.downHeight * 0.2)
             self.focus = focus
-            let spread = 118 * Double.pi / 180
+            let spread = MatureTree.outlineSweep * Double.pi / 180
             var raw: [TreePoint] = []
             for i in 0...240 {
                 let angle = -spread + 2 * spread * Double(i) / 240
@@ -386,6 +400,81 @@ struct MatureTree: Sendable {
             let middle = ((lo * lo + hi * hi) / 2).squareRoot() + (hi - lo) * rng.range(-0.12, 0.12)
             let cut = min(max(middle, lo + 0.15 * (hi - lo)), hi - 0.15 * (hi - lo))
             return (Region(u: region.u, r: lo...cut), Region(u: region.u, r: cut...hi), false)
+        }
+
+        /// Interior shoots (spec §4.5: the crown reads as a full dome at every stage). The recursion sends its twig
+        /// ends to the dome's outline and the regions around it, so the middle of the crown, between the leaders
+        /// and below the focus, can be left with no wood at all, and so no leaves. An open-grown maple carries
+        /// short leafy shoots all along its inner limbs: wherever part of the dome lies farther than
+        /// `interiorGap` from every limb, a short shoot grows from the nearest leader or limb below it into that
+        /// gap, until none is left (at most `maxInteriorShoots`). Each shoot is one depth finer than the limb it
+        /// leaves, so it appears with that depth and the young crown fills too.
+        mutating func growInteriorShoots(fork: Int) {
+            let forkPoint = nodes[fork].position
+            let left = envelope.centerX - envelope.halfWidthLeft, right = envelope.centerX + envelope.halfWidthRight
+            let bottom = forkPoint.y + 14, top = envelope.equatorY + envelope.upHeight
+            // A 5 pt grid over the dome; each cell keeps its squared distance to the nearest limb (up to `cap`).
+            let step = 5.0, cap = 60.0
+            let columns = Int((right - left) / step) + 1, rows = Int(max(0, top - bottom) / step) + 1
+            var grid: [TreePoint] = []
+            var inside: [Bool] = []
+            for row in 0..<rows {
+                for column in 0..<columns {
+                    let p = TreePoint(x: left + Double(column) * step, y: bottom + Double(row) * step)
+                    grid.append(p)
+                    inside.append(envelope.normalizedRadius(p) <= 0.9)
+                }
+            }
+            var nearest = [Double](repeating: cap * cap, count: grid.count)
+            func cover(_ p: TreePoint) {
+                let c0 = max(0, Int(((p.x - cap - left) / step).rounded(.down)))
+                let c1 = min(columns - 1, Int(((p.x + cap - left) / step).rounded(.up)))
+                let r0 = max(0, Int(((p.y - cap - bottom) / step).rounded(.down)))
+                let r1 = min(rows - 1, Int(((p.y + cap - bottom) / step).rounded(.up)))
+                guard c0 <= c1, r0 <= r1 else { return }
+                for row in r0...r1 {
+                    for column in c0...c1 {
+                        let i = row * columns + column
+                        let dx = grid[i].x - p.x, dy = grid[i].y - p.y
+                        nearest[i] = min(nearest[i], dx * dx + dy * dy)
+                    }
+                }
+            }
+            for j in nodes.indices where nodes[j].depth >= 2 {
+                cover(nodes[j].position)
+            }
+            let threshold = MatureTree.interiorGap * MatureTree.interiorGap
+            for _ in 0..<MatureTree.maxInteriorShoots {
+                var k = -1
+                for i in grid.indices where inside[i] && nearest[i] > threshold && (k < 0 || nearest[i] > nearest[k]) {
+                    k = i
+                }
+                guard k >= 0 else { break }
+                let goal = grid[k]
+                // From a leader or limb (not twig wood), level with or below the gap, clear of the fork.
+                let limbs = nodes.indices.filter { j in
+                    (2...5).contains(nodes[j].depth) && nodes[j].position.y <= goal.y + 6
+                        && nodes[j].position.distance(to: forkPoint) > 16
+                }
+                let from = limbs.min { nodes[$0].position.distance(to: goal) < nodes[$1].position.distance(to: goal) }
+                guard let from else { break }
+                let start = nodes[from].position
+                let depth = min(MatureTree.maxDepth, nodes[from].depth + 1)
+                let chain = newChain(attach: from, parentChain: nodes[from].chain, depth: depth)
+                // Reach a little past the gap's centre, arching gently upward on the way.
+                let end = start + (goal - start) * 1.08
+                let rise = rng.range(2, 5)
+                let width = nodes[from].width * MatureTree.widthTaper
+                var parent = from
+                let steps = 3
+                for s in 1...steps {
+                    let t = Double(s) / Double(steps)
+                    var p = TreePoint.lerp(start, end, t)
+                    p.y += rise * sin(.pi * t)
+                    parent = add(p, parent: parent, depth: depth, width: width * pow(MatureTree.widthTaper, t), chain: chain)
+                    cover(p)
+                }
+            }
         }
 
         /// Grows a branch of `depth` from node `attach`, then everything it carries, steering toward its region.
@@ -506,48 +595,6 @@ struct MatureTree: Sendable {
                 grow(from: tip, direction: sideDirection, depth: childDepth, length: sideLength, width: childWidth, chain: c, region: sideRegion)
             }
         }
-    }
-
-    /// Primary-slot order: chains that sprout earlier come first, so the first k species always sit on k distinct
-    /// twig ends. Within one sprouting, from the crown outward (nearest the crown's top centre first),
-    /// alternating left and right (spec §4.5).
-    private static func orderSlots(nodes: [Node], chains: [Chain]) -> [Int] {
-        var groups: [Double: [Int]] = [:]
-        for c in chains.indices.dropFirst() {
-            groups[max(-1, chains[c].sprout), default: []].append(c)
-        }
-        var order: [Int] = []
-        for key in groups.keys.sorted() {
-            let members = groups[key] ?? []
-            // The position each twig end has when it sprouts: its deepest node grown at that moment.
-            func front(_ c: Int) -> TreePoint {
-                let chain = chains[c]
-                let grown = chain.nodes.last { nodes[$0].threshold <= key } ?? chain.nodes[0]
-                return nodes[grown].position
-            }
-            let fronts = members.map(front)
-            let meanX = fronts.map(\.x).reduce(0, +) / Double(max(1, fronts.count))
-            let top = fronts.map(\.y).max() ?? 0
-            let focus = TreePoint(x: meanX, y: top)
-            let sorted = zip(members, fronts).sorted { a, b in
-                let da = a.1.distance(to: focus), db = b.1.distance(to: focus)
-                return da != db ? da < db : a.0 < b.0
-            }
-            var left = sorted.filter { $0.1.x < focus.x }.map(\.0)
-            var right = sorted.filter { $0.1.x >= focus.x }.map(\.0)
-            var takeLeft = (sorted.first.map { $0.1.x < focus.x }) ?? true
-            while !left.isEmpty || !right.isEmpty {
-                if takeLeft, !left.isEmpty {
-                    order.append(left.removeFirst())
-                } else if !right.isEmpty {
-                    order.append(right.removeFirst())
-                } else {
-                    order.append(left.removeFirst())
-                }
-                takeLeft.toggle()
-            }
-        }
-        return order
     }
 
     /// The non-decreasing sequence closest to `values` in least squares (isotonic regression by pooling adjacent
