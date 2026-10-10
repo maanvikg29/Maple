@@ -14,6 +14,12 @@ DEBUG builds read these arguments, which `xcrun simctl launch <udid> com.maanvik
 | `-MapleDemoFresh` | `YES` | Core | Opens with an empty collection and no saved schedule, as on first run. Wins over `-MapleDemoSpecies`. |
 | `-MapleDemoPermissions` | `none`, `health`, `all` | Core | Granted permissions: `health` is Apple Health plus a sleep tracker, `all` adds Screen Time. Demo collections default to `health`, other launches to `none`. Use `none` to see the "Needs Apple Health" states. |
 | `-MapleDemoPresent` | see below | Each feature, in its own root view | Opens one sheet, cover or push on launch. |
+| `-MapleDemoRevealAt` | seconds, e.g. `0.3`, `0.9`, `1.6`, `3` | Reveal (`RevealDemoOptions`) | Taps the first bud open on launch and freezes the ritual that many seconds after the tap, so mid-frames can be screenshotted. Also freezes the onboarding end's reveal with `-MapleDemoOnboardingStep reveal`. |
+| `-MapleDemoRevealOpenAll` | seconds, e.g. `0.5`, `4` | Reveal | Opens the first leaf, taps "Open all" and freezes that many seconds into it (`0.5` the row mid-opening, `4` the list). Needs `-MapleDemoWaiting 2` or more. |
+| `-MapleDemoRevealConsent` | `YES` | Reveal | Opens the first leaf and shows the rarity consent sheet over it. |
+| `-MapleDemoRevealLeaf` | species id | Reveal | The waiting leaf `-MapleDemoPresent reveal` opens first (`RevealFlow(startingWith:)`); ignored when it isn't waiting. |
+| `-MapleDemoReduceMotion` | `YES` | Reveal, Onboarding | The reveal and the onboarding end render as under Reduce Motion (0.6 s crossfade; "Open all" goes straight to the list). `simctl ui` has no Reduce Motion switch. |
+| `-MapleDemoOnboardingStep` | `seed`, `sprout`, `reveal`, `placed` | Onboarding (`PlantYourMapleView`) | Starts the onboarding end past the schedule step, saving the default schedule (in memory): `seed` holds the neutral bud, `sprout` lets it turn amber, `reveal` opens the Sugar maple (freeze it with `-MapleDemoRevealAt`), `placed` shows the grafted seedling and stays there. Pair with `-MapleDemoFresh YES -MapleDemoPresent onboarding`. |
 
 `-MapleDemoPresent` values:
 - **App-level** (`App/DemoPresenter.swift`, over any tab): `reveal` (cover), `onboarding` (cover; pair it with `-MapleDemoFresh YES`), `profile` (sheet), `winddown` (cover)
@@ -25,4 +31,8 @@ Feature-level values are checked only by the feature that owns them, on its own 
 
 Any Core argument makes the launch a demo: every store (collection, schedule, rarity cache) is held in memory, so nothing a demo does is ever saved. With only `-MapleDemoPhase`, `-MapleDemoSeason`, `-MapleDemoRarity` or `-MapleDemoPermissions`, the stores start from an in-memory copy of the member's own files. The wiring is `MapleStores.make(_:)` in MapleServices.
 
+The Reveal and Onboarding arguments act only on a demo launch (with at least one Core argument), so they never touch the member's files.
+
 Example: `xcrun simctl launch booted com.maanvikgupta.maple -MapleDemoSpecies 23 -MapleDemoDays 41 -MapleDemoWaiting 1 -MapleDemoPhase morning`
+
+Reveal examples (the demo collection's newest leaves are the waiting ones): `-MapleDemoSpecies 23 -MapleDemoWaiting 3 -MapleDemoPhase morning -MapleDemoPresent reveal` opens three common leaves (short ritual, "Open all 3"); `-MapleDemoSpecies 80 -MapleDemoWaiting 1` makes the waiting leaf the legendary Smoothbark maple (full ritual); `-MapleDemoSpecies 40 -MapleDemoWaiting 1` an uncommon, approximate one.
