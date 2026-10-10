@@ -1,4 +1,5 @@
 import CoreGraphics
+import Foundation
 
 /// Home's vertical rhythm as numbers (spec §3.1), so the layout can be reasoned about and tested.
 ///
@@ -71,5 +72,29 @@ nonisolated public enum HomeLayout {
     /// down; 0 under Reduce Motion (no parallax: the sky stays registered with the tree).
     public static func skyCounterOffset(scrollOffset: CGFloat, reduceMotion: Bool) -> CGFloat {
         reduceMotion ? 0 : 0.6 * max(0, scrollOffset)
+    }
+
+    /// The waiting bud's 44pt target.
+    public static let budTapRadius: CGFloat = 22
+
+    /// Whether a tap at `location` (in the scene view's coordinates, the scene drawn at `scale`) opens the Tree
+    /// view: it must land on the stage band (not the sky behind the header, nor the ground under the numeral) and
+    /// not on the waiting bud, whose own button opens the reveal.
+    public static func tapOpensTree(at location: CGPoint, scale: CGFloat, waitingBud: CGPoint?) -> Bool {
+        let band = sceneStageTop * scale...(sceneStageTop + referenceStageHeight) * scale
+        guard band.contains(location.y) else { return false }
+        if let bud = waitingBud, hypot(location.x - bud.x, location.y - bud.y) <= budTapRadius {
+            return false
+        }
+        return true
+    }
+}
+
+extension HomeLayout {
+    /// Where the scene draws the tappable waiting bud, in the scene view's own coordinates (a view of `size`), or
+    /// nil when no leaf is waiting.
+    @MainActor
+    public static func waitingBudPoint(model: TreeSceneModel, sceneSize size: CGSize) -> CGPoint? {
+        MapleTreeScene.waitingBudPoint(TreeScenePlan.cached(for: model, theme: .maple), frame: TreeSceneFrame(size: size))
     }
 }

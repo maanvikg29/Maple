@@ -20,9 +20,10 @@ struct HomeTreeStage: View {
     let showLeaf: (String) -> Void
 
     var body: some View {
+        let sceneSize = CGSize(width: width, height: HomeLayout.sceneSize.height * scale)
         ZStack(alignment: .top) {
-            scene
-                .frame(width: width, height: HomeLayout.sceneSize.height * scale)
+            scene(size: sceneSize)
+                .frame(width: sceneSize.width, height: sceneSize.height)
                 .offset(y: HomeLayout.sceneOffset(scale: scale))
                 .frame(width: width, height: height, alignment: .top)
 
@@ -31,18 +32,25 @@ struct HomeTreeStage: View {
                 .position(x: width / 2, y: HomeLayout.captionCentre(scale: scale))
         }
         .frame(width: width, height: height, alignment: .top)
-        .contentShape(Rectangle())
-        .onTapGesture(perform: openTree)
     }
 
-    private var scene: some View {
-        MapleTreeScene(
+    private func scene(size: CGSize) -> some View {
+        let bud = HomeLayout.waitingBudPoint(model: content.tree, sceneSize: size)
+        let scale = scale
+        return MapleTreeScene(
             model: content.tree,
             includesBackdrop: false,
             accessibilityLabel: Text(content.treeLabel),
             accessibilityValue: Text(content.treeValue),
             onOpenWaitingLeaf: content.waitingBudID == nil ? nil : openWaitingLeaf
         )
+        // The scene keeps its own taps (the waiting bud's button, waking a resting tree); this one runs alongside
+        // them and leaves the bud and the sky behind the header alone.
+        .simultaneousGesture(SpatialTapGesture().onEnded { value in
+            if HomeLayout.tapOpensTree(at: value.location, scale: scale, waitingBud: bud) {
+                openTree()
+            }
+        })
         .accessibilityAddTraits(.isButton)
         .accessibilityHint("Opens your maple full screen.")
         .accessibilityAction(.default, openTree)

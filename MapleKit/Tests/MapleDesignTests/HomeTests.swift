@@ -39,6 +39,25 @@ struct HomeTests {
         #expect(end == 756)
     }
 
+    @Test("A tap opens the Tree view on the stage band, but not on the waiting bud, the sky or the ground")
+    func stageTaps() throws {
+        let bud = CGPoint(x: 200, y: 300)
+        #expect(HomeLayout.tapOpensTree(at: CGPoint(x: 100, y: 300), scale: 1, waitingBud: bud))
+        #expect(!HomeLayout.tapOpensTree(at: CGPoint(x: 210, y: 312), scale: 1, waitingBud: bud))
+        // Behind the header, and under the numeral.
+        #expect(!HomeLayout.tapOpensTree(at: CGPoint(x: 100, y: 80), scale: 1, waitingBud: nil))
+        #expect(!HomeLayout.tapOpensTree(at: CGPoint(x: 100, y: 530), scale: 1, waitingBud: nil))
+        #expect(HomeLayout.tapOpensTree(at: CGPoint(x: 100, y: 500), scale: 1, waitingBud: nil))
+        // At a smaller scale the band shrinks with the scene.
+        #expect(!HomeLayout.tapOpensTree(at: CGPoint(x: 100, y: 500), scale: 0.78, waitingBud: nil))
+
+        let size = CGSize(width: 402, height: 560)
+        let point = try #require(HomeLayout.waitingBudPoint(model: treeModel(), sceneSize: size))
+        #expect(CGRect(origin: .zero, size: size).contains(point))
+        #expect(!HomeLayout.tapOpensTree(at: point, scale: 1, waitingBud: point))
+        #expect(HomeLayout.waitingBudPoint(model: treeModel(waiting: false), sceneSize: size) == nil)
+    }
+
     @Test("The sky drifts at 40% of the scroll, and not at all under Reduce Motion")
     func parallax() {
         #expect(HomeLayout.skyCounterOffset(scrollOffset: 100, reduceMotion: false) == 60)
