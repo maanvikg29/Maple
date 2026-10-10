@@ -15,11 +15,11 @@ DEBUG builds read these arguments, which `xcrun simctl launch <udid> com.maanvik
 | `-MapleDemoPresent` | see below | Each feature, in its own root view | Opens one sheet, cover or push on launch. |
 
 `-MapleDemoPresent` values:
-- **Home:** `reveal`, `profile`, `tree`, `streak`, `leaf:<speciesID>`
+- **App-level** (`App/DemoPresenter.swift`, over any tab): `reveal` (cover), `onboarding` (cover; pair it with `-MapleDemoFresh YES`), `profile` (sheet), `winddown` (cover)
+- **Home:** `tree`, `streak`, `leaf:<speciesID>`
 - **Herbarium:** `leaf:<speciesID>`, `share:<speciesID>`, `rarity`, `filter`, `search`
-- **Rest:** `schedule`, `winddown`
-- **App:** `onboarding`
+- **Rest:** `schedule`
 
-Each feature checks the value only when it is the selected tab, so combine it with `-MapleDemoTab`.
+Feature-level values are checked only by the feature that owns them, on its own tab, so combine them with `-MapleDemoTab`.
 
 Example: `xcrun simctl launch booted com.maanvikgupta.maple -MapleDemoSpecies 23 -MapleDemoDays 41 -MapleDemoWaiting 1 -MapleDemoPhase morning`

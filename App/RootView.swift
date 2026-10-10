@@ -25,6 +25,9 @@ struct RootView: View {
         .tint(theme.colors.textPrimary)
         .tabBarMinimizeBehavior(.onScrollDown)
         .environment(router)
+        #if DEBUG
+        .demoPresenter()
+        #endif
     }
 }
 
