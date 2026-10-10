@@ -24,16 +24,21 @@ public enum TreeLayout {
     ///   - buds: The next leaves (up to 3, the Home next leaf first) as neutral buds.
     ///   - featured: The featured species; it gets an extra rosette at the crown's top tip.
     ///   - waiting: Earned species waiting to be opened, in order; each bud sits at its future primary tip.
+    ///   - unlockOrder: Every earned species, opened or not (held ones too), in unlock order. A species' primary tip
+    ///     is fixed by its place here (spec §4.5: "chosen in unlock order … never changes"), so opening an older
+    ///     waiting leaf after a newer one moves nothing, and each waiting bud hangs where its leaf will grow. Species
+    ///     missing from it follow in `species` then `waiting` order; empty means exactly that order.
     public static func generate(
         seed: UInt64,
         growth: Double,
         species: [String],
         buds: [TreeBudRequest] = [],
         featured: String? = nil,
-        waiting: [String] = []
+        waiting: [String] = [],
+        unlockOrder: [String] = []
     ) -> TreeSkeleton {
         var builder = Builder(seed: seed, growth: growth)
-        return builder.build(species: species, buds: buds, featured: featured, waiting: waiting)
+        return builder.build(species: species, buds: buds, featured: featured, waiting: waiting, unlockOrder: unlockOrder)
     }
 
     /// The trunk-relative extent spec §4.3 asks for at growth g: height and crown width.
@@ -212,7 +217,10 @@ private struct Builder {
 
     // MARK: Foliage
 
-    mutating func build(species rawSpecies: [String], buds rawBuds: [TreeBudRequest], featured: String?, waiting rawWaiting: [String]) -> TreeSkeleton {
+    mutating func build(
+        species rawSpecies: [String], buds rawBuds: [TreeBudRequest], featured: String?, waiting rawWaiting: [String],
+        unlockOrder: [String]
+    ) -> TreeSkeleton {
         var seen: Set<String> = []
         let species = rawSpecies.filter { seen.insert($0).inserted }
         let waiting = rawWaiting.filter { seen.insert($0).inserted }
@@ -220,12 +228,18 @@ private struct Builder {
         let order = mature.slotOrder
         let n = species.count
 
+        // Each earned species' rank in unlock order picks its permanent slot.
+        var rank: [String: Int] = [:]
+        for id in unlockOrder + species + waiting where rank[id] == nil {
+            rank[id] = rank.count
+        }
+
         var plans: [Plan] = []
         var primaryTips: [String: Int] = [:]
 
         // 1. Primary rosettes: permanent slots in unlock order.
-        for (i, id) in species.enumerated() {
-            let slot = order[i % order.count]
+        for id in species {
+            let slot = order[rank[id, default: 0] % order.count]
             primaryTips[id] = slot
             let tip = resolve(slot)
             occupancy[tip, default: []].append(.rosette(plans.count))
@@ -234,12 +248,13 @@ private struct Builder {
 
         // 2. Buds. Waiting buds sit at their species' future primary tip; the next leaves at the next free twigs.
         var budPlans: [(id: String, progress: Double, isNext: Bool, isWaiting: Bool, tip: Int)] = []
-        for (k, id) in waiting.enumerated() {
-            let tip = resolve(order[(n + k) % order.count])
+        for id in waiting {
+            let tip = resolve(order[rank[id, default: 0] % order.count])
             occupancy[tip, default: []].append(.bud(budPlans.count))
             budPlans.append((id, 1, false, true, tip))
         }
-        var cursor = n + waiting.count
+        // The next leaves will be unlocked after every earned one.
+        var cursor = rank.count
         for (j, request) in budRequests.enumerated() {
             var chosen: Int?
             var index = cursor

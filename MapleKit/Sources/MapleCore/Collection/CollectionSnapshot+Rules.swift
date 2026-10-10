@@ -311,7 +311,8 @@ extension CollectionSnapshot {
             season: season(at: date, context: context),
             seasonDay: TreeFoliage.seasonDay(for: date, hemisphere: context.hemisphere, calendar: context.calendar),
             vitality: vitality(at: date, calendar: context.calendar).value,
-            newLeafHalos: halos
+            newLeafHalos: halos,
+            unlockOrder: unlocks.map(\.speciesID)
         )
     }
 

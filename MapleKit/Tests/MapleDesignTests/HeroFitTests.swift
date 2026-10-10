@@ -40,4 +40,14 @@ struct HeroFitTests {
         // A minimum above the preferred height never grows the hero.
         #expect(HeroFit(preferred: 120, minimum: 160, visible: 300, content: 250, action: 84).heroHeight == 120)
     }
+
+    /// Review finding "rest-pinned-layout-wastes-space".
+    @Test("A page fills the first screen while it fits, and keeps its natural height once the action is pinned")
+    func pageHeight() {
+        let fits = HeroFit(preferred: 280, minimum: 160, visible: 700, content: 200, action: 84)
+        #expect(fits.pageMinHeight(visible: 700) == 700)
+        let pinned = HeroFit(preferred: 280, minimum: 160, visible: 500, content: 300, action: 84)
+        #expect(pinned.pinsAction)
+        #expect(pinned.pageMinHeight(visible: 500) == nil)
+    }
 }

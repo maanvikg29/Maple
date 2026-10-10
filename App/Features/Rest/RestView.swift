@@ -63,8 +63,10 @@ struct RestView: View {
             action: (measured.slot ?? HeroFit.estimatedActionHeight) + capsuleBottomGap - HeroFit.minimumBottomGap
         )
         return ScrollView {
+            // Once the capsule is pinned, the page keeps its natural height from the top: filling the visible height
+            // would hand the capsule's space to the gaps and push the times under the pinned bar.
             page(now: now, action: action, fit: fit)
-                .frame(minHeight: visibleHeight)
+                .frame(minHeight: fit.pageMinHeight(visible: visibleHeight))
         }
         .scrollBounceBehavior(.basedOnSize)
         .safeAreaBar(edge: .bottom) {

@@ -98,9 +98,14 @@ let model = TreeSceneModel(
     buds: tree.buds.map { .init(speciesID: $0.speciesID, progress: $0.progress) },
     waiting: tree.waiting, featured: tree.featured,
     season: tree.season, seasonDay: tree.seasonDay, phase: state.phase, vitality: tree.vitality,
-    newLeafHalos: tree.newLeafHalos.map { .init(speciesID: $0.speciesID, placedAt: $0.placedAt) }
+    newLeafHalos: tree.newLeafHalos.map { .init(speciesID: $0.speciesID, placedAt: $0.placedAt) },
+    unlockOrder: tree.unlockOrder
 )
 ```
+
+`tree.unlockOrder` lists every earned leaf (opened, waiting or held) in unlock order. Pass it on: each species' place on the crown is fixed by its unlock index (spec §4.5), so opening an older waiting leaf after a newer one moves nothing, and each waiting bud hangs where its leaf will grow.
+
+The scene and Home's sky pause on their last frame (a paused timeline, never a repaint) off screen, while the app is inactive, in Low Power Mode, under a full-screen cover (`.environment(\.treeScenesPaused, true)`) and after a minute at Night without a tap. Put `.nightIdleFreeze(phase:)` (MapleDesign) on a screen that shows both, so they freeze and wake together; `SkyBackdrop(…, paused:)` takes the caller's own reasons.
 
 Also on the store: `stage` (Seedling … Grand maple, from opened leaves), `tendedDays` ("grown over 41 days"), `vitality(at:)` (from the nights of the week before that day; `.isQuiet` is VoiceOver's "Resting."), `currentBedtimeRun` (Home's streak; hidden under 2) and `totals` (Profile; a nil total means its category doesn't exist yet).
 
@@ -108,7 +113,7 @@ Also on the store: `stage` (Seedling … Grand maple, from opened leaves), `tend
 
 **First run.** `schedule.firstRun` (`FirstRunStep`: `.schedule`, `.recordFirstLeaf`, `.sprout`, `.finished`) decides whether onboarding shows; `MapleApp` calls `schedule.resumeFirstRun(at:)` once at launch, which also records the Sugar maple if an earlier launch was stopped between saving the schedule and saving the collection. `collection.hasPlantedMaple` is true once the First-steps leaf is earned; `collection.firstLeaf` and `collection.hasPlacedFirstLeaf` say whether it has been opened and placed.
 
-**Fitting the first screen.** `HeroFit(preferred:minimum:visible:content:action:)` (MapleDesign) gives the hero's height at every text size, and whether the action must be pinned above the tab bar (Home's stage, Rest's dial).
+**Fitting the first screen.** `HeroFit(preferred:minimum:visible:content:action:)` (MapleDesign) gives the hero's height at every text size, and whether the action must be pinned above the tab bar (Home's stage, Rest's dial). A page laid out around the hero fills `fit.pageMinHeight(visible:)`: the visible height while everything fits, nil once the action is pinned, so the page keeps its natural height and only real overflow scrolls under the pinned action.
 
 ## Rarity: "% of members have this leaf"
 
@@ -127,7 +132,7 @@ let unlocked = schedule.save(SleepSchedule(bedtime: ClockTime(hour: 23), wake: C
 // First save: unlocked == [Sugar maple] (First steps), revealable at any hour. Later saves: [].
 ```
 
-`schedule.schedule` is `.standard` until the member saves one; `schedule.hasSavedSchedule` says whether they have. Saving applies the schedule everywhere (phases, held reveals) at once. `windDownStart` and `minutesInBed` are on `SleepSchedule`.
+`schedule.schedule` is `.standard` until the member saves one; `schedule.hasSavedSchedule` says whether they have. Saving applies the schedule to phases and held reveals at once, but a night already under way (an edit after 18:00) is still judged by the schedule it began with: edits apply from the next night (rewards.md), so a bedtime can't be moved after the fact. `windDownStart` and `minutesInBed` are on `SleepSchedule`.
 
 ## Recording behaviour
 
@@ -140,11 +145,12 @@ let observations: [SleepNightObservation] = …            // one per night: the
 collection.recordSleep(observations, at: clock.now())      // returns the leaves it unlocked
 ```
 
-`SleepNightObservation` (MapleCore) is the night (named by its evening; nights run 18:00 to 18:00), the main episode's sleep onset and final wake, the minutes asleep (nil for iPhone's in-bed estimate) and its `SleepSource`, rewards.json's ladder: `.watchOrTracker` (A: asleep stages from an Apple Watch or an allow-listed tracker), `.otherApp` (B: asleep samples another app wrote), `.iPhoneInBed` (C: "estimated from iPhone", times only). The importer resolves sources, groups samples into nights, drops user-entered samples and naps; `NightLedger` (MapleCore) judges what it is given:
+`SleepNightObservation` (MapleCore) is the night (named by its evening; nights run 18:00 to 18:00), the main episode's sleep onset and final wake, the minutes asleep (nil for iPhone's in-bed estimate), its `SleepSource`, rewards.json's ladder: `.watchOrTracker` (A: asleep stages from an Apple Watch or an allow-listed tracker), `.otherApp` (B: asleep samples another app wrote), `.iPhoneInBed` (C: "estimated from iPhone", times only), and optionally `timeZoneIdentifier`, the zone the night was spent in (HealthKit's `HKMetadataKeyTimeZone` when the samples carry it). The importer resolves sources, groups samples into nights, drops user-entered samples and naps; `NightLedger` (MapleCore) judges what it is given:
 
+- A night's bedtime and wake time are read in the zone it was spent in: the observation's own, or else the one in force when it is recorded (the ledger stamps it then), so flying between a night and its settling never turns an on-time night late. `SleepNightObservation(onset:finalWake:asleepMinutes:source:calendar:)` names the night and the zone from one calendar.
 - Counting starts on the install night (the night the first schedule was saved in) when setup finished before sleep began. A night is judged by the schedule in force at 18:00 that evening (`ScheduleStore.save` tells the collection, which keeps the replaced one for nights under way); the very first schedule judges the install night only if it was saved at least 30 minutes before its bedtime (otherwise that night is tracked but unscheduled, which is neutral).
 - Tracked: a main episode of 3 hours or more. On time: onset from bedtime − 2 h to bedtime + 30 min (earlier is early: neutral). Steady morning: final wake within 30 minutes of the wake time. Full night: asleep at least the sleep need − 30 minutes (`CollectionContext.sleepNeedMinutes`, from Settings › Sleep goal), only from sources with asleep time.
-- A night settles once its next morning starts (wake − 60 min); a night with nothing from Apple Health by then is untracked (a slip for the run). For 72 hours after that, late data (a Watch syncing) can upgrade a night, never downgrade it, and the run and a closed week are replayed with it. Recording the same nights again changes nothing, so the importer can send the last few nights on every run.
+- A night settles once its next morning starts (wake − 60 min); a night with nothing from Apple Health by then is untracked (a slip for the run). Every night since the last settle is settled in turn, however long the app was closed; only an absence of more than two years skips straight to the last two, and never past a night Apple Health had already delivered. For 72 hours after that, late data (a Watch syncing) can upgrade a night, never downgrade it, and the run and a closed week are replayed with it. Recording the same nights again changes nothing, so the importer can send the last few nights on every run.
 - Settling records Nights tracked, On-time bedtimes, Steady mornings and Full nights per night, the live bedtime run (5 of every 7 nights on time: two slips in 7 forgiven, a third ends it; early and unscheduled nights are neutral) with the best run as the counter, Steady weeks (5+ on-time nights, counted as the calendar week closes) and Seasons in rhythm (a season's 8th steady week; a week belongs to the season of its Thursday), plus each tracked night for vitality. Leaves are stamped with the call's time, so ones earned in the morning or day open at once and ones earned from Evening on are held until morning.
 - Once a night with asleep time has arrived, the collection adds `.sleepTracker` to Apple Health (`collection.permissions`), so Full nights become earnable; with iPhone in-bed data only they show "Needs a sleep tracker".
 - DEBUG demo stores are built with their counters and are never fed nights.
@@ -162,7 +168,7 @@ Counters never go down. Any rise marks the day tended (tree growth), except Firs
 
 ## Files, unlocks and time zones
 
-- `JSONStorage.read()` tells a missing file (`.absent`, a first run) from one that can't be read yet (`.unavailable`: a launch before the first unlock after a restart, or another I/O error). Only a file that reads but won't decode is set aside as `<name>.damaged-<time>.json`; an unreadable one is left alone and every save to it is refused until a read works. A missing file with a cleanly decoding set-aside copy beside it is restored.
+- `JSONStorage.read()` tells a missing file (`.absent`, a first run) from one that can't be read yet (`.unavailable`: a launch before the first unlock after a restart, or another I/O error). Only a file that reads but won't decode is set aside as `<name>.damaged-<time>.json`; an unreadable one is left alone and every save to it is refused until a read works. A missing file with a cleanly decoding set-aside copy beside it is restored; if a newer set-aside copy can't be read yet (a protection or permission error), the read is `.unavailable` rather than `.absent`, so no empty file is created in its place before the first unlock.
 - `CollectionStore`, `ScheduleStore` and `AppSettings` expose `isAvailable` and `reloadIfUnavailable()`. While unavailable they hold an in-memory placeholder that is never saved; any change reads the file first. `ThemedRoot` reloads when protected data becomes available or the app becomes active, then decides the first-run step again and rebuilds the root (`MapleStores.reloadIfUnavailable()`).
 - The live store uses `Calendar.autoupdatingCurrent`. `ThemedRoot` calls `collection.systemTimeChanged()` on `NSSystemTimeZoneDidChange` and significant time changes, which rebuilds cached progress and refreshes every screen that read `collection.context`. The `\.season` environment is read every minute.
 

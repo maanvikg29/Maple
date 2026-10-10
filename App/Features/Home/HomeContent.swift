@@ -47,7 +47,8 @@ struct HomeContent {
             buds: inputs.buds.map { .init(speciesID: $0.speciesID, progress: $0.progress) },
             waiting: inputs.waiting, featured: inputs.featured,
             season: inputs.season, seasonDay: inputs.seasonDay, phase: state.phase, vitality: vitality,
-            newLeafHalos: inputs.newLeafHalos.map { .init(speciesID: $0.speciesID, placedAt: $0.placedAt) }
+            newLeafHalos: inputs.newLeafHalos.map { .init(speciesID: $0.speciesID, placedAt: $0.placedAt) },
+            unlockOrder: inputs.unlockOrder
         )
         stage = inputs.stage
         // One count rule (spec §5.2): opened leaves only; a waiting leaf is the amber bud, not part of N.

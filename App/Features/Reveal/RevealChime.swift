@@ -6,56 +6,113 @@ import os
 /// stays silent with the ring/silent switch off.
 ///
 /// The chime is synthesised once into a short buffer (C6 then G6, bell-like partials, a gentle 6 ms attack and a
-/// sub-second decay), so there is no audio file to ship. The engine stops a few seconds after the last chime.
+/// sub-second decay), so there is no audio file to ship. Nothing here runs on the main actor: the audio session, the
+/// synthesis and the engine belong to `RevealChimeAudio`, so a tap never stalls the unfurl's first frames.
+///
+/// ```swift
+/// RevealChime.shared.prepare()   // the reveal cover appeared with Reveal sound on
+/// RevealChime.shared.play()      // a bud opened
+/// RevealChime.shared.release()   // the cover went
+/// ```
 @MainActor
 final class RevealChime {
     static let shared = RevealChime()
 
-    private var engine: AVAudioEngine?
-    private var player: AVAudioPlayerNode?
-    private var buffer: AVAudioPCMBuffer?
-    private var stopTask: Task<Void, Never>?
-    private let logger = Logger(subsystem: "com.maanvikgupta.maple", category: "sound")
+    private let audio = RevealChimeAudio()
 
     private init() {}
 
+    /// Warms the session, the buffer and the engine for a sitting, so the first tap only schedules the chime.
+    func prepare() {
+        let audio = audio
+        Task { await audio.prepare() }
+    }
+
+    func play() {
+        let audio = audio
+        Task { await audio.play() }
+    }
+
+    /// The sitting is over: the engine stops and other audio returns to full volume.
+    func release() {
+        let audio = audio
+        Task { await audio.release() }
+    }
+}
+
+/// The chime's audio, on its own actor: the session, the synthesised buffer and the engine, which runs for a reveal
+/// sitting (stopped when the cover goes, or a minute after the warm-up or the last chime should it stay).
+actor RevealChimeAudio {
+    private var engine: AVAudioEngine?
+    private var player: AVAudioPlayerNode?
+    private var buffer: AVAudioPCMBuffer?
+    private var idleStop: Task<Void, Never>?
+    private let logger = Logger(subsystem: "com.maanvikgupta.maple", category: "sound")
+
+    func prepare() {
+        do {
+            try running()
+            stopWhenIdle()
+        } catch {
+            logger.error("Couldn't prepare the reveal chime: \(String(describing: error), privacy: .public)")
+        }
+    }
+
     func play() {
         do {
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.ambient, mode: .default)
-            try session.setActive(true)
-            let (engine, player, buffer) = try prepared()
-            if !engine.isRunning { try engine.start() }
+            let (player, buffer) = try running()
             player.scheduleBuffer(buffer, at: nil, options: [.interrupts])
             if !player.isPlaying { try player.playAudio() }
-            stopSoon()
+            stopWhenIdle()
         } catch {
             logger.error("Couldn't play the reveal chime: \(String(describing: error), privacy: .public)")
         }
     }
 
-    private func prepared() throws -> (AVAudioEngine, AVAudioPlayerNode, AVAudioPCMBuffer) {
-        if let engine, let player, let buffer { return (engine, player, buffer) }
-        let buffer = try Self.chime()
-        let engine = AVAudioEngine()
-        let player = AVAudioPlayerNode()
-        engine.attach(player)
-        try engine.connectNode(player, to: engine.mainMixerNode, format: buffer.format)
-        self.engine = engine
-        self.player = player
-        self.buffer = buffer
-        return (engine, player, buffer)
+    func release() {
+        idleStop?.cancel()
+        idleStop = nil
+        stop()
     }
 
-    /// Lets the session go a few seconds after the chime, so other audio returns to full volume and nothing runs.
-    private func stopSoon() {
-        stopTask?.cancel()
-        stopTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(3))
-            guard !Task.isCancelled, let self else { return }
-            self.player?.stop()
-            self.engine?.stop()
-            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    /// The ambient session active and the engine built and running.
+    @discardableResult
+    private func running() throws -> (AVAudioPlayerNode, AVAudioPCMBuffer) {
+        let session = AVAudioSession.sharedInstance()
+        if session.category != .ambient { try session.setCategory(.ambient, mode: .default) }
+        let engine: AVAudioEngine, player: AVAudioPlayerNode, buffer: AVAudioPCMBuffer
+        if let built = self.engine, let builtPlayer = self.player, let builtBuffer = self.buffer {
+            (engine, player, buffer) = (built, builtPlayer, builtBuffer)
+        } else {
+            buffer = try Self.chime()
+            engine = AVAudioEngine()
+            player = AVAudioPlayerNode()
+            engine.attach(player)
+            try engine.connectNode(player, to: engine.mainMixerNode, format: buffer.format)
+            engine.prepare()
+            (self.engine, self.player, self.buffer) = (engine, player, buffer)
+        }
+        if !engine.isRunning {
+            try session.setActive(true)
+            try engine.start()
+        }
+        return (player, buffer)
+    }
+
+    private func stop() {
+        guard let engine, engine.isRunning else { return }
+        player?.stop()
+        engine.stop()
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
+
+    /// A cover left open doesn't keep the engine running: it stops a minute after the warm-up or the last chime.
+    private func stopWhenIdle() {
+        idleStop?.cancel()
+        idleStop = Task {
+            try? await Task.sleep(for: .seconds(60))
+            guard !Task.isCancelled else { return }
+            stop()
         }
     }
 

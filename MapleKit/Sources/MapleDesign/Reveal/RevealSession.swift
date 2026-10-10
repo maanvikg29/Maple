@@ -83,6 +83,10 @@ nonisolated public struct RevealSession: Sendable, Equatable {
     public var isCurrentOpen: Bool { openedAt.indices.contains(index) && openedAt[index] != nil }
     public var currentOpenedAt: Date? { openedAt.indices.contains(index) ? openedAt[index] : nil }
     public var isOpeningAll: Bool { openAllAt != nil }
+    /// `speciesID` is the leaf on screen, opened, outside "Open all": the only time its share card is worth rendering.
+    public func isShowingOpened(_ speciesID: String) -> Bool {
+        !isOpeningAll && isCurrentOpen && current?.speciesID == speciesID
+    }
 
     /// "1 of 3" for the header while more than one leaf waits; nil for a single leaf.
     public var position: (index: Int, count: Int)? {

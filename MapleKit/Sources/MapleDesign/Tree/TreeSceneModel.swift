@@ -63,6 +63,9 @@ nonisolated public struct TreeSceneModel: Sendable, Equatable {
     /// Freezes the scene at this instant: no timeline, every ambient effect evaluated at this time.
     /// For snapshots and previews. Nil runs the live, sleepy idle motion.
     public var time: Date?
+    /// Every earned species, opened or not, in unlock order (`TreeInputs.unlockOrder`): it fixes each species'
+    /// permanent place on the crown. Empty: `species` then `waiting`.
+    public var unlockOrder: [String]
 
     public init(
         seed: UInt64,
@@ -76,8 +79,10 @@ nonisolated public struct TreeSceneModel: Sendable, Equatable {
         phase: NowPhase,
         vitality: Double = 1,
         newLeafHalos: [NewLeafHalo] = [],
-        time: Date? = nil
+        time: Date? = nil,
+        unlockOrder: [String] = []
     ) {
+        self.unlockOrder = unlockOrder
         self.seed = seed
         self.growth = growth
         self.species = species
@@ -99,7 +104,7 @@ nonisolated public struct TreeSceneModel: Sendable, Equatable {
     var layoutKey: LayoutKey {
         LayoutKey(
             seed: seed, growth: growth, species: species.map(\.speciesID), buds: buds, waiting: waiting,
-            featured: featured
+            featured: featured, unlockOrder: unlockOrder
         )
     }
 
@@ -110,5 +115,6 @@ nonisolated public struct TreeSceneModel: Sendable, Equatable {
         var buds: [Bud]
         var waiting: [String]
         var featured: String?
+        var unlockOrder: [String]
     }
 }

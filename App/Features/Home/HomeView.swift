@@ -43,7 +43,7 @@ struct HomeView: View {
                 screen(content, proxy: proxy)
             }
         }
-        // Under a full-screen cover (the reveal, wind-down mode, the Tree view) the scene holds a still frame.
+        // Under a full-screen cover (the reveal, wind-down mode, the Tree view) the scene and the sky hold their frame.
         .environment(\.treeScenesPaused, cover != nil)
         .background(theme.colors.background)
         .toolbarVisibility(.hidden, for: .navigationBar)
@@ -171,6 +171,8 @@ struct HomeView: View {
             }
         }
         .scrollEdgeEffectStyle(.soft, for: .top)
+        // At night the sky's twinkle and the tree hold still together after a minute without a tap (spec §4.9).
+        .nightIdleFreeze(phase: state.phase)
     }
 
     /// The numeral with its caption, and the next-leaf row: everything between the stage and the capsule.

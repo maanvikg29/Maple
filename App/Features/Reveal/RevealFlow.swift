@@ -75,6 +75,8 @@ private struct RevealFlowScreen: View {
     @State private var openings = 0
     @State private var asksConsent = false
     @State private var shareImages: [String: Image] = [:]
+    /// The pending share-card render, cancelled as soon as the member moves on.
+    @State private var shareTask: Task<Void, Never>?
     @State private var placed: [LeafUnlock] = []
     /// DEBUG still frames: seconds after the tap, or into "Open all".
     @State private var stillTime: TimeInterval?
@@ -123,6 +125,10 @@ private struct RevealFlowScreen: View {
             .presentationBackground(theme.colors.surface2)
         }
         .task { start() }
+        .onDisappear {
+            cancelShareImage()
+            if settings.revealSound { RevealChime.shared.release() }
+        }
     }
 
     // MARK: Pieces
@@ -162,6 +168,8 @@ private struct RevealFlowScreen: View {
             }
         } else {
             session = RevealSession(queue: queue, startingWith: startingWith, revealsBefore: collection.revealsOpened)
+            // The chime's audio warms up off the main actor now, so the first tap only schedules it.
+            if settings.revealSound { RevealChime.shared.prepare() }
         }
         withAnimation(theme.motion.gentle) { isShown = true }
         #if DEBUG
@@ -181,6 +189,7 @@ private struct RevealFlowScreen: View {
 
     private func next() {
         guard var current = session else { return }
+        cancelShareImage()
         current.advance()
         guard current.mayOpen(openable: openableNow()) else { return holdForMorning() }
         withAnimation(theme.motion.gentle) { session = current }
@@ -189,6 +198,7 @@ private struct RevealFlowScreen: View {
     private func openAll() {
         guard let before = session, before.mayOpen(all: true, openable: openableNow()) else { return holdForMorning() }
         guard var current = session, current.openAll(at: Date()) else { return }
+        cancelShareImage()
         withAnimation(theme.motion.gentle) { session = current }
         openings += 1
         chime()
@@ -203,6 +213,7 @@ private struct RevealFlowScreen: View {
     /// whatever was already opened is placed when the cover closes.
     private func holdForMorning() {
         guard let current = session else { return }
+        cancelShareImage()
         heldOpened = current.opened
         withAnimation(theme.motion.gentle) {
             heldCount = max(1, current.unopened.count)
@@ -218,6 +229,7 @@ private struct RevealFlowScreen: View {
     /// "Place on your maple": the opened leaves go onto the tree, then the cover fades (or the consent sheet
     /// follows the first morning reveal).
     private func place() {
+        cancelShareImage()
         let opened = session?.opened ?? heldOpened
         guard !opened.isEmpty else { return finish() }
         let now = clock.now()
@@ -252,6 +264,7 @@ private struct RevealFlowScreen: View {
     }
 
     private func finish() {
+        cancelShareImage()
         withAnimation(theme.motion.gentle) {
             isShown = false
         } completion: {
@@ -272,15 +285,24 @@ private struct RevealFlowScreen: View {
     }
 
     /// Renders the share card once the ritual has settled, so the render never lands on an animating frame; the
-    /// share circle then fades in. Only the image is made here: the PNG is encoded when the member shares.
+    /// share circle then fades in. Only the image is made here: the PNG is encoded when the member shares. Moving on
+    /// (Next leaf, Open all, Place, closing) cancels it, and it renders only while its leaf is still on screen, so it
+    /// can't land on the next leaf's unfurl, the cover's fade or Home's graft.
     private func prepareShareImage(_ speciesID: String, after delay: TimeInterval) {
-        Task {
+        shareTask?.cancel()
+        shareTask = Task {
             if delay > 0 { try? await Task.sleep(for: .seconds(delay)) }
-            guard shareImages[speciesID] == nil, let leaf = leaf(speciesID),
+            guard !Task.isCancelled, isShown, session?.isShowingOpened(speciesID) == true,
+                  shareImages[speciesID] == nil, let leaf = leaf(speciesID),
                   let date = collection.unlock(for: speciesID)?.date else { return }
             let image = RevealShareCard.image(leaf: leaf, pressedOn: date, season: season, theme: theme)
             withAnimation(theme.motion.gentle) { shareImages[speciesID] = image }
         }
+    }
+
+    private func cancelShareImage() {
+        shareTask?.cancel()
+        shareTask = nil
     }
 
     #if DEBUG

@@ -83,7 +83,10 @@ struct NightLedgerTests {
         // Before the morning starts the night waits.
         #expect(snapshot.recordSleep([observation], at: MapleCoreTests.at(2026, 10, 2, 5, 59), context: context).isEmpty)
         #expect(snapshot.counters[.nightsTracked] == nil)
-        #expect(snapshot.nights.pending == [observation])
+        // Kept with the zone it was recorded in, so it is judged there whenever it settles.
+        var stamped = observation
+        stamped.timeZoneIdentifier = utc.timeZone.identifier
+        #expect(snapshot.nights.pending == [stamped])
 
         let unlocked = snapshot.recordSleep([], at: MapleCoreTests.at(2026, 10, 2, 6, 30), context: context)
         #expect(unlocked.map(\.speciesID) == [species(.nightsTracked, rung: 0), species(.onTimeBedtimes, rung: 0)])
@@ -361,6 +364,87 @@ struct NightLedgerTests {
         #expect(snapshot.currentBedtimeRun == 0)
         #expect(snapshot.counters[.nightsTracked] == 5)
         #expect(snapshot.counters[.bedtimeRun] == 5)
+    }
+
+    /// Review finding "catchup-drops-tapped-night", on the Apple Health ledger.
+    @Test("A night Apple Health has data for settles after any absence, even one of years")
+    func absenceAfterRecordedNight() {
+        func recordedBeforeAbsence() -> CollectionSnapshot {
+            var snapshot = planted()
+            night(&snapshot, day(10, 1), onset: (22, 50))
+            // The 2nd's night arrives before its morning; then the app isn't opened for a while.
+            snapshot.recordSleep([sleep(day(10, 2), onset: (22, 50))], at: MapleCoreTests.at(2026, 10, 3, 5), context: context)
+            #expect(snapshot.nights.pending.count == 1)
+            return snapshot
+        }
+        for absence in [14, 20] {
+            var snapshot = recordedBeforeAbsence()
+            snapshot.recordSleep([], at: at(day(10, 3).adding(days: absence, calendar: utc), 8), context: context)
+            #expect(snapshot.counters[.nightsTracked] == 2)
+            #expect(snapshot.counters[.onTimeBedtimes] == 2)
+            #expect(snapshot.counters[.bedtimeRun] == 2)
+            #expect(snapshot.currentBedtimeRun == 0)
+        }
+        // More than two years away: the night is still settled before the untracked years are skipped.
+        var snapshot = recordedBeforeAbsence()
+        snapshot.recordSleep([], at: MapleCoreTests.at(2028, 11, 1, 8), context: context)
+        #expect(snapshot.counters[.nightsTracked] == 2)
+        #expect(snapshot.counters[.onTimeBedtimes] == 2)
+        #expect(snapshot.nights.settledThrough == LocalDay(year: 2028, month: 10, day: 31))
+        #expect(snapshot.nights.pending.isEmpty)
+        #expect(snapshot.currentBedtimeRun == 0)
+        // With nothing waiting, years away still skip straight to the last two.
+        var away = planted()
+        night(&away, day(10, 1), onset: (22, 50))
+        away.recordSleep([], at: MapleCoreTests.at(2030, 1, 1, 8), context: context)
+        #expect(away.nights.settledThrough == LocalDay(year: 2029, month: 12, day: 31))
+        #expect(away.nights.recent.count == 14)
+        #expect(away.currentBedtimeRun == 0)
+    }
+
+    /// Review finding "ledger-outcome-settle-timezone", on the Apple Health ledger.
+    @Test("A night is judged in the zone it was spent in, even when it settles after a flight")
+    func timeZones() {
+        func calendar(_ identifier: String) -> Calendar {
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = TimeZone(identifier: identifier)!
+            calendar.locale = enGB
+            return calendar
+        }
+        let newYork = calendar("America/New_York"), london = calendar("Europe/London")
+        let losAngeles = calendar("America/Los_Angeles")
+        let setup = MapleCoreTests.at(2026, 10, 1, 12, in: newYork)
+        func rules(_ calendar: Calendar) -> NightLedger.Rules {
+            NightLedger.Rules(setup: setup, schedule: .standard, sleepNeedMinutes: 420, calendar: calendar)
+        }
+        func settledThroughFourth() -> NightLedger {
+            var ledger = NightLedger()
+            _ = ledger.settle(at: MapleCoreTests.at(2026, 10, 5, 12, in: newYork), rules: rules(newYork))
+            #expect(ledger.settledThrough == day(10, 4))
+            return ledger
+        }
+        // Asleep at 23:05 in New York on the 5th: five minutes after bedtime.
+        let observation = SleepNightObservation(
+            night: day(10, 5), onset: MapleCoreTests.at(2026, 10, 5, 23, 5, in: newYork),
+            finalWake: MapleCoreTests.at(2026, 10, 6, 7, in: newYork), asleepMinutes: 470, source: .watchOrTracker
+        )
+        for settledIn in [newYork, london, losAngeles] {
+            var ledger = settledThroughFourth()
+            // Recorded in New York before the morning; settled the next evening wherever the member is by then.
+            _ = ledger.record([observation], at: MapleCoreTests.at(2026, 10, 6, 5, in: newYork), rules: rules(newYork))
+            let changes = ledger.settle(at: MapleCoreTests.at(2026, 10, 6, 18, in: settledIn), rules: rules(settledIn))
+            #expect(changes.settled == [day(10, 5)])
+            #expect(ledger.recent.last?.outcome == .onTime)
+            #expect(ledger.recent.last?.steadyMorning == true)
+            #expect(changes.increases[.onTimeBedtimes] == 1)
+        }
+        // Apple Health's own zone wins over the one in force when the night is recorded.
+        var ledger = settledThroughFourth()
+        var tagged = observation
+        tagged.timeZoneIdentifier = "America/New_York"
+        _ = ledger.record([tagged], at: MapleCoreTests.at(2026, 10, 6, 18, in: london), rules: rules(london))
+        #expect(ledger.recent.last?.night == day(10, 5))
+        #expect(ledger.recent.last?.outcome == .onTime)
     }
 
     @Test("The ledger survives a save; older files, with or without it, decode")

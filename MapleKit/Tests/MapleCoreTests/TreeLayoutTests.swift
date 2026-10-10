@@ -198,6 +198,41 @@ struct TreeLayoutTests {
         }
     }
 
+    /// Review finding "slot-shift-out-of-order-reveal" (spec §4.5: the primary tip is chosen in unlock order and never
+    /// changes).
+    @Test("Opening an older waiting leaf after a newer one moves nothing", arguments: seeds)
+    func outOfOrderReveal(seed: UInt64) {
+        let unlocks = ids(9)
+        let (older, newer, held) = (unlocks[5], unlocks[6], unlocks[8])
+        for g in [0.0, 0.2, 0.5, 0.9] {
+            // The newer leaf was opened first (its Herbarium tile); the older one and the last one still wait, and the
+            // very last was earned in the evening, so it is held and drawn nowhere yet.
+            let early = TreeLayout.generate(
+                seed: seed, growth: g, species: unlocks.filter { ![older, unlocks[7], held].contains($0) },
+                waiting: [older, unlocks[7]], unlockOrder: unlocks
+            )
+            let later = TreeLayout.generate(
+                seed: seed, growth: g, species: unlocks.filter { ![unlocks[7], held].contains($0) },
+                waiting: [unlocks[7]], unlockOrder: unlocks
+            )
+            let all = TreeLayout.generate(seed: seed, growth: g, species: unlocks, unlockOrder: unlocks)
+            let inOrder = TreeLayout.generate(seed: seed, growth: g, species: unlocks)
+            // Every placed species keeps its slot, which is the one an in-order history gives it.
+            for (id, slot) in early.primaryTips {
+                #expect(later.primaryTips[id] == slot)
+                #expect(all.primaryTips[id] == slot)
+            }
+            #expect(all.primaryTips == inOrder.primaryTips)
+            #expect(early.primaryTips[newer] == inOrder.primaryTips[newer])
+            // Each waiting bud hangs where its leaf lands.
+            func tip(_ skeleton: TreeSkeleton, _ id: String) -> Int? {
+                skeleton.rosettes.first { $0.speciesID == id && $0.kind == .primary }?.tipID
+            }
+            #expect(early.buds.first { $0.speciesID == older }?.tipID == tip(later, older))
+            #expect(later.buds.first { $0.speciesID == unlocks[7] }?.tipID == tip(all, unlocks[7]))
+        }
+    }
+
     @Test("Leaves fan up and out, never hanging down, and shrink from 18 to 11 pt with growth")
     func leafPose() {
         for g in [0.0, 0.5, 1.0] {

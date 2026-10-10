@@ -202,6 +202,21 @@ struct CollectionTreeTests {
         #expect(tree.vitality == 1)
         #expect(tree.featured == snapshot.featuredLeaf)
         #expect(tree.waiting.isEmpty)
+        #expect(tree.unlockOrder == snapshot.unlocks.map(\.speciesID))
+    }
+
+    @Test("Tree inputs list every earned leaf in unlock order, held ones too, so no place on the crown shifts")
+    func unlockOrder() {
+        var snapshot = grown()
+        let evening = at(2026, 10, 4, 21)
+        snapshot.record([.nightsTracked: 100], at: evening, calendar: utc)
+        let held = snapshot.runEngine(at: evening, context: context)
+        #expect(!held.isEmpty)
+        let tree = snapshot.treeInputs(at: evening, context: context)
+        #expect(tree.unlockOrder == snapshot.unlocks.map(\.speciesID))
+        #expect(Array(tree.unlockOrder.suffix(held.count)) == held.map(\.speciesID))
+        #expect(tree.waiting.isEmpty)
+        #expect(tree.species.map(\.speciesID) == Array(tree.unlockOrder.prefix(tree.species.count)))
     }
 
     @Test("Buds are the next three leaves with their progress, Home's pick first")

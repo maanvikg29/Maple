@@ -25,6 +25,7 @@ DEBUG builds read these arguments, which `xcrun simctl launch <udid> com.maanvik
 | `-MapleDemoRevealConsent` | `YES` | Reveal | Opens the first leaf and shows the rarity consent sheet over it. |
 | `-MapleDemoRevealLeaf` | species id | Reveal | The waiting leaf `-MapleDemoPresent reveal` opens first (`RevealFlow(startingWith:)`); ignored when it isn't waiting. |
 | `-MapleDemoReduceMotion` | `YES` | Reveal, Onboarding | The reveal and the onboarding end render as under Reduce Motion (0.6 s crossfade; "Open all" goes straight to the list). `simctl ui` has no Reduce Motion switch. |
+| `-MapleDemoFirstRunAutoplay` | seconds, e.g. `3` | Onboarding (`PlantYourMapleView`) | Taps through the real first run on its own, pausing that long on each step: saves the standard schedule shown, taps the amber bud, and taps "Place on your maple" once the reveal has settled, then Home opens. Unlike the other onboarding arguments it acts on a live launch (no Core arguments), so it writes the member's files exactly as the taps would: use it on a fresh install to screenshot the first run end to end. |
 | `-MapleDemoOnboardingStep` | `seed`, `sprout`, `reveal`, `placed` | Onboarding (`PlantYourMapleView`) | Starts the onboarding end past the schedule step, saving the default schedule (in memory): `seed` holds the neutral bud, `sprout` lets it turn amber, `reveal` opens the Sugar maple (freeze it with `-MapleDemoRevealAt`), `placed` shows the grafted seedling and stays there. Pair with `-MapleDemoFresh YES -MapleDemoPresent onboarding`. |
 | `-MapleDemoVitality` | `0.4`…`1` | Home (`HomeContent`) | Draws Home's tree and the Tree view at that vitality; `0.45` is the quiet tree (spec §4.8). Nothing is recorded, so it never touches the collection. |
 
@@ -42,7 +43,9 @@ Any Core argument makes the launch a demo: every store (collection, schedule, ra
 
 Rest example (a non-default schedule in wind-down): `xcrun simctl launch booted com.maanvikgupta.maple -MapleDemoTab rest -MapleDemoSpecies 23 -MapleDemoPhase windDown -MapleDemoSchedule 00:30-08:30/60`
 
-The Reveal and Onboarding arguments act only on a demo launch (with at least one Core argument), so they never touch the member's files.
+The Reveal and Onboarding arguments act only on a demo launch (with at least one Core argument), so they never touch the member's files. Two exceptions act on a live launch on purpose, as a tap would: `-MapleDemoFirstRunAutoplay` and `-MapleDemoHealthContinue`.
+
+Fresh install, real first run (no Core arguments): `xcrun simctl uninstall booted com.maanvikgupta.maple`, install, then `xcrun simctl launch booted com.maanvikgupta.maple -MapleDemoFirstRunAutoplay 3` shows the schedule, the sprout, the Sugar maple's reveal and then the live Home without Apple Health (the needs-permission next-leaf row). A later launch with `-MapleDemoPresent health` opens the real primer.
 
 Example: `xcrun simctl launch booted com.maanvikgupta.maple -MapleDemoSpecies 23 -MapleDemoDays 41 -MapleDemoWaiting 1 -MapleDemoPhase morning`
 

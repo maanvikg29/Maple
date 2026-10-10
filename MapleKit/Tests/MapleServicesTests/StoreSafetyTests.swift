@@ -124,6 +124,56 @@ struct StoreSafetyTests {
         #expect(Set(files(in: folder)) == [MapleStores.collectionFile, "collection.damaged-1790000500.json"])
     }
 
+    /// Review finding "restore-unreadable-setaside": the copy an older build set aside can't be read before the first
+    /// unlock, and must not be taken for a first run.
+    @Test("A set-aside collection that can't be read yet is waited for, never replaced by an empty one")
+    func unreadableSetAside() throws {
+        let folder = try temporaryDirectory()
+        let real = savedCollection(in: folder)
+        let url = folder.appendingPathComponent(MapleStores.collectionFile)
+        let copy = folder.appendingPathComponent("collection.damaged-1790000000.json")
+        try FileManager.default.moveItem(at: url, to: copy)
+        try lock(copy)
+        defer { try? unlock(copy) }
+
+        let store = CollectionStore(storage: JSONStorage(.file(url)), context: testContext, now: at(2026, 10, 9, 4))
+        #expect(!store.isAvailable)
+        #expect(!store.hasPlantedMaple)
+        // The first run resuming before the first unlock never creates the missing file.
+        store.raise(.firstSteps, to: 1, at: at(2026, 10, 9, 4))
+        #expect(!store.reloadIfUnavailable())
+        #expect(files(in: folder) == ["collection.damaged-1790000000.json"])
+
+        try unlock(copy)
+        #expect(store.reloadIfUnavailable())
+        #expect(store.isAvailable)
+        #expect(store.snapshot == real)
+        #expect(store.hasPlacedFirstLeaf)
+        #expect(files(in: folder) == [MapleStores.collectionFile])
+        #expect(CollectionStore(storage: JSONStorage(.file(url)), context: testContext).snapshot == real)
+    }
+
+    @Test("Only a protection or permission error makes a set-aside copy worth waiting for")
+    func lockedOutErrors() throws {
+        let noPermission = NSError(domain: NSCocoaErrorDomain, code: NSFileReadNoPermissionError,
+                                   userInfo: [NSUnderlyingErrorKey: NSError(domain: NSPOSIXErrorDomain, code: Int(EPERM))])
+        #expect(JSONStorage<Int>.isLockedOut(noPermission))
+        #expect(JSONStorage<Int>.isLockedOut(NSError(domain: NSPOSIXErrorDomain, code: Int(EACCES))))
+        #expect(!JSONStorage<Int>.isLockedOut(NSError(domain: NSCocoaErrorDomain, code: NSFileReadCorruptFileError)))
+        #expect(!JSONStorage<Int>.isLockedOut(NSError(domain: NSPOSIXErrorDomain, code: Int(EISDIR))))
+
+        // A newer leftover that fails to read for another reason (here a folder) is skipped, as a damaged one is.
+        let folder = try temporaryDirectory()
+        let real = savedCollection(in: folder)
+        let url = folder.appendingPathComponent(MapleStores.collectionFile)
+        try FileManager.default.moveItem(at: url, to: folder.appendingPathComponent("collection.damaged-1790000000.json"))
+        try FileManager.default.createDirectory(at: folder.appendingPathComponent("collection.damaged-1790000900.json"),
+                                                withIntermediateDirectories: false)
+        let store = CollectionStore(storage: JSONStorage(.file(url)), context: testContext, now: at(2026, 10, 9, 8))
+        #expect(store.isAvailable)
+        #expect(store.snapshot == real)
+    }
+
     @Test("A time-zone change refreshes everything that read the collection")
     func timeZoneChange() {
         let store = CollectionStore(storage: JSONStorage(.memory), context: CollectionContext(calendar: .autoupdatingCurrent), now: .now)

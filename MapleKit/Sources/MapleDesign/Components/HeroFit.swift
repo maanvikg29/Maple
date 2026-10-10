@@ -50,4 +50,12 @@ nonisolated public struct HeroFit: Sendable, Equatable {
             self.init(heroHeight: floor, pinsAction: action > 0)
         }
     }
+
+    /// The least height a page built around this hero should fill (`.frame(minHeight:)`): the visible height while
+    /// everything fits, so its flexible gaps spread it over the first screen; nil once the action is pinned, so the
+    /// page keeps its natural height from the top and only real overflow scrolls under the pinned action. (Filling
+    /// the visible height then would hand the action's space to the gaps and push the content under the bar.)
+    public func pageMinHeight(visible: CGFloat) -> CGFloat? {
+        pinsAction ? nil : visible
+    }
 }

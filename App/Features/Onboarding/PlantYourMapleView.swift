@@ -116,7 +116,8 @@ private struct PlantYourMapleScreen: View {
             seasonDay: inputs.seasonDay,
             phase: phase,
             vitality: 1,
-            newLeafHalos: planted ? inputs.newLeafHalos.map { .init(speciesID: $0.speciesID, placedAt: $0.placedAt) } : []
+            newLeafHalos: planted ? inputs.newLeafHalos.map { .init(speciesID: $0.speciesID, placedAt: $0.placedAt) } : [],
+            unlockOrder: planted ? inputs.unlockOrder : []
         )
         return GeometryReader { proxy in
             sceneLayout(model: model, planted: planted, size: proxy.size, top: proxy.safeAreaInsets.top)
@@ -191,6 +192,7 @@ private struct PlantYourMapleScreen: View {
         if step == .sprout { ripenBud() }
         #if DEBUG
         applyDemo()
+        autoplay()
         #endif
     }
 
@@ -269,6 +271,29 @@ private struct PlantYourMapleScreen: View {
             place()
         default:
             break
+        }
+    }
+
+    /// `-MapleDemoFirstRunAutoplay <seconds>`: taps through the first run on its own, pausing that long on each step
+    /// (the schedule, the amber bud, the settled reveal), so a fresh install's real first run can be screenshotted
+    /// without touching the simulator. Unlike the other onboarding arguments it acts on a live launch: it saves the
+    /// schedule shown (the standard one) and places the Sugar maple, writing the member's files exactly as the taps
+    /// would (docs/debug-launch-arguments.md).
+    private func autoplay() {
+        let pause = UserDefaults.standard.double(forKey: "MapleDemoFirstRunAutoplay")
+        guard pause > 0 else { return }
+        Task {
+            if step == .schedule {
+                try? await Task.sleep(for: .seconds(pause))
+                save(.standard)
+            }
+            // The bud turns amber 1.2 s after the sprout appears.
+            try? await Task.sleep(for: .seconds(1.2 + pause))
+            openFromSprout()
+            // The bud opens 0.6 s after the tap; the Sugar maple's first reveal is the full ritual.
+            let ritual = RevealRitual(tier: firstLeaf?.tier ?? .common, revealsBefore: 0, reduceMotion: reduceMotion)
+            try? await Task.sleep(for: .seconds(0.6 + ritual.settledTime + pause))
+            if step == .reveal { place() }
         }
     }
     #endif

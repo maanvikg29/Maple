@@ -128,7 +128,8 @@ nonisolated struct TreeScenePlan: Sendable {
             buds: model.buds.filter { catalog.species(id: $0.speciesID) != nil }
                 .map { TreeBudRequest(speciesID: $0.speciesID, progress: $0.progress) },
             featured: model.featured,
-            waiting: model.waiting
+            waiting: model.waiting,
+            unlockOrder: model.unlockOrder
         )
         self.skeleton = skeleton
 

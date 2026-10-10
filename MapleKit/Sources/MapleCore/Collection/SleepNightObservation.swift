@@ -40,19 +40,37 @@ public struct SleepNightObservation: Codable, Sendable, Hashable {
     /// Total time asleep in the main episode, in minutes; nil for iPhone in-bed data (C).
     public var asleepMinutes: Double?
     public var source: SleepSource
+    /// The time zone the night was spent in (an identifier such as "America/New_York"; HealthKit's
+    /// `HKMetadataKeyTimeZone` when the samples carry it). The night's bedtime and wake time are read in this zone,
+    /// so flying before the night settles never moves them. Nil: the ledger stamps the zone in force when the night
+    /// is recorded.
+    public var timeZoneIdentifier: String?
 
-    public init(night: LocalDay, onset: Date, finalWake: Date, asleepMinutes: Double?, source: SleepSource) {
+    public init(
+        night: LocalDay, onset: Date, finalWake: Date, asleepMinutes: Double?, source: SleepSource,
+        timeZoneIdentifier: String? = nil
+    ) {
         self.night = night
         self.onset = onset
         self.finalWake = finalWake
         self.asleepMinutes = source.hasAsleepTime ? asleepMinutes : nil
         self.source = source
+        self.timeZoneIdentifier = timeZoneIdentifier
     }
 
-    /// An observation named by the night its onset falls in.
+    /// An observation named by the night its onset falls in, spent in `calendar`'s time zone.
     public init(onset: Date, finalWake: Date, asleepMinutes: Double?, source: SleepSource, calendar: Calendar) {
         self.init(night: NightLedger.night(containing: onset, calendar: calendar), onset: onset, finalWake: finalWake,
-                  asleepMinutes: asleepMinutes, source: source)
+                  asleepMinutes: asleepMinutes, source: source, timeZoneIdentifier: calendar.timeZone.identifier)
+    }
+
+    /// `calendar` in the zone the night was spent in, when that is known.
+    func calendar(from calendar: Calendar) -> Calendar {
+        guard let timeZoneIdentifier, let zone = TimeZone(identifier: timeZoneIdentifier),
+              zone.identifier != calendar.timeZone.identifier else { return calendar }
+        var local = calendar
+        local.timeZone = zone
+        return local
     }
 
     /// From onset to final wake.

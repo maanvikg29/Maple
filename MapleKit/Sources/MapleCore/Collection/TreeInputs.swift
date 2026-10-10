@@ -59,11 +59,15 @@ public struct TreeInputs: Sendable, Equatable {
     /// 0.4…1 from the last seven nights.
     public var vitality: Double
     public var newLeafHalos: [Halo]
+    /// Every earned species, opened, waiting or held, in unlock order. It fixes each species' permanent place on the
+    /// crown (spec §4.5), so a leaf opened out of order never moves another: pass it to `TreeSceneModel`.
+    public var unlockOrder: [String]
 
     public init(
         seed: UInt64, tendedDays: Int, growth: Double, stage: TreeStage, species: [Leaf], buds: [Bud], waiting: [String],
-        featured: String?, season: Season, seasonDay: Int, vitality: Double, newLeafHalos: [Halo]
+        featured: String?, season: Season, seasonDay: Int, vitality: Double, newLeafHalos: [Halo], unlockOrder: [String] = []
     ) {
+        self.unlockOrder = unlockOrder
         self.seed = seed
         self.tendedDays = tendedDays
         self.growth = growth

@@ -12,22 +12,32 @@ import SwiftUI
 ///     }
 /// ```
 ///
-/// Stars twinkle on 6–12 s periods in the evening and at night (vitality ≥ 0.6). Under Reduce Motion, in Low Power
-/// Mode or with `time` set, the sky is one still frame.
+/// Stars twinkle on 6–12 s periods in the evening and at night (vitality ≥ 0.6). Under Reduce Motion, or with `time`
+/// set, the sky is one still frame. The twinkle pauses on its last frame, as the maple does (spec §4.9): when `paused`,
+/// under a full-screen cover (`\.treeScenesPaused`), after the night's idle minute (`nightIdleFreeze(phase:)`), in Low
+/// Power Mode, while the app is inactive and off screen.
 public struct SkyBackdrop: View {
     private let phase: NowPhase
     private let season: Season
     private let vitality: Double
     private let time: Date?
+    private let paused: Bool
 
     @Environment(\.theme) private var theme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.treeScenesPaused) private var isCovered
+    @Environment(\.nightIdleFrozen) private var nightFrozen
+    @State private var isLowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
+    @State private var isOnScreen = true
 
-    public init(phase: NowPhase, season: Season, vitality: Double = 1, time: Date? = nil) {
+    /// - Parameter paused: Hold the twinkle's current frame (the caller's own reasons; the system ones are built in).
+    public init(phase: NowPhase, season: Season, vitality: Double = 1, time: Date? = nil, paused: Bool = false) {
         self.phase = phase
         self.season = season
         self.vitality = vitality
         self.time = time
+        self.paused = paused
     }
 
     public var body: some View {
@@ -36,14 +46,21 @@ public struct SkyBackdrop: View {
         let twinkles = palette.twinklingStars > 0 && vitality >= 0.6 && !reduceMotion && time == nil
         Group {
             if twinkles {
-                TimelineView(.animation(minimumInterval: 1 / 15)) { timeline in
+                TimelineView(.animation(minimumInterval: 1 / 15, paused: isPaused)) { timeline in
                     canvas(palette, background: background, time: timeline.date.timeIntervalSinceReferenceDate)
                 }
             } else {
                 canvas(palette, background: background, time: reduceMotion ? nil : time?.timeIntervalSinceReferenceDate)
             }
         }
+        .onScrollVisibilityChange(threshold: 0.05) { isOnScreen = $0 }
+        .onLowPowerModeChange { isLowPower = $0 }
         .accessibilityHidden(true)
+    }
+
+    /// The twinkle holds its last frame.
+    private var isPaused: Bool {
+        paused || isCovered || nightFrozen == true || isLowPower || scenePhase != .active || !isOnScreen
     }
 
     private func canvas(_ palette: SkyPalette, background: Color, time: Double?) -> some View {

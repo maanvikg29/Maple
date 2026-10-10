@@ -213,6 +213,35 @@ struct ScheduleStoreTests {
         #expect(relaunch.schedule.save(.standard, at: at(2026, 10, 1, 22, 47)).isEmpty)
         #expect(launch(folder).collection.unlocks.map(\.speciesID) == ["saccharum"])
     }
+
+    /// Review finding "schedule-edit-same-night": rewards.md, "Schedule edits apply from the next night (cut-off
+    /// 18:00 local), so a target can't be moved after the fact".
+    @Test("Moving bedtime later once the night has begun never rescues that night")
+    func scheduleEditSameNight() {
+        let collection = CollectionStore(storage: JSONStorage(.memory), context: testContext, now: at(2026, 10, 1, 12))
+        let schedules = ScheduleStore(storage: JSONStorage(.memory), collection: collection)
+        schedules.save(.standard, at: at(2026, 10, 1, 12))                                    // bedtime 23:00
+        collection.openReveals(at: at(2026, 10, 1, 12, 5))
+        collection.recordSleep([], at: at(2026, 10, 5, 12))                                    // settled through the 4th
+
+        // 23:40 on the 5th, already late: bedtime moves to 00:00, and sleep comes at 23:45.
+        let midnight = SleepSchedule(bedtime: ClockTime(hour: 0), wake: ClockTime(hour: 7), windDownMinutes: 45)
+        schedules.save(midnight, at: at(2026, 10, 5, 23, 40))
+        #expect(collection.schedule == midnight)
+        let tonight = SleepNightObservation(onset: at(2026, 10, 5, 23, 45), finalWake: at(2026, 10, 6, 7), asleepMinutes: 440,
+                                            source: .watchOrTracker, calendar: utc)
+        collection.recordSleep([tonight], at: at(2026, 10, 6, 7, 30))
+        #expect(collection.snapshot.nights.recent.last?.night == LocalDay(year: 2026, month: 10, day: 5))
+        #expect(collection.snapshot.nights.recent.last?.outcome == .late)
+        #expect(collection.snapshot.counters[.onTimeBedtimes, default: 0] == 0)
+
+        // From the next night on, 00:00 is the bedtime.
+        let next = SleepNightObservation(onset: at(2026, 10, 7, 0, 10), finalWake: at(2026, 10, 7, 7), asleepMinutes: 400,
+                                         source: .watchOrTracker, calendar: utc)
+        collection.recordSleep([next], at: at(2026, 10, 7, 7, 30))
+        #expect(collection.snapshot.nights.recent.last?.outcome == .onTime)
+        #expect(collection.snapshot.counters[.onTimeBedtimes] == 1)
+    }
 }
 
 @Suite("Collection count")

@@ -41,7 +41,8 @@ public enum StorageRead<Value> {
 /// - A file that can't be *read* (protected data unavailable, a permission error) is left exactly where it is, and
 ///   every save is refused until a read succeeds again, so a launch before the first unlock can't replace it.
 /// - When the file is missing but an earlier launch set aside a copy that decodes cleanly, the newest such copy is
-///   moved back (installs that met the old read-error path still have their real collection beside it).
+///   moved back (installs that met the old read-error path still have their real collection beside it). When a newer
+///   copy can't be read yet, the read is `.unavailable`, never `.absent`, so no empty file is created in its place.
 public final class JSONStorage<Value: Codable> {
     public let location: StorageLocation
     private var memory: Value?
@@ -59,9 +60,18 @@ public final class JSONStorage<Value: Codable> {
     public func read() -> StorageRead<Value> {
         guard case .file(let url) = location else { return memory.map { .value($0) } ?? .absent }
         guard FileManager.default.fileExists(atPath: url.path) else {
-            isUnavailable = false
-            if let restored = restoreSetAside(url) { return .value(restored) }
-            return .absent
+            switch restoreSetAside(url) {
+            case .restored(let value):
+                isUnavailable = false
+                return .value(value)
+            case .unreadable:
+                // A set-aside copy may be the member's real file: nothing is created in its place until it reads.
+                isUnavailable = true
+                return .unavailable
+            case .none:
+                isUnavailable = false
+                return .absent
+            }
         }
         let data: Data
         do {
@@ -117,11 +127,23 @@ public final class JSONStorage<Value: Codable> {
         try? FileManager.default.moveItem(at: url, to: url.deletingLastPathComponent().appending(path: name))
     }
 
-    /// The newest `<name>.damaged-<time>.<ext>` beside `url` that decodes cleanly, moved back to `url`.
-    private func restoreSetAside(_ url: URL) -> Value? {
+    /// What looking for a set-aside copy found.
+    private enum Restore {
+        case restored(Value)
+        /// No copy decodes, or there is none: a first run.
+        case none
+        /// A copy newer than any that decodes can't be read yet (protected data before the first unlock, or a
+        /// permission error), so it may be the member's real file.
+        case unreadable
+    }
+
+    /// The newest `<name>.damaged-<time>.<ext>` beside `url` that decodes cleanly, moved back to `url`. A newer copy
+    /// that can't be read yet stops the search (`.unreadable`), so a launch before the first unlock never takes the
+    /// missing file for a first run; copies that read but don't decode, or fail to read any other way, are skipped.
+    private func restoreSetAside(_ url: URL) -> Restore {
         let folder = url.deletingLastPathComponent()
         let prefix = url.deletingPathExtension().lastPathComponent + ".damaged-"
-        guard let names = try? FileManager.default.contentsOfDirectory(atPath: folder.path) else { return nil }
+        guard let names = try? FileManager.default.contentsOfDirectory(atPath: folder.path) else { return .none }
         let candidates = names
             .filter { $0.hasPrefix(prefix) && $0.hasSuffix("." + url.pathExtension) }
             .compactMap { name -> (stamp: Int, name: String)? in
@@ -131,17 +153,33 @@ public final class JSONStorage<Value: Codable> {
             .sorted { $0.stamp > $1.stamp }
         for candidate in candidates {
             let copy = folder.appending(path: candidate.name)
-            guard let data = try? Data(contentsOf: copy), let value = try? JSONDecoder().decode(Value.self, from: data) else {
-                continue
+            let data: Data
+            do {
+                data = try Data(contentsOf: copy)
+            } catch {
+                guard Self.isLockedOut(error) else { continue }
+                Self.logger.error("Couldn't read \(candidate.name, privacy: .public) yet: \(String(describing: error), privacy: .public)")
+                return .unreadable
             }
+            guard let value = try? JSONDecoder().decode(Value.self, from: data) else { continue }
             do {
                 try FileManager.default.moveItem(at: copy, to: url)
                 Self.logger.notice("Restored \(url.lastPathComponent, privacy: .public) from \(candidate.name, privacy: .public)")
             } catch {
                 Self.logger.error("Couldn't restore \(candidate.name, privacy: .public): \(String(describing: error), privacy: .public)")
             }
-            return value
+            return .restored(value)
         }
-        return nil
+        return .none
+    }
+
+    /// A read refused for protection or permissions (`NSFileReadNoPermissionError`, POSIX `EPERM` or `EACCES`): the
+    /// file is there but can't be read now. Any other error means the copy is unusable.
+    static func isLockedOut(_ error: any Error) -> Bool {
+        let error = error as NSError
+        if error.domain == NSCocoaErrorDomain, error.code == NSFileReadNoPermissionError { return true }
+        if error.domain == NSPOSIXErrorDomain, error.code == Int(EPERM) || error.code == Int(EACCES) { return true }
+        if let underlying = error.userInfo[NSUnderlyingErrorKey] as? NSError { return isLockedOut(underlying) }
+        return false
     }
 }

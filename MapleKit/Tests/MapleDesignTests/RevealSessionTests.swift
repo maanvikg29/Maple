@@ -136,6 +136,22 @@ struct RevealSessionTests {
         #expect(session.opened == ["negundo"], "the close circle on the second bud places only the first")
     }
 
+    /// Review finding "share-card-render-after-moving-on".
+    @Test("A share card is worth rendering only while its leaf is on screen, open, outside Open all")
+    func shareCardMoment() {
+        var session = RevealSession(queue: threeCommons, revealsBefore: 20)
+        #expect(!session.isShowingOpened("negundo"), "still a closed bud")
+        session.open(at: Self.now)
+        #expect(session.isShowingOpened("negundo"))
+        session.advance()
+        #expect(!session.isShowingOpened("negundo"), "the member moved on to the next leaf")
+        #expect(!session.isShowingOpened("glabrum"), "the next bud is still closed")
+        session.open(at: Self.now)
+        #expect(session.isShowingOpened("glabrum"))
+        session.openAll(at: Self.now)
+        #expect(!session.isShowingOpened("glabrum"), "Open all shows the row, not the card")
+    }
+
     // MARK: Rituals
 
     @Test("The full ritual covers the first 3 reveals ever, counting this sitting")

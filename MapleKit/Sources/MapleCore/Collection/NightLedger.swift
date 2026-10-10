@@ -46,6 +46,8 @@ public enum BedtimeOutcome: String, Codable, Sendable {
 ///   falls from bedtime − 2 h to bedtime + 30 min (earlier is early: neutral), and a steady morning when final wake
 ///   is within 30 minutes of the wake time. A full night has asleep time of at least the sleep need − 30 minutes,
 ///   and needs asleep time (a Watch, a tracker or another app; not iPhone's in-bed estimate).
+/// - Bedtime and wake time are read in the time zone the night was spent in (the observation's, else the zone in
+///   force when it was recorded), so a flight between a night and its settling never moves them.
 /// - A night is settled once its next morning starts (wake − 60 min). Nights with no observation by then are
 ///   untracked. For 72 hours after that, late data (a Watch syncing) can upgrade it, never downgrade it; recording
 ///   the same night again changes nothing.
@@ -240,14 +242,16 @@ public struct NightLedger: Sendable, Equatable {
         pastSchedules.first { $0.through >= night }?.schedule ?? current
     }
 
-    /// Judges one night from its observation (nil: untracked). Run fields are left at zero.
+    /// Judges one night from its observation (nil: untracked). Run fields are left at zero. Bedtime and wake time are
+    /// read in the zone the night was spent in (`SleepNightObservation.timeZoneIdentifier`), never the one in force
+    /// when it settles.
     public func evaluate(_ night: LocalDay, observation: SleepNightObservation?, rules: Rules) -> Night {
-        let calendar = rules.calendar
         guard let observation, observation.isMainEpisode else { return Night(night: night, outcome: .untracked) }
-        let first = Self.firstNight(setUpAt: rules.setup, calendar: calendar)
+        let first = Self.firstNight(setUpAt: rules.setup, calendar: rules.calendar)
         // The install night counts only when setup finished before sleep began.
         if night == first, observation.onset <= rules.setup { return Night(night: night, outcome: .untracked) }
 
+        let calendar = observation.calendar(from: rules.calendar)
         let schedule = schedule(for: night, current: rules.schedule)
         let bedtime = Self.date(schedule.bedtime, on: night, calendar: calendar)
         let judged = night != first || rules.setup <= bedtime.addingTimeInterval(-Self.firstScheduleLead)
@@ -322,10 +326,18 @@ public struct NightLedger: Sendable, Equatable {
     /// Nights not settled yet keep their best observation. A settled night still inside its 72-hour window takes an
     /// upgrade (a better outcome, a steady morning or a full night it lacked); anything else about it is ignored.
     /// Nights before the install night never count. Idempotent: recording the same nights again changes nothing.
+    /// A night without a time zone is stamped with the one in force now, so it is judged in that zone even if it
+    /// settles after a flight.
     public mutating func record(_ observations: [SleepNightObservation], at date: Date, rules: Rules) -> Changes {
         var changes = Changes()
         let first = Self.firstNight(setUpAt: rules.setup, calendar: rules.calendar)
-        for observation in observations.sorted(by: { $0.night < $1.night }) where observation.night >= first {
+        let zone = rules.calendar.timeZone.identifier
+        let stamped = observations.map { observation in
+            var observation = observation
+            if observation.timeZoneIdentifier == nil { observation.timeZoneIdentifier = zone }
+            return observation
+        }
+        for observation in stamped.sorted(by: { $0.night < $1.night }) where observation.night >= first {
             if observation.isMainEpisode, observation.source.hasAsleepTime { sawAsleepTime = true }
             if let settledThrough, observation.night <= settledThrough {
                 upgrade(with: observation, at: date, rules: rules, changes: &changes)
@@ -356,9 +368,15 @@ public struct NightLedger: Sendable, Equatable {
         var next = settledThrough.map { max(first, $0.adding(days: 1, calendar: calendar)) } ?? first
         guard next <= last else { return }
         if next.days(until: last, calendar: calendar) >= Self.longestSettle {
-            // Away for years: everything before the last two was untracked, which ended any run long ago.
-            next = last.adding(days: -(Self.longestSettle - 1), calendar: calendar)
-            recent.removeAll()
+            // Away for years: everything before the last two was untracked, which ended any run long ago. The jump
+            // never passes a night Apple Health still has data for: that night (and everything after it) settles.
+            let jump = last.adding(days: -(Self.longestSettle - 1), calendar: calendar)
+            let target = min(jump, pending.first { $0.night >= next }?.night ?? jump)
+            // Only a skip of a week or more: its untracked nights have ended any run and any steady week.
+            if next.days(until: target, calendar: calendar) >= 7 {
+                next = target
+                recent.removeAll()
+            }
         }
 
         var night = next

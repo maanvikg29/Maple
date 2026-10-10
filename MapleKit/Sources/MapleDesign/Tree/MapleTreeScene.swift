@@ -23,11 +23,11 @@ import SwiftUI
 ///
 /// Motion is sleepy and cheap. Layout and drawing happen once per data change, into pre-rasterised layers (sky,
 /// bloom, ground, twigs, trunk and limbs, rosettes, flutter sprites); each frame only composes those images with a
-/// layered sway about the trunk base and draws the twinkling stars, waiting bud and particles. The timeline pauses
-/// off screen, when the app is inactive, in Low Power Mode, under a full-screen cover (`\.treeScenesPaused`) and
-/// after a minute at night without interaction. Under Reduce Motion, or
-/// with `model.time` set, the scene is one complete still frame; data changes crossfade (0.6 s under Reduce Motion,
-/// otherwise the 1.6 s graft), and phase changes drift over 3.2 s.
+/// layered sway about the trunk base and draws the twinkling stars, waiting bud and particles. The timeline pauses,
+/// keeping its last frame, off screen, when the app is inactive, in Low Power Mode, under a full-screen cover
+/// (`\.treeScenesPaused`) and after a minute at night without interaction (shared with the sky under
+/// `nightIdleFreeze(phase:)`). Under Reduce Motion, or with `model.time` set, the scene is one complete still frame;
+/// data changes crossfade (0.6 s under Reduce Motion, otherwise the 1.6 s graft), and phase changes drift over 3.2 s.
 public struct MapleTreeScene: View {
     private let model: TreeSceneModel
     private let includesBackdrop: Bool
@@ -41,6 +41,8 @@ public struct MapleTreeScene: View {
     @Environment(\.displayScale) private var displayScale
     @State private var isOnScreen = true
     @Environment(\.treeScenesPaused) private var isCovered
+    /// Home's shared night-idle freeze; nil when the scene keeps its own (`nightFrozen`).
+    @Environment(\.nightIdleFrozen) private var sharedNightFrozen
     @State private var isLowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
     @State private var nightFrozen = false
     /// Bumped by every tap, so each interaction restarts the night's 60 s countdown to a still frame (spec §4.9).
@@ -92,14 +94,13 @@ public struct MapleTreeScene: View {
         .accessibilityElement(children: .ignore)
         .modifier(SceneAccessibility(label: label, value: value, openLeaf: model.waiting.isEmpty ? nil : onOpenWaitingLeaf))
         .onScrollVisibilityChange(threshold: 0.05) { isOnScreen = $0 }
-        .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange)) { _ in
-            isLowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
-        }
+        .onLowPowerModeChange { isLowPower = $0 }
         .task(id: FreezeKey(phase: model.phase, active: scenePhase == .active, wakes: wakes)) {
-            // At night the tree settles to a still frame after a minute without interaction.
+            // At night the tree settles to a still frame after a minute without interaction (unless a shared
+            // `nightIdleFreeze` above it decides for the sky and the tree together).
             nightFrozen = false
-            guard model.phase == .night else { return }
-            try? await Task.sleep(for: .seconds(60))
+            guard model.phase == .night, sharedNightFrozen == nil else { return }
+            try? await Task.sleep(for: NightIdleFreeze.delay)
             if !Task.isCancelled {
                 nightFrozen = true
             }
@@ -131,8 +132,16 @@ public struct MapleTreeScene: View {
         }
     }
 
+    /// One complete still frame: Reduce Motion, or a fixed instant.
     private var isStill: Bool {
-        model.time != nil || reduceMotion || isLowPower || !isOnScreen || scenePhase != .active || nightFrozen || isCovered
+        model.time != nil || reduceMotion
+    }
+
+    /// The animated scene holds its last frame (a paused timeline, never a repaint): covered, off screen, inactive,
+    /// in Low Power Mode, or idle at night. Its layers stay built, so data that changes under a cover is rasterised
+    /// there, not when the cover goes.
+    private var isPaused: Bool {
+        isCovered || isLowPower || !isOnScreen || scenePhase != .active || (sharedNightFrozen ?? nightFrozen)
     }
 
     private var stillMotion: TreeSceneRenderer.Motion {
@@ -160,7 +169,7 @@ public struct MapleTreeScene: View {
             for: plan, frame: frame, displayScale: displayScale, includesBackdrop: includesBackdrop, background: background, now: Date()
         ) {
             let twinkling = includesBackdrop ? TreeSkyPainter.twinkling(plan.sky, vitality: plan.model.vitality) : 0
-            TimelineView(.animation(minimumInterval: 1 / 30)) { timeline in
+            TimelineView(.animation(minimumInterval: 1 / 30, paused: isPaused)) { timeline in
                 let motion = TreeSceneRenderer.Motion(time: timeline.date.timeIntervalSinceReferenceDate, now: timeline.date)
                 let sway = TreeSceneRenderer.sway(plan, motion: motion)
                 ZStack(alignment: .topLeading) {
