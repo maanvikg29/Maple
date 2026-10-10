@@ -60,7 +60,7 @@ public struct MapleStores {
         let realSchedule = JSONStorage<SavedSchedule>(.file(directory.appending(path: scheduleFile)))
 
         let snapshot: CollectionSnapshot?
-        let saved: SavedSchedule?
+        var saved: SavedSchedule?
         if options.fresh {
             snapshot = .empty(profileID: DemoData.profileID, createdAt: now)
             saved = nil
@@ -75,6 +75,9 @@ public struct MapleStores {
         } else {
             snapshot = realCollection.load()
             saved = realSchedule.load()
+        }
+        if let custom = options.schedule, !options.fresh {
+            saved = SavedSchedule(schedule: custom, savedAt: saved?.savedAt ?? now)
         }
 
         let collection = CollectionStore(storage: JSONStorage(.memory, initial: snapshot), context: context, now: now)

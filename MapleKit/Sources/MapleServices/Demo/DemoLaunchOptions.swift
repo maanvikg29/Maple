@@ -22,6 +22,8 @@ nonisolated public struct DemoLaunchOptions: Sendable, Equatable {
     public var fresh = false
     /// `-MapleDemoPermissions none|health|all`: granted permissions (demo collections default to `health`).
     public var permissions: GrantedPermissions?
+    /// `-MapleDemoSchedule 00:30-08:30` (bedtime-wake, optionally `/60` wind-down minutes): the saved schedule.
+    public var schedule: SleepSchedule?
 
     public init() {}
 
@@ -51,6 +53,21 @@ nonisolated public struct DemoLaunchOptions: Sendable, Equatable {
         case "all": [.appleHealth, .sleepTracker, .screenTime]
         default: nil
         }
+        schedule = value("MapleDemoSchedule").flatMap(Self.schedule(from:))
+    }
+
+    /// "00:30-08:30" or "00:30-08:30/60"; nil when malformed. Wind-down defaults to the standard 45 minutes.
+    static func schedule(from text: String) -> SleepSchedule? {
+        let parts = text.split(separator: "/")
+        let times = parts.first?.split(separator: "-").compactMap { clock -> ClockTime? in
+            let fields = clock.split(separator: ":").compactMap { Int($0) }
+            guard fields.count == 2, (0..<24).contains(fields[0]), (0..<60).contains(fields[1]) else { return nil }
+            return ClockTime(hour: fields[0], minute: fields[1])
+        } ?? []
+        guard times.count == 2, parts.count <= 2 else { return nil }
+        let windDown = parts.count == 2 ? Int(parts[1]) : SleepSchedule.standard.windDownMinutes
+        guard let windDown, (0...180).contains(windDown) else { return nil }
+        return SleepSchedule(bedtime: times[0], wake: times[1], windDownMinutes: windDown)
     }
 
     /// The arguments this process was launched with.
