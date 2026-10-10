@@ -34,5 +34,6 @@ let package = Package(
         .target(name: "MapleServices", dependencies: ["MapleCore", "MapleData"], swiftSettings: mainActorByDefault),
         .testTarget(name: "MapleCoreTests", dependencies: ["MapleCore"]),
         .testTarget(name: "MapleDesignTests", dependencies: ["MapleDesign", "MapleCore"]),
+        .testTarget(name: "MapleServicesTests", dependencies: ["MapleServices", "MapleCore"]),
     ]
 )

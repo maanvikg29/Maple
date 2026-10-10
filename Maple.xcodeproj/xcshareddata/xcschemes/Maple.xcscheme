@@ -49,6 +49,16 @@
                ReferencedContainer = "container:MapleKit">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "MapleServicesTests"
+               BuildableName = "MapleServicesTests"
+               BlueprintName = "MapleServicesTests"
+               ReferencedContainer = "container:MapleKit">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction
