@@ -115,7 +115,7 @@ struct RestView: View {
         editorField = nil
         guard let speciesID = unlockedBySave else { return }
         unlockedBySave = nil
-        reveal = RevealRequest(id: speciesID)
+        presentingRevealWithoutSlide { reveal = RevealRequest(id: speciesID) }
     }
 
     // MARK: DEBUG launch

@@ -3,9 +3,9 @@ import SwiftUI
 
 /// DEBUG only: opens the app-level screens named by `-MapleDemoPresent` on launch, so each can be screenshotted
 /// in the simulator without tapping (docs/debug-launch-arguments.md). Feature-level routes are handled by the
-/// features themselves.
+/// features themselves, and `onboarding` by `RootView`'s first-run gate (`MapleApp.needsOnboarding`).
 private enum DemoPresentation: String, Identifiable {
-    case reveal, onboarding, profile, winddown
+    case reveal, profile, winddown
 
     var id: String { rawValue }
 
@@ -23,7 +23,6 @@ private struct DemoPresenter: ViewModifier {
             .fullScreenCover(item: $cover) { presentation in
                 switch presentation {
                 case .reveal: RevealFlow()
-                case .onboarding: PlantYourMapleView { cover = nil }
                 case .winddown: WindDownView()
                 case .profile: EmptyView()
                 }

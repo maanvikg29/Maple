@@ -18,6 +18,8 @@ struct HomeView: View {
     @State private var sheet: HomeSheet?
     @State private var cover: HomeCover?
     @State private var pushedLeaf: String?
+    /// Wind-down mode's log: whether it is on, and tonight's Goodnight (spec §3.4).
+    private let bedside = BedsideLog.shared
     #if DEBUG
     @State private var demoApplied = false
     #endif
@@ -28,7 +30,8 @@ struct HomeView: View {
     var body: some View {
         // NowState refreshes every minute; the clock freezes it inside a phase for DEBUG demos.
         TimelineView(.everyMinute) { timeline in
-            let content = HomeContent(collection: collection, now: clock.date(forTimeline: timeline.date))
+            let now = clock.date(forTimeline: timeline.date)
+            let content = HomeContent(collection: collection, now: now, bedside: bedside.state(at: now, collection: collection))
             GeometryReader { proxy in
                 screen(content, proxy: proxy)
             }
@@ -60,9 +63,29 @@ struct HomeView: View {
                 WindDownView()
             }
         }
+        // Leaf detail's "Show on my maple", from any tab (spec §5.6).
+        .onChange(of: router.treeLeafRequest, initial: true) { _, request in
+            guard let request else { return }
+            router.treeLeafRequest = nil
+            showOnMaple(request)
+        }
         #if DEBUG
         .task { applyDemoPresentation() }
         #endif
+    }
+
+    /// Opens the Tree view centred on a leaf. Whatever Home is presenting goes first, so the cover can appear.
+    private func showOnMaple(_ speciesID: String) {
+        guard sheet != nil || cover != nil else {
+            cover = .tree(focusing: speciesID)
+            return
+        }
+        sheet = nil
+        cover = nil
+        Task {
+            try? await Task.sleep(for: .seconds(0.6))
+            cover = .tree(focusing: speciesID)
+        }
     }
 
     // MARK: Layout
@@ -79,8 +102,8 @@ struct HomeView: View {
                 HomeTreeStage(
                     content: content, width: width, height: stageHeight, scale: scale,
                     openTree: { cover = .tree(focusing: nil) },
-                    openWaitingLeaf: { cover = .reveal(content.waitingBudID) },
-                    openHerbarium: { router.selectedTab = .herbarium },
+                    openWaitingLeaf: { presentingRevealWithoutSlide { cover = .reveal(content.waitingBudID) } },
+                    openHerbarium: { router.showHerbarium() },
                     showLeaf: { pushedLeaf = $0 }
                 )
                 .matchedTransitionSource(id: Self.mapleTransitionID, in: zoom)
@@ -141,7 +164,7 @@ struct HomeView: View {
             NextLeafRow(row) { pushedLeaf = progress.speciesID }
                 .zoomSource(id: progress.speciesID, in: zoom)
         case .waiting:
-            NextLeafRow(row) { cover = .reveal(nil) }
+            NextLeafRow(row) { presentingRevealWithoutSlide { cover = .reveal(nil) } }
         }
     }
 
@@ -152,7 +175,7 @@ struct HomeView: View {
         case .startWindDown, .returnToWindDown:
             cover = .windDown
         case .openReveals:
-            cover = .reveal(nil)
+            presentingRevealWithoutSlide { cover = .reveal(nil) }
         case .startFocus, .returnToFocus:
             // Focus lives in Rest (spec §2.2); Home offers it only once it ships.
             router.selectedTab = .rest

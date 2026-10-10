@@ -207,20 +207,80 @@ struct DesignRarity: View {
     }
 }
 
-/// `LeafCell` is built on the Herbarium branch in parallel with this screen.
-///
-/// TODO(integrator): when the branches merge, replace this placeholder with every `LeafCell` variant from spec §5.5
-/// (earned with a share, earned with a date, waiting, next, locked, needs permission, dormant, unseen dot, ≈ corner)
-/// in a 3-column grid at the Herbarium's 116.7 × 156 cell size.
+/// Every Herbarium tile variant (spec §5.5), drawn by the Herbarium's own `LeafCell` in its 3-column grid at the
+/// real cell size, then the 72pt row the grid switches to at accessibility text sizes.
 struct DesignLeafCells: View {
     @Environment(\.theme) private var theme
+    @Environment(\.season) private var season
 
     var body: some View {
-        Text("LeafCell variants appear here once the Herbarium branch is merged.")
-            .font(MapleFont.footnote)
-            .foregroundStyle(theme.colors.textSecondary)
-            .padding(.horizontal, theme.spacing.listMargin)
-            .padding(.bottom, theme.spacing.lg)
+        let cells = DesignCellFixtures.cells(season: season)
+        VStack(alignment: .leading, spacing: theme.spacing.xl) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: theme.spacing.gutter, alignment: .top), count: 3),
+                      spacing: theme.spacing.lg) {
+                ForEach(cells, id: \.caption) { cell in
+                    VStack(spacing: theme.spacing.xs) {
+                        LeafCell(cell.model)
+                        DesignCaption(cell.caption)
+                    }
+                }
+            }
+            VStack(alignment: .leading, spacing: theme.spacing.sm) {
+                DesignGroupLabel("Row · accessibility sizes")
+                VStack(spacing: theme.spacing.gutter) {
+                    ForEach(cells.prefix(3), id: \.caption) { cell in
+                        LeafCell(cell.model, layout: .row)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, theme.spacing.gridMargin)
+        .padding(.bottom, theme.spacing.lg)
+    }
+}
+
+/// Fixed leaves in each tile state, so the section never depends on the member's own collection.
+private enum DesignCellFixtures {
+    struct Cell {
+        let caption: String
+        let model: LeafCellModel
+    }
+
+    static func cells(season: Season) -> [Cell] {
+        let day = Date(timeIntervalSince1970: 1_791_115_200) // 4 Oct 2026
+        let fixtures: [(String, HerbariumEntry?)] = [
+            ("Earned · share", entry("rubrum", state: .earned(unlock("rubrum", .autumn, day)),
+                                    share: .value(display: "38%", asOf: .now))),
+            ("Earned · unseen", entry("palmatum", state: .earned(unlock("palmatum", .summer, day, seen: false)),
+                                     unseen: true)),
+            ("Earned · ≈", entry("binzayedii", state: .earned(unlock("binzayedii", .frost, day)),
+                                share: .value(display: "0.4%", asOf: .now))),
+            ("Waiting", entry("japonicum", state: .waiting(unlock("japonicum", .autumn, day)))),
+            ("Next", entry("sieboldianum", current: 9, next: true)),
+            ("Next · ≈", entry("zarei", current: 120, next: true)),
+            ("Locked", entry("amamiense")),
+            ("Needs permission", entry("campestre", availability: .needsAppleHealth)),
+            ("Dormant", entry("griseum", availability: .dormant, share: .notEarnableYet)),
+        ]
+        return fixtures.compactMap { caption, entry in
+            entry.map { Cell(caption: caption, model: LeafCellModel($0, season: season)) }
+        }
+    }
+
+    private static func unlock(_ id: String, _ colourway: LeafColourway, _ day: Date, seen: Bool = true) -> LeafUnlock {
+        LeafUnlock(speciesID: id, date: day, season: .autumn, colourway: colourway, revealed: true, seen: seen)
+    }
+
+    private static func entry(
+        _ id: String, state: LeafState = .locked, availability: LeafAvailability = .available, current: Double = 0,
+        next: Bool = false, unseen: Bool = false, share: MemberShare = .notEnoughMembers(soFar: nil)
+    ) -> HerbariumEntry? {
+        guard let species = LeafCatalog.shared.species(id: id),
+              let rung = RewardCatalog.shared.reward(forSpecies: id) else { return nil }
+        let progress = LeafProgress(speciesID: id, category: rung.categoryID, threshold: rung.threshold, tier: rung.tier,
+                                    current: current, availability: availability, state: state, estimatedDays: 5)
+        return HerbariumEntry(species: species, progress: progress, rule: rung.unlockText, isNextRung: next,
+                              isUnseen: unseen, share: share, opensNow: true)
     }
 }
 #endif

@@ -61,6 +61,8 @@ struct HerbariumView: View {
 
     // MARK: Screen
 
+    private static let topID = "herbarium.top"
+
     private func content(_ model: HerbariumEntries) -> some View {
         let sections = HerbariumLayout.sections(model.entries, grouping: grouping, sort: sort, scope: scope,
                                                 filters: filters, expanded: expanded)
@@ -73,6 +75,11 @@ struct HerbariumView: View {
                 geometry.contentOffset.y + geometry.contentInsets.top > 120
             } action: { _, scrolled in
                 isScrolled = scrolled
+            }
+            // Home's tree caption opens the Herbarium at the top (spec §3.2).
+            .onChange(of: router.herbariumTopRequest) {
+                detail = nil
+                withAnimation(reduceMotion ? nil : theme.motion.gentle) { proxy.scrollTo(Self.topID, anchor: .top) }
             }
             #if DEBUG
             .task { await HerbariumDemo.scroll(proxy) }
@@ -95,6 +102,7 @@ struct HerbariumView: View {
         LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
             header
                 .padding(.horizontal, theme.spacing.gridMargin)
+                .id(Self.topID)
             count(model)
                 .padding(.horizontal, theme.spacing.gridMargin)
                 .padding(.top, theme.spacing.xs)
@@ -241,12 +249,19 @@ struct HerbariumView: View {
 
     @ViewBuilder
     private func controls(_ model: HerbariumEntries) -> some View {
-        // One row up to the default text size; beyond it the chips wrap and the menu takes its own line.
+        // One row when it fits whole (chips never truncate); otherwise the chips wrap and the menu takes its own
+        // line. Larger text sizes always wrap.
         if dynamicTypeSize <= .large {
-            HStack(spacing: theme.spacing.xs) {
-                scopeChips(model)
-                Spacer(minLength: 0)
-                groupMenu
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: theme.spacing.xs) {
+                    scopeChips(model)
+                    Spacer(minLength: theme.spacing.xs)
+                    groupMenu
+                }
+                VStack(alignment: .leading, spacing: 0) {
+                    ChipFlow(lineSpacing: 0) { scopeChips(model) }
+                    groupMenu
+                }
             }
         } else {
             VStack(alignment: .leading, spacing: 0) {
@@ -262,6 +277,7 @@ struct HerbariumView: View {
             Chip(option.title, count: model.count(option), isSelected: scope == option) {
                 withAnimation(reduceMotion ? nil : theme.motion.gentle) { scope = option }
             }
+            .fixedSize()
         }
     }
 
@@ -282,20 +298,16 @@ struct HerbariumView: View {
                 .labelsHidden()
             }
         } label: {
-            HStack(spacing: 5) {
-                Text("Group")
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 10, weight: .semibold))
-                    .accessibilityHidden(true)
-            }
-            .font(MapleFont.tileName)
-            .foregroundStyle(theme.colors.textPrimary)
-            .padding(.horizontal, 14)
-            .frame(minHeight: 32)
-            .glassSurface(in: Capsule(style: .continuous))
-            .padding(.vertical, 6)
-            .contentShape(Rectangle())
+            Text("Group")
+                .font(MapleFont.tileName)
+                .foregroundStyle(theme.colors.textPrimary)
+                .padding(.horizontal, 12)
+                .frame(minHeight: 32)
+                .glassSurface(in: Capsule(style: .continuous))
+                .padding(.vertical, 6)
+                .contentShape(Rectangle())
         }
+        .fixedSize()
         .accessibilityLabel("Group and sort")
         .accessibilityValue("\(grouping.title), \(sort.title)")
     }
@@ -374,7 +386,7 @@ struct HerbariumView: View {
 
     private func open(_ entry: HerbariumEntry, source: String) {
         if entry.isWaiting, entry.opensNow {
-            reveal = LeafRoute(speciesID: entry.id, source: source)
+            presentingRevealWithoutSlide { reveal = LeafRoute(speciesID: entry.id, source: source) }
         } else {
             detail = LeafRoute(speciesID: entry.id, source: source)
         }

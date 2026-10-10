@@ -11,6 +11,14 @@ final class AppRouter {
         self.selectedTab = selectedTab
     }
 
+    /// Bumped by Home's tree caption: the Herbarium scrolls back to its top (spec §3.2).
+    var herbariumTopRequest = 0
+
+    func showHerbarium() {
+        herbariumTopRequest += 1
+        selectedTab = .herbarium
+    }
+
     func showEarnedLeaves() {
         herbariumEarnedOnlyRequest = true
         selectedTab = .herbarium

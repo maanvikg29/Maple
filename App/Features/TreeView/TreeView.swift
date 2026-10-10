@@ -38,7 +38,7 @@ struct TreeView: View {
                         zoomNamespace: zoomNamespace,
                         pressedDate: { collection.unlock(for: $0)?.date },
                         openLeaf: { pushedLeaf = $0 },
-                        openWaitingLeaf: { reveal = RevealRequest(speciesID: $0) },
+                        openWaitingLeaf: { id in presentingRevealWithoutSlide { reveal = RevealRequest(speciesID: id) } },
                         seeAllLeaves: {
                             router.showEarnedLeaves()
                             dismiss()

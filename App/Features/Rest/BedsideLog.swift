@@ -56,3 +56,19 @@ final class BedsideLog {
         return JSONStorage(.file(MapleContainer.directory().appending(path: fileName)))
     }
 }
+
+/// What Home's NowState reads from wind-down mode (spec §3.4): whether the mode is on ("Return to wind-down"),
+/// and the Goodnight tap the morning shows when Apple Health has nothing.
+struct BedsideState: Equatable {
+    var windDownActive = false
+    var goodnightAt: Date?
+}
+
+extension BedsideLog {
+    func state(at date: Date, collection: CollectionStore) -> BedsideState {
+        BedsideState(
+            windDownActive: isWindDownActive(at: date, schedule: collection.schedule, calendar: collection.context.calendar),
+            goodnightAt: session.goodnight(forMorningOf: date)
+        )
+    }
+}

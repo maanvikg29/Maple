@@ -28,12 +28,14 @@ DEBUG builds read these arguments, which `xcrun simctl launch <udid> com.maanvik
 | `-MapleDemoVitality` | `0.4`…`1` | Home (`HomeContent`) | Draws Home's tree and the Tree view at that vitality; `0.45` is the quiet tree (spec §4.8). Nothing is recorded, so it never touches the collection. |
 
 `-MapleDemoPresent` values:
-- **App-level** (`App/DemoPresenter.swift`, over any tab): `reveal` (cover), `onboarding` (cover; pair it with `-MapleDemoFresh YES`), `profile` (sheet; add `-MapleDemoProfile` for a page inside it), `winddown` (cover)
+- **App-level** (`App/DemoPresenter.swift`, over any tab): `reveal` (cover), `profile` (sheet; add `-MapleDemoProfile` for a page inside it), `winddown` (cover). `onboarding` makes `RootView` open on the end of onboarding instead of the tabs (pair it with `-MapleDemoFresh YES`; with an already planted collection it goes straight to Home).
 - **Home:** `tree` (Tree view), `tree:<speciesID>` (Tree view zoomed onto that leaf, as "Show on my maple"), `streak` (Streak sheet), `leaf:<speciesID>` (leaf detail pushed from Home)
 - **Herbarium:** `leaf:<speciesID>` (pushes leaf detail), `share:<speciesID>` (leaf detail, then the rendered share-card PNG at its point size), `rarity` (leaf detail of the rarest earned leaf, or the featured one, with the rarity explainer open), `filter`, `search` or `search:<query>` (the Search sheet, already searching)
 - **Rest:** `schedule` (the schedule editor at `.medium`), `schedule:bedtime` and `schedule:wake` (the editor at `.large` with that time's wheel open)
 
 Feature-level values are checked only by the feature that owns them, on its own tab, so combine them with `-MapleDemoTab`.
+
+**First run.** Without demo arguments the app opens on the end of onboarding (`PlantYourMapleView`, full screen, no tabs) until the First-steps leaf has been revealed and placed; `-MapleDemoFresh YES` shows the same first run in memory. Demo collections (`-MapleDemoSpecies`/`Days`/`Waiting`) are already planted and open on the tabs.
 
 Any Core argument makes the launch a demo: every store (collection, schedule, rarity cache, settings) is held in memory, so nothing a demo does is ever saved. With only `-MapleDemoPhase`, `-MapleDemoSeason`, `-MapleDemoRarity`, `-MapleDemoPermissions` or `-MapleDemoSchedule`, the stores start from an in-memory copy of the member's own files. The wiring is `MapleStores.make(_:)` in MapleServices (settings: `AppSettings.launch()`). Any `-MapleDemo…` argument also keeps wind-down mode's log (`bedside.json`) in memory.
 

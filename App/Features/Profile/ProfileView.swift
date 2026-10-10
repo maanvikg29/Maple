@@ -19,7 +19,12 @@ enum ProfileRoute: Hashable {
 /// `.sheet(isPresented: $showsProfile) { ProfileView() }`.
 struct ProfileView: View {
     @Environment(\.theme) private var theme
-    @State private var path: [ProfileRoute] = ProfileRoute.launchPath
+    @State private var path: [ProfileRoute]
+
+    /// - Parameter path: Pages to open on arrival, e.g. `[.privacy]` from the rarity explainer's "Privacy settings".
+    init(path: [ProfileRoute]? = nil) {
+        _path = State(initialValue: path ?? ProfileRoute.launchPath)
+    }
 
     var body: some View {
         NavigationStack(path: $path) {

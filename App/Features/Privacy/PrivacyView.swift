@@ -36,7 +36,8 @@ struct PrivacyView: View {
             }
         }
         .sheet(isPresented: $showsExplainer) {
-            PrivacyRarityExplainer()
+            // The Herbarium's explainer, in its general form (no leaf, no "Privacy settings" link).
+            RarityExplainerSheet(speciesID: nil)
         }
         #if DEBUG
         .task {

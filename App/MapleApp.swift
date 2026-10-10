@@ -12,6 +12,8 @@ struct MapleApp: App {
     @State private var shares: LeafShareStore
     @State private var settings: AppSettings
     private let clock: MapleClock
+    /// First run: no maple yet, so the app opens on the end of onboarding (spec §8.8).
+    private let needsOnboarding: Bool
 
     init() {
         let stores = MapleStores.launch()
@@ -24,11 +26,22 @@ struct MapleApp: App {
         let settings = AppSettings.launch()
         settings.apply(to: stores.collection)
         _settings = State(initialValue: settings)
+        needsOnboarding = Self.needsOnboarding(stores.collection)
+    }
+
+    /// A member without the First-steps leaf on the tree plants their maple first. DEBUG demo collections are
+    /// already planted (or deliberately empty); `-MapleDemoPresent onboarding` asks for the flow anyway.
+    private static func needsOnboarding(_ collection: CollectionStore) -> Bool {
+        #if DEBUG
+        if UserDefaults.standard.string(forKey: "MapleDemoPresent") == "onboarding" { return true }
+        if DemoLaunchOptions.current.usesDemoCollection { return false }
+        #endif
+        return !collection.hasPlacedFirstLeaf
     }
 
     var body: some Scene {
         WindowGroup {
-            ThemedRoot()
+            ThemedRoot(needsOnboarding: needsOnboarding)
                 .environment(collection)
                 .environment(schedule)
                 .environment(shares)
@@ -47,9 +60,10 @@ private struct ThemedRoot: View {
     @Environment(CollectionStore.self) private var collection
     @Environment(LeafShareStore.self) private var shares
     @Environment(AppSettings.self) private var settings
+    let needsOnboarding: Bool
 
     var body: some View {
-        RootView()
+        RootView(needsOnboarding: needsOnboarding)
             .environment(\.theme, contrast == .increased ? .mapleIncreasedContrast : .maple)
             .environment(\.season, collection.season(at: clock.now()))
             .preferredColorScheme(.dark)

@@ -64,7 +64,7 @@ private struct ChipBody: View {
     var body: some View {
         let capsule = Capsule(style: .continuous)
         configuration.label
-            .padding(.horizontal, 14)
+            .padding(.horizontal, 12)
             .padding(.vertical, 6)
             .frame(minHeight: 32)
             .background {

@@ -22,9 +22,11 @@ struct HomeContent {
     let waitingBudID: String?
     let grewToday: Bool
 
-    init(collection: CollectionStore, now: Date) {
+    /// - Parameter bedside: Wind-down mode's state, so the CTA says "Return to wind-down" while it is on and the
+    ///   morning can show last night's Goodnight time.
+    init(collection: CollectionStore, now: Date, bedside: BedsideState = BedsideState()) {
         self.now = now
-        let state = collection.nowState(at: now)
+        let state = collection.nowState(at: now, goodnightAt: bedside.goodnightAt, windDownActive: bedside.windDownActive)
         self.state = state
         next = collection.nextLeaf(at: now)
         let inputs = collection.treeInputs(at: now)

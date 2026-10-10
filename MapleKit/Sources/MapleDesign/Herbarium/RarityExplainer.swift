@@ -86,15 +86,18 @@ nonisolated public struct RarityExplainer: Sendable, Equatable {
 public struct RarityExplainerView: View {
     @Environment(\.theme) private var theme
     private let explainer: RarityExplainer
+    private let title: String
 
-    public init(_ explainer: RarityExplainer) {
+    /// - Parameter title: "Members who have this leaf" from a leaf; Privacy's link says "How rarity works".
+    public init(_ explainer: RarityExplainer, title: String = RarityExplainer.title) {
         self.explainer = explainer
+        self.title = title
     }
 
     public var body: some View {
         let colors = theme.colors
         VStack(alignment: .leading, spacing: 0) {
-            Text(RarityExplainer.title)
+            Text(title)
                 .font(MapleFont.sectionTitle)
                 .foregroundStyle(colors.textPrimary)
                 .accessibilityAddTraits(.isHeader)

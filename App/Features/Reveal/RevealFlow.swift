@@ -40,6 +40,15 @@ struct RevealFlow: View {
     }
 }
 
+/// Presents the reveal's transparent cover without the system slide (its content fades itself in over `gentle`):
+/// `presentingRevealWithoutSlide { reveal = request }`.
+@MainActor
+func presentingRevealWithoutSlide(_ change: () -> Void) {
+    var transaction = Transaction()
+    transaction.disablesAnimations = true
+    withTransaction(transaction, change)
+}
+
 private struct RevealFlowScreen: View {
     let startingWith: String?
 

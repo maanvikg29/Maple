@@ -268,7 +268,7 @@ struct LeafDetailView: View {
     private func statusActions(_ species: LeafSpecies) -> StatusTile.Actions {
         StatusTile.Actions(
             showOnMaple: { router.showOnMaple(speciesID) },
-            open: { showsReveal = true },
+            open: { presentingRevealWithoutSlide { showsReveal = true } },
             startWindDown: { showsWindDown = true },
             turnOn: { openPermissionSettings(openURL) },
             togglePin: {
