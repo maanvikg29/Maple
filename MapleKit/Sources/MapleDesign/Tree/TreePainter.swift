@@ -35,14 +35,40 @@ nonisolated enum TreePainter {
         }
         var context = context
         rotate(&context, by: angle, about: frame.base)
-        // Finer wood first, so every limb covers the base of the twigs growing from it.
-        let branches = plan.skeleton.branches.filter { depths.contains($0.depth) }.sorted { $0.depth > $1.depth }
-        for branch in branches {
-            drawBranch(branch, plan: plan, frame: frame, in: context)
+        context.drawLayer { layer in
+            // Finer wood first, so every limb covers the base of the twigs growing from it.
+            let branches = plan.skeleton.branches.filter { depths.contains($0.depth) }.sorted { $0.depth > $1.depth }
+            for branch in branches {
+                drawBranch(branch, plan: plan, frame: frame, in: layer)
+            }
+            if depths.contains(1) {
+                drawRoots(plan, frame: frame, in: layer)
+            }
+            shadeUnderCanopy(plan, frame: frame, in: layer)
         }
-        if depths.contains(1) {
-            drawRoots(plan, frame: frame, in: context)
-        }
+    }
+
+    /// Wood inside the crown sits in the canopy's shade: darkest at the crown's heart, clear at its rim and on the
+    /// trunk below, so the limbs recede behind the leaves while the trunk keeps its moonlit modelling.
+    private static func shadeUnderCanopy(_ plan: TreeScenePlan, frame: TreeSceneFrame, in context: GraphicsContext) {
+        let skeleton = plan.skeleton
+        guard !skeleton.leaves.isEmpty else { return }
+        let centre = frame.point(skeleton.crownCentroid)
+        let halfWidth = CGFloat(max(40, skeleton.width * 0.5)) * frame.scale
+        let halfHeight = CGFloat(max(30, (skeleton.height - skeleton.crownCentroid.y) * 1.25)) * frame.scale
+        var layer = context
+        layer.blendMode = .sourceAtop
+        layer.translateBy(x: centre.x, y: centre.y)
+        layer.scaleBy(x: 1, y: halfHeight / halfWidth)
+        let gradient = Gradient(stops: [
+            .init(color: .black.opacity(0.34), location: 0),
+            .init(color: .black.opacity(0.26), location: 0.45),
+            .init(color: .black.opacity(0), location: 1),
+        ])
+        layer.fill(
+            Path(ellipseIn: CGRect(x: -halfWidth, y: -halfWidth, width: 2 * halfWidth, height: 2 * halfWidth)),
+            with: .radialGradient(gradient, center: .zero, startRadius: 0, endRadius: halfWidth)
+        )
     }
 
     /// Rosettes, flowers, halos and buds, rotated by `angle` about the trunk base. `flutter` gives each fluttering

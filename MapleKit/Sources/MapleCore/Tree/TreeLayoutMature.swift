@@ -132,10 +132,10 @@ struct MatureTree: Sendable {
     /// Trunk width at the ground when mature (spec §4.3).
     static let trunkBaseWidth = 22.0
     /// Twig ends stay outside this fraction of the crown's radius, so the fork and the limbs leaving it show.
-    static let innerRadius = 0.36
+    static let innerRadius = 0.2
     static let curveSamples = 100
     /// The seedling's trunk is this fraction of its mature length, and lengthens to full by g = 0.6.
-    static let seedlingTrunk = 0.62
+    static let seedlingTrunk = 0.8
 
     var nodes: [Node]
     var chains: [Chain]
@@ -200,8 +200,8 @@ struct MatureTree: Sendable {
         let degrees = Double.pi / 180
         let crownTilt = (envelope.halfWidthRight - envelope.halfWidthLeft) / envelope.halfWidthLeft * 0.6
         let angles: [Double] = leaderCount == 3
-            ? [-rng.range(30, 40), rng.range(3, 9) * rng.sign(), rng.range(30, 40)].map { $0 * degrees + crownTilt }
-            : [-rng.range(20, 30), rng.range(20, 30)].map { $0 * degrees + crownTilt }
+            ? [-rng.range(38, 48), rng.range(3, 9) * rng.sign(), rng.range(38, 48)].map { $0 * degrees + crownTilt }
+            : [-rng.range(28, 38), rng.range(28, 38)].map { $0 * degrees + crownTilt }
         var cuts: [Double] = [0]
         for k in 1..<leaderCount {
             cuts.append(Double(k) / Double(leaderCount) + rng.range(-0.04, 0.04))
@@ -251,11 +251,13 @@ struct MatureTree: Sendable {
     /// two children, along u or along r (the leading child keeps the outer part), so the twig ends spread evenly.
     private struct Grower {
         static let gatherDepth = 6
-        static let gathering = 0.66
+        static let gathering = 0.72
 
         struct Region {
             var u: ClosedRange<Double>
             var r: ClosedRange<Double>
+            /// A chosen spot for a single twig end, in (u, r).
+            var aim: (u: Double, r: Double)?
 
             var uMiddle: Double { (u.lowerBound + u.upperBound) / 2 }
             /// The radius that halves the region's area.
@@ -283,9 +285,9 @@ struct MatureTree: Sendable {
         init(envelope: CrownEnvelope, rng: SplitMix64) {
             self.envelope = envelope
             self.rng = rng
-            let focus = TreePoint(x: envelope.centerX, y: envelope.equatorY - envelope.downHeight * 0.45)
+            let focus = TreePoint(x: envelope.centerX, y: envelope.equatorY - envelope.downHeight * 0.2)
             self.focus = focus
-            let spread = 94 * Double.pi / 180
+            let spread = 118 * Double.pi / 180
             var raw: [TreePoint] = []
             for i in 0...240 {
                 let angle = -spread + 2 * spread * Double(i) / 240
@@ -320,9 +322,22 @@ struct MatureTree: Sendable {
             return focus + (edge - focus) * r
         }
 
-        /// Where a region's twig ends gather: its middle by area.
+        /// Where a region's twig ends gather: its chosen spot, or else its middle by area.
         func target(of region: Region) -> TreePoint {
-            point(u: region.uMiddle, r: region.rMiddle)
+            if let aim = region.aim {
+                return point(u: aim.u, r: aim.r)
+            }
+            return point(u: region.uMiddle, r: region.rMiddle)
+        }
+
+        /// The region with a seeded spot anywhere inside it (evenly by area) for its twig end, so the finest
+        /// twigs never line up in rows or rings.
+        mutating func scattered(_ region: Region) -> Region {
+            var region = region
+            let lo = region.r.lowerBound, hi = region.r.upperBound
+            let r = (lo * lo + (hi * hi - lo * lo) * rng.unit()).squareRoot()
+            region.aim = (rng.range(region.u.lowerBound, region.u.upperBound), r)
+            return region
         }
 
         mutating func newChain(attach: Int, parentChain: Int, depth: Int) -> Int {
@@ -345,7 +360,10 @@ struct MatureTree: Sendable {
         /// kept near the nominal 0.74 × parent.
         mutating func fittedLength(from start: TreePoint, region: Region, depth: Int, nominal: Double) -> Double {
             let remaining = MatureTree.maxDepth - depth
-            let reachFactor = (1 - pow(MatureTree.lengthRatio, Double(remaining + 1))) / (1 - MatureTree.lengthRatio) * 0.88
+            // The leaders and their limbs reach a little further than their share, so the sapling (depths 1–3)
+            // already spreads like a small crown rather than a broom.
+            let reach = depth <= 3 ? 0.76 : 0.88
+            let reachFactor = (1 - pow(MatureTree.lengthRatio, Double(remaining + 1))) / (1 - MatureTree.lengthRatio) * reach
             let room = start.distance(to: target(of: region))
             let fill = depth == MatureTree.maxDepth ? rng.range(0.8, 1.05) : rng.range(0.88, 1.02)
             let fitted = room * fill / reachFactor
@@ -364,7 +382,8 @@ struct MatureTree: Sendable {
             }
             // Equal areas, nudged outward so the rim is a little fuller than the inside.
             let lo = region.r.lowerBound, hi = region.r.upperBound
-            let cut = min(hi, ((lo * lo + hi * hi) / 2).squareRoot() * rng.range(1.0, 1.06))
+            let middle = ((lo * lo + hi * hi) / 2).squareRoot() + (hi - lo) * rng.range(-0.12, 0.12)
+            let cut = min(max(middle, lo + 0.15 * (hi - lo)), hi - 0.15 * (hi - lo))
             return (Region(u: region.u, r: lo...cut), Region(u: region.u, r: cut...hi), false)
         }
 
@@ -412,7 +431,7 @@ struct MatureTree: Sendable {
                     let limbRegion = Region(u: limbSide < 0 ? lo...(lo + cut) : (hi - cut)...hi, r: region.r)
                     forkRegion.u = limbSide < 0 ? (lo + cut)...hi : lo...(hi - cut)
                     let along = (nodes[node].position - nodes[nodes[node].parent].position).normalized()
-                    let spread = rng.range(30, 38) * Double.pi / 180 * (k % 2 == 0 ? 1 : 0.8)
+                    let spread = rng.range(34, 44) * Double.pi / 180 * (k % 2 == 0 ? 1 : 0.8)
                     let dir = TreePoint.direction(angleFromUp: along.angleFromUp + limbSide * spread)
                     let l = fittedLength(from: nodes[node].position, region: limbRegion, depth: 3, nominal: length * MatureTree.lengthRatio)
                     let c = newChain(attach: node, parentChain: chain, depth: 3)
@@ -468,6 +487,10 @@ struct MatureTree: Sendable {
             if childDepth == Self.gatherDepth {
                 leadRegion = leadRegion.gathered(by: Self.gathering)
                 sideRegion = sideRegion.gathered(by: Self.gathering)
+            }
+            if childDepth == MatureTree.maxDepth {
+                leadRegion = scattered(leadRegion)
+                sideRegion = scattered(sideRegion)
             }
             let nominal = length * MatureTree.lengthRatio
             let childWidth = width * MatureTree.widthTaper
@@ -541,12 +564,23 @@ struct MatureTree: Sendable {
         return blocks.flatMap { Array(repeating: $0.mean, count: $0.count) }
     }
 
+    /// The least-squares non-decreasing fit, lifted wherever it would fall below `share` of its target (each depth
+    /// spreads the crown in a step while the target widens steadily; a sapling a little wide reads better than a
+    /// narrow broom). Still non-decreasing: the lift only ever rises.
+    static func nonDecreasing(_ values: [Double], within share: Double) -> [Double] {
+        var floor = 0.0
+        return zip(nonDecreasing(values), values).map { fitted, value in
+            floor = max(floor, value * share)
+            return max(fitted, floor)
+        }
+    }
+
     // MARK: Emergence
 
     /// How grown node `j`'s incoming segment is at growth `g`: 0 (not yet) … 1 (full length).
     func emergence(_ j: Int, at g: Double) -> Double {
         if j <= forkNode {
-            return j == 0 ? 1 : TreeMath.lerp(Self.seedlingTrunk, 1, TreeMath.smoothstep(g / 0.6))
+            return j == 0 ? 1 : TreeMath.lerp(Self.seedlingTrunk, 1, 1 - pow(1 - min(1, g / 0.6), 2))
         }
         let threshold = nodes[j].threshold
         guard threshold >= 0 else { return 1 }
@@ -587,14 +621,14 @@ struct MatureTree: Sendable {
             }
             let leaf = Self.leafSize(at: g)
             let targetHeight = TreeMath.lerp(140, 350, g) - 0.92 * leaf
-            let targetWidth = TreeMath.lerp(110, 340, g) - 2 * leaf
+            let targetWidth = TreeMath.lerp(110, 340, g) - 1.2 * leaf
             let sy = targetHeight / max(1, maxY)
-            let sx = min(max(targetWidth / max(1, maxX - minX), sy * 0.72), sy * 1.15)
+            let sx = min(max(targetWidth / max(1, maxX - minX), sy * 0.72), sy * 1.3)
             rawY.append(sy)
             rawX.append(sx)
             rawWidth.append(TreeMath.lerp(4, 22, g) / Self.trunkBaseWidth)
         }
-        scaleX = Self.nonDecreasing(rawX)
+        scaleX = Self.nonDecreasing(rawX, within: 0.86)
         scaleY = Self.nonDecreasing(rawY)
         widthScale = Self.nonDecreasing(rawWidth)
     }
