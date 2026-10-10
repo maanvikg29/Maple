@@ -12,6 +12,7 @@ struct HomeContent {
     let next: LeafProgress?
     let tree: TreeSceneModel
     let stage: TreeStage
+    /// N in "23 of 155": opened leaves (`CollectionStore.leafCount`), for the caption, Tree view and VoiceOver.
     let leaves: Int
     let total: Int
     let tendedDays: Int
@@ -44,8 +45,10 @@ struct HomeContent {
             newLeafHalos: inputs.newLeafHalos.map { .init(speciesID: $0.speciesID, placedAt: $0.placedAt) }
         )
         stage = inputs.stage
-        leaves = inputs.species.count
-        total = LeafCatalog.shared.species.count
+        // One count rule (spec §5.2): opened leaves only; a waiting leaf is the amber bud, not part of N.
+        let count = collection.leafCount
+        leaves = count.opened
+        total = count.total
         tendedDays = inputs.tendedDays
         streak = collection.currentBedtimeRun
         if let featured = collection.featuredLeaf, let species = LeafCatalog.shared.species(id: featured),

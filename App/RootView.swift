@@ -16,17 +16,19 @@ struct RootView: View {
     /// Latched at launch and cleared only by onboarding's `onFinish`: the First-steps leaf is placed mid-flow, and
     /// the seedling it grows still has to be shown before Home takes over.
     @State private var isPlanting: Bool
+    private let firstRun: FirstRunStep
 
-    /// - Parameter needsOnboarding: The member has no maple yet (the First-steps leaf isn't on the tree).
-    init(needsOnboarding: Bool) {
-        _isPlanting = State(initialValue: needsOnboarding)
+    /// - Parameter firstRun: Where the first run starts or resumes; `.finished` opens on the tabs.
+    init(firstRun: FirstRunStep) {
+        self.firstRun = firstRun
+        _isPlanting = State(initialValue: firstRun.needsOnboarding)
     }
 
     var body: some View {
         ZStack {
             if isPlanting {
                 // Full screen and non-dismissable: there is no Home without a maple (D12).
-                PlantYourMapleView(onFinish: finishPlanting)
+                PlantYourMapleView(start: firstRun, onFinish: finishPlanting)
                     .transition(.opacity)
                     .zIndex(1)
             } else {
@@ -106,14 +108,5 @@ private extension AppTab {
         }
         #endif
         return .home
-    }
-}
-
-extension CollectionStore {
-    /// The First-steps leaf (the Sugar maple) is opened and on the tree: onboarding is complete. `hasPlantedMaple`
-    /// turns true earlier, when saving the schedule earns the leaf, so the gate reads the reveal instead.
-    var hasPlacedFirstLeaf: Bool {
-        let id = RewardCatalog.shared.rungs(in: .firstSteps).first?.speciesID ?? "saccharum"
-        return unlock(for: id)?.revealed == true
     }
 }

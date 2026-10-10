@@ -139,6 +139,8 @@ extension CollectionSnapshot {
     public var earned: [LeafUnlock] { unlocks.filter(\.revealed) }
     /// Leaves earned but not opened yet (held or pending), in unlock order.
     public var waiting: [LeafUnlock] { unlocks.filter { !$0.revealed } }
+    /// "N of 155": opened leaves only (spec §5.2, `LeafCount`).
+    public var leafCount: LeafCount { LeafCount(unlocks: unlocks) }
     /// The First-steps leaf has been earned: onboarding is done and Home can show (D12).
     public var hasPlantedMaple: Bool { unlocks.contains { RevealSchedule.isFirstSteps($0.speciesID) } }
     public var tendedDayCount: Int { tendedDays.count }
@@ -224,7 +226,7 @@ extension CollectionSnapshot {
             seed: treeSeed,
             tendedDays: tendedDayCount,
             growth: TreeGrowth.structure(tendedDays: tendedDayCount),
-            stage: TreeStage(speciesCount: placed.count),
+            stage: TreeStage(speciesCount: leafCount.opened),
             species: placed.map { TreeInputs.Leaf(speciesID: $0.speciesID, pressed: $0.colourway) },
             buds: picker.buds(phase: phase, pinned: pinnedSpeciesID).map { TreeInputs.Bud(speciesID: $0.speciesID, progress: $0.fraction) },
             waiting: revealable(at: date, context: context).map(\.speciesID),
@@ -242,8 +244,9 @@ extension CollectionSnapshot {
             LeafAvailability(category: category, permissions: context.permissions, features: context.features) == .available
                 ? counters[category, default: 0] : nil
         }
+        let opened = leafCount.opened
         return ProfileTotals(
-            leaves: earned.count, tendedDays: tendedDayCount, stage: TreeStage(speciesCount: earned.count),
+            leaves: opened, tendedDays: tendedDayCount, stage: TreeStage(speciesCount: opened),
             nightsOnTime: total(.onTimeBedtimes).map { Int($0) }, focusHours: total(.focusHours),
             windDowns: total(.windDownRituals).map { Int($0) }, mornings: total(.steadyMornings).map { Int($0) }
         )

@@ -62,19 +62,15 @@ nonisolated public struct HerbariumEntry: Sendable, Equatable, Identifiable {
         }
     }
 
-    /// Earned or waiting: the leaf is the member's.
+    /// Earned or waiting: the leaf is the member's (it shows in the Earned scope, as a leaf or a bud).
     public var isUnlocked: Bool {
         if case .locked = progress.state { false } else { true }
     }
 
-    public var isWaiting: Bool {
-        if case .waiting = progress.state { true } else { false }
-    }
+    public var isWaiting: Bool { progress.state.isWaiting }
 
-    /// Opened and in the collection.
-    public var isEarned: Bool {
-        if case .earned = progress.state { true } else { false }
-    }
+    /// Opened and in the collection: the only leaves "N of 155" counts (`LeafCount`).
+    public var isEarned: Bool { progress.isOpened }
 
     public var unlock: LeafUnlock? {
         switch progress.state {
@@ -89,7 +85,8 @@ nonisolated public struct HerbariumEntry: Sendable, Equatable, Identifiable {
     }
 }
 
-/// The All / Earned / Locked chips. Earned includes leaves still waiting to be opened.
+/// The All / Earned / Locked chips. The Earned scope also shows leaves still waiting to be opened (as buds), but
+/// its chip counts opened leaves only, like every "N of 155" (`LeafCount`).
 nonisolated public enum HerbariumScope: String, Sendable, CaseIterable, Identifiable {
     case all, earned, locked
 
@@ -108,6 +105,15 @@ nonisolated public enum HerbariumScope: String, Sendable, CaseIterable, Identifi
         case .all: true
         case .earned: entry.isUnlocked
         case .locked: !entry.isUnlocked
+        }
+    }
+
+    /// The number on the chip: "All 155", "Earned 23" (opened leaves only, never waiting ones), "Locked 131".
+    public func count(in entries: [HerbariumEntry]) -> Int {
+        switch self {
+        case .all: entries.count
+        case .earned: LeafCount(entries.map(\.progress)).opened
+        case .locked: entries.filter { !$0.isUnlocked }.count
         }
     }
 }
@@ -181,7 +187,7 @@ nonisolated public struct HerbariumFilters: Sendable, Equatable {
 nonisolated public struct HerbariumSection: Sendable, Equatable, Identifiable {
     public let id: String
     public let title: String
-    /// "6 of 15", or "82 leaves" for the Dormant section.
+    /// "6 of 15" (opened leaves only, `LeafCount`), or "82 leaves" for the Dormant section.
     public let count: String
     public let spokenCount: String
     /// The category definition, or the Dormant line.
@@ -313,9 +319,9 @@ nonisolated public enum HerbariumLayout {
             self.id = id
             self.title = title
             self.members = members
-            let owned = members.filter(\.isUnlocked).count
-            count = "\(owned) of \(members.count)"
-            spokenCount = "\(owned) of \(members.count) leaves"
+            let leaves = LeafCount(members.map(\.progress))
+            count = leaves.text
+            spokenCount = leaves.spoken
             self.definition = definition
             self.dot = dot
             self.permission = permission

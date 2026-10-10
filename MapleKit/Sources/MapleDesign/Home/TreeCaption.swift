@@ -21,24 +21,12 @@ public struct TreeCaption: View {
 
     public var body: some View {
         Button(action: action) {
-            HStack(alignment: .firstTextBaseline, spacing: 0) {
-                Text("\(stage.displayName) · ")
-                    .font(MapleFont.footnote)
-                    .foregroundStyle(theme.colors.textSecondary)
-                Text(leaves, format: .number)
-                    .font(MapleFont.tileName.monospacedDigit())
-                    .foregroundStyle(theme.colors.textPrimary)
-                    .contentTransition(.numericText(value: Double(leaves)))
-                Text(" of \(total)")
-                    .font(MapleFont.footnote)
-                    .foregroundStyle(theme.colors.textSecondary)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(theme.colors.textSecondary)
-                    .padding(.leading, 5)
+            // One line. At the largest text sizes, where the whole line no longer fits, the stage name gives way
+            // (VoiceOver still says it) rather than being cut to "Young m…".
+            ViewThatFits(in: .horizontal) {
+                line(showsStage: true)
+                line(showsStage: false)
             }
-            .lineLimit(1)
-            .minimumScaleFactor(0.8)
             .padding(.horizontal, theme.spacing.sm)
             .frame(minHeight: theme.spacing.minimumHitTarget)
             .contentShape(Rectangle())
@@ -47,6 +35,31 @@ public struct TreeCaption: View {
         .mapleAnimation(theme.motion.gentle, value: leaves)
         .accessibilityLabel(HomeSpeech.caption(stage: stage, leaves: leaves, total: total))
         .accessibilityHint("Opens the herbarium.")
+    }
+}
+
+extension TreeCaption {
+    private func line(showsStage: Bool) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 0) {
+            if showsStage {
+                Text("\(stage.displayName) · ")
+                    .font(MapleFont.footnote)
+                    .foregroundStyle(theme.colors.textSecondary)
+            }
+            Text(leaves, format: .number)
+                .font(MapleFont.tileName.monospacedDigit())
+                .foregroundStyle(theme.colors.textPrimary)
+                .contentTransition(.numericText(value: Double(leaves)))
+            Text(" of \(total)")
+                .font(MapleFont.footnote)
+                .foregroundStyle(theme.colors.textSecondary)
+            Image(systemName: "chevron.right")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(theme.colors.textSecondary)
+                .padding(.leading, 5)
+        }
+        .lineLimit(1)
+        .fixedSize()
     }
 }
 

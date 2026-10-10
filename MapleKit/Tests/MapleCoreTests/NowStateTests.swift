@@ -199,14 +199,47 @@ struct NowStateTests {
         #expect(now.caption == "in bed · bedtime 23:00")
     }
 
-    @Test("Morning with no data uses the day's content")
+    @Test("Morning with no data for last night: tonight's wind-down start as a clock time, not a long countdown")
     func morningNoData() {
         let now = state(7, 40)
         #expect(now.phase == .morning)
-        #expect(now.content == .untilWindDown)
-        #expect(now.numeral.text == "14h 35m")
+        #expect(now.content == .windDownTonight)
+        #expect(now.numeral.parts == [.value("22:15")])
+        #expect(now.numeral.text == "22:15")
+        #expect(now.caption == "wind-down tonight · bed 23:00")
+        #expect(now.spoken == "Wind-down tonight at 22:15. Bed at 23:00.")
         #expect(now.action == nil)
+        #expect(!now.actionIsDimmed)
         #expect(now.leafPreference == .morning)
+        #expect(now.waitingCount == 0)
+
+        let us = state(7, 40, locale: enUS)
+        #expect(us.numeral.parts == [.value("10:15"), .unit(" PM")])
+        #expect(us.numeral.text == "10:15 PM")
+        #expect(us.caption == "wind-down tonight · bed 11:00 PM")
+
+        // The same at the start and the end of the morning, and once focus ships (no "0m focused" at 6 AM).
+        #expect(state(6, 0).content == .windDownTonight)
+        #expect(state(9, 59).content == .windDownTonight)
+        #expect(state(7, 40, features: .all).content == .windDownTonight)
+        // Data for last night still wins.
+        #expect(state(7, 40, goodnightAt: at(2026, 10, 9, 23, 4)).content == .goodnight)
+        // Pending leaves keep the numeral and take the action.
+        let pending = state(7, 40, pending: 1)
+        #expect(pending.content == .windDownTonight)
+        #expect(pending.action == .openReveals(count: 1))
+    }
+
+    @Test("Tonight's wind-down follows the member's schedule, past midnight too")
+    func morningNoDataSchedule() {
+        let late = SleepSchedule(bedtime: ClockTime(hour: 0, minute: 30), wake: ClockTime(hour: 8, minute: 30), windDownMinutes: 60)
+        let now = NowState.resolve(date: at(2026, 10, 10, 8, 0), schedule: late, calendar: utc, locale: enGB)
+        #expect(now.phase == .morning)
+        #expect(now.numeral.text == "23:30")
+        #expect(now.caption == "wind-down tonight · bed 00:30")
+        let us = NowState.resolve(date: at(2026, 10, 10, 8, 0), schedule: late, calendar: utc, locale: enUS)
+        #expect(us.numeral.text == "11:30 PM")
+        #expect(us.caption == "wind-down tonight · bed 12:30 AM")
     }
 
     @Test("Check-in once mood check-ins ship")
@@ -248,6 +281,7 @@ struct NowStateTests {
             let states = [
                 state(7, 40, locale: locale, lastNight: night),
                 state(7, 40, locale: locale, goodnightAt: at(2026, 10, 9, 23, 4)),
+                state(7, 40, locale: locale),
                 state(13, 40, locale: locale),
                 state(13, 40, locale: locale, features: .all, focus: FocusStatus(todayMinutes: 85, weekMinutes: 250)),
                 state(13, 40, locale: locale, features: .all, focus: FocusStatus(todayMinutes: 5, weekMinutes: 5, remaining: 300)),

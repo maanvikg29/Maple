@@ -135,7 +135,7 @@ private struct FeaturedLeaf: View {
     }
 }
 
-/// "Young maple · 23 leaves · 41 days", and its spoken form.
+/// "Young maple · 23 leaves · 41 days", and its spoken form. `totals.leaves` counts opened leaves only (spec §5.2).
 enum ProfileSummary {
     static func line(_ totals: ProfileTotals) -> String {
         var parts = [totals.stage.displayName, totals.leaves == 1 ? "1 leaf" : "\(totals.leaves.formatted()) leaves"]
@@ -146,7 +146,7 @@ enum ProfileSummary {
     }
 
     static func spoken(_ totals: ProfileTotals) -> String {
-        var sentence = "\(totals.stage.displayName), \(totals.leaves) of \(LeafCatalog.shared.species.count) leaves"
+        var sentence = "\(totals.stage.displayName), \(LeafCount(opened: totals.leaves, total: LeafCatalog.shared.species.count).spoken)"
         if totals.tendedDays > 0 {
             sentence += totals.tendedDays == 1 ? ", grown over 1 day" : ", grown over \(totals.tendedDays) days"
         }
