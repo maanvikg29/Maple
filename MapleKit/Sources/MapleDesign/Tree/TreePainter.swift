@@ -128,6 +128,27 @@ nonisolated enum TreePainter {
         context.fill(Path(ellipseIn: rect), with: .radialGradient(gradient, center: centre, startRadius: 0, endRadius: radius))
     }
 
+    /// Whether the tree carries the Grand maple trophy: every species collected (spec §4.4).
+    static func hasTrophy(_ plan: TreeScenePlan) -> Bool {
+        plan.skeleton.primaryTips.count >= LeafCatalog.shared.species.count
+    }
+
+    /// The ring the trophy draws in: radius 0.62 × crown width around the crown centroid, kept 8 pt inside the
+    /// 402 pt scene so it never reads as cut off.
+    static func trophyRect(_ plan: TreeScenePlan, frame: TreeSceneFrame) -> CGRect {
+        let centre = frame.point(plan.skeleton.crownCentroid)
+        let radius = min(0.62 * plan.skeleton.width, TreeSceneFrame.reference.width / 2 - 8) * frame.scale
+        return CGRect(x: centre.x - radius, y: centre.y - radius, width: 2 * radius, height: 2 * radius)
+    }
+
+    /// The Grand maple trophy: a faint ring of moonlight behind the crown, half sunk behind the hill.
+    static func drawTrophy(_ plan: TreeScenePlan, frame: TreeSceneFrame, in context: GraphicsContext) {
+        guard hasTrophy(plan) else { return }
+        let ring = Path(ellipseIn: trophyRect(plan, frame: frame))
+        context.stroke(ring, with: .color(plan.scene.moonlight.opacity(0.025)), lineWidth: 5 * frame.scale)
+        context.stroke(ring, with: .color(plan.scene.moonlight.opacity(0.08)), lineWidth: frame.scale)
+    }
+
     /// 0.75 × crown width (spec §4.4).
     static func bloomRadius(_ plan: TreeScenePlan, frame: TreeSceneFrame) -> CGFloat {
         0.75 * max(80, plan.skeleton.width) * frame.scale
@@ -350,6 +371,11 @@ nonisolated enum TreePainter {
             }
             context.stroke(rim, with: .color(plan.bark.rim), style: StrokeStyle(lineWidth: 0.75 * frame.scale, lineCap: .round, lineJoin: .round))
 
+            // Shallow furrows in the old bark of the trunk and leaders.
+            if branch.depth <= 2, maxWidth >= 6 * frame.scale {
+                drawFurrows(samples, seed: plan.model.seed &+ UInt64(branch.id), frame: frame, in: context)
+            }
+
             // Winter: a line of snow along the top of the trunk and limbs where they run out sideways.
             if let snow = plan.bark.snow {
                 var line = Path()
@@ -370,6 +396,28 @@ nonisolated enum TreePainter {
                 }
                 context.stroke(line, with: .color(snow), style: StrokeStyle(lineWidth: frame.scale, lineCap: .round, lineJoin: .round))
             }
+        }
+    }
+
+    /// Three broken lines running with the limb, darkest where they cross the lit band.
+    private static func drawFurrows(_ samples: [Sample], seed: UInt64, frame: TreeSceneFrame, in context: GraphicsContext) {
+        var rng = SplitMix64(seed: SplitMix64.derive(seed, "furrows"))
+        let first = Int(Double(samples.count) * 0.04), last = Int(Double(samples.count) * 0.9)
+        guard last - first >= 3 else { return }
+        for offset in [-0.3, 0.02, 0.28] {
+            var path = Path()
+            let jitter = rng.range(-0.04, 0.04)
+            for (k, s) in samples[first..<last].enumerated() {
+                let n = CGVector(dx: -s.tangent.dy, dy: s.tangent.dx)
+                let o = CGFloat(offset + jitter) * s.width
+                let p = CGPoint(x: s.point.x + n.dx * o, y: s.point.y + n.dy * o)
+                if k == 0 { path.move(to: p) } else { path.addLine(to: p) }
+            }
+            let dash = [rng.range(5, 10), rng.range(2, 4), rng.range(3, 7), rng.range(2, 5)].map { CGFloat($0) * frame.scale }
+            context.stroke(
+                path, with: .color(.black.opacity(0.26)),
+                style: StrokeStyle(lineWidth: 0.7 * frame.scale, lineCap: .round, dash: dash, dashPhase: CGFloat(rng.range(0, 8)))
+            )
         }
     }
 
@@ -421,6 +469,9 @@ nonisolated enum TreePainter {
         let transform = leafTransform(leaf, scale: plan.leafScale, rosette: rosette, extraAngle: extraAngle, frame: frame)
         let pointSize = leaf.size * plan.leafScale
         LeafRenderer.draw(leaf.geometry, in: context, transform: transform, style: LeafStyle(fill: leaf.fill, vein: leaf.vein, detail: .fillOnly))
+        if pointSize >= 9 {
+            foldShade(leaf, transform: transform, light: plan.sky.lightDirection, in: context)
+        }
         if pointSize >= 14 {
             // Veins at a fixed hairline width so the larger leaves read as real specimens.
             let veins = leaf.geometry.veinPaths.reduce(into: Path()) { $0.addPath($1.applying(transform)) }
@@ -433,6 +484,23 @@ nonisolated enum TreePainter {
                 style: StrokeStyle(lineWidth: 0.75 * frame.scale, lineJoin: .round)
             )
         }
+    }
+
+    /// A leaf is never quite flat: the half of the blade on the light's side of the midrib is a touch lighter and
+    /// the other half a touch darker, so each leaf reads as gently creased.
+    private static func foldShade(_ leaf: TreeScenePlan.LeafPaint, transform: CGAffineTransform, light: CGVector, in context: GraphicsContext) {
+        let geometry = leaf.geometry
+        // The midrib runs along x = 0 of the generator's leaf space, from the stalk to the tip.
+        let toScreen = geometry.placement.concatenating(transform)
+        let right = Path(CGRect(x: 0, y: -220, width: 220, height: 440)).applying(toScreen)
+        let left = Path(CGRect(x: -220, y: -220, width: 220, height: 440)).applying(toScreen)
+        let length = max(1e-6, hypot(toScreen.a, toScreen.b))
+        let facing = (toScreen.a * light.dx + toScreen.b * light.dy) / length
+        let strength = 0.35 + 0.65 * abs(facing)
+        var clipped = context
+        clipped.clip(to: geometry.silhouettePath.applying(transform))
+        clipped.fill(facing >= 0 ? right : left, with: .color(.white.opacity(0.07 * strength)))
+        clipped.fill(facing >= 0 ? left : right, with: .color(.black.opacity(0.1 * strength)))
     }
 
     /// Light across the whole crown as one dome: a lift on the side facing the light and shade on the far side,

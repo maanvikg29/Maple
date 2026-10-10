@@ -51,6 +51,7 @@ nonisolated enum TreeSceneRenderer {
             drawSky(plan, frame: frame, time: motion.time, stars: .all, background: background, in: context)
         }
         TreePainter.drawBloom(plan, frame: frame, breathe: breathe(motion), in: context)
+        TreePainter.drawTrophy(plan, frame: frame, in: context)
         drawGroundAndDissolve(plan, frame: frame, background: background, in: context)
         TreePainter.drawWood(plan, depths: 4...8, frame: frame, angle: sway.twigs, in: context)
         TreePainter.drawWood(plan, depths: 1...3, frame: frame, angle: sway.trunk, in: context)
@@ -128,6 +129,9 @@ final class TreeRasterCache {
         var sky: Image?
         var bloom: Image?
         var bloomRect: CGRect
+        /// The Grand maple ring, only at 155 of 155.
+        var trophy: Image?
+        var trophyRect: CGRect
         var ground: Image
         var groundRect: CGRect
         var twigs: Image
@@ -195,6 +199,10 @@ final class TreeRasterCache {
         let bloom = plan.model.species.isEmpty || plan.bloomOpacity <= 0 ? nil : image(render(bloomRect, scale: skyScale) { context in
             TreePainter.drawBloom(plan, frame: frame, breathe: Layers.bloomPeak, in: context)
         }, scale: skyScale)
+        let trophyRect = TreePainter.trophyRect(plan, frame: frame).insetBy(dx: -4, dy: -4).integral
+        let trophy = TreePainter.hasTrophy(plan) ? image(render(trophyRect, scale: skyScale) { context in
+            TreePainter.drawTrophy(plan, frame: frame, in: context)
+        }, scale: skyScale) : nil
         guard
             let ground = image(render(groundRect) { TreeSceneRenderer.drawGroundAndDissolve(plan, frame: frame, background: background, in: $0) }),
             let twigs = image(render(rect) { TreePainter.drawWood(plan, depths: 4...8, frame: frame, angle: 0, in: $0) }),
@@ -206,7 +214,7 @@ final class TreeRasterCache {
 
         let base = frame.base
         let layers = Layers(
-            sky: sky, bloom: bloom, bloomRect: bloomRect, ground: ground, groundRect: groundRect,
+            sky: sky, bloom: bloom, bloomRect: bloomRect, trophy: trophy, trophyRect: trophyRect, ground: ground, groundRect: groundRect,
             twigs: twigs, trunk: trunk, foliage: foliage, rect: rect,
             anchor: UnitPoint(x: (base.x - rect.minX) / rect.width, y: (base.y - rect.minY) / rect.height),
             sprites: sprites(plan, frame: frame, displayScale: displayScale)

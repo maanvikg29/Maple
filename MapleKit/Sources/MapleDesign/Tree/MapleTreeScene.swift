@@ -169,6 +169,9 @@ public struct MapleTreeScene: View {
                             .opacity(TreeSceneRenderer.breathe(motion) / TreeRasterCache.Layers.bloomPeak)
                             .blendMode(.plusLighter)
                     }
+                    if let trophy = layers.trophy {
+                        placed(trophy, in: layers.trophyRect)
+                    }
                     placed(layers.ground, in: layers.groundRect)
                     swaying(layers.twigs, layers, angle: sway.twigs)
                     swaying(layers.trunk, layers, angle: sway.trunk)
