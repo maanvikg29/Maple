@@ -144,8 +144,17 @@ public final class CollectionStore {
     public var earned: [LeafUnlock] { snapshot.earned }
     /// Earned leaves not opened yet, held or pending.
     public var waiting: [LeafUnlock] { snapshot.waiting }
-    /// The First-steps leaf is earned: onboarding is done (first-run gating).
+    /// The collection's count, by the one rule (spec §5.2): "N of 155" counts opened leaves only, and waiting
+    /// leaves are told apart ("1 waiting"). Every screen that shows N reads it here.
+    public var leafCount: LeafCount { snapshot.leafCount }
+    /// N in "N of 155": opened leaves, never waiting ones.
+    public var openedCount: Int { leafCount.opened }
+    /// The First-steps leaf is earned (the schedule was saved). The Sugar maple may still be waiting in the bud.
     public var hasPlantedMaple: Bool { snapshot.hasPlantedMaple }
+    /// The First-steps unlock (the Sugar maple), opened or not.
+    public var firstLeaf: LeafUnlock? { snapshot.firstLeaf }
+    /// The Sugar maple is opened and on the tree: the first run is over (first-run gating, `FirstRunStep`).
+    public var hasPlacedFirstLeaf: Bool { snapshot.hasPlacedFirstLeaf }
     public var pinnedSpeciesID: String? { snapshot.pinnedSpeciesID }
     /// The avatar's and crown's leaf: the member's choice, else the newest leaf.
     public var featuredLeaf: String? { snapshot.featuredLeaf }
@@ -157,7 +166,7 @@ public final class CollectionStore {
     public var tendedDays: Int { snapshot.tendedDayCount }
     /// Structural growth g.
     public var growth: Double { TreeGrowth.structure(tendedDays: snapshot.tendedDayCount) }
-    public var stage: TreeStage { TreeStage(speciesCount: earned.count) }
+    public var stage: TreeStage { TreeStage(speciesCount: openedCount) }
     public var vitality: Vitality { snapshot.vitality }
     public var totals: ProfileTotals { snapshot.totals(context: context) }
 

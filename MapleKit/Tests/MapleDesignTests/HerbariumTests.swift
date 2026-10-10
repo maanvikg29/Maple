@@ -107,7 +107,9 @@ struct HerbariumLayoutTests {
         #expect(nights.entries.map(\.id) == ["rubrum", "saccharinum", "nigrum", "pycnanthum", "negundo", "floridanum"])
         #expect(nights.hiddenCount == 6)
         #expect(nights.expandTitle == "Show 6 more")
-        #expect(nights.count == "3 of 12")
+        // One count rule (spec §5.2): the waiting Black maple is a tile, but not part of "N of 12".
+        #expect(nights.count == "2 of 12")
+        #expect(nights.spokenCount == "2 of 12 leaves")
 
         let open = try #require(HerbariumLayout.sections(entries, expanded: ["nights_tracked"]).first { $0.id == "nights_tracked" })
         #expect(open.entries.count == 12)
@@ -121,6 +123,22 @@ struct HerbariumLayoutTests {
         #expect(dormant.entries.count == 6)
         #expect(dormant.expandTitle == "Show all")
         #expect(dormant.entries.allSatisfy { $0.status == .dormant })
+    }
+
+    @Test("Chip counts: Earned counts opened leaves only, though its scope also shows the waiting buds")
+    func scopeCounts() {
+        let entries = collection(earned: ["saccharum", "rubrum"], waiting: ["saccharinum"])
+        #expect(HerbariumScope.all.count(in: entries) == 155)
+        #expect(HerbariumScope.earned.count(in: entries) == 2)
+        #expect(HerbariumScope.locked.count(in: entries) == 152)
+        // The earned scope still draws the bud, so it can be opened from there.
+        #expect(HerbariumLayout.sections(entries, scope: .earned).flatMap(\.entries).contains { $0.isWaiting })
+        // Every section's "N of M" follows the same rule, so the sections add up to the header's N.
+        let sections = HerbariumLayout.sections(entries, expanded: Set(RewardCategoryID.allCases.map(\.rawValue)))
+        let counted = sections.filter { $0.id != HerbariumLayout.dormantSectionID }
+            .compactMap { Int($0.count.split(separator: " ").first ?? "") }
+        #expect(counted.reduce(0, +) == LeafCount(entries.map(\.progress)).opened)
+        #expect(LeafCount(entries.map(\.progress)) == LeafCount(opened: 2, waiting: 1, total: 155))
     }
 
     @Test("Filters, the Locked chip and the Earned chip show everything they match, uncollapsed")

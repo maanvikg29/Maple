@@ -169,14 +169,20 @@ private struct TreeViewport: View {
                     .font(MapleFont.headline)
                     .foregroundStyle(theme.colors.textPrimary)
                     .accessibilityAddTraits(.isHeader)
-                Text(subtitle)
-                    .font(MapleFont.footnote.monospacedDigit())
-                    .foregroundStyle(theme.colors.textSecondary)
+                // At large text sizes the stage name, then the days, give way, so the count is never cut off.
+                ViewThatFits(in: .horizontal) {
+                    subtitleText(subtitle(stage: true, days: true)).fixedSize()
+                    subtitleText(subtitle(stage: false, days: true)).fixedSize()
+                    subtitleText(subtitle(stage: false, days: false))
+                }
             }
             .lineLimit(1)
             .minimumScaleFactor(0.8)
             .padding(.horizontal, 56)
-            .accessibilityElement(children: .combine)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(HomeSpeech.treeLabel(stage: content.stage, leaves: content.leaves, total: content.total,
+                                                     tendedDays: content.tendedDays))
+            .accessibilityAddTraits(.isHeader)
 
             HStack {
                 Button("Close", systemImage: "xmark", action: close)
@@ -188,13 +194,20 @@ private struct TreeViewport: View {
         .frame(minHeight: Self.topBarHeight)
     }
 
-    /// "Young maple · 23 of 155 · 41 days".
-    private var subtitle: String {
-        var parts = [content.stage.displayName, "\(content.leaves) of \(content.total)"]
-        if content.tendedDays > 0 {
+    /// "Young maple · 23 of 155 · 41 days" (opened leaves only, like every "N of 155").
+    private func subtitle(stage: Bool, days: Bool) -> String {
+        var parts = ["\(content.leaves) of \(content.total)"]
+        if stage { parts.insert(content.stage.displayName, at: 0) }
+        if days, content.tendedDays > 0 {
             parts.append("\(content.tendedDays) \(content.tendedDays == 1 ? "day" : "days")")
         }
         return parts.joined(separator: " · ")
+    }
+
+    private func subtitleText(_ text: String) -> some View {
+        Text(text)
+            .font(MapleFont.footnote.monospacedDigit())
+            .foregroundStyle(theme.colors.textSecondary)
     }
 
     // MARK: Zoom and pan

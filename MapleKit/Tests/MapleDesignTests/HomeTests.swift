@@ -39,6 +39,61 @@ struct HomeTests {
         #expect(end == 756)
     }
 
+    @Test("The first screen keeps the stage while there is room, as on the wireframe")
+    func firstScreenAtDefaultSize() {
+        // iPhone 17e at Large: 714pt between the status bar and the tab bar, a 44pt header, and the numeral,
+        // caption and row taking 179pt under the stage.
+        let fit = HomeLayout.firstScreen(stageHeight: 396, visibleHeight: 714 - 44, belowStage: 179, action: 52, hasAction: true)
+        #expect(fit == HeroFit(heroHeight: 396, pinsAction: false))
+        // The wireframe (iPhone 17, §3.1): stage 410, numeral to row 176, capsule 52 ending 30pt above the tab bar.
+        let wireframe = HomeLayout.firstScreen(stageHeight: 410, visibleHeight: 786 - 106, belowStage: 176, action: 52,
+                                               hasAction: true)
+        #expect(wireframe == HeroFit(heroHeight: 410, pinsAction: false))
+        // Not measured yet: the preferred height.
+        let unmeasured = HomeLayout.firstScreen(stageHeight: 396, visibleHeight: 670, belowStage: nil, action: nil, hasAction: true)
+        #expect(unmeasured == HeroFit(heroHeight: 396, pinsAction: false))
+    }
+
+    @Test("At large text sizes the stage yields so the capsule sits fully above the tab bar")
+    func firstScreenYields() {
+        // iPhone 17e at accessibility-extra-large: an 86pt header and a two-line capsule.
+        let visible: CGFloat = 714 - 86
+        let fit = HomeLayout.firstScreen(stageHeight: 320, visibleHeight: visible, belowStage: 300, action: 92, hasAction: true)
+        #expect(!fit.pinsAction)
+        #expect(fit.heroHeight == visible - 300 - HomeLayout.actionGap - 92 - HeroFit.minimumBottomGap)
+        #expect(fit.heroHeight >= HomeLayout.minimumFittedStageHeight)
+        // Everything ends at least the minimum gap above the tab bar.
+        #expect(fit.heroHeight + 300 + HomeLayout.actionGap + 92 + HeroFit.minimumBottomGap <= visible)
+        // Without a row the capsule sits a row gap under the caption.
+        let rowless = HomeLayout.firstScreen(stageHeight: 320, visibleHeight: visible, belowStage: 200, action: 92, hasAction: true,
+                                             hasRow: false)
+        #expect(rowless.heroHeight == visible - 200 - HomeLayout.rowGap - 92 - HeroFit.minimumBottomGap)
+        // An unmeasured capsule counts as its 52pt minimum.
+        let estimated = HomeLayout.firstScreen(stageHeight: 320, visibleHeight: visible, belowStage: 300, action: nil, hasAction: true)
+        #expect(estimated.heroHeight == visible - 300 - HomeLayout.actionGap - 52 - HeroFit.minimumBottomGap)
+    }
+
+    @Test("When even the smallest stage leaves no room, the capsule is pinned above the tab bar")
+    func firstScreenPins() {
+        let fit = HomeLayout.firstScreen(stageHeight: 320, visibleHeight: 608, belowStage: 440, action: 140, hasAction: true)
+        #expect(fit == HeroFit(heroHeight: HomeLayout.minimumFittedStageHeight, pinsAction: true))
+        // With no action there is nothing to pin; the stage stays small and Home scrolls.
+        let night = HomeLayout.firstScreen(stageHeight: 320, visibleHeight: 608, belowStage: 500, action: 140, hasAction: false)
+        #expect(night == HeroFit(heroHeight: HomeLayout.minimumFittedStageHeight, pinsAction: false))
+    }
+
+    @Test("A small stage draws a smaller scene, so the caption's text stays inside the stage")
+    func captionInsideStage() {
+        // At the default size the caption's line never limits the scene.
+        #expect(HomeLayout.sceneScale(stageHeight: 410, width: 402, captionTextHeight: 18) == 1)
+        let compact = HomeLayout.sceneScale(stageHeight: 396, width: 390, captionTextHeight: 18)
+        #expect(abs(compact - 396.0 / 410.0) < 1e-9)
+        // A 170pt stage with a 46pt caption line: the caption's centre plus half its line ends at the stage's foot.
+        let scale = HomeLayout.sceneScale(stageHeight: 170, width: 390, captionTextHeight: 46)
+        #expect(scale < 170.0 / 410.0)
+        #expect(abs(HomeLayout.captionCentre(scale: scale) + 23 - 170) < 1e-9)
+    }
+
     @Test("A tap opens the Tree view on the stage band, but not on the waiting bud, the sky or the ground")
     func stageTaps() throws {
         let bud = CGPoint(x: 200, y: 300)

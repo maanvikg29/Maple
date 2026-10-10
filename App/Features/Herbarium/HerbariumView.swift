@@ -166,18 +166,22 @@ struct HerbariumView: View {
     }
 
     private func count(_ model: HerbariumEntries) -> some View {
-        let total = model.entries.count
-        let owned = model.ownedCount
+        // One count rule (spec §5.2): opened leaves only. Waiting buds are mentioned beside it, never added to it.
+        let count = model.leafCount
         return VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                StatNumber("\(owned)", size: .stat)
-                Text("of \(total)")
-                    .font(.system(.body, design: .rounded, weight: .medium))
-                    .foregroundStyle(theme.colors.textSecondary)
+            // "23 of 155 · 1 waiting" on one line, or the waiting note on its own line when that doesn't fit.
+            ViewThatFits(in: .horizontal) {
+                countLine(count, waiting: count.waitingText).fixedSize()
+                VStack(alignment: .leading, spacing: 2) {
+                    countLine(count, waiting: nil)
+                    if let waiting = count.waitingText {
+                        countNote(waiting)
+                    }
+                }
             }
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("\(owned) of \(total) leaves")
-            ProgressHairline(fraction: Double(owned) / Double(max(total, 1)), height: 3, tint: theme.colors.reward)
+            .accessibilityLabel([count.spoken, count.spokenWaiting].compactMap(\.self).joined(separator: ", "))
+            ProgressHairline(fraction: count.fraction, height: 3, tint: theme.colors.reward)
             if let rarest = model.rarest, case .value(let display, _) = rarest.share {
                 Button {
                     detail = LeafRoute(speciesID: rarest.id, source: "rarest")
@@ -192,6 +196,20 @@ struct HerbariumView: View {
                 .padding(.top, -4)
             }
         }
+    }
+
+    /// "23" in the stat size, then " of 155", and " · 1 waiting" when given.
+    private func countLine(_ count: LeafCount, waiting: String?) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            StatNumber("\(count.opened)", size: .stat)
+            countNote(waiting.map { "of \(count.total) · \($0)" } ?? "of \(count.total)")
+        }
+    }
+
+    private func countNote(_ text: String) -> some View {
+        Text(text)
+            .font(.system(.body, design: .rounded, weight: .medium))
+            .foregroundStyle(theme.colors.textSecondary)
     }
 
     // MARK: Almost there
@@ -302,10 +320,15 @@ struct HerbariumView: View {
                 .font(MapleFont.tileName)
                 .foregroundStyle(theme.colors.textPrimary)
                 .padding(.horizontal, 12)
+                .padding(.vertical, 6)
                 .frame(minHeight: 32)
                 .glassSurface(in: Capsule(style: .continuous))
                 .padding(.vertical, 6)
                 .contentShape(Rectangle())
+                // A menu hosts its label apart from the screen, where the text size reverts to the default, so
+                // "Group" stayed 13pt while the chips beside it followed the member's size. Hand it the size, so
+                // it always matches the chips (13pt at the default size).
+                .dynamicTypeSize(dynamicTypeSize)
         }
         .fixedSize()
         .accessibilityLabel("Group and sort")

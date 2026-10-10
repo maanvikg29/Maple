@@ -11,13 +11,17 @@ import MapleServices
 /// 3. The full reveal of the Sugar maple ("For setting your sleep schedule"), at any hour.
 /// 4. "Place on your maple" grafts it onto the tree, which becomes a seedling, then `onFinish` shows Home.
 ///
-/// If the schedule was saved before (an interrupted onboarding), it starts at the sprout.
+/// The first frame already shows the step `start` names (decided at launch by `ScheduleStore.resumeFirstRun`), so
+/// there is no empty frame or slow fade before it. A run stopped after "Save schedule" resumes at the sprout for
+/// the Sugar maple it already earned: the schedule is never asked for twice and the leaf is never awarded twice.
 struct PlantYourMapleView: View {
+    /// Where the run starts: `.schedule`, or `.sprout` when the Sugar maple is already earned.
+    var start: FirstRunStep
     /// Called after "Place on your maple"; the app then shows Home.
     var onFinish: () -> Void
 
     var body: some View {
-        PlantYourMapleScreen(onFinish: onFinish)
+        PlantYourMapleScreen(start: start, onFinish: onFinish)
             #if DEBUG
             .revealDemoMotion()
             #endif
@@ -38,16 +42,30 @@ private struct PlantYourMapleScreen: View {
         case schedule, sprout, reveal, placed
     }
 
-    @State private var step: Step?
+    /// Set from `start` before the first frame, so the screen never opens empty.
+    @State private var step: Step
     @State private var budIsAmber = false
     @State private var revealMoment: RevealMoment = .closed
     @State private var openings = 0
     @State private var holdsAtEnd = false
+    @State private var started = false
+
+    init(start: FirstRunStep, onFinish: @escaping () -> Void) {
+        self.onFinish = onFinish
+        _step = State(initialValue: Self.step(for: start))
+    }
+
+    /// The flow's first step for the launch's first-run step. `.recordFirstLeaf` has been repaired by the time the
+    /// view exists (`resumeFirstRun`), and `.finished` hands over to Home in `begin()`.
+    private static func step(for start: FirstRunStep) -> Step {
+        switch start {
+        case .schedule, .recordFirstLeaf: .schedule
+        case .sprout, .finished: .sprout
+        }
+    }
 
     /// The First-steps leaf: the Sugar maple.
-    private var firstLeafID: String {
-        RewardCatalog.shared.rungs(in: .firstSteps).first?.speciesID ?? "saccharum"
-    }
+    private var firstLeafID: String { FirstRunStep.firstLeafID }
 
     var body: some View {
         ZStack {
@@ -70,12 +88,10 @@ private struct PlantYourMapleScreen: View {
                     )
                     .transition(.opacity)
                 }
-            case nil:
-                Color.clear
             }
         }
         .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.5), trigger: openings)
-        .task { start() }
+        .task { begin() }
     }
 
     private var firstLeaf: RevealLeaf? {
@@ -111,7 +127,7 @@ private struct PlantYourMapleScreen: View {
         // The scene's 402 × 560 frame, scaled to the width, behind the status bar, as on Home.
         let sceneHeight = (size.width * 560 / 402).rounded()
         let onOpen: (() -> Void)? = planted ? nil : { openFromSprout() }
-        let label = planted ? "Your maple. Seedling, 1 of 155 leaves." : "Your maple. A seed, just planted."
+        let label = planted ? "Your maple. \(collection.stage.displayName), \(collection.leafCount.spoken)." : "Your maple. A seed, just planted."
         let value = !planted && budIsAmber ? "A new leaf is waiting." : ""
         return ZStack(alignment: .top) {
             MapleTreeScene(model: model, accessibilityLabel: Text(label), accessibilityValue: Text(value), onOpenWaitingLeaf: onOpen)
@@ -140,7 +156,7 @@ private struct PlantYourMapleScreen: View {
     @ViewBuilder
     private func caption(planted: Bool) -> some View {
         if planted {
-            Text("\(collection.stage.displayName) · \(collection.earned.count) of \(LeafCatalog.shared.species.count)")
+            Text("\(collection.stage.displayName) · \(collection.leafCount.text)")
                 .font(MapleFont.footnote)
                 .foregroundStyle(theme.colors.textSecondary)
         } else {
@@ -161,16 +177,17 @@ private struct PlantYourMapleScreen: View {
 
     // MARK: Flow
 
-    private func start() {
-        guard step == nil else { return }
-        let first = collection.unlock(for: firstLeafID)
-        if first?.revealed == true {
+    /// Runs once, after the first frame (which already shows `step`): the sprout's bud starts to ripen, and a run
+    /// whose leaf is already on the tree hands over to Home.
+    private func begin() {
+        guard !started else { return }
+        started = true
+        if collection.hasPlacedFirstLeaf {
             onFinish()
             return
         }
-        withAnimation(theme.motion.calm) {
-            step = schedule.hasSavedSchedule && first != nil ? .sprout : .schedule
-        }
+        // A sprout with no leaf behind it would be a dead end, so ask for the schedule instead.
+        if step == .sprout, collection.firstLeaf == nil { step = .schedule }
         if step == .sprout { ripenBud() }
         #if DEBUG
         applyDemo()
@@ -179,7 +196,8 @@ private struct PlantYourMapleScreen: View {
 
     private func save(_ newSchedule: SleepSchedule) {
         schedule.save(newSchedule, at: clock.now())
-        guard collection.unlock(for: firstLeafID) != nil else { return onFinish() }
+        // Saving the first schedule earns the Sugar maple; `resumeFirstRun` repairs a save that didn't record it.
+        guard schedule.resumeFirstRun(at: clock.now()) == .sprout else { return onFinish() }
         withAnimation(theme.motion.calm) { step = .sprout }
         ripenBud()
     }

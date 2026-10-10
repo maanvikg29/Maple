@@ -39,6 +39,26 @@ public final class ScheduleStore {
 
     public var hasSavedSchedule: Bool { savedAt != nil }
 
+    /// Where the first run starts or picks up (spec §8.8): the schedule, the sprout with the waiting Sugar maple,
+    /// or nothing (the tabs). Read it at launch to decide whether onboarding shows.
+    public var firstRun: FirstRunStep {
+        FirstRunStep.resume(hasSavedSchedule: hasSavedSchedule, firstLeaf: collection.firstLeaf)
+    }
+
+    /// Resumes a first run the app was stopped in. If the schedule was saved but the First-steps leaf never made
+    /// it into the collection (the app stopped between the two saves), this records it now; the award is
+    /// idempotent, so the Sugar maple is never earned twice.
+    /// - Returns: The step to show: `.schedule`, `.sprout` or `.finished` (never `.recordFirstLeaf`).
+    @discardableResult
+    public func resumeFirstRun(at date: Date) -> FirstRunStep {
+        let step = firstRun
+        guard step == .recordFirstLeaf else { return step }
+        collection.raise(.firstSteps, to: 1, at: date)
+        let resumed = firstRun
+        // Should the award still be missing, ask for the schedule again rather than stopping on an empty sprout.
+        return resumed == .recordFirstLeaf ? .schedule : resumed
+    }
+
     /// Saves the schedule and applies it everywhere (phases, held reveals). The first save plants the maple.
     /// - Returns: Leaves unlocked by this save: the Sugar maple the first time, otherwise nothing.
     @discardableResult

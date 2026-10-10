@@ -15,6 +15,10 @@ struct HomeView: View {
 
     @Namespace private var zoom
     @State private var scroll = HomeScrollState()
+    /// The first screen's measured parts, from which the stage's height is fitted (`HomeLayout.firstScreen`).
+    @State private var measured = HomeMeasurements()
+    /// The tree caption's line height, which the scene's scale keeps inside the stage.
+    @ScaledMetric(relativeTo: .footnote) private var captionTextHeight: CGFloat = 18
     @State private var sheet: HomeSheet?
     @State private var cover: HomeCover?
     @State private var pushedLeaf: String?
@@ -93,10 +97,18 @@ struct HomeView: View {
     private func screen(_ content: HomeContent, proxy: GeometryProxy) -> some View {
         let accessibilitySize = dynamicTypeSize.isAccessibilitySize
         let screenHeight = proxy.size.height + proxy.safeAreaInsets.top + proxy.safeAreaInsets.bottom
-        let stageHeight = HomeLayout.stageHeight(screenHeight: screenHeight, accessibilitySize: accessibilitySize)
-        let width = proxy.size.width
-        let scale = HomeLayout.sceneScale(stageHeight: stageHeight, width: width)
         let state = content.state
+        // The first screen fits above the floating tab bar at every text size: the stage yields height, and when
+        // even the smallest stage leaves no room the capsule is pinned above the tab bar (spec §3.1, §9).
+        let fit = HomeLayout.firstScreen(
+            stageHeight: HomeLayout.stageHeight(screenHeight: screenHeight, accessibilitySize: accessibilitySize),
+            visibleHeight: proxy.size.height - measured.header, belowStage: measured.belowStage,
+            action: measured.action, hasAction: state.action != nil || state.secondaryAction != nil,
+            hasRow: content.row != nil
+        )
+        let stageHeight = fit.heroHeight
+        let width = proxy.size.width
+        let scale = HomeLayout.sceneScale(stageHeight: stageHeight, width: width, captionTextHeight: captionTextHeight)
         return ScrollView {
             VStack(spacing: 0) {
                 HomeTreeStage(
@@ -108,30 +120,13 @@ struct HomeView: View {
                 )
                 .matchedTransitionSource(id: Self.mapleTransitionID, in: zoom)
 
-                NowBlock(numeral: state.numeral.parts, caption: state.caption, spoken: state.spoken)
-                    .padding(.horizontal, theme.spacing.homeMargin)
-                    .contentShape(Rectangle())
-                    .padding(.top, HomeLayout.numeralGap)
-                    .opacity(state.contentOpacity)
+                belowStage(content)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { measured.belowStage = $0 }
 
-                if let row = content.row {
-                    nextLeafRow(row)
-                        .padding(.horizontal, theme.spacing.homeMargin)
-                        .padding(.top, HomeLayout.rowGap)
-                        .opacity(state.contentOpacity)
-                }
-
-                if let action = state.action {
-                    Button(action.title) { perform(action) }
-                        .buttonStyle(.moonlight(dimmed: state.actionIsDimmed))
-                        .padding(.horizontal, theme.spacing.homeMargin)
+                if !fit.pinsAction {
+                    action(state)
                         .padding(.top, content.row == nil ? HomeLayout.rowGap : HomeLayout.actionGap)
-                        .transition(.opacity)
-                } else if let secondary = state.secondaryAction {
-                    Button(secondary.title) { perform(secondary) }
-                        .buttonStyle(.glassCapsule)
-                        .padding(.top, content.row == nil ? HomeLayout.rowGap : HomeLayout.actionGap)
-                        .transition(.opacity)
                 }
             }
             .padding(.bottom, HomeLayout.closingPadding)
@@ -153,8 +148,54 @@ struct HomeView: View {
                 onStreak: { sheet = .streak }, onAvatar: { sheet = .profile }
             )
             .opacity(state.contentOpacity)
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { measured.header = $0 }
+        }
+        .safeAreaBar(edge: .bottom) {
+            // Only at the largest text sizes: the capsule stays on the first screen, just above the tab bar,
+            // and the numeral, caption and next leaf scroll under it.
+            if fit.pinsAction {
+                action(state)
+                    .padding(.top, theme.spacing.sm)
+                    .padding(.bottom, HeroFit.minimumBottomGap)
+            }
         }
         .scrollEdgeEffectStyle(.soft, for: .top)
+    }
+
+    /// The numeral with its caption, and the next-leaf row: everything between the stage and the capsule.
+    private func belowStage(_ content: HomeContent) -> some View {
+        let state = content.state
+        return VStack(spacing: 0) {
+            NowBlock(numeral: state.numeral.parts, caption: state.caption, spoken: state.spoken)
+                .padding(.horizontal, theme.spacing.homeMargin)
+                .contentShape(Rectangle())
+                .padding(.top, HomeLayout.numeralGap)
+                .opacity(state.contentOpacity)
+
+            if let row = content.row {
+                nextLeafRow(row)
+                    .padding(.horizontal, theme.spacing.homeMargin)
+                    .padding(.top, HomeLayout.rowGap)
+                    .opacity(state.contentOpacity)
+            }
+        }
+    }
+
+    /// The one primary capsule, or night's glass capsule once sleep sounds ship; nothing when there is no action.
+    @ViewBuilder
+    private func action(_ state: NowState) -> some View {
+        if let action = state.action {
+            Button(action.title) { perform(action) }
+                .buttonStyle(.moonlight(dimmed: state.actionIsDimmed))
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { measured.action = $0 }
+                .padding(.horizontal, theme.spacing.homeMargin)
+                .transition(.opacity)
+        } else if let secondary = state.secondaryAction {
+            Button(secondary.title) { perform(secondary) }
+                .buttonStyle(.glassCapsule)
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { measured.action = $0 }
+                .transition(.opacity)
+        }
     }
 
     @ViewBuilder
@@ -238,6 +279,17 @@ enum HomeCover: Identifiable, Hashable {
         case .windDown: "windDown"
         }
     }
+}
+
+/// Heights Home measures on its first screen; none of them depends on the stage's height, so fitting the stage
+/// settles in one pass.
+struct HomeMeasurements: Equatable {
+    /// The header, which grows with the text size.
+    var header: CGFloat = HomeLayout.headerHeight
+    /// The numeral, caption and next-leaf row with their gaps; nil until measured.
+    var belowStage: CGFloat?
+    /// The capsule; nil until measured.
+    var action: CGFloat?
 }
 
 /// The scroll offset, observed only by the sky (so scrolling never re-renders the rest of Home).

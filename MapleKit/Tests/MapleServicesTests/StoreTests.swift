@@ -155,6 +155,82 @@ struct ScheduleStoreTests {
         #expect(reloaded.schedule == later)
         #expect(reloadedCollection.schedule == later)
     }
+
+    /// The member's real stores in `folder`, as a launch builds them.
+    private func launch(_ folder: URL) -> MapleStores {
+        MapleStores.live(directory: folder, calendar: utc, now: at(2026, 10, 1, 21))
+    }
+
+    @Test("Killed after Save schedule: the relaunch resumes at the sprout, without asking again or a second leaf")
+    func resumeAfterSave() throws {
+        let folder = try temporaryDirectory()
+        let first = launch(folder)
+        #expect(first.schedule.firstRun == .schedule)
+        #expect(first.schedule.resumeFirstRun(at: at(2026, 10, 1, 21)) == .schedule)
+        first.schedule.save(.standard, at: at(2026, 10, 1, 22, 40))
+        #expect(first.schedule.firstRun == .sprout)
+
+        // The app is killed here, before "Place on your maple", and launched again (in wind-down, then at night).
+        for relaunchAt in [at(2026, 10, 1, 22, 50), at(2026, 10, 2, 2)] {
+            let again = launch(folder)
+            #expect(again.schedule.hasSavedSchedule)
+            #expect(again.schedule.resumeFirstRun(at: relaunchAt) == .sprout)
+            #expect(again.collection.unlocks.map(\.speciesID) == ["saccharum"])
+            #expect(!again.collection.hasPlacedFirstLeaf)
+            // The Sugar maple can still be opened at any hour, so the sprout never dead-ends.
+            #expect(again.collection.revealable(at: relaunchAt).map(\.speciesID) == ["saccharum"])
+        }
+
+        // Placed on the third launch: the next one opens on the tabs.
+        let third = launch(folder)
+        #expect(third.collection.openReveals(["saccharum"], at: at(2026, 10, 2, 2, 5)).map(\.speciesID) == ["saccharum"])
+        let fourth = launch(folder)
+        #expect(fourth.schedule.firstRun == .finished)
+        #expect(!fourth.schedule.firstRun.needsOnboarding)
+        #expect(fourth.collection.unlocks.count == 1)
+        #expect(fourth.collection.revealsOpened == 1)
+    }
+
+    @Test("Killed between the schedule file and the collection file: the leaf is recorded once on relaunch")
+    func repairInterruptedSave() throws {
+        let folder = try temporaryDirectory()
+        // Only the schedule file made it to disk.
+        JSONStorage<SavedSchedule>(.file(folder.appendingPathComponent(MapleStores.scheduleFile)))
+            .save(SavedSchedule(schedule: .standard, savedAt: at(2026, 10, 1, 22, 40)))
+        let relaunch = launch(folder)
+        #expect(relaunch.schedule.firstRun == .recordFirstLeaf)
+        #expect(relaunch.schedule.resumeFirstRun(at: at(2026, 10, 1, 22, 45)) == .sprout)
+        #expect(relaunch.collection.unlocks.map(\.speciesID) == ["saccharum"])
+        // Resuming again, or saving the schedule again, never awards it twice.
+        #expect(relaunch.schedule.resumeFirstRun(at: at(2026, 10, 1, 22, 46)) == .sprout)
+        #expect(relaunch.schedule.save(.standard, at: at(2026, 10, 1, 22, 47)).isEmpty)
+        #expect(launch(folder).collection.unlocks.map(\.speciesID) == ["saccharum"])
+    }
+}
+
+@Suite("Collection count")
+@MainActor
+struct CollectionCountTests {
+    @Test("N counts opened leaves; waiting ones are told apart, and the stage follows N")
+    func openedOnly() {
+        let store = CollectionStore(storage: JSONStorage(.memory), context: testContext, now: at(2026, 10, 1, 9))
+        store.raise(.firstSteps, to: 1, at: at(2026, 10, 1, 9))
+        #expect(store.leafCount == LeafCount(opened: 0, waiting: 1, total: 155))
+        #expect(store.openedCount == 0)
+        #expect(store.stage == .seed)
+        store.openReveals(at: at(2026, 10, 1, 9, 5))
+        store.record([.nightsTracked: 3], at: at(2026, 10, 2, 9))
+        #expect(store.waiting.count == 2)
+        #expect(store.openedCount == 1)
+        #expect(store.leafCount.text == "1 of 155")
+        #expect(store.leafCount.waitingText == "2 waiting")
+        #expect(store.stage == .seedling)
+        #expect(store.totals.leaves == 1)
+        #expect(store.treeInputs(at: at(2026, 10, 2, 10)).species.count == store.openedCount)
+        store.openReveals(at: at(2026, 10, 2, 10))
+        #expect(store.openedCount == 3)
+        #expect(store.leafCount.waitingText == nil)
+    }
 }
 
 @Suite("Leaf share store")

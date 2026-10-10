@@ -11,6 +11,8 @@ struct HerbariumEntries {
     let phase: NowPhase
     /// The moment the entries describe.
     let now: Date
+    /// The Herbarium's "23 of 155" and owned bar: opened leaves only, with waiting ones told apart (spec §5.2).
+    let leafCount: LeafCount
 
     init(collection: CollectionStore, shares: LeafShareStore, at now: Date) {
         let catalog = LeafCatalog.shared
@@ -28,18 +30,17 @@ struct HerbariumEntries {
         }
         phase = collection.phase(at: now)
         self.now = now
+        leafCount = collection.leafCount
     }
-
-    /// Opened and waiting leaves: the Herbarium's "23 of 155".
-    var ownedCount: Int { entries.filter(\.isUnlocked).count }
 
     /// The earned leaf with the smallest fresh share ("Your rarest"), or nil without one.
     var rarest: HerbariumEntry? {
         entries.filter { $0.isEarned && $0.estimate != nil }.min { ($0.estimate?.percent ?? 100) < ($1.estimate?.percent ?? 100) }
     }
 
+    /// The chip's number; "Earned" counts opened leaves only.
     func count(_ scope: HerbariumScope) -> Int {
-        entries.filter(scope.includes).count
+        scope.count(in: entries)
     }
 }
 

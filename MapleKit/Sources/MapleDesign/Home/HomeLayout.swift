@@ -15,11 +15,18 @@ import Foundation
 /// | Caption | 20 | 16 |
 /// | Next-leaf row | 56 | 12 |
 /// | Primary capsule | 52 | — |
+///
+/// At large text sizes the stage yields height (`HeroFit`, down to `minimumFittedStageHeight`) so the numeral,
+/// caption, next-leaf row and the primary capsule all stay above the floating tab bar on the first screen; when
+/// even that leaves no room, the capsule is pinned just above the tab bar.
 nonisolated public enum HomeLayout {
     /// The stage on the reference iPhone 17.
     public static let referenceStageHeight: CGFloat = 410
-    /// The stage never gets shorter than this; at accessibility text sizes it is fixed here and Home scrolls.
+    /// The preferred stage never gets shorter than this (at accessibility text sizes it starts here); only
+    /// `HeroFit` takes it lower, to keep the first screen above the tab bar.
     public static let minimumStageHeight: CGFloat = 320
+    /// The smallest stage `HeroFit` may leave, at the largest text sizes.
+    public static let minimumFittedStageHeight: CGFloat = 150
     /// The stage's share of the screen height.
     public static let stageShare: CGFloat = 0.47
 
@@ -46,15 +53,39 @@ nonisolated public enum HomeLayout {
     /// Room under below-the-fold content.
     public static let belowTheFoldPadding: CGFloat = 120
 
-    /// Stage height = min(410, max(320, screen height × 0.47)); 320 at accessibility text sizes.
+    /// The preferred stage height = min(410, max(320, screen height × 0.47)); 320 at accessibility text sizes.
+    /// `HeroFit` then shrinks it when the first screen needs the room.
     public static func stageHeight(screenHeight: CGFloat, accessibilitySize: Bool) -> CGFloat {
         guard !accessibilitySize else { return minimumStageHeight }
         return min(referenceStageHeight, max(minimumStageHeight, (screenHeight * stageShare).rounded(.down)))
     }
 
-    /// The scene's scale: the stage band fills the stage, but the scene is never wider than the screen.
-    public static func sceneScale(stageHeight: CGFloat, width: CGFloat) -> CGFloat {
-        max(0.01, min(stageHeight / referenceStageHeight, width / sceneSize.width))
+    /// Home's first screen at any text size: the stage's height and whether the primary capsule is pinned above
+    /// the tab bar (see `HeroFit`).
+    /// - Parameters:
+    ///   - stageHeight: The preferred height, `stageHeight(screenHeight:accessibilitySize:)`.
+    ///   - visibleHeight: From under the header to the top of the tab bar.
+    ///   - belowStage: The numeral, caption and next-leaf row with their gaps; nil until measured.
+    ///   - action: The capsule's height, nil until measured; ignored without one.
+    ///   - hasAction: Home shows a primary (or night's secondary) capsule.
+    ///   - hasRow: The next-leaf row is shown (without it the capsule sits `rowGap` under the caption).
+    public static func firstScreen(
+        stageHeight: CGFloat, visibleHeight: CGFloat, belowStage: CGFloat?, action: CGFloat?, hasAction: Bool,
+        hasRow: Bool = true
+    ) -> HeroFit {
+        let actionNeed = hasAction ? (hasRow ? actionGap : rowGap) + (action ?? HeroFit.estimatedActionHeight) : 0
+        return HeroFit(preferred: stageHeight, minimum: minimumFittedStageHeight, visible: visibleHeight,
+                       content: belowStage, action: actionNeed)
+    }
+
+    /// The scene's scale: the stage band fills the stage, but the scene is never wider than the screen, and the
+    /// caption's text (`captionTextHeight` tall, centred on the ground) always ends inside the stage, so a stage
+    /// that yields at large text sizes draws a smaller tree rather than a caption over the numeral.
+    public static func sceneScale(stageHeight: CGFloat, width: CGFloat, captionTextHeight: CGFloat = 0) -> CGFloat {
+        let byCaption = captionTextHeight > 0
+            ? (stageHeight - captionTextHeight / 2) / (sceneCaptionCentre - sceneStageTop)
+            : .infinity
+        return max(0.01, min(stageHeight / referenceStageHeight, width / sceneSize.width, byCaption))
     }
 
     /// Where the scene's top sits relative to the stage's top (negative: it starts above, behind the header).

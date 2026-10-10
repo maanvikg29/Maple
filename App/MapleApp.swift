@@ -12,8 +12,9 @@ struct MapleApp: App {
     @State private var shares: LeafShareStore
     @State private var settings: AppSettings
     private let clock: MapleClock
-    /// First run: no maple yet, so the app opens on the end of onboarding (spec §8.8).
-    private let needsOnboarding: Bool
+    /// Where the first run starts or picks up (spec §8.8): until the Sugar maple is on the tree, the app opens on
+    /// the end of onboarding, already showing the right step in its first frame.
+    private let firstRun: FirstRunStep
 
     init() {
         let stores = MapleStores.launch()
@@ -26,22 +27,25 @@ struct MapleApp: App {
         let settings = AppSettings.launch()
         settings.apply(to: stores.collection)
         _settings = State(initialValue: settings)
-        needsOnboarding = Self.needsOnboarding(stores.collection)
+        firstRun = Self.firstRun(stores)
     }
 
-    /// A member without the First-steps leaf on the tree plants their maple first. DEBUG demo collections are
-    /// already planted (or deliberately empty); `-MapleDemoPresent onboarding` asks for the flow anyway.
-    private static func needsOnboarding(_ collection: CollectionStore) -> Bool {
+    /// A member without the First-steps leaf on the tree plants their maple first, resuming wherever an earlier
+    /// launch stopped (and repairing a save the app was stopped in the middle of). DEBUG demo collections are
+    /// already planted (or deliberately empty) and open on the tabs, unless `-MapleDemoPresent onboarding` asks
+    /// for the flow (which a planted collection skips).
+    private static func firstRun(_ stores: MapleStores) -> FirstRunStep {
         #if DEBUG
-        if UserDefaults.standard.string(forKey: "MapleDemoPresent") == "onboarding" { return true }
-        if DemoLaunchOptions.current.usesDemoCollection { return false }
+        if DemoLaunchOptions.current.usesDemoCollection, UserDefaults.standard.string(forKey: "MapleDemoPresent") != "onboarding" {
+            return .finished
+        }
         #endif
-        return !collection.hasPlacedFirstLeaf
+        return stores.schedule.resumeFirstRun(at: stores.clock.now())
     }
 
     var body: some Scene {
         WindowGroup {
-            ThemedRoot(needsOnboarding: needsOnboarding)
+            ThemedRoot(firstRun: firstRun)
                 .environment(collection)
                 .environment(schedule)
                 .environment(shares)
@@ -60,10 +64,10 @@ private struct ThemedRoot: View {
     @Environment(CollectionStore.self) private var collection
     @Environment(LeafShareStore.self) private var shares
     @Environment(AppSettings.self) private var settings
-    let needsOnboarding: Bool
+    let firstRun: FirstRunStep
 
     var body: some View {
-        RootView(needsOnboarding: needsOnboarding)
+        RootView(firstRun: firstRun)
             .environment(\.theme, contrast == .increased ? .mapleIncreasedContrast : .maple)
             .environment(\.season, collection.season(at: clock.now()))
             .preferredColorScheme(.dark)

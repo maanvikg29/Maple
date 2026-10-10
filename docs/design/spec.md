@@ -275,7 +275,7 @@ All states share the header, tree and caption. Only the scene light (§4.4), the
 |---|---|---|---|---|
 | **Morning**, with sleep data | Last night's sleep, "7h 12m" (Apple Health) | "asleep 23:08 · up 06:20" | Normal | None, unless pending (below) or check-in is due ("Check in", once mood check-ins ship) |
 | Morning, no Apple Health | Goodnight time, "23:04" | "in bed · bedtime 23:00" | Normal | Same |
-| Morning, no data for last night | Uses Day content | | | |
+| Morning, no data for last night | Tonight's wind-down start as a clock time, "22:15" ("10:15 PM" in 12-hour locales), never a countdown | "wind-down tonight · bed 23:00" | Normal | Same |
 | **Day**, focus shipped | Focus today, "1h 25m" (or "0m") | "focused today · 4h 10m this week" | Prefers day leaves (§3.5) | "Start focus · 25m". Starts the session at once and presents it full-screen. A long-press menu offers 15, 25, 45 and 60m. |
 | Day, before focus ships | Countdown to D, "6h 20m" | "until wind-down · bed 23:00" | Normal | None |
 | **Focus running** (any phase except Night) | Remaining, "18:42" (mm:ss, 1s timeline) | "left in this focus" | Normal | "Return to focus" |
@@ -634,6 +634,8 @@ The initial category copy is below. Canonical order is top to bottom; Herbarium 
 | Winter | Frost (deciduous only) |
 
 Evergreens are always pressed in their green. On the tree, leaves always follow the *current* season (§4.7).
+
+**One count rule:** "N of 155" counts opened (placed) leaves only, on every surface (Home's caption, Tree view, the Herbarium's count, owned bar, "Earned" chip and section counts, Profile, VoiceOver); waiting leaves show as buds and may be mentioned apart ("1 waiting") but never add to N (`LeafCount` in MapleCore).
 
 ### 5.3 Herbarium layout
 

@@ -43,7 +43,7 @@ public struct TreeInputs: Sendable, Equatable {
     public var tendedDays: Int
     /// Structural growth g = `TreeGrowth.structure(tendedDays:)`.
     public var growth: Double
-    /// From the number of placed species.
+    /// From the number of placed (opened) species, as `LeafCount.opened`.
     public var stage: TreeStage
     /// Placed species in unlock order.
     public var species: [Leaf]
@@ -82,6 +82,7 @@ public struct TreeInputs: Sendable, Equatable {
 /// The Profile sheet's numbers (spec §8.3). A total is nil until its category exists for this member, and is then
 /// shown even at 0.
 public struct ProfileTotals: Sendable, Equatable {
+    /// Opened leaves (`LeafCount.opened`); waiting leaves never count.
     public var leaves: Int
     public var tendedDays: Int
     public var stage: TreeStage

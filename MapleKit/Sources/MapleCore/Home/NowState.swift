@@ -39,7 +39,10 @@ public struct NowState: Sendable, Equatable {
         case goodnight
         /// Day once focus ships: "1h 25m" · "focused today · 4h 10m this week".
         case focusToday
-        /// Day before focus ships, evening, and a morning with no data: "1h 20m" · "until wind-down · bed 23:00".
+        /// Morning with no data for last night: tonight's wind-down start as a clock time, "22:15" ·
+        /// "wind-down tonight · bed 23:00" (a countdown would read "14h 45m" at 7 AM).
+        case windDownTonight
+        /// Day before focus ships, and evening: "1h 20m" · "until wind-down · bed 23:00".
         case untilWindDown
         /// "18:42" · "left in this focus".
         case focusRunning
@@ -192,7 +195,9 @@ public struct NowState: Sendable, Equatable {
                     content = (.goodnight, HomeFormat.clockParts(time, locale: locale), "in bed · bedtime \(bed)",
                                "In bed at \(text). Bedtime \(bed).")
                 } else {
-                    content = dayContent()
+                    let windDown = HomeFormat.clock(schedule.windDownStart, locale: locale)
+                    content = (.windDownTonight, HomeFormat.clockParts(schedule.windDownStart, locale: locale),
+                               "wind-down tonight · bed \(bed)", "Wind-down tonight at \(windDown). Bed at \(bed).")
                 }
             case .day:
                 content = dayContent()

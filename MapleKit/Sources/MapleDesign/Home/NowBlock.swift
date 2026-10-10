@@ -30,8 +30,9 @@ public struct NowBlock: View {
                 .font(MapleFont.callout)
                 .foregroundStyle(theme.colors.textSecondary)
                 .multilineTextAlignment(.center)
-                // One line; at accessibility sizes it may wrap to two (spec §9).
-                .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
+                // One line; at accessibility sizes it wraps (spec §9) rather than truncate: the longest caption
+                // ("wind-down tonight · bed 11:00 PM") needs three lines at the largest size.
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 1)
                 .minimumScaleFactor(dynamicTypeSize.isAccessibilitySize ? 1 : 0.9)
                 .contentTransition(.opacity)
         }
