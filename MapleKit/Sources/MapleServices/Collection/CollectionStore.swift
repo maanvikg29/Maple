@@ -88,8 +88,9 @@ public final class CollectionStore {
         timeEpoch += 1
     }
 
-    /// The member's sleep schedule. `ScheduleStore` keeps it in sync; screens change it through `ScheduleStore`.
-    public var schedule: SleepSchedule {
+    /// The member's weekday and weekend schedules. `ScheduleStore` keeps it in sync; screens change it through
+    /// `ScheduleStore`.
+    public var schedule: WeeklySleepSchedule {
         get { context.schedule }
         set { context.schedule = newValue }
     }
@@ -204,7 +205,7 @@ public final class CollectionStore {
 
     /// The member saved a schedule (`ScheduleStore.save`). Nights already under way keep being judged by the one
     /// they began with (`replacing`, nil for the first schedule ever); then the new one applies everywhere.
-    public func scheduleSaved(_ schedule: SleepSchedule, replacing old: SleepSchedule?, at date: Date) {
+    public func scheduleSaved(_ schedule: WeeklySleepSchedule, replacing old: WeeklySleepSchedule?, at date: Date) {
         if let old, old != schedule, snapshot.hasPlantedMaple {
             mutate { $0.scheduleChanged(from: old, to: schedule, at: date, calendar: context.calendar) }
         }
@@ -295,7 +296,7 @@ public final class CollectionStore {
         focus: FocusStatus? = nil, windDownActive: Bool = false, checkInDue: Bool = false
     ) -> NowState {
         NowState.resolve(
-            date: date, schedule: context.schedule, calendar: context.calendar, locale: locale,
+            date: date, weekly: context.schedule, calendar: context.calendar, locale: locale,
             pending: pending(at: date).count, counters: snapshot.counters, features: context.features,
             lastNight: lastNight, goodnightAt: goodnightAt, focus: focus, windDownActive: windDownActive, checkInDue: checkInDue
         )

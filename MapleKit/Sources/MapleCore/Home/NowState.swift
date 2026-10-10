@@ -153,8 +153,28 @@ public struct NowState: Sendable, Equatable {
         lastNight: LastNightSleep? = nil, goodnightAt: Date? = nil, focus: FocusStatus? = nil,
         windDownActive: Bool = false, checkInDue: Bool = false
     ) -> NowState {
-        let phase = NowPhase.resolve(date: date, schedule: schedule, calendar: calendar)
-        let windows = PhaseWindows(schedule: schedule)
+        resolve(
+            date: date, weekly: .everyNight(schedule), calendar: calendar, locale: locale, pending: pending,
+            counters: counters, features: features, lastNight: lastNight, goodnightAt: goodnightAt, focus: focus,
+            windDownActive: windDownActive, checkInDue: checkInDue
+        )
+    }
+
+    /// Resolves Home's state (spec §3.4) for the member's weekly schedule. Every caption names tonight's times ("bed
+    /// 00:30" on a weekend night, `WeeklySleepSchedule.tonight(at:calendar:)`); the morning's "in bed · bedtime" names
+    /// last night's bedtime, the one the Goodnight tap answered.
+    public static func resolve(
+        date: Date, weekly: WeeklySleepSchedule, calendar: Calendar = .current, locale: Locale = .current,
+        pending: Int = 0, counters: [RewardCategoryID: Double] = [:], features: ShippedFeatures = .current,
+        lastNight: LastNightSleep? = nil, goodnightAt: Date? = nil, focus: FocusStatus? = nil,
+        windDownActive: Bool = false, checkInDue: Bool = false
+    ) -> NowState {
+        let windows = PhaseWindows(weekly: weekly)
+        let today = windows.day(containing: date, calendar: calendar)
+        let phase = today.phase(at: date)
+        // Tonight's schedule drives the evening, wind-down and night; last night's woke the member this morning.
+        let schedule = weekly.schedule(forNight: today.day, calendar: calendar)
+        let previous = weekly.schedule(forNight: today.day.adding(days: -1, calendar: calendar), calendar: calendar)
         let bed = HomeFormat.clock(schedule.bedtime, locale: locale)
 
         func untilWindDown() -> (Content, [NumeralPart], String, String) {
@@ -192,8 +212,9 @@ public struct NowState: Sendable, Equatable {
                 } else if let goodnightAt {
                     let time = HomeFormat.clockTime(of: goodnightAt, calendar: calendar)
                     let text = HomeFormat.clock(time, locale: locale)
-                    content = (.goodnight, HomeFormat.clockParts(time, locale: locale), "in bed · bedtime \(bed)",
-                               "In bed at \(text). Bedtime \(bed).")
+                    let lastBed = HomeFormat.clock(previous.bedtime, locale: locale)
+                    content = (.goodnight, HomeFormat.clockParts(time, locale: locale), "in bed · bedtime \(lastBed)",
+                               "In bed at \(text). Bedtime \(lastBed).")
                 } else {
                     let windDown = HomeFormat.clock(schedule.windDownStart, locale: locale)
                     content = (.windDownTonight, HomeFormat.clockParts(schedule.windDownStart, locale: locale),

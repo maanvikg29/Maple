@@ -2,7 +2,8 @@ import Foundation
 
 /// The member's circumstances that the collection rules depend on but that aren't part of the collection itself.
 public struct CollectionContext: Sendable, Equatable {
-    public var schedule: SleepSchedule
+    /// The member's weekday and weekend schedules (`ScheduleStore` keeps it in sync).
+    public var schedule: WeeklySleepSchedule
     public var permissions: GrantedPermissions
     public var features: ShippedFeatures
     /// The member's calendar and time zone. The app passes `Calendar.autoupdatingCurrent`, so a new time zone (a
@@ -20,7 +21,7 @@ public struct CollectionContext: Sendable, Equatable {
 
     /// - Parameter permissions: What the member has granted. Empty by default: nothing is granted until it really is.
     public init(
-        schedule: SleepSchedule = .standard, permissions: GrantedPermissions = [], features: ShippedFeatures = .current,
+        schedule: WeeklySleepSchedule = .standard, permissions: GrantedPermissions = [], features: ShippedFeatures = .current,
         calendar: Calendar = .autoupdatingCurrent, hemisphere: Hemisphere = .current, seasonOverride: Season? = nil,
         sleepNeedMinutes: Int = CollectionContext.defaultSleepNeedMinutes
     ) {
@@ -185,7 +186,7 @@ extension CollectionSnapshot {
 
     /// The member replaced their schedule at `date`. Nights that had begun by then are still judged by `old`
     /// (rewards.md: edits apply from the next night, cut-off 18:00). The first schedule ever saved replaces nothing.
-    public mutating func scheduleChanged(from old: SleepSchedule, to new: SleepSchedule, at date: Date, calendar: Calendar) {
+    public mutating func scheduleChanged(from old: WeeklySleepSchedule, to new: WeeklySleepSchedule, at date: Date, calendar: Calendar) {
         guard old != new, hasPlantedMaple else { return }
         nights.scheduleChanged(from: old, at: date, calendar: calendar)
     }
@@ -281,7 +282,7 @@ extension CollectionSnapshot {
     }
 
     public func phase(at date: Date, context: CollectionContext) -> NowPhase {
-        NowPhase.resolve(date: date, schedule: context.schedule, calendar: context.calendar)
+        NowPhase.resolve(date: date, weekly: context.schedule, calendar: context.calendar)
     }
 
     /// The season the tree shows: the real one for the member's hemisphere, unless overridden.

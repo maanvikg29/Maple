@@ -92,7 +92,7 @@ struct LeafEngineTests {
 @Suite("Held and pending reveals")
 struct RevealScheduleTests {
     // Standard schedule: wind-down 22:15, bed 23:00, wake 07:00 → Evening from 20:15, Morning from 06:00.
-    private let schedule = SleepSchedule.standard
+    private let schedule = WeeklySleepSchedule.standard
 
     private func unlock(_ id: String = "rubrum", at date: Date, revealed: Bool = false) -> LeafUnlock {
         LeafUnlock(speciesID: id, date: date, season: .autumn, colourway: .autumn, revealed: revealed)
@@ -127,7 +127,7 @@ struct RevealScheduleTests {
         // Bed 01:00, wake 09:00, 60m wind-down → wind-down 00:00, Evening from 22:00, Morning from 08:00.
         let late = SleepSchedule(bedtime: ClockTime(hour: 1), wake: ClockTime(hour: 9), windDownMinutes: 60)
         func release(_ date: Date) -> Date {
-            RevealSchedule.releaseDate(for: unlock(at: date), schedule: late, calendar: utc)
+            RevealSchedule.releaseDate(for: unlock(at: date), schedule: .everyNight(late), calendar: utc)
         }
         #expect(release(at(2026, 10, 10, 21, 59)) == at(2026, 10, 10, 21, 59))
         #expect(release(at(2026, 10, 10, 22)) == at(2026, 10, 11, 8))

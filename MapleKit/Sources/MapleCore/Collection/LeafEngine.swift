@@ -45,27 +45,27 @@ public struct LeafEngine: Sendable {
 /// or Night. The First-steps leaf is the exception: it opens at the end of onboarding, at any hour.
 public enum RevealSchedule {
     /// The moment `unlock` stops being held.
-    public static func releaseDate(for unlock: LeafUnlock, schedule: SleepSchedule, calendar: Calendar) -> Date {
+    public static func releaseDate(for unlock: LeafUnlock, schedule: WeeklySleepSchedule, calendar: Calendar) -> Date {
         if isFirstSteps(unlock.speciesID) { return unlock.date }
-        switch NowPhase.resolve(date: unlock.date, schedule: schedule, calendar: calendar) {
+        switch NowPhase.resolve(date: unlock.date, weekly: schedule, calendar: calendar) {
         case .morning, .day:
             return unlock.date
         case .evening, .windDown, .night:
-            return PhaseWindows(schedule: schedule).nextStart(of: .morning, after: unlock.date, calendar: calendar)
+            return PhaseWindows(weekly: schedule).nextStart(of: .morning, after: unlock.date, calendar: calendar)
         }
     }
 
-    public static func isHeld(_ unlock: LeafUnlock, at date: Date, schedule: SleepSchedule, calendar: Calendar) -> Bool {
+    public static func isHeld(_ unlock: LeafUnlock, at date: Date, schedule: WeeklySleepSchedule, calendar: Calendar) -> Bool {
         !unlock.revealed && releaseDate(for: unlock, schedule: schedule, calendar: calendar) > date
     }
 
     /// Unopened leaves that are no longer held, oldest first.
-    public static func pending(_ unlocks: [LeafUnlock], at date: Date, schedule: SleepSchedule, calendar: Calendar) -> [LeafUnlock] {
+    public static func pending(_ unlocks: [LeafUnlock], at date: Date, schedule: WeeklySleepSchedule, calendar: Calendar) -> [LeafUnlock] {
         ordered(unlocks.filter { !$0.revealed && !isHeld($0, at: date, schedule: schedule, calendar: calendar) })
     }
 
     /// Unopened leaves still held until the morning, oldest first.
-    public static func held(_ unlocks: [LeafUnlock], at date: Date, schedule: SleepSchedule, calendar: Calendar) -> [LeafUnlock] {
+    public static func held(_ unlocks: [LeafUnlock], at date: Date, schedule: WeeklySleepSchedule, calendar: Calendar) -> [LeafUnlock] {
         ordered(unlocks.filter { isHeld($0, at: date, schedule: schedule, calendar: calendar) })
     }
 
@@ -75,8 +75,8 @@ public enum RevealSchedule {
     }
 
     /// What a reveal can open right now: pending leaves in Morning, Day and Evening, and First steps at any hour.
-    public static func revealable(_ unlocks: [LeafUnlock], at date: Date, schedule: SleepSchedule, calendar: Calendar) -> [LeafUnlock] {
-        let phaseAllows = opensIn(NowPhase.resolve(date: date, schedule: schedule, calendar: calendar))
+    public static func revealable(_ unlocks: [LeafUnlock], at date: Date, schedule: WeeklySleepSchedule, calendar: Calendar) -> [LeafUnlock] {
+        let phaseAllows = opensIn(NowPhase.resolve(date: date, weekly: schedule, calendar: calendar))
         return pending(unlocks, at: date, schedule: schedule, calendar: calendar).filter { phaseAllows || isFirstSteps($0.speciesID) }
     }
 

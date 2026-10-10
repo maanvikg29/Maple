@@ -31,6 +31,65 @@ nonisolated public enum RestCopy {
         HomeFormat.duration(minutes: minutes)
     }
 
+    // MARK: Weekday and weekend nights
+
+    /// "23:00 → 07:00".
+    public static func span(_ schedule: SleepSchedule, locale: Locale) -> String {
+        "\(HomeFormat.clock(schedule.bedtime, locale: locale)) → \(HomeFormat.clock(schedule.wake, locale: locale))"
+    }
+
+    /// Rest's quiet second line when weekend nights differ: the nights tonight isn't, "Weekends 00:30 → 09:00" on a
+    /// weekday night or "Weekdays 23:00 → 07:00" on a weekend night, and its spoken form. Nil when every night is the
+    /// same.
+    public static func otherNights(
+        _ weekly: WeeklySleepSchedule, tonight: WeeklySleepSchedule.Variant, locale: Locale
+    ) -> (text: String, spoken: String)? {
+        guard weekly.differsOnWeekends else { return nil }
+        let other: WeeklySleepSchedule.Variant = tonight == .weekend ? .weekday : .weekend
+        let schedule = weekly.schedule(for: other)
+        let name = other == .weekend ? "Weekends" : "Weekdays"
+        return ("\(name) \(span(schedule, locale: locale))", "\(name): \(spokenSchedule(schedule, locale: locale)).")
+    }
+
+    /// Which nights a variant covers, from the calendar's weekend: "Friday and Saturday nights" and "Sunday to
+    /// Thursday nights" where the weekend is Saturday and Sunday.
+    public static func nights(_ variant: WeeklySleepSchedule.Variant, calendar: Calendar) -> String {
+        let weekend = Set(WeeklySleepSchedule.weekendEvenings(calendar: calendar))
+        let evenings = (1...7).filter { weekend.contains($0) == (variant == .weekend) }
+        if evenings.count == 7 { return "Every night" }
+        return evenings.isEmpty ? "No nights" : "\(days(evenings)) nights"
+    }
+
+    /// The mornings weekend nights wake into: "Saturday and Sunday mornings".
+    public static func weekendMornings(calendar: Calendar) -> String {
+        let mornings = WeeklySleepSchedule.weekendEvenings(calendar: calendar).map { $0 % 7 + 1 }
+        return mornings.isEmpty ? "No mornings" : "\(days(mornings)) mornings"
+    }
+
+    /// Weekdays (1 is Sunday) as words, in a run that wraps the week where it must: "Friday and Saturday", "Sunday to
+    /// Thursday", "Saturday to Wednesday".
+    static func days(_ weekdays: [Int]) -> String {
+        var english = Calendar(identifier: .gregorian)
+        english.locale = Locale(identifier: "en_US_POSIX")
+        let names = english.weekdaySymbols
+        let set = Set(weekdays)
+        guard !set.isEmpty else { return "No" }
+        guard set.count < 7 else { return "All" }
+        // Start the run after a day that isn't in it, so a run across Saturday and Sunday stays in order.
+        let start = (1...7).first { set.contains($0) && !set.contains(($0 + 5) % 7 + 1) } ?? 1
+        let ordered = (0..<7).map { (start - 1 + $0) % 7 + 1 }.filter(set.contains)
+        let contiguous = ordered.count == set.count
+            && zip(ordered, ordered.dropFirst()).allSatisfy { $0 % 7 + 1 == $1 }
+        let words = ordered.map { names[$0 - 1] }
+        switch words.count {
+        case 1: return words[0]
+        case 2: return "\(words[0]) and \(words[1])"
+        default:
+            if contiguous { return "\(words[0]) to \(words[words.count - 1])" }
+            return words.dropLast().joined(separator: ", ") + " and " + words[words.count - 1]
+        }
+    }
+
     // MARK: Dial
 
     /// A quarter-hour label on the dial: "00", "06", "12", "18", or "12 AM", "6 AM", "12 PM", "6 PM".
@@ -61,14 +120,15 @@ nonisolated public enum RestCopy {
 
     // MARK: Wind-down mode
 
-    /// The line under the bedside clock, and its spoken form: "38m until bed" before bedtime, "Wake-up at 07:00"
-    /// once the night has started.
+    /// The line under the bedside clock, and its spoken form: "38m until bed" before tonight's bedtime, "Wake-up at
+    /// 07:00" (tonight's wake) once the night has started.
     public static func bedsideLine(
-        at date: Date, schedule: SleepSchedule, calendar: Calendar, locale: Locale
+        at date: Date, schedule: WeeklySleepSchedule, calendar: Calendar, locale: Locale
     ) -> (text: String, spoken: String) {
-        let windows = PhaseWindows(schedule: schedule)
-        if NowPhase.resolve(date: date, schedule: schedule, calendar: calendar) == .night {
-            let wake = HomeFormat.clock(schedule.wake, locale: locale)
+        let windows = PhaseWindows(weekly: schedule)
+        let today = windows.day(containing: date, calendar: calendar)
+        if today.phase(at: date) == .night {
+            let wake = HomeFormat.clock(schedule.schedule(forNight: today.day, calendar: calendar).wake, locale: locale)
             return ("Wake-up at \(wake)", "Wake-up at \(wake).")
         }
         let bedtime = windows.nextStart(of: .night, after: date, calendar: calendar)

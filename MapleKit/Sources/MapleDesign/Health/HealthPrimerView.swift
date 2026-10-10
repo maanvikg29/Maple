@@ -18,19 +18,23 @@ public struct HealthPrimerView: View {
     private let species: LeafSpecies?
     private let colourway: LeafColourway
     private let isAsking: Bool
+    private let page: Color?
     private let onContinue: () -> Void
     private let onNotNow: () -> Void
 
     /// - Parameters:
     ///   - species: A leaf Apple Health would let the member earn, drawn above the words; nil shows the words alone.
     ///   - isAsking: Apple's sheet is on its way; "Continue" waits.
+    ///   - page: What the primer sits on, which the buttons' footer fades into: `surface2` (the sheet) by default,
+    ///     `background` as a full-screen onboarding step.
     public init(
-        species: LeafSpecies?, colourway: LeafColourway, isAsking: Bool = false, onContinue: @escaping () -> Void,
-        onNotNow: @escaping () -> Void
+        species: LeafSpecies?, colourway: LeafColourway, isAsking: Bool = false, page: Color? = nil,
+        onContinue: @escaping () -> Void, onNotNow: @escaping () -> Void
     ) {
         self.species = species
         self.colourway = colourway
         self.isAsking = isAsking
+        self.page = page
         self.onContinue = onContinue
         self.onNotNow = onNotNow
     }
@@ -79,8 +83,8 @@ public struct HealthPrimerView: View {
             }
             .padding(.horizontal, theme.spacing.homeMargin)
             .padding(.top, theme.spacing.sm)
-            // The sheet sits on surface2.
-            .footerFade(theme.colors.surface2)
+            // The sheet sits on surface2; onboarding passes its own page.
+            .footerFade(page ?? theme.colors.surface2)
         }
     }
 }

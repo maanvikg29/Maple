@@ -12,6 +12,8 @@ struct MapleApp: App {
     @State private var schedule: ScheduleStore
     @State private var shares: LeafShareStore
     @State private var settings: AppSettings
+    /// The first run's screen, answers and schedule draft, so a stopped first run resumes on the same screen.
+    @State private var onboarding = OnboardingStore.launch()
     /// Apple Health: granted only once the member has been through Apple's prompt (DEBUG demos: their arguments).
     @State private var health: HealthPermission
     private let stores: MapleStores
@@ -59,6 +61,7 @@ struct MapleApp: App {
                 .environment(schedule)
                 .environment(shares)
                 .environment(settings)
+                .environment(onboarding)
                 .environment(health)
                 .environment(\.mapleClock, clock)
         }
@@ -88,6 +91,7 @@ private struct ThemedRoot: View {
     @Environment(CollectionStore.self) private var collection
     @Environment(LeafShareStore.self) private var shares
     @Environment(AppSettings.self) private var settings
+    @Environment(OnboardingStore.self) private var onboarding
     @Environment(HealthPermission.self) private var health
     let stores: MapleStores
     @Binding var launch: LaunchGate
@@ -133,6 +137,7 @@ private struct ThemedRoot: View {
     /// rebuilds the root on the member's real collection.
     private func reloadUnreadableFiles() {
         let settingsReloaded = settings.reloadIfUnavailable()
+        onboarding.reloadIfUnavailable()
         guard stores.reloadIfUnavailable() else {
             if settingsReloaded { settings.apply(to: collection) }
             return

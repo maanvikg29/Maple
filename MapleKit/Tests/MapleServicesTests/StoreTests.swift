@@ -74,7 +74,7 @@ struct CollectionStoreTests {
         #expect(store.revealable(at: at(2026, 10, 2, 21, 30)).isEmpty)
         #expect(store.held(at: at(2026, 10, 2, 21, 30)).map(\.speciesID) == ["rubrum"])
         // Moving bedtime later makes 21:00 part of the day, so the leaf is pending at once.
-        store.schedule = SleepSchedule(bedtime: ClockTime(hour: 1), wake: ClockTime(hour: 9), windDownMinutes: 60)
+        store.schedule = .everyNight(SleepSchedule(bedtime: ClockTime(hour: 1), wake: ClockTime(hour: 9), windDownMinutes: 60))
         #expect(store.revealable(at: at(2026, 10, 2, 21, 30)).map(\.speciesID) == ["rubrum"])
 
         let now = at(2026, 10, 2, 21, 30)
@@ -133,11 +133,11 @@ struct ScheduleStoreTests {
         #expect(schedules.schedule == .standard)
 
         let mine = SleepSchedule(bedtime: ClockTime(hour: 22, minute: 30), wake: ClockTime(hour: 6, minute: 30), windDownMinutes: 30)
-        let unlocked = schedules.save(mine, at: at(2026, 10, 1, 23, 40))
+        let unlocked = schedules.save(.everyNight(mine), at: at(2026, 10, 1, 23, 40))
         #expect(unlocked.map(\.speciesID) == ["saccharum"])
         #expect(RewardCatalog.shared.reward(forSpecies: "saccharum")?.unlockText == "Set your sleep schedule")
         #expect(collection.hasPlantedMaple)
-        #expect(collection.schedule == mine)
+        #expect(collection.schedule == .everyNight(mine))
         #expect(collection.snapshot.counters[.firstSteps] == 1)
         #expect(collection.snapshot.tendedDays.isEmpty)
         // It is the one leaf that can be opened at night.
@@ -148,19 +148,19 @@ struct ScheduleStoreTests {
 
         // Later saves change the schedule only.
         let later = SleepSchedule(bedtime: ClockTime(hour: 23), wake: ClockTime(hour: 7), windDownMinutes: 60)
-        #expect(schedules.save(later, at: at(2026, 10, 3, 12)).isEmpty)
+        #expect(schedules.save(.everyNight(later), at: at(2026, 10, 3, 12)).isEmpty)
         #expect(collection.snapshot.unlocks.count == 1)
-        #expect(collection.schedule == later)
+        #expect(collection.schedule == .everyNight(later))
 
         // Nights already under way when it changed keep the schedule they began with.
         #expect(collection.snapshot.nights.pastSchedules
-            == [NightLedger.PastSchedule(through: LocalDay(year: 2026, month: 10, day: 2), schedule: mine)])
+            == [NightLedger.PastSchedule(through: LocalDay(year: 2026, month: 10, day: 2), schedule: .everyNight(mine))])
 
         let reloadedCollection = CollectionStore(storage: JSONStorage(.file(folder.appendingPathComponent("collection.json"))), context: testContext)
         let reloaded = ScheduleStore(storage: JSONStorage(.file(folder.appendingPathComponent("schedule.json"))), collection: reloadedCollection)
         #expect(reloaded.hasSavedSchedule)
         #expect(reloaded.schedule == later)
-        #expect(reloadedCollection.schedule == later)
+        #expect(reloadedCollection.schedule == .everyNight(later))
     }
 
     /// The member's real stores in `folder`, as a launch builds them.
@@ -226,8 +226,8 @@ struct ScheduleStoreTests {
 
         // 23:40 on the 5th, already late: bedtime moves to 00:00, and sleep comes at 23:45.
         let midnight = SleepSchedule(bedtime: ClockTime(hour: 0), wake: ClockTime(hour: 7), windDownMinutes: 45)
-        schedules.save(midnight, at: at(2026, 10, 5, 23, 40))
-        #expect(collection.schedule == midnight)
+        schedules.save(.everyNight(midnight), at: at(2026, 10, 5, 23, 40))
+        #expect(collection.schedule == .everyNight(midnight))
         let tonight = SleepNightObservation(onset: at(2026, 10, 5, 23, 45), finalWake: at(2026, 10, 6, 7), asleepMinutes: 440,
                                             source: .watchOrTracker, calendar: utc)
         collection.recordSleep([tonight], at: at(2026, 10, 6, 7, 30))

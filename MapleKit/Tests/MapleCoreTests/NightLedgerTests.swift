@@ -315,14 +315,14 @@ struct NightLedgerTests {
         night(&snapshot, day(10, 1), onset: (23, 10), context: current)                     // vs 23:00: on time
 
         // At 20:00 on the 2nd, bedtime moves to 22:00: that night has begun under 23:00.
-        let earlier = SleepSchedule(bedtime: ClockTime(hour: 22), wake: ClockTime(hour: 7), windDownMinutes: 45)
+        let earlier = WeeklySleepSchedule.everyNight(SleepSchedule(bedtime: ClockTime(hour: 22), wake: ClockTime(hour: 7), windDownMinutes: 45))
         snapshot.scheduleChanged(from: .standard, to: earlier, at: MapleCoreTests.at(2026, 10, 2, 20), calendar: utc)
         current.schedule = earlier
         night(&snapshot, day(10, 2), onset: (23, 10), context: current)                     // still 23:00: on time
         night(&snapshot, day(10, 3), onset: (23, 10), context: current)                     // 22:00: late
 
         // At 10:00 on the 4th, bedtime moves to 23:30: from that evening on.
-        let later = SleepSchedule(bedtime: ClockTime(hour: 23, minute: 30), wake: ClockTime(hour: 7), windDownMinutes: 45)
+        let later = WeeklySleepSchedule.everyNight(SleepSchedule(bedtime: ClockTime(hour: 23, minute: 30), wake: ClockTime(hour: 7), windDownMinutes: 45))
         snapshot.scheduleChanged(from: earlier, to: later, at: MapleCoreTests.at(2026, 10, 4, 10), calendar: utc)
         current.schedule = later
         night(&snapshot, day(10, 4), onset: (23, 50), context: current)                     // vs 23:30: on time

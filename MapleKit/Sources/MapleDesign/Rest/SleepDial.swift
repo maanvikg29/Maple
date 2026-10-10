@@ -14,7 +14,7 @@ import SwiftUI
 /// ```swift
 /// TimelineView(.everyMinute) { context in
 ///     let now = clock.date(forTimeline: context.date)
-///     SleepDial(schedule: schedule.schedule, now: HomeFormat.clockTime(of: now, calendar: .current))
+///     SleepDial(schedule: schedule.tonight(at: now), now: HomeFormat.clockTime(of: now, calendar: .current))
 /// }
 /// ```
 public struct SleepDial: View {
