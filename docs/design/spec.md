@@ -1295,6 +1295,7 @@ Rule for all of them: each screen is built around its own object or real data. A
   - "Your sleep, focus and screen data never leave your iPhone." (13 secondary);
   - Apple Health and Screen Time status rows with "Turn on" where they are missing.
 - **Settings:** hemisphere, sleep goal, "Reveal sound" (off by default).
+- **Reminders** (a second group): "Wind-down reminder" (on by default, at the wind-down start) and "Morning check-in" (off by default, a quiet note 30 minutes after wake). Turning one on before iOS has asked shows the reminder primer; once iOS has said no, a "Notifications are off" row offers "Open Settings".
 
 ### 8.8 Onboarding end (the only place the Seed stage is seen)
 

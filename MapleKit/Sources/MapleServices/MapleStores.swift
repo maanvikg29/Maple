@@ -12,6 +12,8 @@ public struct MapleStores {
     /// Apple Health: the one permission this build can grant, and only once the member has been through Apple's
     /// prompt. DEBUG demos are granted what their launch arguments say.
     public let health: HealthPermission
+    /// Wind-down and morning reminders: scheduled only once iOS allows notifications. DEBUG demos never schedule.
+    public let reminders: Reminders
     /// "Now" for every screen: live, or frozen inside a phase by `-MapleDemoPhase`.
     public let clock: MapleClock
     /// `-MapleDemoSeason`; nil uses the real season.
@@ -41,7 +43,8 @@ public struct MapleStores {
     /// calls `collection.systemTimeChanged()` on a time-zone change to refresh what screens already drew.
     public static func live(
         directory: URL = MapleContainer.directory(), calendar: Calendar = .autoupdatingCurrent, now: Date = .now,
-        healthAuthorizer: any HealthAuthorizing = HealthKitAuthorizer()
+        healthAuthorizer: any HealthAuthorizing = HealthKitAuthorizer(),
+        reminderCenter: any ReminderCenter = UserNotificationCenter()
     ) -> MapleStores {
         let health = HealthPermission.live(directory: directory, authorizer: healthAuthorizer)
         let context = CollectionContext(permissions: health.permissions, calendar: calendar, hemisphere: .current)
@@ -54,8 +57,9 @@ public struct MapleStores {
             provider: UnconfiguredLeafShareProvider(), storage: JSONStorage(.file(directory.appending(path: sharesFile))),
             features: context.features, clock: .live
         )
-        var stores = MapleStores(collection: collection, schedule: schedule, shares: shares, health: health, clock: .live,
-                                 seasonOverride: nil)
+        let reminders = Reminders.live(directory: directory, center: reminderCenter, schedule: schedule.schedule)
+        var stores = MapleStores(collection: collection, schedule: schedule, shares: shares, health: health,
+                                 reminders: reminders, clock: .live, seasonOverride: nil)
         stores.isLive = true
         return stores
     }
@@ -63,7 +67,7 @@ public struct MapleStores {
     /// Whether the collection and schedule files could both be read (see `CollectionStore.isAvailable`).
     public var isAvailable: Bool { collection.isAvailable && schedule.isAvailable }
 
-    /// Reads the collection, schedule and Apple Health record again if launch couldn't (before the first unlock
+    /// Reads the collection, schedule, Apple Health record and reminder settings again if launch couldn't (before the first unlock
     /// after a restart).
     /// - Returns: Whether the collection or schedule changed from its placeholder, so the first-run step must be
     ///   decided again.
@@ -72,6 +76,7 @@ public struct MapleStores {
         let collectionReloaded = collection.reloadIfUnavailable()
         let scheduleReloaded = schedule.reloadIfUnavailable()
         let healthReloaded = health.reloadIfUnavailable()
+        reminders.reloadIfUnavailable()
         if collectionReloaded, !scheduleReloaded {
             // The collection's placeholder had the standard schedule; give it the member's again.
             collection.schedule = schedule.schedule
@@ -135,8 +140,13 @@ public struct MapleStores {
         } ?? .live
         let provider: any LeafShareProvider = options.rarity ? PreviewLeafShareProvider() : UnconfiguredLeafShareProvider()
         let shares = LeafShareStore(provider: provider, storage: JSONStorage(.memory), features: context.features, clock: clock)
-        return MapleStores(collection: collection, schedule: schedule, shares: shares, health: health, clock: clock,
-                           seasonOverride: options.season)
+        // Demos never schedule on the device, and never offer the reminder primer over a screenshot.
+        let reminders = Reminders(
+            storage: JSONStorage(.memory, initial: ReminderSettings(primerOfferedAt: now)), center: SilentReminderCenter(),
+            schedule: schedule.schedule
+        )
+        return MapleStores(collection: collection, schedule: schedule, shares: shares, health: health,
+                           reminders: reminders, clock: clock, seasonOverride: options.season)
     }
     #endif
 }

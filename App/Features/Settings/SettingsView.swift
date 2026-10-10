@@ -1,10 +1,15 @@
 import SwiftUI
+import UIKit
 import MapleCore
 import MapleDesign
 import MapleServices
 
-/// Settings (spec §8.7): hemisphere, sleep goal and the reveal sound, as one Level-1 group. Every change saves at
-/// once through `AppSettings`; the hemisphere moves the seasons (and the tree) straight away.
+/// Settings (spec §8.7): hemisphere, sleep goal and the reveal sound, as one Level-1 group, then the reminders.
+/// Every change saves at once through `AppSettings`; the hemisphere moves the seasons (and the tree) straight away.
+///
+/// Reminders: the wind-down nudge and the quiet morning check-in, each a toggle through `Reminders`. Turning one on
+/// before iOS has asked shows the reminder primer first; once iOS has said no, it opens Maple's page in the Settings
+/// app instead, and a row says why the toggles are off.
 ///
 /// The sleep goal only decides Full nights, which need sleep-stage data from Apple Health; until those leaves can
 /// be earned on this iPhone the row is absent (spec §1.5: a feature appears only when it has real state).
@@ -12,7 +17,12 @@ struct SettingsView: View {
     @Environment(\.theme) private var theme
     @Environment(\.mapleClock) private var clock
     @Environment(AppSettings.self) private var settings
+    @Environment(\.locale) private var locale
+    @Environment(\.openURL) private var openURL
     @Environment(CollectionStore.self) private var collection
+    @Environment(ScheduleStore.self) private var schedule
+    @Environment(Reminders.self) private var reminders
+    @State private var reminderPrimer: ReminderPrimerRequest?
 
     var body: some View {
         @Bindable var settings = settings
@@ -30,7 +40,58 @@ struct SettingsView: View {
                     ProfileToggle("Reveal sound", isOn: $settings.revealSound)
                 }
             }
+            ProfileListGroup {
+                ProfileSettingRow("Wind-down reminder", detail: Text(windDownDetail)) {
+                    ProfileToggle("Wind-down reminder", isOn: reminderToggle(.windDown))
+                }
+                ProfileSettingRow("Morning check-in", detail: Text(morningDetail)) {
+                    ProfileToggle("Morning check-in", isOn: reminderToggle(.morning))
+                }
+                if reminders.isDenied {
+                    ProfileSettingRow(
+                        "Notifications are off",
+                        detail: Text("Maple can send reminders once notifications are allowed in the Settings app."),
+                        link: TextLink("Open Settings", action: openSystemSettings), controlIsLabelled: false
+                    ) {
+                        EmptyView()
+                    }
+                }
+            }
         }
+        .sheet(item: $reminderPrimer) { request in
+            ReminderPrimerSheet(enabling: request.enabling)
+        }
+    }
+
+    /// "At 22:15, when your wind-down starts."
+    private var windDownDetail: String {
+        "At \(HomeFormat.clock(schedule.schedule.windDownStart, locale: locale)), when your wind-down starts."
+    }
+
+    /// "A quiet note at 07:30, half an hour after you wake."
+    private var morningDetail: String {
+        "A quiet note at \(HomeFormat.clock(ReminderPlan.morningTime(for: schedule.schedule), locale: locale)), half an hour after you wake."
+    }
+
+    /// On only while wanted and allowed. Turning one on that iOS hasn't been asked about shows the primer; one iOS
+    /// has refused opens the Settings app.
+    private func reminderToggle(_ kind: ReminderKind) -> Binding<Bool> {
+        Binding {
+            reminders.isOn(kind)
+        } set: { isOn in
+            Task {
+                guard await !reminders.set(kind, on: isOn) else { return }
+                if reminders.isDenied {
+                    openSystemSettings()
+                } else {
+                    reminderPrimer = ReminderPrimerRequest(enabling: kind)
+                }
+            }
+        }
+    }
+
+    private func openSystemSettings() {
+        if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
     }
 
     /// "Northern, from your region. It's autumn now." / "It's spring now in the southern hemisphere."

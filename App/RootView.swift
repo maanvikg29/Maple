@@ -12,11 +12,17 @@ enum AppTab: String, Hashable {
 struct RootView: View {
     @Environment(\.theme) private var theme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.mapleClock) private var clock
+    @Environment(CollectionStore.self) private var collection
+    @Environment(Reminders.self) private var reminders
     @State private var router = AppRouter(selectedTab: .initial)
     /// Latched at launch and cleared only by onboarding's `onFinish`: the First-steps leaf is placed mid-flow, and
     /// the seedling it grows still has to be shown before Home takes over.
     @State private var isPlanting: Bool
     private let firstRun: FirstRunStep
+    /// The reminder primer, offered once on its own (`offerRemindersIfDue()`).
+    @State private var reminderPrimer: ReminderPrimerRequest?
 
     /// - Parameter firstRun: Where the first run starts or resumes; `.finished` opens on the tabs.
     init(firstRun: FirstRunStep) {
@@ -59,6 +65,13 @@ struct RootView: View {
         .tint(theme.colors.textPrimary)
         .tabBarMinimizeBehavior(.onScrollDown)
         .modifier(TabBarSurface())
+        .sheet(item: $reminderPrimer) { request in
+            ReminderPrimerSheet(enabling: request.enabling)
+        }
+        .task(id: scenePhase) { await offerRemindersIfDue() }
+        .onChange(of: reminders.shouldOfferPrimer) {
+            Task { await offerRemindersIfDue() }
+        }
         #if DEBUG
         .demoPresenter()
         #endif
@@ -77,6 +90,23 @@ struct RootView: View {
         }
         return Image(uiImage: bitmap.withRenderingMode(.alwaysTemplate))
     }()
+
+    /// The reminder primer is offered once, on its own, the first time the tabs are up while iOS hasn't asked about
+    /// notifications: just after the first run (Home with the new seedling), or the next launch for members who
+    /// planted before reminders shipped. Never in wind-down or night, which stay quiet. After that it is reached
+    /// only from Settings.
+    private func offerRemindersIfDue() async {
+        guard scenePhase == .active, reminders.shouldOfferPrimer, reminderPrimer == nil else { return }
+        // Let Home's crossfade from onboarding settle first.
+        try? await Task.sleep(for: .seconds(1.5))
+        guard scenePhase == .active, reminders.shouldOfferPrimer, reminderPrimer == nil else { return }
+        switch collection.phase(at: clock.now()) {
+        case .windDown, .night: return
+        case .morning, .day, .evening: break
+        }
+        reminders.markPrimerOffered(at: clock.now())
+        reminderPrimer = ReminderPrimerRequest(enabling: nil)
+    }
 
     /// "Place on your maple" has grafted the Sugar maple and the seedling has been seen: Home appears, holding
     /// the same seedling, with a crossfade.

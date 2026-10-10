@@ -14,6 +14,8 @@ struct MapleApp: App {
     @State private var settings: AppSettings
     /// Apple Health: granted only once the member has been through Apple's prompt (DEBUG demos: their arguments).
     @State private var health: HealthPermission
+    /// Wind-down and morning reminders, scheduled once iOS allows notifications.
+    @State private var reminders: Reminders
     private let stores: MapleStores
     private let clock: MapleClock
     /// Where the first run starts or picks up (spec §8.8): until the Sugar maple is on the tree, the app opens on
@@ -28,6 +30,7 @@ struct MapleApp: App {
         _schedule = State(initialValue: stores.schedule)
         _shares = State(initialValue: stores.shares)
         _health = State(initialValue: stores.health)
+        _reminders = State(initialValue: stores.reminders)
         clock = stores.clock
         // Hemisphere, sleep goal and reveal sound (Profile › Settings). Seasons follow the chosen hemisphere from
         // the first frame; a DEBUG -MapleDemoSeason override still wins.
@@ -60,6 +63,7 @@ struct MapleApp: App {
                 .environment(shares)
                 .environment(settings)
                 .environment(health)
+                .environment(reminders)
                 .environment(\.mapleClock, clock)
         }
     }
@@ -81,6 +85,8 @@ struct LaunchGate: Equatable {
 /// - the season is read again on every foreground and at each significant time change (which iOS posts at local
 ///   midnight), so a month boundary passed with the app open changes it everywhere. (A root `TimelineView` would do
 ///   it too, but one at the root kept the first frame from ever committing.)
+/// - each foreground reads what iOS allows for notifications (the member may have changed it in Settings) and
+///   schedules the reminders again; a new sleep schedule moves them.
 private struct ThemedRoot: View {
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.scenePhase) private var scenePhase
@@ -89,6 +95,8 @@ private struct ThemedRoot: View {
     @Environment(LeafShareStore.self) private var shares
     @Environment(AppSettings.self) private var settings
     @Environment(HealthPermission.self) private var health
+    @Environment(ScheduleStore.self) private var schedule
+    @Environment(Reminders.self) private var reminders
     let stores: MapleStores
     @Binding var launch: LaunchGate
     /// The moment the season was last read for; nil until the first foreground.
@@ -106,6 +114,8 @@ private struct ThemedRoot: View {
                 reloadUnreadableFiles()
                 await health.refresh(at: clock.now())
                 health.apply(to: collection)
+                await reminders.update(schedule: schedule.schedule)
+                await reminders.refresh()
                 await shares.refreshIfNeeded()
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.protectedDataDidBecomeAvailableNotification)) { _ in
@@ -126,6 +136,9 @@ private struct ThemedRoot: View {
             }
             .onChange(of: health.isConnected) {
                 health.apply(to: collection)
+            }
+            .onChange(of: schedule.schedule) {
+                Task { await reminders.update(schedule: schedule.schedule) }
             }
     }
 
