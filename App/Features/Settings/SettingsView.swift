@@ -22,7 +22,7 @@ struct SettingsView: View {
                     HemispherePicker(selection: $settings.hemisphere)
                 }
                 if collection.availability(of: .fullNights) == .available {
-                    ProfileSettingRow("Sleep goal", detail: Text("A full night is at least this much sleep.")) {
+                    ProfileSettingRow("Sleep goal", detail: Text("A full night is this much sleep, or within 30 minutes of it.")) {
                         SleepGoalStepper()
                     }
                 }

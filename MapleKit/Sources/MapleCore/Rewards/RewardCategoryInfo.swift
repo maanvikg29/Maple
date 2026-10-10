@@ -23,9 +23,13 @@ public enum RewardCategoryID: String, Codable, Sendable, CaseIterable {
     case communityChallenges = "community_challenges"
 }
 
-/// What a category needs from the system before its leaves can be earned.
+/// What a category needs from the system before its leaves can be earned. The M1 sleep categories all come from
+/// Apple Health (rewards.json data sources, spec D9): there is no manual self-report fallback, so a Goodnight tap
+/// never counts as a night.
 public enum RewardRequirement: Sendable, Equatable {
     case none
+    /// Sleep from Apple Health: any of the source ladder's sources (a Watch or tracker, another app, or iPhone's
+    /// in-bed estimate).
     case appleHealth
     /// Asleep-stage data from an Apple Watch or a sleep tracker (iPhone in-bed data isn't enough).
     case sleepTracker
@@ -79,30 +83,30 @@ public struct RewardCategoryInfo: Sendable {
                       short: { _ in "Setup" }, earned: { _ in "For setting your sleep schedule" })
             return
         case .nightsTracked:
-            self.init(id, order: 1, requirement: .none, timeOfDay: .night, action: nil, release: .m1, designPace: 0.9,
-                      definition: "A night counts when you tap Goodnight in wind-down mode.",
+            self.init(id, order: 1, requirement: .appleHealth, timeOfDay: .night, action: nil, release: .m1, designPace: 0.9,
+                      definition: "A night counts when Apple Health has your sleep.",
                       short: { "\($0) \(plural($0, "night"))" },
                       earned: { $0 == 1 ? "For your first tracked night" : "For \($0) tracked nights" })
             return
         case .onTimeBedtimes:
-            self.init(id, order: 2, requirement: .none, timeOfDay: .night, action: .startWindDown, release: .m1, designPace: 0.7,
-                      definition: "Goodnight no later than 30 minutes after your bedtime.",
+            self.init(id, order: 2, requirement: .appleHealth, timeOfDay: .night, action: .startWindDown, release: .m1, designPace: 0.7,
+                      definition: "Asleep no later than 30 minutes after your bedtime.",
                       short: { "\($0) on time" },
                       earned: { $0 == 1 ? "For your first on-time bedtime" : "For \($0) on-time bedtimes" })
             return
         case .bedtimeRun:
-            self.init(id, order: 3, requirement: .none, timeOfDay: .night, action: .startWindDown, release: .m1, designPace: 0.7,
+            self.init(id, order: 3, requirement: .appleHealth, timeOfDay: .night, action: .startWindDown, release: .m1, designPace: 0.7,
                       definition: "Your run continues while 5 of every 7 nights are on time.",
                       short: { "\($0)-night run" }, earned: { "For a \($0)-night run" })
             return
         case .steadyWeeks:
-            self.init(id, order: 4, requirement: .none, timeOfDay: .night, action: nil, release: .m1, designPace: 0.1,
+            self.init(id, order: 4, requirement: .appleHealth, timeOfDay: .night, action: nil, release: .m1, designPace: 0.1,
                       definition: "A steady week has 5 or more on-time nights.",
                       short: { "\($0) \(plural($0, "week"))" },
                       earned: { $0 == 1 ? "For your first steady week" : "For \($0) steady weeks" })
             return
         case .seasonsInRhythm:
-            self.init(id, order: 5, requirement: .none, timeOfDay: .night, action: nil, release: .m1, designPace: 1.0 / 91,
+            self.init(id, order: 5, requirement: .appleHealth, timeOfDay: .night, action: nil, release: .m1, designPace: 1.0 / 91,
                       definition: "A season counts when 8 of its weeks are steady.",
                       short: { "\($0) \(plural($0, "season"))" },
                       earned: { $0 == 1 ? "For a season in rhythm" : "For \($0) seasons in rhythm" })
@@ -114,7 +118,7 @@ public struct RewardCategoryInfo: Sendable {
             return
         case .fullNights:
             self.init(id, order: 7, requirement: .sleepTracker, timeOfDay: .night, action: nil, release: .m1, designPace: 0.6,
-                      definition: "Asleep for your full sleep need, give or take 30 minutes.",
+                      definition: "Asleep for your full sleep need, or within 30 minutes of it.",
                       short: { "\($0) full \(plural($0, "night"))" }, earned: { "For \($0) full \(plural($0, "night"))" })
             return
         case .focusHours:

@@ -29,7 +29,11 @@ public struct ShippedFeatures: Sendable, Hashable {
 }
 
 /// System permissions the member has granted. Categories that need a missing one show "Needs Apple Health" or
-/// "Needs Screen Time" and are left out of next-leaf, Almost there and pacing (D9).
+/// "Needs Screen Time" and are left out of next-leaf, buds, Almost there and pacing (D9).
+///
+/// The live app grants only what is real: Apple Health once the member has been through Apple's Health prompt
+/// (`HealthPermission` in MapleServices), never by default. DEBUG demo launches may grant more
+/// (`-MapleDemoPermissions`).
 public struct GrantedPermissions: OptionSet, Sendable, Hashable, Codable {
     public let rawValue: Int
 
@@ -39,7 +43,9 @@ public struct GrantedPermissions: OptionSet, Sendable, Hashable, Codable {
 
     /// Sleep data from Apple Health.
     public static let appleHealth = GrantedPermissions(rawValue: 1 << 0)
-    /// Asleep-stage data from an Apple Watch or another sleep tracker, read through Apple Health.
+    /// Asleep-stage data from an Apple Watch or another sleep tracker, read through Apple Health. Not a system
+    /// prompt: the collection adds it once Apple Health has delivered a night with asleep time
+    /// (`CollectionSnapshot.permissions(in:)`), and DEBUG demos may grant it.
     public static let sleepTracker = GrantedPermissions(rawValue: 1 << 1)
     public static let screenTime = GrantedPermissions(rawValue: 1 << 2)
 }
@@ -65,5 +71,13 @@ extension LeafAvailability {
         case .screenTime:
             self = permissions.contains(.screenTime) ? .available : .needsScreenTime
         }
+    }
+}
+
+extension LeafAvailability {
+    /// A permission is missing that the member can turn on from Maple (Apple Health, Screen Time). A sleep tracker
+    /// is hardware, so `needsSleepTracker` can't be.
+    public var canBeTurnedOn: Bool {
+        self == .needsAppleHealth || self == .needsScreenTime
     }
 }

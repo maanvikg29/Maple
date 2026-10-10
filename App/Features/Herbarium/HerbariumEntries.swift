@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 import MapleCore
 import MapleDesign
 import MapleServices
@@ -86,14 +85,5 @@ private struct HerbariumBackdrop: ViewModifier {
             .ignoresSafeArea()
             .accessibilityHidden(true)
         }
-    }
-}
-
-/// Opens Maple's page in Settings, where a missing permission can be turned on. The permission primer, once it
-/// exists, takes over from here (spec §5.3 "Turn on").
-@MainActor
-func openPermissionSettings(_ openURL: OpenURLAction) {
-    if let url = URL(string: UIApplication.openSettingsURLString) {
-        openURL(url)
     }
 }

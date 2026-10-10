@@ -82,15 +82,17 @@ public final class ScheduleStore {
         return resumed == .recordFirstLeaf ? .schedule : resumed
     }
 
-    /// Saves the schedule and applies it everywhere (phases, held reveals). The first save plants the maple.
+    /// Saves the schedule and applies it everywhere (phases, held reveals). Nights already under way are still judged
+    /// by the schedule they began with. The first save plants the maple.
     /// - Returns: Leaves unlocked by this save: the Sugar maple the first time, otherwise nothing.
     @discardableResult
     public func save(_ schedule: SleepSchedule, at date: Date) -> [LeafUnlock] {
         if !isAvailable { reloadIfUnavailable() }
+        let replaced = hasSavedSchedule ? self.schedule : nil
         self.schedule = schedule
         savedAt = date
         storage.save(SavedSchedule(schedule: schedule, savedAt: date))
-        collection.schedule = schedule
+        collection.scheduleSaved(schedule, replacing: replaced, at: date)
         return collection.raise(.firstSteps, to: 1, at: date)
     }
 }

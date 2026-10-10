@@ -9,11 +9,14 @@ public struct MapleStores {
     public let collection: CollectionStore
     public let schedule: ScheduleStore
     public let shares: LeafShareStore
+    /// Apple Health: the one permission this build can grant, and only once the member has been through Apple's
+    /// prompt. DEBUG demos are granted what their launch arguments say.
+    public let health: HealthPermission
     /// "Now" for every screen: live, or frozen inside a phase by `-MapleDemoPhase`.
     public let clock: MapleClock
     /// `-MapleDemoSeason`; nil uses the real season.
     public let seasonOverride: Season?
-    /// The member's real files (false for DEBUG demos, which live in memory). Only these record nights.
+    /// The member's real files (false for DEBUG demos, which live in memory).
     public var isLive = false
 
     public static let collectionFile = "collection.json"
@@ -29,14 +32,19 @@ public struct MapleStores {
         return live()
     }
 
-    /// The member's own collection, schedule and rarity cache, saved in `directory`.
+    /// The member's own collection, schedule, rarity cache and Apple Health record, saved in `directory`.
+    ///
+    /// Permissions are real: Apple Health is granted only once the member has been through Apple's prompt
+    /// (`HealthPermission`), and nothing else can be granted in this build.
     ///
     /// The calendar is the autoupdating one, so a new time zone moves phases and days with the member; the app
     /// calls `collection.systemTimeChanged()` on a time-zone change to refresh what screens already drew.
     public static func live(
-        directory: URL = MapleContainer.directory(), calendar: Calendar = .autoupdatingCurrent, now: Date = .now
+        directory: URL = MapleContainer.directory(), calendar: Calendar = .autoupdatingCurrent, now: Date = .now,
+        healthAuthorizer: any HealthAuthorizing = HealthKitAuthorizer()
     ) -> MapleStores {
-        let context = CollectionContext(calendar: calendar, hemisphere: .current)
+        let health = HealthPermission.live(directory: directory, authorizer: healthAuthorizer)
+        let context = CollectionContext(permissions: health.permissions, calendar: calendar, hemisphere: .current)
         let collection = CollectionStore(
             storage: JSONStorage(.file(directory.appending(path: collectionFile))), context: context, now: now
         )
@@ -46,7 +54,8 @@ public struct MapleStores {
             provider: UnconfiguredLeafShareProvider(), storage: JSONStorage(.file(directory.appending(path: sharesFile))),
             features: context.features, clock: .live
         )
-        var stores = MapleStores(collection: collection, schedule: schedule, shares: shares, clock: .live, seasonOverride: nil)
+        var stores = MapleStores(collection: collection, schedule: schedule, shares: shares, health: health, clock: .live,
+                                 seasonOverride: nil)
         stores.isLive = true
         return stores
     }
@@ -54,16 +63,20 @@ public struct MapleStores {
     /// Whether the collection and schedule files could both be read (see `CollectionStore.isAvailable`).
     public var isAvailable: Bool { collection.isAvailable && schedule.isAvailable }
 
-    /// Reads the collection and schedule again if launch couldn't (before the first unlock after a restart).
-    /// - Returns: Whether either one changed from its placeholder, so the first-run step must be decided again.
+    /// Reads the collection, schedule and Apple Health record again if launch couldn't (before the first unlock
+    /// after a restart).
+    /// - Returns: Whether the collection or schedule changed from its placeholder, so the first-run step must be
+    ///   decided again.
     @discardableResult
     public func reloadIfUnavailable() -> Bool {
         let collectionReloaded = collection.reloadIfUnavailable()
         let scheduleReloaded = schedule.reloadIfUnavailable()
+        let healthReloaded = health.reloadIfUnavailable()
         if collectionReloaded, !scheduleReloaded {
             // The collection's placeholder had the standard schedule; give it the member's again.
             collection.schedule = schedule.schedule
         }
+        if collectionReloaded || healthReloaded { health.apply(to: collection) }
         return collectionReloaded || scheduleReloaded
     }
 
@@ -71,12 +84,21 @@ public struct MapleStores {
     /// DEBUG launches with demo arguments. Every store is in memory, so the real files are never written:
     /// a demo collection (`-MapleDemoSpecies`/`Days`/`Waiting`), an empty first run (`-MapleDemoFresh`), or an
     /// in-memory copy of the member's own collection when only the phase, season or rarity is overridden.
+    ///
+    /// Permissions: `-MapleDemoPermissions` when given; otherwise demo collections are granted Apple Health and a
+    /// sleep tracker (`DemoData.defaultPermissions`), so their leaves show earned progress; a fresh first run gets
+    /// nothing; and a copy of the member's own collection gets their own Apple Health record.
     public static func make(
         _ options: DemoLaunchOptions, directory: URL = MapleContainer.directory(), calendar: Calendar = .current,
         now: Date = .now
     ) -> MapleStores {
         let usesDemo = options.usesDemoCollection
-        let permissions = options.permissions ?? (usesDemo ? DemoData.defaultPermissions : [])
+        let savedHealth = JSONStorage<HealthConnection>(.file(directory.appending(path: HealthPermission.file))).load()
+        let permissions = options.permissions
+            ?? (options.fresh ? [] : usesDemo ? DemoData.defaultPermissions : (savedHealth ?? HealthConnection()).permissions)
+        let connection = permissions.contains(.appleHealth)
+            ? HealthConnection(promptCompletedAt: savedHealth?.promptCompletedAt ?? now) : HealthConnection()
+        let health = HealthPermission(storage: JSONStorage(.memory, initial: connection))
         let context = CollectionContext(
             permissions: permissions, calendar: calendar, hemisphere: .current, seasonOverride: options.season
         )
@@ -113,7 +135,8 @@ public struct MapleStores {
         } ?? .live
         let provider: any LeafShareProvider = options.rarity ? PreviewLeafShareProvider() : UnconfiguredLeafShareProvider()
         let shares = LeafShareStore(provider: provider, storage: JSONStorage(.memory), features: context.features, clock: clock)
-        return MapleStores(collection: collection, schedule: schedule, shares: shares, clock: clock, seasonOverride: options.season)
+        return MapleStores(collection: collection, schedule: schedule, shares: shares, health: health, clock: clock,
+                           seasonOverride: options.season)
     }
     #endif
 }

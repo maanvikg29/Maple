@@ -28,7 +28,9 @@ func files(in directory: URL) -> [String] {
     (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
 }
 
-let testContext = CollectionContext(schedule: .standard, calendar: utc, hemisphere: .northern)
+/// A member with Apple Health connected, so the sleep categories can be earned. Tests of the no-Apple-Health
+/// experience build their own context (or use `MapleStores.live`, which grants nothing until the prompt).
+let testContext = CollectionContext(schedule: .standard, permissions: [.appleHealth], calendar: utc, hemisphere: .northern)
 
 /// A share provider that returns what the test tells it to and counts its calls.
 actor StubShareProvider: LeafShareProvider {

@@ -12,10 +12,17 @@ public struct CollectionContext: Sendable, Equatable {
     public var hemisphere: Hemisphere
     /// DEBUG `-MapleDemoSeason`: the tree shows this season instead of the real one.
     public var seasonOverride: Season?
+    /// The member's sleep need (Settings › Sleep goal): a full night is at least this − 30 minutes asleep.
+    public var sleepNeedMinutes: Int
 
+    /// Seven hours, until the member changes it (spec §5.1; `AppSettings.defaultSleepGoalMinutes`).
+    public static let defaultSleepNeedMinutes = 7 * 60
+
+    /// - Parameter permissions: What the member has granted. Empty by default: nothing is granted until it really is.
     public init(
         schedule: SleepSchedule = .standard, permissions: GrantedPermissions = [], features: ShippedFeatures = .current,
-        calendar: Calendar = .autoupdatingCurrent, hemisphere: Hemisphere = .current, seasonOverride: Season? = nil
+        calendar: Calendar = .autoupdatingCurrent, hemisphere: Hemisphere = .current, seasonOverride: Season? = nil,
+        sleepNeedMinutes: Int = CollectionContext.defaultSleepNeedMinutes
     ) {
         self.schedule = schedule
         self.permissions = permissions
@@ -23,6 +30,7 @@ public struct CollectionContext: Sendable, Equatable {
         self.calendar = calendar
         self.hemisphere = hemisphere
         self.seasonOverride = seasonOverride
+        self.sleepNeedMinutes = sleepNeedMinutes
     }
 }
 
@@ -149,42 +157,37 @@ extension CollectionSnapshot {
         }
     }
 
-    /// Goodnight in wind-down mode: tonight's phone-down time, judged against the schedule now in force once the
-    /// night is settled (`settleNights(at:context:engine:)`). Ignored before the maple is planted.
-    /// - Returns: Whether it was recorded (false for a night already settled).
+    /// Apple Health's nights (M1's importer; spec D9: there is no manual fallback, so no tap ever counts). Records
+    /// them in the ledger, settles every night whose next morning has started by `date` (from the install night),
+    /// and records what they earned: Nights tracked, On-time bedtimes, Steady mornings and Full nights per night, the
+    /// live bedtime run (the counter keeps the best), Steady weeks as weeks close and Seasons in rhythm, plus each
+    /// tracked night's outcome for vitality. Late data upgrades a settled night for 72 hours; recording the same
+    /// nights again changes nothing. Ignored before the maple is planted.
+    /// - Returns: Leaves the nights unlocked, stamped `date` (held or pending like any unlock).
     @discardableResult
-    public mutating func recordGoodnight(at date: Date, context: CollectionContext) -> Bool {
-        guard hasPlantedMaple else { return false }
-        return nights.recordGoodnight(at: date, bedtime: context.schedule.bedtime, calendar: context.calendar)
-    }
-
-    /// Settles every night whose next morning has started by `date` (each once), from the first night after the
-    /// schedule was saved, and records what they earned: Nights tracked and On-time bedtimes per night, the live
-    /// bedtime run (the counter keeps the best), Steady weeks as weeks close and Seasons in rhythm, plus each
-    /// tracked night's outcome for vitality. Untracked nights add nothing (spec §5.1, rewards.md).
-    /// - Returns: Leaves the settled nights unlocked; they are pending at once in the morning.
-    @discardableResult
-    public mutating func settleNights(at date: Date, context: CollectionContext, engine: LeafEngine = LeafEngine()) -> [LeafUnlock] {
+    public mutating func recordSleep(
+        _ observations: [SleepNightObservation], at date: Date, context: CollectionContext, engine: LeafEngine = LeafEngine()
+    ) -> [LeafUnlock] {
         guard let setup = firstLeaf?.date else { return [] }
         let calendar = context.calendar
-        let first = NightLedger.firstNight(setUpAt: setup, schedule: context.schedule, calendar: calendar)
-        let settled = nights.settle(at: date, from: first, run: currentBedtimeRun, schedule: context.schedule, calendar: calendar)
-        guard let last = settled.last else { return [] }
-        var increases: [RewardCategoryID: Double] = [:]
-        for night in settled {
-            if night.outcome.isTracked { increases[.nightsTracked, default: 0] += 1 }
-            if night.outcome == .onTime { increases[.onTimeBedtimes, default: 0] += 1 }
-            if night.closedSteadyWeek { increases[.steadyWeeks, default: 0] += 1 }
-            if night.completedSeason { increases[.seasonsInRhythm, default: 0] += 1 }
-            // Vitality: on time or late; early and untracked nights are neutral (rewards.md).
-            if night.outcome == .onTime || night.outcome == .late {
-                recordNight(NightRecord(day: night.night, onTime: night.outcome == .onTime, fullNight: nil, scrollFree: nil))
-            }
+        let rules = NightLedger.Rules(setup: setup, schedule: context.schedule, sleepNeedMinutes: context.sleepNeedMinutes,
+                                      calendar: calendar)
+        let changes = nights.record(observations, at: date, rules: rules)
+        guard !changes.isEmpty else { return [] }
+        record(changes.increases, at: date, calendar: calendar)
+        if let run = changes.run {
+            currentBedtimeRun = run
+            raise(.bedtimeRun, to: Double(changes.bestRun), at: date, calendar: calendar)
         }
-        record(increases, at: date, calendar: calendar)
-        currentBedtimeRun = last.run
-        raise(.bedtimeRun, to: Double(last.run), at: date, calendar: calendar)
+        for night in changes.vitality { recordNight(night) }
         return runEngine(at: date, context: context, engine: engine)
+    }
+
+    /// The member replaced their schedule at `date`. Nights that had begun by then are still judged by `old`
+    /// (rewards.md: edits apply from the next night, cut-off 18:00). The first schedule ever saved replaces nothing.
+    public mutating func scheduleChanged(from old: SleepSchedule, to new: SleepSchedule, at date: Date, calendar: Calendar) {
+        guard old != new, hasPlantedMaple else { return }
+        nights.scheduleChanged(from: old, at: date, calendar: calendar)
     }
 }
 
@@ -234,8 +237,20 @@ extension CollectionSnapshot {
         RevealSchedule.revealable(unlocks, at: date, schedule: context.schedule, calendar: context.calendar)
     }
 
+    /// What the member has granted, plus a sleep tracker once Apple Health has delivered a night with asleep time
+    /// (rewards.json `full_nights`: with iPhone in-bed data only, Full nights need "Apple Watch or a sleep tracker").
+    public func permissions(in context: CollectionContext) -> GrantedPermissions {
+        var granted = context.permissions
+        if granted.contains(.appleHealth), nights.sawAsleepTime { granted.insert(.sleepTracker) }
+        return granted
+    }
+
+    public func availability(of category: RewardCategoryID, context: CollectionContext) -> LeafAvailability {
+        LeafAvailability(category: category, permissions: permissions(in: context), features: context.features)
+    }
+
     public func progress(at date: Date, context: CollectionContext) -> [LeafProgress] {
-        LeafProgressBuilder(permissions: context.permissions, features: context.features)
+        LeafProgressBuilder(permissions: permissions(in: context), features: context.features)
             .progress(counters: counters, unlocks: unlocks, history: history, today: LocalDay(date, calendar: context.calendar),
                       calendar: context.calendar, currentBedtimeRun: currentBedtimeRun)
     }
@@ -258,6 +273,11 @@ extension CollectionSnapshot {
 
     public func nextRungIDs(at date: Date, context: CollectionContext) -> Set<String> {
         picker(at: date, context: context).nextRungIDs
+    }
+
+    /// With nothing earnable for want of a permission, the leaf Home offers to turn it on for (D9).
+    public func permissionPrompt(at date: Date, context: CollectionContext) -> LeafProgress? {
+        picker(at: date, context: context).permissionPrompt()
     }
 
     public func phase(at date: Date, context: CollectionContext) -> NowPhase {
@@ -298,8 +318,7 @@ extension CollectionSnapshot {
     /// The Profile sheet's totals; a total is nil until its category exists for this member.
     public func totals(context: CollectionContext) -> ProfileTotals {
         func total(_ category: RewardCategoryID) -> Double? {
-            LeafAvailability(category: category, permissions: context.permissions, features: context.features) == .available
-                ? counters[category, default: 0] : nil
+            availability(of: category, context: context) == .available ? counters[category, default: 0] : nil
         }
         let opened = leafCount.opened
         return ProfileTotals(

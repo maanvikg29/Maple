@@ -12,9 +12,10 @@ DEBUG builds read these arguments, which `xcrun simctl launch <udid> com.maanvik
 | `-MapleDemoSeason` | `spring`, `summer`, `autumn`, `winter` | Core (app wiring) | Overrides the season (`\.season` and the tree inputs). |
 | `-MapleDemoRarity` | `YES` | Core | Uses `PreviewLeafShareProvider` (12,480 members, tier-correlated shares) with consent on, so "% of members" values show. |
 | `-MapleDemoFresh` | `YES` | Core | Opens with an empty collection and no saved schedule, as on first run. Wins over `-MapleDemoSpecies`. |
-| `-MapleDemoPermissions` | `none`, `health`, `all` | Core | Granted permissions: `health` is Apple Health plus a sleep tracker, `all` adds Screen Time. Demo collections default to `health`, other launches to `none`. Use `none` to see the "Needs Apple Health" states. |
+| `-MapleDemoPermissions` | `none`, `health`, `all` | Core | Granted permissions: `health` is Apple Health plus a sleep tracker, `all` adds Screen Time. Without it, demo collections (`-MapleDemoSpecies`/`Days`/`Waiting`) are granted `health`, so they show earned progress; `-MapleDemoFresh` gets `none`; any other launch keeps the member's own Apple Health record (`none` until they have been through Apple's prompt). Use `none` to see the "Needs Apple Health" states. Only DEBUG demos can grant a permission this way; the live app grants Apple Health only once the member has answered Apple's prompt. |
 | `-MapleDemoSchedule` | `HH:MM-HH:MM`, optionally `/minutes` (e.g. `00:30-08:30/60`) | Core (`DemoLaunchOptions`, added for Rest) | Replaces the saved sleep schedule (bedtime-wake, wind-down length; 45 minutes when left out), in memory. `-MapleDemoPhase` then freezes the clock inside that schedule's phase. Ignored with `-MapleDemoFresh`. |
-| `-MapleDemoGoodnight` | `YES` | Rest (`WindDownView`) | Wind-down mode opens as if Goodnight had just been tapped: "Phone down at …", then black 10 seconds after launch. Pair it with `-MapleDemoPresent winddown`. |
+| `-MapleDemoGoodnight` | `YES` | Rest (`WindDownView`) | Wind-down mode opens as if Goodnight had just been tapped: "Phone down at …", then black 10 seconds after launch. Pair it with `-MapleDemoPresent winddown`. (Goodnight only logs the phone-down time; it never earns a leaf.) |
+| `-MapleDemoHealthContinue` | `YES` | Health (`HealthPrimerSheet`) | Taps "Continue" on the Apple Health primer a second after it opens, so Apple's Health sheet appears for a screenshot. Pair it with `-MapleDemoPresent health`. On a launch without Core arguments this is the member's real prompt. |
 | `-MapleDemoPresent` | see below | Each feature, in its own root view | Opens one sheet, cover or push on launch. |
 | `-MapleDemoProfile` | `settings`, `privacy`, `rarity`, `about`, `design` | Profile (`ProfileView`) | With `-MapleDemoPresent profile`: opens the Profile sheet pushed to that page. `rarity` opens Privacy and then its "How rarity works" explainer sheet; `design` is the DEBUG design system screen. |
 | `-MapleDemoDesignSection` | `colours`, `surfaces`, `type`, `controls`, `specimens`, `rarity`, `cells`, `trees`, `species` | Profile (`DesignSystemView`) | With `-MapleDemoProfile design`: scrolls the design system screen to that section once it opens. |
@@ -29,7 +30,7 @@ DEBUG builds read these arguments, which `xcrun simctl launch <udid> com.maanvik
 
 `-MapleDemoPresent` values:
 - **App-level** (`App/DemoPresenter.swift`, over any tab): `reveal` (cover), `profile` (sheet; add `-MapleDemoProfile` for a page inside it), `winddown` (cover). `onboarding` makes `RootView` open on the end of onboarding instead of the tabs (pair it with `-MapleDemoFresh YES`; with an already planted collection it goes straight to Home).
-- **Home:** `tree` (Tree view), `tree:<speciesID>` (Tree view zoomed onto that leaf, as "Show on my maple"), `streak` (Streak sheet), `leaf:<speciesID>` (leaf detail pushed from Home)
+- **Home:** `tree` (Tree view), `tree:<speciesID>` (Tree view zoomed onto that leaf, as "Show on my maple"), `streak` (Streak sheet), `leaf:<speciesID>` (leaf detail pushed from Home), `health` (the Apple Health primer, as "Turn on Apple Health" opens it)
 - **Herbarium:** `leaf:<speciesID>` (pushes leaf detail), `share:<speciesID>` (leaf detail, then the rendered share-card PNG at its point size), `rarity` (leaf detail of the rarest earned leaf, or the featured one, with the rarity explainer open), `filter`, `search` or `search:<query>` (the Search sheet, already searching)
 - **Rest:** `schedule` (the schedule editor at `.medium`), `schedule:bedtime` and `schedule:wake` (the editor at `.large` with that time's wheel open)
 
@@ -37,13 +38,15 @@ Feature-level values are checked only by the feature that owns them, on its own 
 
 **First run.** Without demo arguments the app opens on the end of onboarding (`PlantYourMapleView`, full screen, no tabs) until the First-steps leaf has been revealed and placed; `-MapleDemoFresh YES` shows the same first run in memory. Demo collections (`-MapleDemoSpecies`/`Days`/`Waiting`) are already planted and open on the tabs.
 
-Any Core argument makes the launch a demo: every store (collection, schedule, rarity cache, settings) is held in memory, so nothing a demo does is ever saved. With only `-MapleDemoPhase`, `-MapleDemoSeason`, `-MapleDemoRarity`, `-MapleDemoPermissions` or `-MapleDemoSchedule`, the stores start from an in-memory copy of the member's own files. The wiring is `MapleStores.make(_:)` in MapleServices (settings: `AppSettings.launch()`). Any `-MapleDemo…` argument also keeps wind-down mode's log (`bedside.json`) in memory.
+Any Core argument makes the launch a demo: every store (collection, schedule, rarity cache, settings, Apple Health record) is held in memory, so nothing a demo does is ever saved. With only `-MapleDemoPhase`, `-MapleDemoSeason`, `-MapleDemoRarity`, `-MapleDemoPermissions` or `-MapleDemoSchedule`, the stores start from an in-memory copy of the member's own files. The wiring is `MapleStores.make(_:)` in MapleServices (settings: `AppSettings.launch()`). Any `-MapleDemo…` argument also keeps wind-down mode's log (`bedside.json`) in memory.
 
 Rest example (a non-default schedule in wind-down): `xcrun simctl launch booted com.maanvikgupta.maple -MapleDemoTab rest -MapleDemoSpecies 23 -MapleDemoPhase windDown -MapleDemoSchedule 00:30-08:30/60`
 
 The Reveal and Onboarding arguments act only on a demo launch (with at least one Core argument), so they never touch the member's files.
 
 Example: `xcrun simctl launch booted com.maanvikgupta.maple -MapleDemoSpecies 23 -MapleDemoDays 41 -MapleDemoWaiting 1 -MapleDemoPhase morning`
+
+No Apple Health (the designed needs-permission states): `-MapleDemoSpecies 1 -MapleDemoPermissions none -MapleDemoPhase evening` shows Home with only the Sugar maple and the needs-permission next-leaf row; add `-MapleDemoTab herbarium` for the Herbarium's "Needs Apple Health" sections, or `-MapleDemoPresent health` for the primer.
 
 Example (Privacy with consent on): `xcrun simctl launch booted com.maanvikgupta.maple -MapleDemoSpecies 23 -MapleDemoRarity YES -MapleDemoPresent profile -MapleDemoProfile privacy`
 

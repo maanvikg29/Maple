@@ -8,6 +8,7 @@ import MapleServices
 struct HomeView: View {
     @Environment(CollectionStore.self) private var collection
     @Environment(AppRouter.self) private var router
+    @Environment(\.openURL) private var openURL
     @Environment(\.mapleClock) private var clock
     @Environment(\.theme) private var theme
     @Environment(\.season) private var season
@@ -58,6 +59,8 @@ struct HomeView: View {
                     .presentationBackground(theme.colors.surface2)
             case .streak:
                 StreakSheet()
+            case .health(let request):
+                HealthPrimerSheet(speciesID: request.speciesID)
             }
         }
         .fullScreenCover(item: $cover, onDismiss: presentPendingTree) { cover in
@@ -214,6 +217,14 @@ struct HomeView: View {
                 .zoomSource(id: progress.speciesID, in: zoom)
         case .waiting:
             NextLeafRow(row) { presentingRevealWithoutSlide { cover = .reveal(nil) } }
+        case .needsPermission(let progress):
+            NextLeafRow(row) {
+                pushedLeaf = progress.speciesID
+            } turnOn: {
+                turnOnPermission(progress.availability, speciesID: progress.speciesID,
+                                 showHealthPrimer: { sheet = .health($0) }, openURL: openURL)
+            }
+            .zoomSource(id: progress.speciesID, in: zoom)
         }
     }
 
@@ -242,7 +253,7 @@ struct HomeView: View {
     }
 
     #if DEBUG
-    /// `-MapleDemoPresent tree|tree:<id>|streak|leaf:<id>` on the Home tab (docs/debug-launch-arguments.md).
+    /// `-MapleDemoPresent tree|tree:<id>|streak|leaf:<id>|health` on the Home tab (docs/debug-launch-arguments.md).
     private func applyDemoPresentation() {
         guard !demoApplied else { return }
         demoApplied = true
@@ -256,6 +267,8 @@ struct HomeView: View {
             cover = .tree(focusing: String(value.dropFirst("tree:".count)))
         case "streak":
             sheet = .streak
+        case "health":
+            sheet = .health(HealthPrimerRequest())
         case let value where value.hasPrefix("leaf:"):
             pushedLeaf = String(value.dropFirst("leaf:".count))
         default:
@@ -265,11 +278,19 @@ struct HomeView: View {
     #endif
 }
 
-/// Home's sheets (spec §2.3): Profile `.large`, Streak `.medium`.
-enum HomeSheet: String, Identifiable {
+/// Home's sheets (spec §2.3): Profile `.large`, Streak `.medium`, and the Apple Health primer `.medium` from the
+/// needs-permission row.
+enum HomeSheet: Identifiable, Hashable {
     case profile, streak
+    case health(HealthPrimerRequest)
 
-    var id: String { rawValue }
+    var id: String {
+        switch self {
+        case .profile: "profile"
+        case .streak: "streak"
+        case .health(let request): request.id
+        }
+    }
 }
 
 /// Home's full-screen covers: the Tree view, the reveal and wind-down mode.

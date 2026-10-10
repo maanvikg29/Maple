@@ -186,20 +186,29 @@ public final class CollectionStore {
         mutate { $0.recordNight(night) }
     }
 
-    /// Goodnight in wind-down mode: tonight's phone-down time. The night is judged once it is settled.
-    /// - Returns: Whether it was recorded (false before the maple is planted, or for a night already settled).
+    /// The one call M1's Apple Health importer makes: the nights it read, each reduced to its main episode with the
+    /// best source available (`SleepNightObservation`). The sleep categories have no other source (spec D9), so a
+    /// Goodnight tap never earns anything.
+    ///
+    /// Records the nights, then settles every night since the install night whose next morning has started by
+    /// `date`: Nights tracked, On-time bedtimes, Steady mornings, Full nights, the bedtime run (the counter keeps
+    /// the best), Steady weeks and Seasons in rhythm, and each night's vitality. Nights with nothing from Apple Health
+    /// by then settle as untracked. Late data upgrades a settled night for 72 hours and never downgrades it; passing
+    /// the same nights again changes nothing, so the importer can send the last few nights on every run. Nothing is
+    /// recorded before the maple is planted.
+    /// - Returns: Leaves unlocked, stamped `date`: pending at once in the morning and day, held from Evening on.
     @discardableResult
-    public func recordGoodnight(at date: Date) -> Bool {
-        mutate { $0.recordGoodnight(at: date, context: context) }
+    public func recordSleep(_ nights: [SleepNightObservation], at date: Date) -> [LeafUnlock] {
+        mutate { $0.recordSleep(nights, at: date, context: context, engine: engine) }
     }
 
-    /// Settles the nights whose next morning has started by `date` and records what they earned (Nights tracked,
-    /// On-time bedtimes, the bedtime run, Steady weeks, Seasons in rhythm). Each night is settled once, so call it
-    /// whenever the app comes to the foreground.
-    /// - Returns: Leaves unlocked; they can be opened at once in the morning.
-    @discardableResult
-    public func settleNights(at date: Date) -> [LeafUnlock] {
-        mutate { $0.settleNights(at: date, context: context, engine: engine) }
+    /// The member saved a schedule (`ScheduleStore.save`). Nights already under way keep being judged by the one
+    /// they began with (`replacing`, nil for the first schedule ever); then the new one applies everywhere.
+    public func scheduleSaved(_ schedule: SleepSchedule, replacing old: SleepSchedule?, at date: Date) {
+        if let old, old != schedule, snapshot.hasPlantedMaple {
+            mutate { $0.scheduleChanged(from: old, to: schedule, at: date, calendar: context.calendar) }
+        }
+        self.schedule = schedule
     }
 
     // MARK: - Reading
@@ -239,8 +248,12 @@ public final class CollectionStore {
     public func unlock(for speciesID: String) -> LeafUnlock? { snapshot.unlock(for: speciesID) }
     public func isUnseen(_ speciesID: String) -> Bool { snapshot.isUnseen(speciesID) }
 
+    /// What the member has granted (`context.permissions`, which `HealthPermission` keeps real), plus a sleep
+    /// tracker once Apple Health has delivered a night with asleep time.
+    public var permissions: GrantedPermissions { snapshot.permissions(in: context) }
+
     public func availability(of category: RewardCategoryID) -> LeafAvailability {
-        LeafAvailability(category: category, permissions: context.permissions, features: context.features)
+        snapshot.availability(of: category, context: context)
     }
 
     public func phase(at date: Date) -> NowPhase { snapshot.phase(at: date, context: context) }
@@ -268,11 +281,15 @@ public final class CollectionStore {
     public func almostThere(at date: Date) -> [LeafProgress] { derived(at: date).picker.almostThere() }
     /// Species drawn as "Next" tiles in the Herbarium.
     public func nextRungIDs(at date: Date) -> Set<String> { derived(at: date).picker.nextRungIDs }
+    /// When no leaf can be earned for want of a permission (no Apple Health): the cheapest leaf turning it on would
+    /// make earnable, for Home's needs-permission row. Nil whenever `nextLeaf(at:)` can pick a leaf.
+    public func permissionPrompt(at date: Date) -> LeafProgress? { derived(at: date).picker.permissionPrompt() }
 
     /// Everything the maple scene needs except the phase.
     public func treeInputs(at date: Date) -> TreeInputs { snapshot.treeInputs(at: date, context: context) }
 
-    /// Home's NowBlock and CTA. Apple Health sleep, the Goodnight tap and focus are passed in once they exist.
+    /// Home's NowBlock and CTA. Apple Health's last night, the Goodnight tap (the phone-down time the morning shows
+    /// without Apple Health, spec §3.4; it earns nothing) and focus are passed in once they exist.
     public func nowState(
         at date: Date, locale: Locale = .current, lastNight: LastNightSleep? = nil, goodnightAt: Date? = nil,
         focus: FocusStatus? = nil, windDownActive: Bool = false, checkInDue: Bool = false

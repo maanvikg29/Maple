@@ -185,4 +185,15 @@ struct RevealSessionTests {
         #expect(RarityConsentView.message.hasSuffix("No account, no device ID, no health data."))
         #expect(!RarityConsentView.message.contains("!"))
     }
+
+    @Test("The Apple Health primer says what Maple reads and that it stays on the iPhone, in two sentences")
+    func healthPrimerCopy() {
+        let message = HealthPrimerView.message
+        #expect(message.split(separator: ".").count == 2)
+        #expect(message.contains("Apple Health") && message.contains("sleep"))
+        #expect(message.hasSuffix("It stays on your iPhone."))
+        #expect(!message.contains("!") && !HealthPrimerView.title.contains("!"))
+        #expect(HealthPrimerView.continueTitle == "Continue")
+        #expect(HealthPrimerView.notNowTitle == "Not now")
+    }
 }

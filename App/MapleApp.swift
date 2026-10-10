@@ -12,6 +12,8 @@ struct MapleApp: App {
     @State private var schedule: ScheduleStore
     @State private var shares: LeafShareStore
     @State private var settings: AppSettings
+    /// Apple Health: granted only once the member has been through Apple's prompt (DEBUG demos: their arguments).
+    @State private var health: HealthPermission
     private let stores: MapleStores
     private let clock: MapleClock
     /// Where the first run starts or picks up (spec §8.8): until the Sugar maple is on the tree, the app opens on
@@ -25,6 +27,7 @@ struct MapleApp: App {
         _collection = State(initialValue: stores.collection)
         _schedule = State(initialValue: stores.schedule)
         _shares = State(initialValue: stores.shares)
+        _health = State(initialValue: stores.health)
         clock = stores.clock
         // Hemisphere, sleep goal and reveal sound (Profile › Settings). Seasons follow the chosen hemisphere from
         // the first frame; a DEBUG -MapleDemoSeason override still wins.
@@ -56,6 +59,7 @@ struct MapleApp: App {
                 .environment(schedule)
                 .environment(shares)
                 .environment(settings)
+                .environment(health)
                 .environment(\.mapleClock, clock)
         }
     }
@@ -71,8 +75,9 @@ struct LaunchGate: Equatable {
 /// `-MapleDemoSeason` override), and keeps the stores in step with the device:
 /// - files that couldn't be read at launch are read once protected data is available (or the app is active);
 /// - a time-zone or clock change moves the collection's calendar and refreshes every screen;
-/// - each foreground settles last night's Goodnight (and every five minutes while active, so a morning that
-///   arrives with the app open settles too), and refreshes rarity;
+/// - each foreground checks Apple Health's permission against Apple's own record (so the sleep leaves are
+///   available exactly when Apple Health is connected) and refreshes rarity. Nights come only from Apple Health,
+///   which M1's importer reads (`CollectionStore.recordSleep(_:at:)`); nothing here settles them;
 /// - the season is read again on every foreground and at each significant time change (which iOS posts at local
 ///   midnight), so a month boundary passed with the app open changes it everywhere. (A root `TimelineView` would do
 ///   it too, but one at the root kept the first frame from ever committing.)
@@ -83,13 +88,11 @@ private struct ThemedRoot: View {
     @Environment(CollectionStore.self) private var collection
     @Environment(LeafShareStore.self) private var shares
     @Environment(AppSettings.self) private var settings
+    @Environment(HealthPermission.self) private var health
     let stores: MapleStores
     @Binding var launch: LaunchGate
     /// The moment the season was last read for; nil until the first foreground.
     @State private var seasonDate: Date?
-
-    /// How often an open app checks for a night to settle.
-    private static let settleInterval: Duration = .seconds(300)
 
     var body: some View {
         RootView(firstRun: launch.firstRun)
@@ -101,14 +104,9 @@ private struct ThemedRoot: View {
                 guard scenePhase == .active else { return }
                 seasonDate = clock.now()
                 reloadUnreadableFiles()
+                await health.refresh(at: clock.now())
+                health.apply(to: collection)
                 await shares.refreshIfNeeded()
-            }
-            .task(id: scenePhase) {
-                guard scenePhase == .active, stores.isLive else { return }
-                while !Task.isCancelled {
-                    collection.settleNights(at: clock.now())
-                    try? await Task.sleep(for: Self.settleInterval)
-                }
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.protectedDataDidBecomeAvailableNotification)) { _ in
                 reloadUnreadableFiles()
@@ -119,10 +117,15 @@ private struct ThemedRoot: View {
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
                 seasonDate = clock.now()
                 collection.systemTimeChanged()
-                if stores.isLive { collection.settleNights(at: clock.now()) }
             }
             .onChange(of: settings.resolvedHemisphere) {
                 settings.apply(to: collection)
+            }
+            .onChange(of: settings.sleepGoalMinutes) {
+                settings.apply(to: collection)
+            }
+            .onChange(of: health.isConnected) {
+                health.apply(to: collection)
             }
     }
 

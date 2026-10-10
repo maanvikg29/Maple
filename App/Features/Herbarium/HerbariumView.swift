@@ -54,6 +54,8 @@ struct HerbariumView: View {
                         pendingShowOnMaple = id
                         self.sheet = nil
                     })
+            case .health(let request):
+                HealthPrimerSheet(speciesID: request.speciesID)
             }
         }
         .fullScreenCover(item: $reveal) { route in
@@ -135,7 +137,7 @@ struct HerbariumView: View {
                     Section {
                         sectionBody(section, sort: sort)
                     } header: {
-                        HerbariumSectionHeader(section, turnOn: turnOnAction(for: section.permission))
+                        HerbariumSectionHeader(section, turnOn: turnOnAction(for: section))
                     }
                 }
             }
@@ -435,9 +437,13 @@ struct HerbariumView: View {
         }
     }
 
-    private func turnOnAction(for permission: LeafAvailability?) -> (() -> Void)? {
-        guard let permission, HerbariumCopy.turnOnTitle(permission) != nil else { return nil }
-        return { openPermissionSettings(openURL) }
+    /// A section missing a permission: Apple Health shows the primer, drawing the section's lowest locked leaf.
+    private func turnOnAction(for section: HerbariumSection) -> (() -> Void)? {
+        guard let permission = section.permission, permission.canBeTurnedOn else { return nil }
+        let leaf = section.entries.first { !$0.isUnlocked }?.id
+        return {
+            turnOnPermission(permission, speciesID: leaf, showHealthPrimer: { sheet = .health($0) }, openURL: openURL)
+        }
     }
 
     /// The Search sheet has closed for "Show on my maple": now Home can open the Tree view.
@@ -478,15 +484,18 @@ struct HerbariumView: View {
     #endif
 }
 
-/// The sheets the Herbarium presents (spec §2.3): Filter `.medium`, Search `.large`.
+/// The sheets the Herbarium presents (spec §2.3): Filter `.medium`, Search `.large`, and the Apple Health primer
+/// `.medium` from a section's "Turn on".
 enum HerbariumSheet: Identifiable, Hashable {
     case filter
     case search(String)
+    case health(HealthPrimerRequest)
 
     var id: String {
         switch self {
         case .filter: "filter"
         case .search: "search"
+        case .health(let request): request.id
         }
     }
 }

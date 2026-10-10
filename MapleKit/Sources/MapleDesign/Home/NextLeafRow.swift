@@ -5,10 +5,16 @@ import SwiftUI
 /// its stalk with progress, the name, the remainder on the right ("3 nights", "Tonight"), and a 2pt season-tint
 /// hairline under the text. Its waiting variant shows the amber bud and "A new leaf is waiting" instead.
 ///
+/// When nothing can be earned because Apple Health isn't on (D9 keeps those leaves out of the next leaf), its
+/// needs-permission variant shows the cheapest of them as the Herbarium draws a needs-permission tile: a neutral
+/// skeleton at 50%, the name with "Needs Apple Health" on the right, and a "Turn on Apple Health" text link where
+/// the hairline would be. The row opens the leaf; the link asks for the permission.
+///
 /// ```swift
 /// NextLeafRow(.leaf(progress, remainder: LeafRemainder(progress, phase: state.phase)), action: { push(id) })
 ///     .zoomSource(id: progress.speciesID, in: namespace)
 /// NextLeafRow(.waiting(count: 2), action: { reveal() })
+/// NextLeafRow(.needsPermission(prompt), action: { push(id) }, turnOn: { showHealthPrimer() })
 /// ```
 public struct NextLeafRow: View {
     public enum Content: Equatable {
@@ -16,6 +22,9 @@ public struct NextLeafRow: View {
         case leaf(LeafProgress, remainder: LeafRemainder)
         /// Earned leaves waiting to be opened.
         case waiting(count: Int)
+        /// No leaf can be earned without a permission: the cheapest one turning it on would make earnable
+        /// (`CollectionStore.permissionPrompt(at:)`).
+        case needsPermission(LeafProgress)
     }
 
     @Environment(\.theme) private var theme
@@ -24,11 +33,14 @@ public struct NextLeafRow: View {
 
     private let content: Content
     private let action: () -> Void
+    private let turnOn: (() -> Void)?
     private var zoom: (id: String, namespace: Namespace.ID)?
 
-    public init(_ content: Content, action: @escaping () -> Void) {
+    /// - Parameter turnOn: Asks for the missing permission (the needs-permission variant's text link).
+    public init(_ content: Content, action: @escaping () -> Void, turnOn: (() -> Void)? = nil) {
         self.content = content
         self.action = action
+        self.turnOn = turnOn
     }
 
     /// Makes the 32pt leaf the source of a zoom transition (`.navigationTransition(.zoom(sourceID:in:))`).
@@ -39,6 +51,14 @@ public struct NextLeafRow: View {
     }
 
     public var body: some View {
+        if case .needsPermission(let progress) = content {
+            needsPermissionRow(progress)
+        } else {
+            row
+        }
+    }
+
+    private var row: some View {
         Button(action: action) {
             HStack(alignment: .center, spacing: theme.spacing.sm) {
                 glyph
@@ -71,6 +91,12 @@ public struct NextLeafRow: View {
             }
         case .waiting:
             BudGlyph(waiting: true, glow: .still)
+        case .needsPermission(let progress):
+            // The Herbarium's needs-permission skeleton (spec §5.2): neutral, at 50%.
+            if let species = LeafCatalog.shared.species(id: progress.speciesID) {
+                LeafView(species, style: .skeleton(stroke: theme.colors.skeletonStroke, vein: theme.colors.skeletonVein))
+                    .opacity(0.5)
+            }
         }
     }
 
@@ -89,11 +115,48 @@ public struct NextLeafRow: View {
                 .font(MapleFont.contextEmphasis)
                 .foregroundStyle(theme.colors.textPrimary)
                 .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
+        case .needsPermission(let progress):
+            nameLine(progress, trailing: HerbariumCopy.permissionLine(progress.availability) ?? "")
         }
+    }
+
+    /// The needs-permission variant: the leaf and its name open the leaf; the text link under the name asks for the
+    /// permission. Two VoiceOver elements, so each can be reached on its own.
+    private func needsPermissionRow(_ progress: LeafProgress) -> some View {
+        HStack(alignment: .center, spacing: theme.spacing.sm) {
+            glyph
+                .frame(width: 32, height: 32)
+                .modifier(ZoomSource(zoom: zoom))
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 0) {
+                text
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(accessibilityLabel)
+                    .accessibilityHint(accessibilityHint)
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityAction(.default, action)
+                if let turnOn, let title = HerbariumCopy.turnOnTitle(progress.availability) {
+                    // The link's 44pt target overlaps the row's padding, so the row stays 56pt.
+                    TextLink(title, action: turnOn)
+                        .padding(.top, -8)
+                        .padding(.bottom, -12)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: theme.spacing.row, alignment: .leading)
+        .contentShape(Rectangle())
+        .onTapGesture(perform: action)
+        .accessibilityElement(children: .contain)
     }
 
     @ViewBuilder
     private func nameLine(_ progress: LeafProgress, remainder: LeafRemainder) -> some View {
+        nameLine(progress, trailing: remainder.text)
+    }
+
+    /// The name, and on the right the remainder (or what the leaf needs), which never truncates.
+    @ViewBuilder
+    private func nameLine(_ progress: LeafProgress, trailing: String) -> some View {
         let layout = dynamicTypeSize.isAccessibilitySize
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: 2))
             : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: theme.spacing.xs))
@@ -103,7 +166,7 @@ public struct NextLeafRow: View {
                 .truncationMode(.tail)
                 .frame(maxWidth: .infinity, alignment: .leading)
             // The remainder never truncates; the name gives way first.
-            Text(remainder.text)
+            Text(trailing)
                 .font(MapleFont.footnote.monospacedDigit())
                 .foregroundStyle(theme.colors.textSecondary)
                 .lineLimit(1)
@@ -129,12 +192,13 @@ public struct NextLeafRow: View {
         switch content {
         case .leaf(let progress, _): HomeSpeech.nextLeaf(progress)
         case .waiting(let count): HomeSpeech.waiting(count)
+        case .needsPermission(let progress): HomeSpeech.needsPermission(progress)
         }
     }
 
     private var accessibilityHint: String {
         switch content {
-        case .leaf: "Shows how to earn it."
+        case .leaf, .needsPermission: "Shows how to earn it."
         case .waiting(let count): count == 1 ? "Opens your new leaf." : "Opens your new leaves."
         }
     }

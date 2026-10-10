@@ -53,7 +53,10 @@ struct AvailabilityTests {
         let health: GrantedPermissions = [.appleHealth]
         let tracker: GrantedPermissions = [.appleHealth, .sleepTracker]
         let m1 = ShippedFeatures.current
-        #expect(LeafAvailability(category: .onTimeBedtimes, permissions: none, features: m1) == .available)
+        #expect(LeafAvailability(category: .firstSteps, permissions: none, features: m1) == .available)
+        #expect(LeafAvailability(category: .onTimeBedtimes, permissions: none, features: m1) == .needsAppleHealth)
+        #expect(LeafAvailability(category: .nightsTracked, permissions: none, features: m1) == .needsAppleHealth)
+        #expect(LeafAvailability(category: .onTimeBedtimes, permissions: health, features: m1) == .available)
         #expect(LeafAvailability(category: .steadyMornings, permissions: none, features: m1) == .needsAppleHealth)
         #expect(LeafAvailability(category: .steadyMornings, permissions: health, features: m1) == .available)
         #expect(LeafAvailability(category: .fullNights, permissions: none, features: m1) == .needsAppleHealth)
@@ -147,14 +150,20 @@ struct LeafProgressBuilderTests {
     @Test("Estimates come from the 14-day rate, else the design pace; none when unavailable")
     func estimates() throws {
         let history = [DailyCounters(day: LocalDay(year: 2026, month: 9, day: 26), counters: [.nightsTracked: 3])]
-        let rows = build(counters: [.nightsTracked: 10], history: history)
+        let rows = build(counters: [.nightsTracked: 10], history: history, permissions: [.appleHealth])
         let fourteen = try #require(rows.first { $0.category == .nightsTracked && $0.threshold == 14 })
         #expect(fourteen.estimatedDays == 8)                       // 4 to go at 0.5 a day
         let onTime = try #require(rows.first { $0.category == .onTimeBedtimes && $0.threshold == 1 })
         #expect(onTime.estimatedDays == 1 / RewardCategoryInfo(.onTimeBedtimes).designPace)
-        let mornings = try #require(rows.first { $0.category == .steadyMornings })
-        #expect(mornings.availability == .needsAppleHealth)
-        #expect(mornings.estimatedDays == nil)
+        let full = try #require(rows.first { $0.category == .fullNights })
+        #expect(full.availability == .needsSleepTracker)
+        #expect(full.estimatedDays == nil)
+        // Without Apple Health no sleep leaf has an estimate (D9: left out of pacing).
+        let without = build(counters: [.nightsTracked: 10], history: history)
+        let nights = try #require(without.first { $0.category == .nightsTracked && $0.threshold == 14 })
+        #expect(nights.availability == .needsAppleHealth)
+        #expect(nights.estimatedDays == nil)
+        #expect(nights.current == 10)
         let focus = try #require(rows.first { $0.category == .focusDays })
         #expect(focus.availability == .dormant)
         #expect(focus.estimatedDays == nil)

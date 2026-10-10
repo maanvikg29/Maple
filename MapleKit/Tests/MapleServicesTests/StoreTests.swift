@@ -143,11 +143,18 @@ struct ScheduleStoreTests {
         // It is the one leaf that can be opened at night.
         #expect(collection.revealable(at: at(2026, 10, 1, 23, 45)).map(\.speciesID) == ["saccharum"])
 
+        // The first schedule replaces nothing.
+        #expect(collection.snapshot.nights.pastSchedules.isEmpty)
+
         // Later saves change the schedule only.
         let later = SleepSchedule(bedtime: ClockTime(hour: 23), wake: ClockTime(hour: 7), windDownMinutes: 60)
         #expect(schedules.save(later, at: at(2026, 10, 3, 12)).isEmpty)
         #expect(collection.snapshot.unlocks.count == 1)
         #expect(collection.schedule == later)
+
+        // Nights already under way when it changed keep the schedule they began with.
+        #expect(collection.snapshot.nights.pastSchedules
+            == [NightLedger.PastSchedule(through: LocalDay(year: 2026, month: 10, day: 2), schedule: mine)])
 
         let reloadedCollection = CollectionStore(storage: JSONStorage(.file(folder.appendingPathComponent("collection.json"))), context: testContext)
         let reloaded = ScheduleStore(storage: JSONStorage(.file(folder.appendingPathComponent("schedule.json"))), collection: reloadedCollection)

@@ -8,8 +8,11 @@ import MapleServices
 struct HomeContent {
     let now: Date
     let state: NowState
-    /// Home's next leaf; nil when every available leaf is earned.
+    /// Home's next leaf; nil when no leaf can be earned (all earned, or Apple Health isn't on).
     let next: LeafProgress?
+    /// With no next leaf for want of a permission (no Apple Health, D9): the cheapest leaf turning it on would make
+    /// earnable, for the row's needs-permission variant.
+    let permissionPrompt: LeafProgress?
     let tree: TreeSceneModel
     let stage: TreeStage
     /// N in "23 of 155": opened leaves (`CollectionStore.leafCount`), for the caption, Tree view and VoiceOver.
@@ -29,7 +32,9 @@ struct HomeContent {
         self.now = now
         let state = collection.nowState(at: now, goodnightAt: bedside.goodnightAt, windDownActive: bedside.windDownActive)
         self.state = state
-        next = collection.nextLeaf(at: now)
+        let next = collection.nextLeaf(at: now)
+        self.next = next
+        permissionPrompt = next == nil ? collection.permissionPrompt(at: now) : nil
         let inputs = collection.treeInputs(at: now)
         #if DEBUG
         let vitality = Self.demoVitality ?? inputs.vitality
@@ -85,11 +90,15 @@ struct HomeContent {
         )
     }
 
-    /// The next-leaf row's content: the waiting variant while leaves can be opened, else the next leaf.
+    /// The next-leaf row's content: the waiting variant while leaves can be opened, else the next leaf, else (with
+    /// nothing earnable until Apple Health is on) the needs-permission variant. Nil when there is nothing at all.
     var row: NextLeafRow.Content? {
         if state.waitingCount > 0 {
             return .waiting(count: state.waitingCount)
         }
-        return next.map { .leaf($0, remainder: LeafRemainder($0, phase: state.phase)) }
+        if let next {
+            return .leaf(next, remainder: LeafRemainder(next, phase: state.phase))
+        }
+        return permissionPrompt.map { .needsPermission($0) }
     }
 }

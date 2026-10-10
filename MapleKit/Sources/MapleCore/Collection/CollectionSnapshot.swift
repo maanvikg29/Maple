@@ -55,7 +55,7 @@ public struct CollectionSnapshot: Sendable, Equatable, Codable {
     public var revealsOpened: Int
     /// The current bedtime run, for Home's streak (the counter keeps the best run).
     public var currentBedtimeRun: Int
-    /// Goodnight taps and settled nights: the source of the sleep categories (spec §5.1).
+    /// Apple Health's nights, pending and settled: the source of the sleep categories (spec §5.1, D9).
     public var nights: NightLedger
 
     public init(

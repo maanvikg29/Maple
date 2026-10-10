@@ -63,6 +63,17 @@ struct RewardCatalogTests {
         #expect(RewardCategoryInfo(.scrollFreeWindDowns).requirement == .screenTime)
         #expect(RewardCategoryInfo(.scrollFreeWindDowns).release == .m3)
         #expect(RewardCategoryInfo(.fullNights).requirement == .sleepTracker)
+        // Every other M1 sleep category comes from Apple Health only: no manual fallback (D9).
+        for id in [RewardCategoryID.nightsTracked, .onTimeBedtimes, .bedtimeRun, .steadyWeeks, .seasonsInRhythm, .steadyMornings] {
+            #expect(RewardCategoryInfo(id).requirement == .appleHealth, "\(id)")
+        }
+        #expect(RewardCategoryInfo(.firstSteps).requirement == RewardRequirement.none)
+        #expect(RewardCategoryInfo(.nightsTracked).definition == "A night counts when Apple Health has your sleep.")
+        #expect(RewardCategoryInfo(.onTimeBedtimes).definition == "Asleep no later than 30 minutes after your bedtime.")
+        // No copy says a tap counts.
+        for id in RewardCategoryID.allCases {
+            #expect(!RewardCategoryInfo(id).definition.localizedCaseInsensitiveContains("goodnight"), "\(id)")
+        }
         #expect(RewardCategoryInfo(.focusHours).timeOfDay == .day)
         #expect(RewardCategoryInfo(.communityChallenges).release == .m9)
         for id in RewardCategoryID.allCases {

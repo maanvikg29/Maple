@@ -32,7 +32,8 @@ nonisolated public struct SettingsSnapshot: Codable, Sendable, Equatable {
 
     public var version: Int
     public var hemisphere: HemisphereChoice
-    /// The Full-nights goal: asleep for at least this long (spec §5.1, "7h unless you change it").
+    /// The sleep need behind Full nights: asleep for at least this, less 30 minutes (rewards.json `full_nights`;
+    /// "7h unless you change it", spec §5.1).
     public var sleepGoalMinutes: Int
     /// A soft sound as a leaf opens. Off by default (spec §8.7).
     public var revealSound: Bool
@@ -81,13 +82,13 @@ nonisolated public struct SettingsSnapshot: Codable, Sendable, Equatable {
 /// @Environment(AppSettings.self) private var settings
 ///
 /// settings.revealSound          // the reveal plays its sound only when true
-/// settings.sleepGoalMinutes     // a Full night is at least this much sleep
+/// settings.sleepGoalMinutes     // the sleep need: a Full night is at least this, less 30 minutes
 /// settings.apply(to: collection) // seasons follow the chosen hemisphere (MapleApp does this)
 /// ```
 @Observable
 public final class AppSettings {
     nonisolated public static let file = "settings.json"
-    nonisolated public static let defaultSleepGoalMinutes = 7 * 60
+    nonisolated public static let defaultSleepGoalMinutes = CollectionContext.defaultSleepNeedMinutes
     nonisolated public static let sleepGoalRange = (5 * 60)...(10 * 60)
     nonisolated public static let sleepGoalStep = 30
 
@@ -164,12 +165,15 @@ public final class AppSettings {
         sleepGoalMinutes -= Self.sleepGoalStep
     }
 
-    /// Points the collection's seasons (the `\.season` environment and the tree) at the chosen hemisphere.
-    /// A DEBUG `-MapleDemoSeason` override still wins, because the collection checks it first.
+    /// Points the collection's seasons (the `\.season` environment and the tree) at the chosen hemisphere, and its
+    /// Full nights at the sleep goal. A DEBUG `-MapleDemoSeason` override still wins, because the collection checks
+    /// it first.
     public func apply(to collection: CollectionStore) {
-        let hemisphere = resolvedHemisphere
-        guard collection.context.hemisphere != hemisphere else { return }
-        collection.context.hemisphere = hemisphere
+        var context = collection.context
+        context.hemisphere = resolvedHemisphere
+        context.sleepNeedMinutes = sleepGoalMinutes
+        guard context != collection.context else { return }
+        collection.context = context
     }
 
     nonisolated static func validSleepGoal(_ minutes: Int) -> Int {

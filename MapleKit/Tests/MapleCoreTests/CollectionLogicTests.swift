@@ -170,7 +170,8 @@ struct CollectionRevealTests {
 
 @Suite("Collection: tree and totals")
 struct CollectionTreeTests {
-    private let context = CollectionContext(schedule: .standard, calendar: utc, hemisphere: .northern)
+    /// Apple Health connected, so the sleep categories can be earned.
+    private let context = CollectionContext(schedule: .standard, permissions: [.appleHealth], calendar: utc, hemisphere: .northern)
 
     /// Planted on 1 Oct, three tracked nights, everything opened by the 4th.
     private func grown() -> CollectionSnapshot {
@@ -251,12 +252,15 @@ struct CollectionTreeTests {
         #expect(totals.nightsOnTime == 3)
         #expect(totals.focusHours == nil)
         #expect(totals.windDowns == nil)
-        #expect(totals.mornings == nil)                         // needs Apple Health
-        var withHealth = context
-        withHealth.permissions = [.appleHealth]
-        #expect(snapshot.totals(context: withHealth).mornings == 0)
-        withHealth.features = .all
-        #expect(snapshot.totals(context: withHealth).focusHours == 0)
+        #expect(totals.mornings == 0)
+        // Without Apple Health no sleep category can count, so none has a total.
+        var withoutHealth = context
+        withoutHealth.permissions = []
+        #expect(snapshot.totals(context: withoutHealth).nightsOnTime == nil)
+        #expect(snapshot.totals(context: withoutHealth).mornings == nil)
+        var everything = context
+        everything.features = .all
+        #expect(snapshot.totals(context: everything).focusHours == 0)
     }
 
     @Test("Progress and the picker read the snapshot")

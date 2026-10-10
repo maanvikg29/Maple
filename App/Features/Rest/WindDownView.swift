@@ -7,8 +7,9 @@ import MapleServices
 /// anywhere else that offers "Start wind-down".
 ///
 /// - The time in `heroNumeral` at 70%, and "38m until bed" under it.
-/// - The primary "Goodnight" records the phone-down time; 10 seconds later the screen dims to black. A tap
-///   anywhere wakes it, and it dims again 10 seconds later.
+/// - The primary "Goodnight" records the phone-down time in the bedside log (for Home's "Morning, no Apple Health"
+///   numeral, spec §3.4); 10 seconds later the screen dims to black. A tap anywhere wakes it, and it dims again 10
+///   seconds later. It never counts toward a leaf: the sleep leaves come only from Apple Health (spec D9).
 /// - A close circle. There is no tree and there are no leaves, so there is nothing to browse at night.
 /// - Ritual steps and a sounds capsule join it once those features ship.
 struct WindDownView: View {
@@ -20,6 +21,7 @@ struct WindDownView: View {
     @Environment(\.mapleClock) private var clock
     @Environment(\.dismiss) private var dismiss
     @Environment(ScheduleStore.self) private var schedule
+    /// Read for the calendar only: nothing here records a night or earns a leaf.
     @Environment(CollectionStore.self) private var collection
 
     /// This session's Goodnight.
@@ -114,12 +116,12 @@ struct WindDownView: View {
         #endif
     }
 
-    /// Goodnight: the phone-down time. It is also tonight's bedtime for the sleep leaves (Nights tracked, On-time
-    /// bedtimes, runs and steady weeks), judged when the night is settled the next morning.
+    /// Goodnight: the phone-down time, kept in the bedside log for the wind-down state and the morning's "in bed"
+    /// numeral when Apple Health has nothing (spec §3.4). It feeds no counter, so no leaf can be earned by tapping:
+    /// nights come only from Apple Health (spec D9).
     private func sayGoodnight() {
         let now = clock.now()
         BedsideLog.shared.sayGoodnight(at: now)
-        collection.recordGoodnight(at: now)
         goodnightAt = now
         wakeCount += 1
     }

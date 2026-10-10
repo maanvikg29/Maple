@@ -166,6 +166,17 @@ struct HomeTests {
         #expect(HomeSpeech.waiting(2) == "2 new leaves are waiting")
     }
 
+    @Test("Without Apple Health the row names the leaf and what it needs, with Turn on Apple Health")
+    func needsPermission() {
+        let rubrum = LeafProgress(speciesID: "rubrum", category: .nightsTracked, threshold: 1, tier: .common, current: 0,
+                                  availability: .needsAppleHealth, state: .locked, estimatedDays: nil)
+        #expect(HomeSpeech.needsPermission(rubrum) == "Next leaf: Red maple. Needs Apple Health.")
+        #expect(HerbariumCopy.turnOnTitle(rubrum.availability) == "Turn on Apple Health")
+        // Home's copy rule: one line of 7 words or fewer.
+        #expect((HerbariumCopy.turnOnTitle(rubrum.availability) ?? "").split(separator: " ").count <= 7)
+        #expect(NextLeafRow.Content.needsPermission(rubrum) != .waiting(count: 1))
+    }
+
     @Test("Dates follow the locale: 'Sat 10 Oct' and 'Saturday 10 October' in en-GB")
     func dates() {
         var calendar = Calendar(identifier: .gregorian)

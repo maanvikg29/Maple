@@ -72,6 +72,19 @@ nonisolated public enum HomeSpeech {
         return text
     }
 
+    /// The needs-permission row: "Next leaf: Red maple. Needs Apple Health." Approximate drawings add their label.
+    public static func needsPermission(_ progress: LeafProgress) -> String {
+        guard let species = LeafCatalog.shared.species(id: progress.speciesID) else { return "Next leaf" }
+        var text = "Next leaf: \(species.displayName)."
+        if let line = HerbariumCopy.permissionLine(progress.availability) {
+            text += " \(line)."
+        }
+        if let approximate = species.confidence.approximateSpokenLabel {
+            text += " " + approximate
+        }
+        return text
+    }
+
     /// The waiting row: "A new leaf is waiting" or "2 new leaves are waiting".
     public static func waiting(_ count: Int) -> String {
         count == 1 ? "A new leaf is waiting" : "\(count) new leaves are waiting"

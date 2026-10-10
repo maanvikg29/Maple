@@ -51,6 +51,30 @@ public struct NextLeafPicker: Sendable {
         return Array(Self.sorted(near).prefix(Self.almostThereLimit))
     }
 
+    /// When nothing can be earned because a permission is missing: the cheapest leaf turning it on would make
+    /// earnable, by its category's design pace (the member has no pace there yet). Ties go to canonical order.
+    ///
+    /// D9 keeps these leaves out of the next leaf, buds, Almost there and pacing, so this is not a next leaf: Home
+    /// shows it as the next-leaf row's needs-permission variant ("Needs Apple Health", with "Turn on Apple Health")
+    /// rather than leave the row empty. Nil while any leaf can be earned, and for what Maple can't turn on (a sleep
+    /// tracker is hardware).
+    public func permissionPrompt() -> LeafProgress? {
+        guard candidates.isEmpty else { return nil }
+        var seen = Set<RewardCategoryID>()
+        let blocked = progress
+            .filter { $0.state == .locked && $0.availability.canBeTurnedOn }
+            .sorted { ($0.categoryOrder, $0.threshold) < ($1.categoryOrder, $1.threshold) }
+            .filter { seen.insert($0.category).inserted }
+        func days(_ leaf: LeafProgress) -> Double {
+            LeafPace.estimatedDays(remaining: leaf.remaining, rate: 0, category: leaf.category)
+        }
+        return blocked.min { a, b in
+            let da = days(a), db = days(b)
+            if da != db { return da < db }
+            return (a.categoryOrder, a.threshold) < (b.categoryOrder, b.threshold)
+        }
+    }
+
     /// Species shown as "Next" in the Herbarium: the 3 lowest locked rungs of each available category.
     public var nextRungIDs: Set<String> {
         Set(nextRungs.map(\.speciesID))

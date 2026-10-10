@@ -34,6 +34,7 @@ struct LeafDetailView: View {
     @State private var showsExplainer: Bool
     @State private var showsReveal = false
     @State private var showsWindDown = false
+    @State private var healthPrimer: HealthPrimerRequest?
     @State private var shareImage: ShareCardImage?
     @State private var showsShareCard: Bool
 
@@ -60,6 +61,7 @@ struct LeafDetailView: View {
         .overlay(alignment: .top) { topBar }
         .toolbarVisibility(.hidden, for: .navigationBar)
         .sheet(isPresented: $showsExplainer) { RarityExplainerSheet(speciesID: speciesID) }
+        .sheet(item: $healthPrimer) { HealthPrimerSheet(speciesID: $0.speciesID) }
         .fullScreenCover(isPresented: $showsReveal) { RevealFlow(startingWith: speciesID) }
         .fullScreenCover(isPresented: $showsWindDown) { WindDownView() }
         #if DEBUG
@@ -283,7 +285,10 @@ struct LeafDetailView: View {
             },
             open: { presentingRevealWithoutSlide { showsReveal = true } },
             startWindDown: { showsWindDown = true },
-            turnOn: { openPermissionSettings(openURL) },
+            turnOn: {
+                guard let availability = collection.progress(for: speciesID, at: clock.now())?.availability else { return }
+                turnOnPermission(availability, speciesID: speciesID, showHealthPrimer: { healthPrimer = $0 }, openURL: openURL)
+            },
             togglePin: {
                 if collection.pinnedSpeciesID == speciesID { collection.unpin() } else { collection.pin(speciesID) }
             }

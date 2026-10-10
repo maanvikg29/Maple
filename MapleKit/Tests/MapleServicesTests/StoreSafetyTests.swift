@@ -146,23 +146,27 @@ struct StoreSafetyTests {
             .collection.followsSystemCalendar)
     }
 
-    @Test("Goodnight is recorded, settled the next morning and saved")
-    func goodnight() throws {
+    @Test("Apple Health's nights are recorded, settled the next morning and saved")
+    func appleHealthNights() throws {
         let folder = try temporaryDirectory()
         let url = folder.appendingPathComponent(MapleStores.collectionFile)
-        let store = CollectionStore(storage: JSONStorage(.file(url)), context: testContext, now: at(2026, 10, 1, 21))
-        #expect(!store.recordGoodnight(at: at(2026, 10, 1, 20)))           // not planted yet
+        var context = testContext
+        context.permissions = [.appleHealth]
+        let store = CollectionStore(storage: JSONStorage(.file(url)), context: context, now: at(2026, 10, 1, 21))
+        let night = SleepNightObservation(onset: at(2026, 10, 1, 22, 55), finalWake: at(2026, 10, 2, 7), asleepMinutes: 460,
+                                          source: .watchOrTracker, calendar: utc)
+        #expect(store.recordSleep([night], at: at(2026, 10, 2, 7, 10)).isEmpty)       // not planted yet
+        #expect(store.snapshot.counters.isEmpty)
         store.raise(.firstSteps, to: 1, at: at(2026, 10, 1, 21))
         store.openReveals(at: at(2026, 10, 1, 21, 5))
-        #expect(store.recordGoodnight(at: at(2026, 10, 1, 22, 55)))
-        #expect(store.settleNights(at: at(2026, 10, 2, 3)).isEmpty)
-        let unlocked = store.settleNights(at: at(2026, 10, 2, 7, 10))
+        #expect(store.recordSleep([night], at: at(2026, 10, 2, 3)).isEmpty)            // the morning hasn't started
+        let unlocked = store.recordSleep([night], at: at(2026, 10, 2, 7, 10))
         #expect(unlocked.count == 2)
         #expect(store.revealable(at: at(2026, 10, 2, 7, 10)).count == 2)
         #expect(store.currentBedtimeRun == 1)
 
-        let reloaded = CollectionStore(storage: JSONStorage(.file(url)), context: testContext)
+        let reloaded = CollectionStore(storage: JSONStorage(.file(url)), context: context)
         #expect(reloaded.snapshot == store.snapshot)
-        #expect(reloaded.settleNights(at: at(2026, 10, 2, 9)).isEmpty)
+        #expect(reloaded.recordSleep([night], at: at(2026, 10, 2, 9)).isEmpty)
     }
 }

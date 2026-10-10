@@ -136,24 +136,64 @@ struct NextLeafPickerTests {
         #expect(NextLeafPicker(progress: rows).almostThere().count == 6)
     }
 
-    @Test("A new member is pointed at a first rung")
+    @Test("A new member with Apple Health is pointed at a first rung")
     func newMember() throws {
+        let unlock = LeafUnlock(speciesID: "saccharum", date: at(2026, 10, 10, 9), season: .autumn, colourway: .autumn, revealed: true)
+        let rows = LeafProgressBuilder(permissions: [.appleHealth], features: .current)
+            .progress(counters: [.firstSteps: 1], unlocks: [unlock], history: [], today: LocalDay(year: 2026, month: 10, day: 10), calendar: utc)
+        let picker = NextLeafPicker(progress: rows)
+        for phase in NowPhase.allCases where phase != .morning {
+            let next = try #require(picker.next(phase: phase, pinned: nil))
+            #expect(next.speciesID == species(.nightsTracked, rung: 0), "\(phase)")
+        }
+        // Mornings are preferred in the morning (the first rung is within a week).
+        #expect(picker.next(phase: .morning, pinned: nil)?.speciesID == species(.steadyMornings, rung: 0))
+        #expect(picker.candidates.allSatisfy { $0.availability == .available })
+        // Full nights wait for asleep-stage data.
+        #expect(!picker.candidates.contains { $0.category == .fullNights })
+        #expect(picker.buds(phase: .evening, pinned: nil).map(\.speciesID)
+            == [species(.nightsTracked, rung: 0), species(.onTimeBedtimes, rung: 0), species(.bedtimeRun, rung: 0)])
+        #expect(picker.permissionPrompt() == nil)
+    }
+
+    @Test("Without Apple Health nothing is a candidate; Home offers the cheapest sleep leaf to turn it on for")
+    func withoutAppleHealth() throws {
         let unlock = LeafUnlock(speciesID: "saccharum", date: at(2026, 10, 10, 9), season: .autumn, colourway: .autumn, revealed: true)
         let rows = LeafProgressBuilder(permissions: [], features: .current)
             .progress(counters: [.firstSteps: 1], unlocks: [unlock], history: [], today: LocalDay(year: 2026, month: 10, day: 10), calendar: utc)
         let picker = NextLeafPicker(progress: rows)
+        // D9: excluded from the next leaf, buds, Almost there and pacing.
+        #expect(picker.candidates.isEmpty)
         for phase in NowPhase.allCases {
-            let next = try #require(picker.next(phase: phase, pinned: nil))
-            #expect(next.speciesID == species(.nightsTracked, rung: 0), "\(phase)")
+            #expect(picker.next(phase: phase, pinned: nil) == nil, "\(phase)")
         }
-        #expect(picker.candidates.allSatisfy { $0.availability == .available })
-        #expect(!picker.candidates.contains { $0.category == .steadyMornings || $0.category == .fullNights })
-        #expect(picker.buds(phase: .evening, pinned: nil).map(\.speciesID)
-            == [species(.nightsTracked, rung: 0), species(.onTimeBedtimes, rung: 0), species(.bedtimeRun, rung: 0)])
+        #expect(picker.buds(phase: .evening, pinned: nil).isEmpty)
+        #expect(picker.almostThere().isEmpty)
+        #expect(picker.nextRungIDs.isEmpty)
+        #expect(rows.filter { $0.availability == .needsAppleHealth }.allSatisfy { $0.estimatedDays == nil })
+        // A pinned sleep leaf can't be the next leaf either.
+        #expect(picker.next(phase: .evening, pinned: species(.onTimeBedtimes, rung: 0)) == nil)
 
-        // With Apple Health, mornings are preferred in the morning (the first rung is within a week).
-        let withHealth = LeafProgressBuilder(permissions: [.appleHealth], features: .current)
-            .progress(counters: [.firstSteps: 1], unlocks: [unlock], history: [], today: LocalDay(year: 2026, month: 10, day: 10), calendar: utc)
-        #expect(NextLeafPicker(progress: withHealth).next(phase: .morning, pinned: nil)?.speciesID == species(.steadyMornings, rung: 0))
+        let prompt = try #require(picker.permissionPrompt())
+        #expect(prompt.speciesID == species(.nightsTracked, rung: 0))
+        #expect(prompt.availability == .needsAppleHealth)
+    }
+
+    @Test("The permission prompt picks by design pace, only what can be turned on, and only when nothing else can be earned")
+    func permissionPrompt() {
+        let weeks = progressRow("w1", .steadyWeeks, threshold: 1, availability: .needsAppleHealth, estimate: nil)      // 10 days
+        let run = progressRow("b1", .bedtimeRun, threshold: 3, availability: .needsAppleHealth, estimate: nil)         // about 4.3
+        let onTime = progressRow("o1", .onTimeBedtimes, threshold: 1, availability: .needsAppleHealth, estimate: nil)  // about 1.4
+        let onTimeNext = progressRow("o2", .onTimeBedtimes, threshold: 3, availability: .needsAppleHealth, estimate: nil)
+        let full = progressRow("f1", .fullNights, threshold: 1, availability: .needsSleepTracker, estimate: nil)       // hardware
+        let focus = progressRow("d1", .focusDays, threshold: 1, availability: .dormant, estimate: nil)
+        #expect(NextLeafPicker(progress: [weeks, run, onTime, onTimeNext, full, focus]).permissionPrompt()?.speciesID == "o1")
+        // Only hardware is missing: nothing to turn on.
+        #expect(NextLeafPicker(progress: [full, focus]).permissionPrompt() == nil)
+        // Something can be earned: no prompt.
+        let nights = progressRow("n1", .nightsTracked, threshold: 1, estimate: 1.1)
+        #expect(NextLeafPicker(progress: [weeks, run, onTime, nights]).permissionPrompt() == nil)
+        #expect(LeafAvailability.needsAppleHealth.canBeTurnedOn && LeafAvailability.needsScreenTime.canBeTurnedOn)
+        #expect(!LeafAvailability.needsSleepTracker.canBeTurnedOn && !LeafAvailability.dormant.canBeTurnedOn)
     }
 }
