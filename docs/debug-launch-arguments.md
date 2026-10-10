@@ -25,10 +25,11 @@ DEBUG builds read these arguments, which `xcrun simctl launch <udid> com.maanvik
 | `-MapleDemoRevealLeaf` | species id | Reveal | The waiting leaf `-MapleDemoPresent reveal` opens first (`RevealFlow(startingWith:)`); ignored when it isn't waiting. |
 | `-MapleDemoReduceMotion` | `YES` | Reveal, Onboarding | The reveal and the onboarding end render as under Reduce Motion (0.6 s crossfade; "Open all" goes straight to the list). `simctl ui` has no Reduce Motion switch. |
 | `-MapleDemoOnboardingStep` | `seed`, `sprout`, `reveal`, `placed` | Onboarding (`PlantYourMapleView`) | Starts the onboarding end past the schedule step, saving the default schedule (in memory): `seed` holds the neutral bud, `sprout` lets it turn amber, `reveal` opens the Sugar maple (freeze it with `-MapleDemoRevealAt`), `placed` shows the grafted seedling and stays there. Pair with `-MapleDemoFresh YES -MapleDemoPresent onboarding`. |
+| `-MapleDemoVitality` | `0.4`…`1` | Home (`HomeContent`) | Draws Home's tree and the Tree view at that vitality; `0.45` is the quiet tree (spec §4.8). Nothing is recorded, so it never touches the collection. |
 
 `-MapleDemoPresent` values:
 - **App-level** (`App/DemoPresenter.swift`, over any tab): `reveal` (cover), `onboarding` (cover; pair it with `-MapleDemoFresh YES`), `profile` (sheet; add `-MapleDemoProfile` for a page inside it), `winddown` (cover)
-- **Home:** `tree`, `streak`, `leaf:<speciesID>`
+- **Home:** `tree` (Tree view), `tree:<speciesID>` (Tree view zoomed onto that leaf, as "Show on my maple"), `streak` (Streak sheet), `leaf:<speciesID>` (leaf detail pushed from Home)
 - **Herbarium:** `leaf:<speciesID>` (pushes leaf detail), `share:<speciesID>` (leaf detail, then the rendered share-card PNG at its point size), `rarity` (leaf detail of the rarest earned leaf, or the featured one, with the rarity explainer open), `filter`, `search` or `search:<query>` (the Search sheet, already searching)
 - **Rest:** `schedule` (the schedule editor at `.medium`), `schedule:bedtime` and `schedule:wake` (the editor at `.large` with that time's wheel open)
 
