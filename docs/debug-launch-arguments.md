@@ -14,10 +14,11 @@ DEBUG builds read these arguments, which `xcrun simctl launch <udid> com.maanvik
 | `-MapleDemoFresh` | `YES` | Core | Opens with an empty collection and no saved schedule, as on first run. Wins over `-MapleDemoSpecies`. |
 | `-MapleDemoPermissions` | `none`, `health`, `all` | Core | Granted permissions: `health` is Apple Health plus a sleep tracker, `all` adds Screen Time. Demo collections default to `health`, other launches to `none`. Use `none` to see the "Needs Apple Health" states. |
 | `-MapleDemoPresent` | see below | Each feature, in its own root view | Opens one sheet, cover or push on launch. |
+| `-MapleDemoVitality` | `0.4`…`1` | Home (`HomeContent`) | Draws Home's tree and the Tree view at that vitality; `0.45` is the quiet tree (spec §4.8). Nothing is recorded, so it never touches the collection. |
 
 `-MapleDemoPresent` values:
 - **App-level** (`App/DemoPresenter.swift`, over any tab): `reveal` (cover), `onboarding` (cover; pair it with `-MapleDemoFresh YES`), `profile` (sheet), `winddown` (cover)
-- **Home:** `tree`, `streak`, `leaf:<speciesID>`
+- **Home:** `tree` (Tree view), `tree:<speciesID>` (Tree view zoomed onto that leaf, as "Show on my maple"), `streak` (Streak sheet), `leaf:<speciesID>` (leaf detail pushed from Home)
 - **Herbarium:** `leaf:<speciesID>`, `share:<speciesID>`, `rarity`, `filter`, `search`
 - **Rest:** `schedule`
 
