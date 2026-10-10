@@ -2,16 +2,18 @@ import Foundation
 
 /// Deterministic layout of the maple (design spec §4.2–4.5).
 ///
-/// The structure comes from a mature skeleton grown once per seed by **space colonisation**: attraction points
-/// fill a broad, slightly asymmetric dome, and branches grow toward them from a short stout trunk that forks low
-/// into 2–3 leaders. Every node records when it was born, so structural growth `g` simply reveals nodes in birth
-/// order and lengthens them (smoothstep over Δg = 0.10). Widths follow the pipe model (da Vinci rule) over what is
-/// grown. Nothing ever moves to a different branch: existing segments only lengthen and thicken.
+/// The structure comes from a mature skeleton grown once per seed: a short stout trunk forks low into 2–3 leaders,
+/// and the recursion of spec §4.2 fills a broad, slightly asymmetric dome, with short interior shoots wherever no
+/// limb reaches. Every node records when it was born, so structural growth `g` simply reveals nodes in birth order
+/// and lengthens them (smoothstep over Δg = 0.10). Nothing ever moves to a different branch: existing segments only
+/// lengthen and thicken.
 ///
-/// Foliage follows the collection: every species owns a permanent twig (its *primary tip*), chosen in unlock
-/// order from the twigs that sprout first, from the crown outward, alternating left and right. Extra rosettes
-/// (satellites) go to the nearest free twigs, the next leaves hang as buds where they will grow, and the featured
-/// leaf takes the crown's top free tip. Pure and deterministic: the same inputs always give the same skeleton.
+/// Foliage follows the collection so the crown reads as a full dome at every stage (spec §4.5). Leaves hang at
+/// tips: twig ends and nodes along the limbs inside the crown (`TreeLayoutSlots.swift`). Every species owns a
+/// permanent slot (its *primary tip*), taken in unlock order from a per-seed order whose every prefix spreads over
+/// the whole crown, from the crown's top outward and alternating sides. Extra rosettes (satellites) go to the
+/// roomiest free places, the next leaves hang as buds where they will grow, and the featured leaf takes the crown's
+/// top free tip. Pure and deterministic: the same inputs always give the same skeleton.
 public enum TreeLayout {
     /// Builds the tree for a seed at structural growth `growth` (g, 0…1).
     ///
@@ -44,6 +46,9 @@ public enum TreeLayout {
 // MARK: - Builder
 
 private struct Builder {
+    /// Rosettes are fanned within this radius (spec §4.5).
+    static let rosetteRadius = 18.0
+
     private enum Occupant {
         case rosette(Int)
         case bud(Int)
@@ -70,11 +75,11 @@ private struct Builder {
     var emergence: [Double]
     var position: [TreePoint]
     var width: [Double]
-    /// Chain id → index into `tips` for sprouted chains.
+    /// Slot id → index into `tips`, for the slots that are tips at this growth.
     var tipIndex: [Int: Int] = [:]
     var tips: [TreeSkeleton.Tip] = []
-    /// Front node of each sprouted chain.
-    var front: [Int: Int] = [:]
+    /// The node each tip's leaves hang at: its twig's front, or its fixed node along a limb.
+    var slotNode: [Int: Int] = [:]
     var crownCentre = TreePoint.zero
     var crownRadii = TreePoint(x: 1, y: 1)
     var leafSize: Double
@@ -117,15 +122,22 @@ private struct Builder {
 
     private mutating func findTips(kx: Double, ky: Double) {
         let nodes = mature.nodes
-        for (c, chain) in mature.chains.enumerated().dropFirst() {
-            guard emergence[chain.nodes[0]] >= 0.5 else { continue }
-            let last = chain.nodes.last { emergence[$0] >= 0.5 } ?? chain.nodes[0]
-            front[c] = last
-            let parent = nodes[last].parent
-            let v = nodes[last].position - nodes[parent].position
+        for slot in mature.slots.dropFirst() {
+            let node: Int
+            if let fixed = slot.node {
+                guard emergence[fixed] >= 0.5 else { continue }
+                node = fixed
+            } else {
+                let chain = mature.chains[slot.chain]
+                guard emergence[chain.nodes[0]] >= 0.5 else { continue }
+                node = chain.nodes.last { emergence[$0] >= 0.5 } ?? chain.nodes[0]
+            }
+            slotNode[slot.id] = node
+            let parent = nodes[node].parent
+            let v = nodes[node].position - nodes[parent].position
             let direction = TreePoint(x: v.x * kx, y: v.y * ky).normalized()
-            tipIndex[c] = tips.count
-            tips.append(TreeSkeleton.Tip(id: c, position: position[last], direction: direction, shell: 1))
+            tipIndex[slot.id] = tips.count
+            tips.append(TreeSkeleton.Tip(id: slot.id, position: position[node], direction: direction, shell: 1))
         }
         let xs = tips.map(\.position.x), ys = tips.map(\.position.y)
         let minX = xs.min() ?? -1, maxX = xs.max() ?? 1, minY = ys.min() ?? 0, maxY = ys.max() ?? 1
@@ -141,15 +153,18 @@ private struct Builder {
         return (dx * dx + dy * dy).squareRoot()
     }
 
-    /// The sprouted twig a chain's leaves hang from now: the chain itself once it has sprouted, otherwise the
-    /// nearest sprouted chain it grows from.
-    private func resolve(_ chain: Int) -> Int {
-        var c = chain
+    /// The tip a slot's leaves hang from now: the slot itself once it is a tip, otherwise the front of the
+    /// nearest sprouted twig it grows from.
+    private func resolve(_ slot: Int) -> Int {
+        if tipIndex[slot] != nil {
+            return slot
+        }
+        var c = mature.slots[slot].chain
         while c > 0, tipIndex[c] == nil {
             c = mature.chains[c].parentChain
         }
         if c <= 0 {
-            return mature.slotOrder.first { tipIndex[$0] != nil } ?? chain
+            return mature.slotOrder.first { tipIndex[$0] != nil } ?? slot
         }
         return c
     }
@@ -208,11 +223,11 @@ private struct Builder {
         var plans: [Plan] = []
         var primaryTips: [String: Int] = [:]
 
-        // 1. Primary rosettes: permanent twigs in unlock order.
+        // 1. Primary rosettes: permanent slots in unlock order.
         for (i, id) in species.enumerated() {
-            let chain = order[i % order.count]
-            primaryTips[id] = chain
-            let tip = resolve(chain)
+            let slot = order[i % order.count]
+            primaryTips[id] = slot
+            let tip = resolve(slot)
             occupancy[tip, default: []].append(.rosette(plans.count))
             plans.append(Plan(speciesID: id, kind: .primary, ordinal: 0, leafCount: 0, place: .tip(tip)))
         }
@@ -229,9 +244,9 @@ private struct Builder {
             var chosen: Int?
             var index = cursor
             while index < order.count {
-                let chain = order[index]
-                if tipIndex[chain] != nil, occupancy[chain] == nil {
-                    chosen = chain
+                let slot = order[index]
+                if tipIndex[slot] != nil, occupancy[slot] == nil {
+                    chosen = slot
                     break
                 }
                 index += 1
@@ -355,12 +370,11 @@ private struct Builder {
         return anchors
     }
 
-    /// A place for a satellite rosette: the nearest free twig end, or point along a twig, with room around it
-    /// (2.5 leaf sizes clear of everything placed), so a species' copies stay near its own twig while the crown
-    /// fills evenly instead of crowding the twig ends; failing that, the roomiest free place; failing that, the
-    /// twig end with the fewest sharers.
+    /// A place for a satellite rosette: the free tip, or point along a twig, with the most room around it (up to
+    /// 4 leaf sizes clear of everything placed), nearer the species' own twig on a tie, so extra rosettes fill
+    /// the crown's gaps instead of crowding the twig ends; failing that, the tip with the fewest sharers.
     private mutating func nearestFreePlace(to point: TreePoint, awayFrom taken: [TreePoint]) -> Place {
-        let room = leafSize * 2.5
+        let room = leafSize * 4
         let laterals = lateralNodes()
         var best: (place: Place, score: Double)?
         func consider(_ place: Place, at p: TreePoint, bonus: Double) {
@@ -368,7 +382,7 @@ private struct Builder {
             for anchor in taken {
                 clear = min(clear, anchor.distance(to: p))
             }
-            let score = clear + bonus - 0.1 * p.distance(to: point)
+            let score = clear + bonus - 0.04 * p.distance(to: point)
             if best.map({ score > $0.score }) ?? true {
                 best = (place, score)
             }
@@ -389,7 +403,7 @@ private struct Builder {
         return .tip(shared?.id ?? 0)
     }
 
-    /// Grown nodes along twigs (depth 3 and finer) that are clear of every twig end and of each other.
+    /// Grown nodes along limbs inside the crown (leaders and finer, not tips) clear of every tip and of each other.
     private mutating func lateralNodes() -> [Int] {
         if let lateralCandidates {
             return lateralCandidates
@@ -397,10 +411,10 @@ private struct Builder {
         let spacing = leafSize * 0.85
         var chosen: [Int] = []
         var taken = tips.map(\.position)
-        let fronts = Set(front.values)
-        for j in mature.nodes.indices where emergence[j] >= 0.999 && !fronts.contains(j) {
+        let tipNodes = Set(slotNode.values)
+        for j in mature.nodes.indices where emergence[j] >= 0.999 && !tipNodes.contains(j) {
             let chain = mature.chains[mature.nodes[j].chain]
-            guard chain.depth >= 3, shell(of: position[j]) > 0.35 else { continue }
+            guard chain.depth >= 2, shell(of: position[j]) < 1 else { continue }
             let p = position[j]
             if taken.allSatisfy({ $0.distance(to: p) >= spacing }) {
                 chosen.append(j)
@@ -427,8 +441,8 @@ private struct Builder {
 
     /// The twig end itself for rank 0; for later sharers, 8–12 pt further back along the twig each (spec §4.5),
     /// opening alternately to either side.
-    private func point(onTip chain: Int, rank: Int, salt: String) -> (TreePoint, TreePoint) {
-        guard let index = tipIndex[chain], let frontNode = front[chain] else {
+    private func point(onTip slot: Int, rank: Int, salt: String) -> (TreePoint, TreePoint) {
+        guard let index = tipIndex[slot], let frontNode = slotNode[slot] else {
             return (crownCentre, .up)
         }
         let tip = tips[index]
@@ -477,14 +491,17 @@ private struct Builder {
         let outward = (anchor - crownCentre).normalized()
         let open = (direction * 0.45 + outward * 0.45 + TreePoint.up * 0.5).normalized()
         let limit = 80 * Double.pi / 180
-        let centre = min(max(open.angleFromUp + rng.range(-0.12, 0.12), -limit), limit)
-        let spread = min(140, 34 + 19 * Double(count - 1)) * .pi / 180
+        let centre = min(max(open.angleFromUp + rng.range(-0.3, 0.3), -limit), limit)
+        let spread = min(150, 84 + 20 * Double(count - 1)) * rng.range(0.85, 1.1) * .pi / 180
         var result: [(TreeSkeleton.Leaf, Double)] = []
         for k in 0..<count {
-            var angle = centre - spread / 2 + spread * (Double(k) + 0.5) / Double(count) + rng.range(-0.16, 0.16)
+            var angle = centre - spread / 2 + spread * (Double(k) + 0.5) / Double(count) + rng.range(-0.22, 0.22)
             angle = min(max(angle, -2.0), 2.0)
             let size = leafSize * rng.range(0.85, 1.15)
-            let offset = TreePoint.direction(angleFromUp: angle) * (size * 0.05)
+            // Maple stalks are long: small leaves stand out on them, so a rosette fills its 18 pt radius at
+            // every growth instead of shrinking to a tight knot as the leaves get smaller.
+            let stalk = min(max(0, Self.rosetteRadius - 1.05 * size), 0.45 * size) * rng.range(0.55, 1)
+            let offset = TreePoint.direction(angleFromUp: angle) * (size * 0.05 + stalk)
                 + TreePoint(x: rng.range(-0.8, 0.8), y: rng.range(-0.8, 0.8))
             let leaf = TreeSkeleton.Leaf(
                 speciesID: plan.speciesID, anchor: anchor + offset, rotation: angle, size: size,

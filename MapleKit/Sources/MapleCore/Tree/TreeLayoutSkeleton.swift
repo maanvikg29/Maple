@@ -43,9 +43,10 @@ public struct TreeSkeleton: Sendable, Equatable {
         public var widths: [Double]
     }
 
-    /// A twig end where leaves can hang. A tip exists once its segment is at least 50% grown.
+    /// A place leaves can hang (spec §4.5): a twig's end, or a node partway along a limb inside the crown. A tip
+    /// exists once its segment is at least 50% grown.
     public struct Tip: Sendable, Equatable {
-        /// Stable id (the twig's chain), the same at every growth.
+        /// Stable id (the slot: a twig's chain for a twig end), the same at every growth.
         public var id: Int
         public var position: TreePoint
         /// Unit direction the twig grows in.
@@ -67,7 +68,7 @@ public struct TreeSkeleton: Sendable, Equatable {
     public struct Rosette: Sendable, Equatable {
         public var speciesID: String
         public var kind: RosetteKind
-        /// The twig end the rosette belongs to; nil for a lateral position along a twig.
+        /// The tip the rosette belongs to; nil for a lateral position along a twig.
         public var tipID: Int?
         /// Where the leaves' stalks meet.
         public var anchor: TreePoint
@@ -84,7 +85,8 @@ public struct TreeSkeleton: Sendable, Equatable {
     /// One leaf instance.
     public struct Leaf: Sendable, Equatable {
         public var speciesID: String
-        /// Where the stalk ends, at the twig.
+        /// Where the leaf's stalk ends: at the twig, or a little out from it for small leaves, which stand on long
+        /// stalks from the rosette's anchor so a rosette keeps its 18 pt spread.
         public var anchor: TreePoint
         /// Radians clockwise from straight up for the leaf's axis (stalk → tip), applied on top of the species'
         /// own resting tilt, which the leaf geometry already carries.
@@ -117,7 +119,7 @@ public struct TreeSkeleton: Sendable, Equatable {
     public var rosettes: [Rosette]
     public var leaves: [Leaf]
     public var buds: [Bud]
-    /// Each species' permanent twig (`Tip.id`), in unlock order. Never changes for a seed.
+    /// Each species' permanent slot (`Tip.id`), in unlock order. Never changes for a seed.
     public var primaryTips: [String: Int]
     /// Trunk width at the ground.
     public var trunkBaseWidth: Double

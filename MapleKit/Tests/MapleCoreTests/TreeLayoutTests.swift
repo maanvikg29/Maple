@@ -215,6 +215,95 @@ struct TreeLayoutTests {
         #expect(inner > 0.05 && inner < 0.45, "inner share \(inner)")
     }
 
+    /// The widest hole in the crown, in leaf sizes: over points that have leaves on all four sides within half the
+    /// crown's span, the distance to the nearest leaf's centre.
+    private func largestHole(_ skeleton: TreeSkeleton) -> Double {
+        let centres = skeleton.leaves.map { $0.anchor + TreePoint.direction(angleFromUp: $0.rotation) * ($0.size * 0.5) }
+        guard let minX = centres.map(\.x).min(), let maxX = centres.map(\.x).max(),
+              let minY = centres.map(\.y).min(), let maxY = centres.map(\.y).max() else { return 0 }
+        let reach = max(maxX - minX, maxY - minY) / 2
+        var widest = 0.0
+        for y in stride(from: minY, through: maxY, by: 4) {
+            for x in stride(from: minX, through: maxX, by: 4) {
+                let p = TreePoint(x: x, y: y)
+                var sides = Set<Int>()
+                var nearest = Double.infinity
+                for c in centres {
+                    let d = c - p
+                    let length = d.length
+                    nearest = min(nearest, length)
+                    guard length > 0, length <= reach else { continue }
+                    sides.insert(Int(((atan2(d.y, d.x) + .pi / 4 + 2 * .pi).truncatingRemainder(dividingBy: 2 * .pi)) / (.pi / 2)) % 4)
+                }
+                if sides.count == 4 {
+                    widest = max(widest, nearest)
+                }
+            }
+        }
+        return widest / skeleton.leafSize
+    }
+
+    @Test("The crown reads as a full dome at every stage: no hole wider than a leaf or two", arguments: seeds)
+    func fullCrown(seed: UInt64) {
+        // (species, tended days, widest hole allowed in leaf sizes). Before the crown was filled through, the
+        // middle stood empty: 1.5 leaves at 23 species, 2.5 at 90 and nearly 4 at 155.
+        for (n, days, limit) in [(10, 8, 1.3), (23, 41, 1.3), (40, 90, 1.5), (90, 220, 1.75), (155, 600, 2.15)] {
+            let skeleton = TreeLayout.generate(seed: seed, growth: TreeGrowth.structure(tendedDays: days), species: ids(n), featured: ids(3)[2])
+            let hole = largestHole(skeleton)
+            #expect(hole <= limit, "\(n) species on day \(days): a hole \(hole) leaves wide")
+        }
+    }
+
+    @Test("Tips are distinct places at every growth, and the slot order takes every slot once", arguments: seeds)
+    func slots(seed: UInt64) {
+        let mature = MatureTree.of(seed: seed)
+        #expect(mature.slotOrder.sorted() == Array(1..<mature.slots.count))
+        // Interior slots sit along limbs, so the crown's middle has places to hang leaves from the start.
+        #expect(mature.slots.contains { $0.node != nil && $0.appears < 0 })
+        for g in [0.0, 0.2, 0.45, 0.7, 1.0] {
+            let tips = TreeLayout.generate(seed: seed, growth: g, species: ids(1)).tips
+            #expect(Set(tips.map(\.id)).count == tips.count)
+            for (i, a) in tips.enumerated() {
+                for b in tips.dropFirst(i + 1) {
+                    #expect(a.position.distance(to: b.position) > 0.01, "tips \(a.id) and \(b.id) coincide at g \(g)")
+                }
+            }
+        }
+    }
+
+    @Test("Interior shoots stay inside the dome and grow from limbs, one depth finer", arguments: seeds)
+    func interiorShoots(seed: UInt64) {
+        let mature = MatureTree.of(seed: seed)
+        for chain in mature.chains.dropFirst() where chain.attach >= 0 {
+            let parent = mature.nodes[chain.attach]
+            #expect(mature.nodes[chain.nodes[0]].depth >= parent.depth, "a chain is coarser than the limb it leaves")
+        }
+        // Every part of the mature dome lies near some wood (twig ends, limbs or interior shoots).
+        let wood = mature.nodes.filter { $0.depth >= 2 }.map(\.position)
+        let fork = mature.nodes[mature.forkNode].position
+        for y in stride(from: fork.y + 20, through: mature.envelope.equatorY + mature.envelope.upHeight, by: 9) {
+            for x in stride(from: -170.0, through: 170, by: 9) {
+                let p = TreePoint(x: x, y: y)
+                guard mature.envelope.normalizedRadius(p) <= 0.85 else { continue }
+                let nearest = wood.map { $0.distance(to: p) }.min() ?? .infinity
+                #expect(nearest <= MatureTree.interiorGap + 4, "no wood near (\(x), \(y))")
+            }
+        }
+    }
+
+    @Test("A typical member's k-th species arrives at the growth of the committed pacing")
+    func typicalGrowth() {
+        #expect(MatureTree.typicalGrowth(species: 1) == 0)
+        #expect(abs(MatureTree.typicalGrowth(species: 32) - TreeGrowth.structure(tendedDays: 30)) < 1e-9)
+        #expect(MatureTree.typicalGrowth(species: 155) == 1)
+        var previous = 0.0
+        for k in 1...200 {
+            let g = MatureTree.typicalGrowth(species: k)
+            #expect(g >= previous)
+            previous = g
+        }
+    }
+
     @Test("Before the first leaf there are no leaves, but buds still hang")
     func empty() {
         let skeleton = TreeLayout.generate(seed: 5, growth: 0, species: [], buds: [TreeBudRequest(speciesID: "rubrum", progress: 0.3)], waiting: ["saccharum"])

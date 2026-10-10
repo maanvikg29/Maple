@@ -64,8 +64,8 @@ nonisolated enum TreeSceneRenderer {
         }
     }
 
-    /// The per-frame overlay of the animated scene: fluttering rosettes (from sprites), the waiting bud and
-    /// the particles. Everything else is a pre-rasterised layer.
+    /// The per-frame overlay of the animated scene: fluttering rosettes (from sprites), new-leaf halos over them,
+    /// the waiting bud and the particles. Everything else is a pre-rasterised layer.
     static func drawOverlay(_ plan: TreeScenePlan, layers: TreeRasterCache.Layers, frame: TreeSceneFrame, motion: Motion, in context: GraphicsContext) {
         let sway = sway(plan, motion: motion)
         var swayed = context
@@ -78,8 +78,12 @@ nonisolated enum TreeSceneRenderer {
             local.rotate(by: .radians(TreePainter.flutterAngle(plan.rosettes[sprite.rosette], time: motion.time)))
             local.draw(sprite.image, in: CGRect(x: -sprite.size.width / 2, y: -sprite.size.height / 2, width: sprite.size.width, height: sprite.size.height))
         }
+        TreePainter.drawHalos(plan, frame: frame, now: motion.now, in: swayed)
         if plan.model.species.isEmpty {
-            TreePainter.drawFoliage(plan, frame: frame, angle: 0, time: motion.time, includeFluttering: false, includeWaitingBuds: true, now: motion.now, in: swayed)
+            TreePainter.drawFoliage(
+                plan, frame: frame, angle: 0, time: motion.time, includeFluttering: false, includeWaitingBuds: true,
+                includeHalos: false, now: motion.now, in: swayed
+            )
         } else {
             TreePainter.drawBuds(plan, frame: frame, time: motion.time, waiting: true, neutral: false, in: swayed)
         }
@@ -153,18 +157,15 @@ final class TreeRasterCache {
         var height: CGFloat
         var scale: CGFloat
         var backdrop: Bool
-        /// New-leaf halos fade over 24 h; the layers are redrawn every 5% of that.
-        var haloStep: Int
     }
 
     private var entries: [Key: Layers] = [:]
     private var order: [Key] = []
 
     func layers(for plan: TreeScenePlan, frame: TreeSceneFrame, displayScale: CGFloat, includesBackdrop: Bool = true, background: Color = Theme.maple.colors.background, now: Date) -> Layers? {
-        let haloStep = plan.model.newLeafHalos.map { Int(min(1, max(0, now.timeIntervalSince($0.placedAt) / 86_400)) * 20) }.reduce(0) { $0 * 21 + $1 }
         let key = Key(
             plan: plan.model.planKey, width: frame.size.width, height: frame.size.height, scale: displayScale,
-            backdrop: includesBackdrop, haloStep: haloStep
+            backdrop: includesBackdrop
         )
         if let cached = entries[key] {
             return cached
@@ -208,7 +209,10 @@ final class TreeRasterCache {
             let twigs = image(render(rect) { TreePainter.drawWood(plan, depths: 4...8, frame: frame, angle: 0, in: $0) }),
             let trunk = image(render(rect) { TreePainter.drawWood(plan, depths: 1...3, frame: frame, angle: 0, in: $0) }),
             let foliage = image(render(rect) {
-                TreePainter.drawFoliage(plan, frame: frame, angle: 0, time: nil, includeFluttering: false, includeWaitingBuds: false, now: now, in: $0)
+                TreePainter.drawFoliage(
+                    plan, frame: frame, angle: 0, time: nil, includeFluttering: false, includeWaitingBuds: false,
+                    includeHalos: false, now: now, in: $0
+                )
             })
         else { return nil }
 
