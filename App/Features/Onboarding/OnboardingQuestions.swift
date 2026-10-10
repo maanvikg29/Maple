@@ -32,8 +32,26 @@ struct OnboardingQuestionView: View {
                 case .schedule, .health, .notifications, .sprout: EmptyView()
                 }
             }
-            .padding(.top, theme.spacing.hero)
-            .padding(.bottom, theme.spacing.xl)
+            .padding(.top, theme.spacing.xxl)
+        }
+    }
+}
+
+/// A question's layout: the words at the same height on every question, so they never jump between screens, and
+/// the answer centred in the room between them and the capsule.
+private struct QuestionLayout<Answer: View>: View {
+    let title: String
+    let subtitle: String?
+    @ViewBuilder var answer: Answer
+
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        VStack(spacing: 0) {
+            OnboardingQuestionHeader(title: title, subtitle: subtitle)
+            Spacer(minLength: theme.spacing.xxl)
+            answer
+            Spacer(minLength: theme.spacing.xl)
         }
     }
 }
@@ -78,13 +96,8 @@ private struct WeekdayWakeQuestion: View {
 
     var body: some View {
         let answer = AnswerBinding(store: onboarding)
-        VStack(spacing: 0) {
-            OnboardingQuestionHeader(
-                title: "When do you need to be up on weekdays?",
-                subtitle: "Your bedtime is worked back from it."
-            )
+        QuestionLayout(title: "When do you need to be up on weekdays?", subtitle: "Your bedtime is worked back from it.") {
             ClockWheel(label: "Weekday wake-up time", time: answer(\.weekdayWake))
-                .padding(.top, theme.spacing.xxl)
         }
     }
 }
@@ -120,22 +133,22 @@ private struct WeekendWakeQuestion: View {
             onboarding.answers = updated
         }
 
-        VStack(spacing: 0) {
-            OnboardingQuestionHeader(title: "And on weekends?", subtitle: RestCopy.weekendMornings(calendar: calendar))
-            SegmentedCapsule(selection: choice, options: [Choice.same, .later], size: .regular) { $0.title }
+        QuestionLayout(title: "And on weekends?", subtitle: RestCopy.weekendMornings(calendar: calendar)) {
+            SegmentedCapsule(selection: choice, options: [Choice.same, .later], size: .regular, fillsWidth: true) { $0.title }
+                .frame(maxWidth: Self.choiceWidth)
                 .accessibilityLabel(Text("Weekend wake-up"))
-                .padding(.top, theme.spacing.xxl)
             // The wheel's room is kept for "Same time" too, so nothing moves under the finger.
-            ZStack {
+            ZStack(alignment: .top) {
                 if answers.weekendWake != nil {
                     ClockWheel(label: "Weekend wake-up time", time: later)
                         .transition(.opacity)
                 } else {
                     ConsequenceLine(text: "Up at \(HomeFormat.clock(answers.weekdayWake, locale: locale)), as on weekdays")
+                        .padding(.top, theme.spacing.lg)
                         .transition(.opacity)
                 }
             }
-            .frame(minHeight: Self.wheelHeight)
+            .frame(maxWidth: .infinity, minHeight: Self.wheelHeight, alignment: .top)
             .padding(.top, theme.spacing.md)
             .mapleAnimation(theme.motion.gentle, value: answers.weekendWake == nil)
         }
@@ -143,6 +156,8 @@ private struct WeekendWakeQuestion: View {
 
     /// The system wheel's height, kept for the "Same time" line.
     private static let wheelHeight: CGFloat = 216
+    /// The choice capsule's width: the wheel's, so it never reads as a second primary capsule.
+    static let choiceWidth: CGFloat = 320
 }
 
 // MARK: - 3. Sleep need
@@ -162,8 +177,7 @@ private struct SleepNeedQuestion: View {
         let bedLine = "Bed about \(HomeFormat.clock(bedtime, locale: locale))"
             + (answers.weekendWake == nil ? "" : " on weekdays")
 
-        VStack(spacing: 0) {
-            OnboardingQuestionHeader(title: "How much sleep feels best?", subtitle: "Most people feel best with 7 to 9 hours.")
+        QuestionLayout(title: "How much sleep feels best?", subtitle: "Most people feel best with 7 to 9 hours.") {
             HStack(spacing: theme.spacing.lg) {
                 Button("Less sleep", systemImage: "minus") { select(index - 1) }
                     .buttonStyle(.iconCircle)
@@ -174,7 +188,6 @@ private struct SleepNeedQuestion: View {
                     .buttonStyle(.iconCircle)
                     .disabled(index == choices.count - 1)
             }
-            .padding(.top, theme.spacing.xxl)
             // One adjustable element for VoiceOver: swipe up or down to change it.
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(Text("Sleep need"))
@@ -234,20 +247,23 @@ private struct WindDownQuestion: View {
         let answer = AnswerBinding(store: onboarding)
         let answers = onboarding.answers
         let start = answers.proposal(waking: answers.weekdayWake).windDownStart
-        let line = "Wind-down from \(HomeFormat.clock(start, locale: locale))" + (answers.weekendWake == nil ? "" : " on weekdays")
+        let line = "Your wind-down starts" + (answers.weekendWake == nil ? "" : " on weekdays")
+        let time = HomeFormat.clockParts(start, locale: locale).map { $0.isUnit ? StatNumber.Part.unit($0.text) : .value($0.text) }
 
-        VStack(spacing: 0) {
-            OnboardingQuestionHeader(
-                title: "How long do you like to wind down?",
-                subtitle: "A quiet stretch before bed, with the phone put away."
-            )
-            SegmentedCapsule(selection: answer(\.windDownMinutes), options: OnboardingAnswers.windDownChoices, size: .regular) {
+        QuestionLayout(title: "How long do you like to wind down?", subtitle: "A quiet stretch before bed, with the phone put away.") {
+            // The consequence is the hero: when the evening turns quiet.
+            VStack(spacing: theme.spacing.xxs) {
+                StatNumber(time, size: .hero)
+                ConsequenceLine(text: line)
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text("\(line), \(HomeFormat.clock(start, locale: locale))"))
+            SegmentedCapsule(selection: answer(\.windDownMinutes), options: OnboardingAnswers.windDownChoices, size: .regular, fillsWidth: true) {
                 RestCopy.windDownOption(minutes: $0)
             }
             .accessibilityLabel(Text("Wind-down length"))
+            .frame(maxWidth: WeekendWakeQuestion.choiceWidth)
             .padding(.top, theme.spacing.xxl)
-            ConsequenceLine(text: line)
-                .padding(.top, theme.spacing.lg)
         }
     }
 }

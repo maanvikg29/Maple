@@ -1222,9 +1222,15 @@ Rule for all of them: each screen is built around its own object or real data. A
 - **Sleep:**
   - **The hero object:** `SleepDial`, 280pt. A 24h ring (2pt track, white 8%). The bed-to-wake arc is 3pt in season tint; the wind-down arc is the same tint at 40%. A 10pt moon marker sits at the current time.
   - **Below the dial:**
-    - "23:00 → 07:00" in `statNumeral`;
+    - "23:00 → 07:00" in `statNumeral`: tonight's times. The dial and this pair always show tonight, the night that wakes into tomorrow; a night is a weekend night when it wakes into the calendar's weekend (Friday and Saturday nights for a Saturday–Sunday weekend), so it follows the member's region;
     - "8h in bed" in 15 secondary;
+    - only when weekend nights differ, one quiet line naming the other nights: "Weekends 00:30 → 09:00" on a weekday night, "Weekdays 23:00 → 07:00" on a weekend night (13 secondary, monospaced digits);
     - `TextLink` "Edit schedule".
+  - **Schedule editor** (sheet, `.medium`, `.large` while a wheel is open):
+    - "Sleep schedule" (`sectionTitle`) and a close `IconCircle`.
+    - A full-width 36pt `SegmentedCapsule` "Every day · Weekdays · Weekends", with one 13 secondary line under it that names the nights from the calendar ("Sunday to Thursday nights", "Friday and Saturday nights"), "The same every night" on Every day, or "Weekends will use these times too" when Every day would fold a separate weekend back in.
+    - Why one three-way control: it is both the switch (one schedule, or a separate weekend) and the tab for the weekend times, so the sheet stays a single decision with no extra toggle row, and the words say exactly which nights the times below are for. It opens on Every day for one schedule, otherwise on tonight's nights. The first visit to Weekends starts from the weekday times; saving on Every day saves one schedule for every night.
+    - Below it the two times side by side (tapping one opens its wheel), the wind-down length (30m, 45m, 1h), a one-line summary and "Save". Edits apply from the next night for the ledger.
   - **Level-1 rows** (56pt, 12pt apart), each present only once its feature ships: "Sleep sounds · Rain" (opens the Sounds sheet), "Wind-down apps · 4 apps", "Caffeine curfew · 15:00", "Alarm · 07:00".
   - **Primary:** "Start wind-down" (dimmed variant) in Evening and Wind-down; none otherwise.
 - **Wind-down mode** (full-screen cover):
@@ -1296,7 +1302,19 @@ Rule for all of them: each screen is built around its own object or real data. A
   - Apple Health and Screen Time status rows with "Turn on" where they are missing.
 - **Settings:** hemisphere, sleep goal, "Reveal sound" (off by default).
 
-### 8.8 Onboarding end (the only place the Seed stage is seen)
+### 8.8 Onboarding (the only place the Seed stage is seen)
+
+**Setup.** One question per screen, then the schedule they propose, then the permission primers. Every screen has the same frame: a top bar with a back `IconCircle` (questions and the schedule step only) and a 2pt `ProgressHairline` (season tint on `track`, the step's share of 7), the question in `screenTitle` with a 15 secondary line under it, the answer centred in the space below, and a `MoonlightButton` at the bottom. No emoji; sentence case; everything scales with Dynamic Type (side-by-side pairs stack, and the page scrolls, at accessibility sizes). Screens cross-fade; with Reduce Motion the in-screen number and layout animations are off. Every answer is saved as it changes (`onboarding.json`), so a relaunch reopens the same screen with the same answers.
+
+1. **"When do you need to be up on weekdays?"** · "Your bedtime is worked back from it." A wheel time picker (07:00). "Continue".
+2. **"And on weekends?"** · the calendar's weekend mornings ("Saturday and Sunday mornings"). A 36pt `SegmentedCapsule` "Same time · Later" (at most 320pt wide). Same time shows "Up at 07:00, as on weekdays"; Later shows a wheel (weekday + 1h to start). The answer area keeps the wheel's height either way, so nothing jumps.
+3. **"How much sleep feels best?"** · "Most people feel best with 7 to 9 hours." The need in `heroNumeral` ("7h 30m") between minus and plus `IconCircle`s, 7h to 9h in 15-minute steps (7h 30m to start), a row of choice dots and "Bed about 23:15" under it. VoiceOver: one adjustable element. The answer becomes Settings' sleep goal.
+4. **"How long do you like to wind down?"** · "A quiet stretch before bed, with the phone put away." The start time in `heroNumeral` with "Your wind-down starts" (", on weekdays" when weekends differ), and a capsule "30m · 45m · 1h" (45m to start).
+5. **"Your sleep schedule"** · "Proposed from your answers. Saving it plants your maple." (it reads "Adjusted from your answers." once changed). The schedule the answers propose: for each night type, bedtime = wake − sleep need − 15 minutes to fall asleep, with the chosen wind-down. When weekends differ, a "Weekdays · Weekends" capsule above the times, with the nights it covers under it. Bedtime → wake-up as two tappable `statNumeral` times (the selected one on a lifted tile), "8h in bed", one wheel for the selected time, and the wind-down capsule with "From 22:15". Primary "Save schedule" saves it (one call), sets the sleep goal, and earns the First-steps leaf. Back from here returns to the questions; the adjusted times are kept unless an answer then changes.
+6. **Apple Health primer**: `HealthPrimerView` full screen (one 112pt leaf, two sentences, "Continue", "Not now"); Continue shows Apple's prompt. Skipped when Apple Health is already connected. Either answer moves on; there is no back from here, since the schedule is saved.
+7. **Notifications primer**: owned by the reminders work; until it lands the step continues at once.
+
+**End.**
 
 1. The scene with the 44pt sprout and its neutral bud on the hill. The bud turns amber.
 2. "Your maple" (`screenTitle`) and "Tap to open your first leaf" (13 secondary).

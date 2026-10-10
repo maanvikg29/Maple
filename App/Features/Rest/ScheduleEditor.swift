@@ -188,7 +188,7 @@ struct ScheduleEditor: View {
     private var nightsLine: String {
         let calendar = collection.context.calendar
         switch nights {
-        case .everyNight: return "The same every night"
+        case .everyNight: return store.weekly.differsOnWeekends ? "Weekends will use these times too" : "The same every night"
         case .weekdays: return RestCopy.nights(.weekday, calendar: calendar)
         case .weekends: return RestCopy.nights(.weekend, calendar: calendar)
         }

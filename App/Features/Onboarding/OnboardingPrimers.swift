@@ -25,7 +25,8 @@ struct OnboardingHealthStep: View {
             OnboardingTopBar(progress: OnboardingStep.health.progress ?? 1)
             HealthPrimerView(
                 species: species, colourway: LeafColourway.pressed(in: season, evergreen: species?.evergreen ?? false),
-                isAsking: health.isRequesting, page: theme.colors.background, onContinue: connect, onNotNow: finish
+                isAsking: health.isRequesting, page: theme.colors.background, leafSize: 112, onContinue: connect,
+                onNotNow: finish
             )
         }
         .task {

@@ -129,6 +129,7 @@ struct SleepScheduleStep: View {
             Text(RestCopy.nights(nights, calendar: calendar))
                 .font(MapleFont.footnote)
                 .foregroundStyle(theme.colors.textSecondary)
+                .multilineTextAlignment(.center)
                 .contentTransition(.opacity)
         }
     }
