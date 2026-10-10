@@ -19,6 +19,12 @@ DEBUG builds read these arguments, which `xcrun simctl launch <udid> com.maanvik
 | `-MapleDemoProfile` | `settings`, `privacy`, `rarity`, `about`, `design` | Profile (`ProfileView`) | With `-MapleDemoPresent profile`: opens the Profile sheet pushed to that page. `rarity` opens Privacy and then its "How rarity works" explainer sheet; `design` is the DEBUG design system screen. |
 | `-MapleDemoDesignSection` | `colours`, `surfaces`, `type`, `controls`, `specimens`, `rarity`, `cells`, `trees`, `species` | Profile (`DesignSystemView`) | With `-MapleDemoProfile design`: scrolls the design system screen to that section once it opens. |
 | `-MapleDemoScroll` | a category id (e.g. `steady_mornings`) or `dormant` | Herbarium | With `-MapleDemoTab herbarium`: scrolls the grid until that section's header is pinned at the top. |
+| `-MapleDemoRevealAt` | seconds, e.g. `0.3`, `0.9`, `1.6`, `3` | Reveal (`RevealDemoOptions`) | Taps the first bud open on launch and freezes the ritual that many seconds after the tap, so mid-frames can be screenshotted. Also freezes the onboarding end's reveal with `-MapleDemoOnboardingStep reveal`. |
+| `-MapleDemoRevealOpenAll` | seconds, e.g. `0.5`, `4` | Reveal | Opens the first leaf, taps "Open all" and freezes that many seconds into it (`0.5` the row mid-opening, `4` the list). Needs `-MapleDemoWaiting 2` or more. |
+| `-MapleDemoRevealConsent` | `YES` | Reveal | Opens the first leaf and shows the rarity consent sheet over it. |
+| `-MapleDemoRevealLeaf` | species id | Reveal | The waiting leaf `-MapleDemoPresent reveal` opens first (`RevealFlow(startingWith:)`); ignored when it isn't waiting. |
+| `-MapleDemoReduceMotion` | `YES` | Reveal, Onboarding | The reveal and the onboarding end render as under Reduce Motion (0.6 s crossfade; "Open all" goes straight to the list). `simctl ui` has no Reduce Motion switch. |
+| `-MapleDemoOnboardingStep` | `seed`, `sprout`, `reveal`, `placed` | Onboarding (`PlantYourMapleView`) | Starts the onboarding end past the schedule step, saving the default schedule (in memory): `seed` holds the neutral bud, `sprout` lets it turn amber, `reveal` opens the Sugar maple (freeze it with `-MapleDemoRevealAt`), `placed` shows the grafted seedling and stays there. Pair with `-MapleDemoFresh YES -MapleDemoPresent onboarding`. |
 
 `-MapleDemoPresent` values:
 - **App-level** (`App/DemoPresenter.swift`, over any tab): `reveal` (cover), `onboarding` (cover; pair it with `-MapleDemoFresh YES`), `profile` (sheet; add `-MapleDemoProfile` for a page inside it), `winddown` (cover)
@@ -32,6 +38,10 @@ Any Core argument makes the launch a demo: every store (collection, schedule, ra
 
 Rest example (a non-default schedule in wind-down): `xcrun simctl launch booted com.maanvikgupta.maple -MapleDemoTab rest -MapleDemoSpecies 23 -MapleDemoPhase windDown -MapleDemoSchedule 00:30-08:30/60`
 
+The Reveal and Onboarding arguments act only on a demo launch (with at least one Core argument), so they never touch the member's files.
+
 Example: `xcrun simctl launch booted com.maanvikgupta.maple -MapleDemoSpecies 23 -MapleDemoDays 41 -MapleDemoWaiting 1 -MapleDemoPhase morning`
 
 Example (Privacy with consent on): `xcrun simctl launch booted com.maanvikgupta.maple -MapleDemoSpecies 23 -MapleDemoRarity YES -MapleDemoPresent profile -MapleDemoProfile privacy`
+
+Reveal examples (the demo collection's newest leaves are the waiting ones): `-MapleDemoSpecies 23 -MapleDemoWaiting 3 -MapleDemoPhase morning -MapleDemoPresent reveal` opens three common leaves (short ritual, "Open all 3"); `-MapleDemoSpecies 80 -MapleDemoWaiting 1` makes the waiting leaf the legendary Smoothbark maple (full ritual); `-MapleDemoSpecies 40 -MapleDemoWaiting 1` an uncommon, approximate one.
