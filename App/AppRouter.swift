@@ -15,4 +15,13 @@ final class AppRouter {
         herbariumEarnedOnlyRequest = true
         selectedTab = .herbarium
     }
+
+    /// One-shot request from leaf detail's "Show on my maple" (spec §5.6): Home opens the Tree view centred on this
+    /// leaf's rosette and pulses its halo, then clears it.
+    var treeLeafRequest: String?
+
+    func showOnMaple(_ speciesID: String) {
+        treeLeafRequest = speciesID
+        selectedTab = .home
+    }
 }
