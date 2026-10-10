@@ -14,11 +14,12 @@ DEBUG builds read these arguments, which `xcrun simctl launch <udid> com.maanvik
 | `-MapleDemoFresh` | `YES` | Core | Opens with an empty collection and no saved schedule, as on first run. Wins over `-MapleDemoSpecies`. |
 | `-MapleDemoPermissions` | `none`, `health`, `all` | Core | Granted permissions: `health` is Apple Health plus a sleep tracker, `all` adds Screen Time. Demo collections default to `health`, other launches to `none`. Use `none` to see the "Needs Apple Health" states. |
 | `-MapleDemoPresent` | see below | Each feature, in its own root view | Opens one sheet, cover or push on launch. |
+| `-MapleDemoScroll` | a category id (e.g. `steady_mornings`) or `dormant` | Herbarium | With `-MapleDemoTab herbarium`: scrolls the grid until that section's header is pinned at the top. |
 
 `-MapleDemoPresent` values:
 - **App-level** (`App/DemoPresenter.swift`, over any tab): `reveal` (cover), `onboarding` (cover; pair it with `-MapleDemoFresh YES`), `profile` (sheet), `winddown` (cover)
 - **Home:** `tree`, `streak`, `leaf:<speciesID>`
-- **Herbarium:** `leaf:<speciesID>`, `share:<speciesID>`, `rarity`, `filter`, `search`
+- **Herbarium:** `leaf:<speciesID>` (pushes leaf detail), `share:<speciesID>` (leaf detail, then the rendered share-card PNG at its point size), `rarity` (leaf detail of the rarest earned leaf, or the featured one, with the rarity explainer open), `filter`, `search` or `search:<query>` (the Search sheet, already searching)
 - **Rest:** `schedule`
 
 Feature-level values are checked only by the feature that owns them, on its own tab, so combine them with `-MapleDemoTab`.
