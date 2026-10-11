@@ -16,8 +16,9 @@ public struct CollectionContext: Sendable, Equatable {
     /// The member's sleep need (Settings › Sleep goal): a full night is at least this − 30 minutes asleep.
     public var sleepNeedMinutes: Int
 
-    /// Seven hours, until the member changes it (spec §5.1; `AppSettings.defaultSleepGoalMinutes`).
-    public static let defaultSleepNeedMinutes = 7 * 60
+    /// 7h 30m, until the member changes it (rewards.json `full_nights`, which supersedes spec §5.1's 7h;
+    /// `AppSettings.defaultSleepGoalMinutes`).
+    public static let defaultSleepNeedMinutes = 7 * 60 + 30
 
     /// - Parameter permissions: What the member has granted. Empty by default: nothing is granted until it really is.
     public init(

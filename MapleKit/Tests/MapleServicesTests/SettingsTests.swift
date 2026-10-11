@@ -12,8 +12,10 @@ struct SettingsTests {
         let url = folder.appendingPathComponent(AppSettings.file)
         let settings = AppSettings(storage: JSONStorage(.file(url)), regionCode: "GB")
         #expect(settings.hemisphere == .automatic)
-        #expect(settings.sleepGoalMinutes == 7 * 60)
+        // rewards.json `full_nights`: a 7h 30m sleep need unless the member changes it.
+        #expect(settings.sleepGoalMinutes == 7 * 60 + 30)
         #expect(settings.sleepGoalMinutes == AppSettings.defaultSleepGoalMinutes)
+        #expect(CollectionContext().sleepNeedMinutes == 7 * 60 + 30)
         #expect(!settings.revealSound)
         #expect(files(in: folder).isEmpty)
     }
@@ -52,29 +54,39 @@ struct SettingsTests {
         #expect(HemisphereChoice.automatic.resolved(regionCode: "nz") == .southern)
     }
 
-    @Test("The sleep goal stays between 5 and 10 hours, in 30-minute steps")
+    @Test("The sleep goal stays between 7 and 9 hours, in 30-minute steps (rewards.json full_nights)")
     func sleepGoal() {
         let settings = AppSettings(storage: JSONStorage(.memory), regionCode: "GB")
         settings.sleepGoalMinutes = 2 * 60
-        #expect(settings.sleepGoalMinutes == 5 * 60)
+        #expect(settings.sleepGoalMinutes == 7 * 60)
         #expect(!settings.canDecreaseSleepGoal)
         settings.decreaseSleepGoal()
-        #expect(settings.sleepGoalMinutes == 5 * 60)
+        #expect(settings.sleepGoalMinutes == 7 * 60)
 
         settings.sleepGoalMinutes = 13 * 60
-        #expect(settings.sleepGoalMinutes == 10 * 60)
+        #expect(settings.sleepGoalMinutes == 9 * 60)
         #expect(!settings.canIncreaseSleepGoal)
         settings.increaseSleepGoal()
-        #expect(settings.sleepGoalMinutes == 10 * 60)
+        #expect(settings.sleepGoalMinutes == 9 * 60)
 
         settings.sleepGoalMinutes = 7 * 60 + 40
         #expect(settings.sleepGoalMinutes == 7 * 60 + 30)
         settings.increaseSleepGoal()
         #expect(settings.sleepGoalMinutes == 8 * 60)
+        #expect(settings.canIncreaseSleepGoal && settings.canDecreaseSleepGoal)
         settings.decreaseSleepGoal()
         settings.decreaseSleepGoal()
         #expect(settings.sleepGoalMinutes == 7 * 60)
-        #expect(settings.canIncreaseSleepGoal && settings.canDecreaseSleepGoal)
+        #expect(!settings.canDecreaseSleepGoal)
+    }
+
+    @Test("The sleep goal is the collection's sleep need, which judges Full nights")
+    func sleepGoalFeedsTheLedger() {
+        let collection = CollectionStore(storage: JSONStorage(.memory), context: testContext, now: at(2026, 10, 10, 12))
+        let settings = AppSettings(storage: JSONStorage(.memory), regionCode: "GB")
+        settings.sleepGoalMinutes = 9 * 60
+        settings.apply(to: collection)
+        #expect(collection.context.sleepNeedMinutes == 9 * 60)
     }
 
     @Test("Older or hand-edited files decode with defaults and clamped values")
@@ -88,7 +100,7 @@ struct SettingsTests {
             from: Data(#"{"hemisphere":"equatorial","sleepGoalMinutes":30,"revealSound":true,"version":9}"#.utf8)
         )
         #expect(odd.hemisphere == .automatic)
-        #expect(odd.sleepGoalMinutes == 5 * 60)
+        #expect(odd.sleepGoalMinutes == 7 * 60)
         #expect(odd.revealSound)
 
         let encoded = try JSONEncoder().encode(odd)

@@ -7,6 +7,7 @@ import MapleServices
 /// No cards, no rows, no titles: the first screen is the scene, the numeral and the next leaf on black.
 struct HomeView: View {
     @Environment(CollectionStore.self) private var collection
+    @Environment(HealthSleepImporter.self) private var sleep
     @Environment(AppRouter.self) private var router
     @Environment(\.openURL) private var openURL
     @Environment(\.mapleClock) private var clock
@@ -38,7 +39,10 @@ struct HomeView: View {
         // NowState refreshes every minute; the clock freezes it inside a phase for DEBUG demos.
         TimelineView(.everyMinute) { timeline in
             let now = clock.date(forTimeline: timeline.date)
-            let content = HomeContent(collection: collection, now: now, bedside: bedside.state(at: now, collection: collection))
+            let content = HomeContent(
+                collection: collection, now: now, bedside: bedside.state(at: now, collection: collection),
+                lastNight: sleep.lastNightSleep(at: now), noSleepHint: sleep.showsNoSleepHint(at: now)
+            )
             GeometryReader { proxy in
                 screen(content, proxy: proxy)
             }
@@ -115,7 +119,7 @@ struct HomeView: View {
             stageHeight: HomeLayout.stageHeight(screenHeight: screenHeight, accessibilitySize: accessibilitySize),
             visibleHeight: proxy.size.height - measured.header, belowStage: measured.belowStage,
             action: measured.action, hasAction: state.action != nil || state.secondaryAction != nil,
-            hasRow: content.row != nil
+            hasRow: content.row != nil || content.showsNoSleepHint
         )
         let stageHeight = fit.heroHeight
         let width = proxy.size.width
@@ -136,8 +140,9 @@ struct HomeView: View {
                     .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { measured.belowStage = $0 }
 
                 if !fit.pinsAction {
+                    let hasRow = content.row != nil || content.showsNoSleepHint
                     action(state)
-                        .padding(.top, content.row == nil ? HomeLayout.rowGap : HomeLayout.actionGap)
+                        .padding(.top, hasRow ? HomeLayout.actionGap : HomeLayout.rowGap)
                 }
             }
             .padding(.bottom, HomeLayout.closingPadding)
@@ -185,7 +190,12 @@ struct HomeView: View {
                 .padding(.top, HomeLayout.numeralGap)
                 .opacity(state.contentOpacity)
 
-            if let row = content.row {
+            if content.showsNoSleepHint {
+                NoSleepHint()
+                    .padding(.horizontal, theme.spacing.homeMargin)
+                    .padding(.top, HomeLayout.rowGap)
+                    .opacity(state.contentOpacity)
+            } else if let row = content.row {
                 nextLeafRow(row)
                     .padding(.horizontal, theme.spacing.homeMargin)
                     .padding(.top, HomeLayout.rowGap)

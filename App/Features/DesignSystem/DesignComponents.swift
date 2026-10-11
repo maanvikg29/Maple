@@ -84,6 +84,9 @@ private struct DesignControlSet: View {
             sample("Text link") {
                 TextLink("All insights") {}
             }
+            sample("No sleep from Apple Health · Home's row, 13 secondary") {
+                NoSleepHint()
+            }
             sample("Progress · 2, 3 (owned bar, the one amber bar) and 4") {
                 VStack(spacing: theme.spacing.sm) {
                     ProgressHairline(fraction: 0.64)
