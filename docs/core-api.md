@@ -16,6 +16,7 @@ struct HomeView: View {
     @Environment(ScheduleStore.self) private var schedule       // wake, bedtime, wind-down length
     @Environment(LeafShareStore.self) private var shares        // "% of members have this leaf"
     @Environment(HealthPermission.self) private var health      // Apple Health: connected or not, and the prompt
+    @Environment(Reminders.self) private var reminders          // wind-down and morning notifications
     @Environment(\.mapleClock) private var clock               // "now"; never call Date()
     @Environment(\.season) private var season                  // real season, or -MapleDemoSeason
 }
