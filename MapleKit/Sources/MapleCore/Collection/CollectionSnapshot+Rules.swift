@@ -259,11 +259,11 @@ extension CollectionSnapshot {
     }
 
     public func nextLeaf(at date: Date, context: CollectionContext) -> LeafProgress? {
-        picker(at: date, context: context).next(phase: phase(at: date, context: context), pinned: pinnedSpeciesID)
+        picker(at: date, context: context).next(pinned: pinnedSpeciesID)
     }
 
     public func buds(at date: Date, context: CollectionContext) -> [LeafProgress] {
-        picker(at: date, context: context).buds(phase: phase(at: date, context: context), pinned: pinnedSpeciesID)
+        picker(at: date, context: context).buds(pinned: pinnedSpeciesID)
     }
 
     public func almostThere(at date: Date, context: CollectionContext) -> [LeafProgress] {
@@ -292,7 +292,6 @@ extension CollectionSnapshot {
     public func treeInputs(at date: Date, context: CollectionContext) -> TreeInputs {
         let placed = earned
         let picker = picker(at: date, context: context)
-        let phase = phase(at: date, context: context)
         let halos = placed.compactMap { leaf -> TreeInputs.Halo? in
             guard let opened = revealedAt[leaf.speciesID], date.timeIntervalSince(opened) < TreeInputs.haloLifetime,
                   opened <= date else { return nil }
@@ -304,7 +303,7 @@ extension CollectionSnapshot {
             growth: TreeGrowth.structure(tendedDays: tendedDayCount),
             stage: TreeStage(speciesCount: leafCount.opened),
             species: placed.map { TreeInputs.Leaf(speciesID: $0.speciesID, pressed: $0.colourway) },
-            buds: picker.buds(phase: phase, pinned: pinnedSpeciesID).map { TreeInputs.Bud(speciesID: $0.speciesID, progress: $0.fraction) },
+            buds: picker.buds(pinned: pinnedSpeciesID).map { TreeInputs.Bud(speciesID: $0.speciesID, progress: $0.fraction) },
             waiting: revealable(at: date, context: context).map(\.speciesID),
             featured: featuredLeaf,
             season: season(at: date, context: context),

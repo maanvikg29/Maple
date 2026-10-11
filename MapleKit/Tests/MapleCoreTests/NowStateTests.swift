@@ -92,7 +92,6 @@ struct NowStateTests {
         #expect(now.action == .startWindDown)
         #expect(now.action?.title == "Start wind-down")
         #expect(now.actionIsDimmed)
-        #expect(now.leafPreference == .night)
         #expect(now.waitingCount == 0)
         #expect(now.contentOpacity == 1)
         #expect(now.showsBelowTheFold)
@@ -138,13 +137,12 @@ struct NowStateTests {
         #expect(now.numeral.text == "8h 35m")
         #expect(now.caption == "until wind-down · bed 23:00")
         #expect(now.action == nil)
-        #expect(now.leafPreference == .day)
         #expect(!now.actionIsDimmed)
     }
 
     @Test("Day once focus ships: focus today and Start focus")
     func dayFocus() {
-        let now = state(13, 40, counters: [.focusDays: 3, .focusHours: 4], features: .all,
+        let now = state(13, 40, counters: [.sessionsFinished: 3, .hoursSaved: 4], features: .all,
                         focus: FocusStatus(todayMinutes: 85, weekMinutes: 250))
         #expect(now.content == .focusToday)
         #expect(now.numeral.text == "1h 25m")
@@ -179,7 +177,6 @@ struct NowStateTests {
         #expect(now.numeral.text == "7h 12m")
         #expect(now.caption == "asleep 23:08 · up 06:20")
         #expect(now.action == nil)
-        #expect(now.leafPreference == .morning)
     }
 
     @Test("Morning without Apple Health: Goodnight time")
@@ -201,7 +198,6 @@ struct NowStateTests {
         #expect(now.spoken == "Wind-down tonight at 22:15. Bed at 23:00.")
         #expect(now.action == nil)
         #expect(!now.actionIsDimmed)
-        #expect(now.leafPreference == .morning)
         #expect(now.waitingCount == 0)
 
         let us = state(7, 40, locale: enUS)

@@ -111,8 +111,6 @@ public struct NowState: Sendable, Equatable {
     public let caption: String
     /// The numeral and caption as one VoiceOver sentence with full units.
     public let spoken: String
-    /// Which leaves the next-leaf row prefers (`NextLeafPicker` takes the phase).
-    public let leafPreference: RewardTimeOfDay
     public let action: Action?
     /// Evening and wind-down use the dimmed primary capsule.
     public let actionIsDimmed: Bool
@@ -247,7 +245,7 @@ public struct NowState: Sendable, Equatable {
             case .morning:
                 action = features.checkIns && checkInDue ? .checkIn : nil
             case .day:
-                let firstTime = (counters[.focusDays] ?? 0) == 0 && (counters[.focusHours] ?? 0) == 0
+                let firstTime = (counters[.sessionsFinished] ?? 0) == 0 && (counters[.hoursSaved] ?? 0) == 0
                 action = features.focus ? .startFocus(minutes: defaultFocusMinutes, firstTime: firstTime) : nil
             case .evening, .windDown:
                 action = windDownActive ? .returnToWindDown : .startWindDown
@@ -258,7 +256,7 @@ public struct NowState: Sendable, Equatable {
 
         return NowState(
             phase: phase, content: content.0, numeral: Numeral(parts: content.1), caption: content.2, spoken: content.3,
-            leafPreference: phase.leafPreference, action: action,
+            action: action,
             actionIsDimmed: phase == .evening || phase == .windDown,
             secondaryAction: phase == .night && features.sleepSounds ? .sleepSounds : nil,
             waitingCount: waiting, contentOpacity: phase == .night ? 0.8 : 1, showsBelowTheFold: phase != .night,
@@ -267,7 +265,7 @@ public struct NowState: Sendable, Equatable {
     }
 
     private init(
-        phase: NowPhase, content: Content, numeral: Numeral, caption: String, spoken: String, leafPreference: RewardTimeOfDay,
+        phase: NowPhase, content: Content, numeral: Numeral, caption: String, spoken: String,
         action: Action?, actionIsDimmed: Bool, secondaryAction: SecondaryAction?, waitingCount: Int, contentOpacity: Double,
         showsBelowTheFold: Bool, refreshesEverySecond: Bool
     ) {
@@ -276,7 +274,6 @@ public struct NowState: Sendable, Equatable {
         self.numeral = numeral
         self.caption = caption
         self.spoken = spoken
-        self.leafPreference = leafPreference
         self.action = action
         self.actionIsDimmed = actionIsDimmed
         self.secondaryAction = secondaryAction

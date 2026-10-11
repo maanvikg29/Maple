@@ -272,11 +272,11 @@ public final class CollectionStore {
     public func progress(for speciesID: String, at date: Date) -> LeafProgress? { derived(at: date).byID[speciesID] }
     /// Home's next leaf.
     public func nextLeaf(at date: Date) -> LeafProgress? {
-        derived(at: date).picker.next(phase: phase(at: date), pinned: snapshot.pinnedSpeciesID)
+        derived(at: date).picker.next(pinned: snapshot.pinnedSpeciesID)
     }
     /// The tree's buds: up to 3, Home's next leaf first.
     public func buds(at date: Date) -> [LeafProgress] {
-        derived(at: date).picker.buds(phase: phase(at: date), pinned: snapshot.pinnedSpeciesID)
+        derived(at: date).picker.buds(pinned: snapshot.pinnedSpeciesID)
     }
     /// The Herbarium's "Almost there" rail (hide it when fewer than 2).
     public func almostThere(at date: Date) -> [LeafProgress] { derived(at: date).picker.almostThere() }
