@@ -64,15 +64,6 @@ struct NowPhaseTests {
         // Evening shows the wireframe's "1h 20m until wind-down".
         #expect(PhaseWindows(schedule: .standard).sampleDate(in: .evening, onDayOf: at(2026, 10, 10), calendar: utc) == at(2026, 10, 10, 20, 55))
     }
-
-    @Test("Leaf preference by phase")
-    func preference() {
-        #expect(NowPhase.morning.leafPreference == .morning)
-        #expect(NowPhase.day.leafPreference == .day)
-        #expect(NowPhase.evening.leafPreference == .night)
-        #expect(NowPhase.windDown.leafPreference == .night)
-        #expect(NowPhase.night.leafPreference == .night)
-    }
 }
 
 @Suite("Now state")
@@ -322,40 +313,34 @@ struct LeafRemainderTests {
 
     @Test("Remainders by unit")
     func units() {
-        #expect(remainder(.onTimeBedtimes, 14, 11) == "3 nights")
-        #expect(remainder(.nightsTracked, 3, 2) == "1 night")
-        #expect(remainder(.steadyMornings, 10, 6) == "4 mornings")
-        #expect(remainder(.steadyWeeks, 3, 1) == "2 weeks")
-        #expect(remainder(.seasonsInRhythm, 2, 1) == "1 season")
-        #expect(remainder(.focusDays, 14, 9) == "5 days")
-        #expect(remainder(.scrollFreeWindDowns, 12, 9) == "3 evenings")
-        #expect(remainder(.windDownRituals, 15, 12) == "3 evenings")
-        #expect(remainder(.communityChallenges, 3, 1) == "2 challenges")
-        #expect(remainder(.caffeineCurfew, 20, 15) == "5 days")
-        #expect(remainder(.focusHours, 8, 6 + 20.0 / 60) == "1h 40m")
-        #expect(remainder(.focusHours, 4, 3.5) == "30m")
-        #expect(remainder(.bedtimeRun, 7, 3.5) == "4 nights")
+        #expect(remainder(.restedNights, 14, 11) == "3 nights")
+        #expect(remainder(.bedtimeKept, 3, 2) == "1 night")
+        #expect(remainder(.phoneFreeMornings, 10, 6) == "4 mornings")
+        #expect(remainder(.focusStreak, 14, 9) == "5 days")
+        #expect(remainder(.sessionsFinished, 10, 7) == "3 sessions")
+        #expect(remainder(.hoursSaved, 8, 6 + 20.0 / 60) == "1h 40m")
+        #expect(remainder(.hoursSaved, 4, 3.5) == "30m")
+        #expect(remainder(.bedtimeKept, 7, 3.5) == "4 nights")
     }
 
     @Test("One to go reads Tonight in the evening, Today in the day")
     func tonightToday() {
-        #expect(remainder(.onTimeBedtimes, 1, 0, .evening) == "Tonight")
-        #expect(remainder(.nightsTracked, 14, 13, .windDown) == "Tonight")
-        #expect(remainder(.nightsTracked, 14, 13, .night) == "1 night")
-        #expect(remainder(.nightsTracked, 14, 13, .day) == "1 night")
-        #expect(remainder(.steadyWeeks, 3, 2, .evening) == "1 week")
-        #expect(remainder(.focusDays, 1, 0, .day) == "Today")
-        #expect(remainder(.focusDays, 1, 0, .evening) == "1 day")
+        #expect(remainder(.restedNights, 3, 2, .evening) == "Tonight")
+        #expect(remainder(.restedNights, 14, 13, .windDown) == "Tonight")
+        #expect(remainder(.restedNights, 14, 13, .night) == "1 night")
+        #expect(remainder(.restedNights, 14, 13, .day) == "1 night")
+        #expect(remainder(.focusStreak, 3, 2, .day) == "Today")
+        #expect(remainder(.focusStreak, 3, 2, .evening) == "1 day")
     }
 
     @Test("Amounts and the bar")
     func amounts() {
-        let row = progressRow("x", .onTimeBedtimes, threshold: 14, current: 11, estimate: 4)
+        let row = progressRow("x", .restedNights, threshold: 14, current: 11, estimate: 4)
         #expect(LeafRemainder(row, phase: .day).amount == "11 of 14")
         #expect(LeafRemainder(row, phase: .day).showsBar)
-        let hours = progressRow("x", .focusHours, threshold: 8, current: 6, estimate: 4)
+        let hours = progressRow("x", .hoursSaved, threshold: 8, current: 6, estimate: 4)
         #expect(LeafRemainder(hours, phase: .day).amount == "6h of 8h")
-        let fresh = progressRow("x", .onTimeBedtimes, threshold: 1, current: 0, estimate: 1)
+        let fresh = progressRow("x", .restedNights, threshold: 3, current: 0, estimate: 1)
         #expect(!LeafRemainder(fresh, phase: .evening).showsBar)
     }
 }

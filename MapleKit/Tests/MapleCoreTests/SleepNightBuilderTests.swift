@@ -333,16 +333,18 @@ struct SleepNightBuilderTests {
     func intoTheLedger() {
         let context = CollectionContext(schedule: .standard, permissions: [.appleHealth], calendar: utc, hemisphere: .northern)
         var snapshot = CollectionSnapshot.empty(profileID: UUID(), createdAt: at(2026, 10, 9, 20))
-        snapshot.raise(.firstSteps, to: 1, at: at(2026, 10, 9, 20), calendar: utc)
+        snapshot.raise(.firstLeaf, to: 1, at: at(2026, 10, 9, 20), calendar: utc)
         snapshot.runEngine(at: at(2026, 10, 9, 20), context: context)
         snapshot.openReveals(nil, at: at(2026, 10, 9, 20), context: context)
 
         let unlocked = snapshot.recordSleep(builder.nights(from: watchNight()), at: at(2026, 10, 10, 7, 30), context: context)
-        #expect(snapshot.counters[.nightsTracked] == 1)
-        #expect(snapshot.counters[.onTimeBedtimes] == 1)
-        #expect(snapshot.counters[.steadyMornings] == 1)
-        #expect(snapshot.counters[.fullNights] == 1)
-        #expect(!unlocked.isEmpty)
+        let night = snapshot.nights.recent.last
+        #expect(night?.outcome == .onTime)
+        #expect(night?.steadyMorning == true)
+        #expect(night?.fullNight == true)
+        #expect(snapshot.counters[.restedNights] == 1)
+        // Rested nights' first leaf comes at 3 nights.
+        #expect(unlocked.isEmpty)
     }
 }
 

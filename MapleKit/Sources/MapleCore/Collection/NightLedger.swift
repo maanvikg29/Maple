@@ -36,7 +36,8 @@ public enum BedtimeOutcome: String, Codable, Sendable {
 /// bedtimes, Bedtime runs, Steady weeks, Seasons in rhythm, Steady mornings and Full nights, plus the nights vitality
 /// reads (spec §4.8). Source-agnostic and pure: it takes `SleepNightObservation`s, whatever read them, and
 /// `CollectionSnapshot.recordSleep(_:at:context:engine:)` turns what it settles into counters. There is no manual
-/// fallback: a Goodnight tap never reaches it.
+/// fallback: a Goodnight tap never reaches it. Of what it judges, only on-time nights earn leaves now (Rested nights,
+/// focus spec §4.1); the run, steady weeks, steady mornings and full nights are kept for vitality and history.
 ///
 /// - A night runs 18:00 to 18:00 local and belongs to the evening it starts on.
 /// - Counting starts on the install night (the night the first schedule was saved in) when setup finished before
@@ -480,21 +481,13 @@ public struct NightLedger: Sendable, Equatable {
         steadyWeeks.append(thursday)
         steadyWeeks.sort()
         if steadyWeeks.count > Self.steadyWeeksKept { steadyWeeks.removeFirst(steadyWeeks.count - Self.steadyWeeksKept) }
-        changes.increases[.steadyWeeks, default: 0] += 1
-        let season = Self.seasonBlock(of: thursday)
-        if steadyWeeks.filter({ Self.seasonBlock(of: $0) == season }).count == Self.steadyWeeksPerSeason {
-            changes.increases[.seasonsInRhythm, default: 0] += 1
-        }
     }
 }
 
 extension NightLedger.Changes {
     /// Adds what `night` earns that `previous` (the same night before, or untracked) hadn't, and its vitality.
     mutating func add(newly night: NightLedger.Night, over previous: NightLedger.Night) {
-        if night.outcome.isTracked, !previous.outcome.isTracked { increases[.nightsTracked, default: 0] += 1 }
-        if night.outcome == .onTime, previous.outcome != .onTime { increases[.onTimeBedtimes, default: 0] += 1 }
-        if night.steadyMorning, !previous.steadyMorning { increases[.steadyMornings, default: 0] += 1 }
-        if night.fullNight == true, previous.fullNight != true { increases[.fullNights, default: 0] += 1 }
+        if night.outcome == .onTime, previous.outcome != .onTime { increases[.restedNights, default: 0] += 1 }
         // Vitality hears on-time and late nights and full nights; early, unscheduled and untracked ones are neutral.
         let onTime: Bool? = switch night.outcome {
         case .onTime: true

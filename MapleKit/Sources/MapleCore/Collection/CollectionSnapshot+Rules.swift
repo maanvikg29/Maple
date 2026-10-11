@@ -67,7 +67,7 @@ extension CollectionSnapshot {
     private mutating func didRaise(_ categories: [RewardCategoryID], at date: Date, calendar: Calendar) -> Bool {
         guard !categories.isEmpty else { return false }
         let day = LocalDay(date, calendar: calendar)
-        if categories.contains(where: { $0 != .firstSteps && $0 != .communityChallenges }), !tendedDays.contains(day) {
+        if categories.contains(where: { $0 != .firstLeaf }), !tendedDays.contains(day) {
             tendedDays.append(day)
             tendedDays.sort()
         }
@@ -161,9 +161,7 @@ extension CollectionSnapshot {
 
     /// Apple Health's nights (M1's importer; spec D9: there is no manual fallback, so no tap ever counts). Records
     /// them in the ledger, settles every night whose next morning has started by `date` (from the install night),
-    /// and records what they earned: Nights tracked, On-time bedtimes, Steady mornings and Full nights per night, the
-    /// live bedtime run (the counter keeps the best), Steady weeks as weeks close and Seasons in rhythm, plus each
-    /// tracked night's outcome for vitality. Late data upgrades a settled night for 72 hours; recording the same
+    /// and records what they earned: Rested nights per on-time night, plus each tracked night's outcome for vitality. Late data upgrades a settled night for 72 hours; recording the same
     /// nights again changes nothing. Ignored before the maple is planted.
     /// - Returns: Leaves the nights unlocked, stamped `date` (held or pending like any unlock).
     @discardableResult
@@ -179,7 +177,6 @@ extension CollectionSnapshot {
         record(changes.increases, at: date, calendar: calendar)
         if let run = changes.run {
             currentBedtimeRun = run
-            raise(.bedtimeRun, to: Double(changes.bestRun), at: date, calendar: calendar)
         }
         for night in changes.vitality { recordNight(night) }
         return runEngine(at: date, context: context, engine: engine)
@@ -203,7 +200,7 @@ extension CollectionSnapshot {
     /// "N of 155": opened leaves only (spec §5.2, `LeafCount`).
     public var leafCount: LeafCount { LeafCount(unlocks: unlocks) }
     /// The First-steps leaf has been earned: onboarding is done and Home can show (D12).
-    public var hasPlantedMaple: Bool { unlocks.contains { RevealSchedule.isFirstSteps($0.speciesID) } }
+    public var hasPlantedMaple: Bool { unlocks.contains { RevealSchedule.isFirstLeaf($0.speciesID) } }
     public var tendedDayCount: Int { tendedDays.count }
 
     public func unlock(for speciesID: String) -> LeafUnlock? {
@@ -326,7 +323,7 @@ extension CollectionSnapshot {
         let opened = leafCount.opened
         return ProfileTotals(
             leaves: opened, tendedDays: tendedDayCount, stage: TreeStage(speciesCount: opened),
-            nightsOnTime: total(.onTimeBedtimes).map { Int($0) }, focusHours: total(.focusHours),
+            nightsOnTime: total(.restedNights).map { Int($0) }, focusHours: total(.focusHours),
             windDowns: total(.windDownRituals).map { Int($0) }, mornings: total(.steadyMornings).map { Int($0) }
         )
     }

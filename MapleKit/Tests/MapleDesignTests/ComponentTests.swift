@@ -358,7 +358,7 @@ struct ComponentTests {
         let waiting = SpecimenView(species: rubrum, colourway: .autumn, size: 96, state: .waiting)
         #expect(containsAmber(try pixels(of: waiting, size: size)))
         // Nothing is earned yet in the needs-permission row or the Apple Health primer.
-        let needs = LeafProgress(speciesID: "rubrum", category: .nightsTracked, threshold: 1, tier: .common, current: 0,
+        let needs = LeafProgress(speciesID: "rubrum", category: .restedNights, threshold: 1, tier: .common, current: 0,
                                  availability: .needsAppleHealth, state: .locked, estimatedDays: nil)
         let row = NextLeafRow(.needsPermission(needs), action: {}, turnOn: {}).frame(width: 354).background(Color.black)
         #expect(!containsAmber(try pixels(of: row, size: CGSize(width: 354, height: 64))))

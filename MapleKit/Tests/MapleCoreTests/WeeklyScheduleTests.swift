@@ -246,7 +246,7 @@ struct WeeklyScheduleRulesTests {
     /// The schedule saved (and the Sugar maple opened) at `date`.
     private func planted(at date: Date, context: CollectionContext) -> CollectionSnapshot {
         var snapshot = CollectionSnapshot.empty(profileID: UUID(), createdAt: date)
-        snapshot.raise(.firstSteps, to: 1, at: date, calendar: utc)
+        snapshot.raise(.firstLeaf, to: 1, at: date, calendar: utc)
         snapshot.runEngine(at: date, context: context)
         snapshot.openReveals(nil, at: date, context: context)
         return snapshot
@@ -276,8 +276,7 @@ struct WeeklyScheduleRulesTests {
 
         #expect(snapshot.nights.recent.map(\.outcome) == [.onTime, .onTime, .onTime, .late])
         #expect(snapshot.nights.recent.map(\.steadyMorning) == [true, true, true, true])
-        #expect(snapshot.counters[.onTimeBedtimes] == 3)
-        #expect(snapshot.counters[.steadyMornings] == 4)
+        #expect(snapshot.counters[.restedNights] == 3)
     }
 
     @Test("A weekend schedule added on a Friday evening applies from the next night (18:00 cut-off)")

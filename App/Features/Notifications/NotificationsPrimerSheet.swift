@@ -90,7 +90,7 @@ private struct PrimerLeaf {
             colourway = unlock.colourway
             return
         }
-        let first = RewardCatalog.shared.rungs(in: .firstSteps).first
+        let first = RewardCatalog.shared.rungs(in: .firstLeaf).first
             .flatMap { LeafCatalog.shared.species(id: $0.speciesID) }
         species = first
         colourway = LeafColourway.pressed(in: season, evergreen: first?.evergreen ?? false)

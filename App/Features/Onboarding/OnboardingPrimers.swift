@@ -20,7 +20,7 @@ struct OnboardingHealthStep: View {
     @State private var answered = false
 
     var body: some View {
-        let species = RewardCatalog.shared.rungs(in: .nightsTracked).first.flatMap { LeafCatalog.shared.species(id: $0.speciesID) }
+        let species = RewardCatalog.shared.rungs(in: .restedNights).first.flatMap { LeafCatalog.shared.species(id: $0.speciesID) }
         VStack(spacing: 0) {
             OnboardingTopBar(progress: OnboardingStep.health.progress ?? 1)
             HealthPrimerView(

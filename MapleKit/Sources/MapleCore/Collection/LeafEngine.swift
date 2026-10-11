@@ -42,11 +42,11 @@ public struct LeafEngine: Sendable {
 ///
 /// Leaves unlocked from the start of Evening until the next Morning start are *held* and become *pending* at Morning
 /// start; all others are pending at once. Pending leaves open only in Morning, Day and Evening, never in Wind-down
-/// or Night. The First-steps leaf is the exception: it opens at the end of onboarding, at any hour.
+/// or Night. The first leaf is the exception: it opens at the end of onboarding, at any hour.
 public enum RevealSchedule {
     /// The moment `unlock` stops being held.
     public static func releaseDate(for unlock: LeafUnlock, schedule: WeeklySleepSchedule, calendar: Calendar) -> Date {
-        if isFirstSteps(unlock.speciesID) { return unlock.date }
+        if isFirstLeaf(unlock.speciesID) { return unlock.date }
         switch NowPhase.resolve(date: unlock.date, weekly: schedule, calendar: calendar) {
         case .morning, .day:
             return unlock.date
@@ -74,14 +74,14 @@ public enum RevealSchedule {
         phase == .morning || phase == .day || phase == .evening
     }
 
-    /// What a reveal can open right now: pending leaves in Morning, Day and Evening, and First steps at any hour.
+    /// What a reveal can open right now: pending leaves in Morning, Day and Evening, and the first leaf at any hour.
     public static func revealable(_ unlocks: [LeafUnlock], at date: Date, schedule: WeeklySleepSchedule, calendar: Calendar) -> [LeafUnlock] {
         let phaseAllows = opensIn(NowPhase.resolve(date: date, weekly: schedule, calendar: calendar))
-        return pending(unlocks, at: date, schedule: schedule, calendar: calendar).filter { phaseAllows || isFirstSteps($0.speciesID) }
+        return pending(unlocks, at: date, schedule: schedule, calendar: calendar).filter { phaseAllows || isFirstLeaf($0.speciesID) }
     }
 
-    static func isFirstSteps(_ speciesID: String) -> Bool {
-        RewardCatalog.shared.reward(forSpecies: speciesID)?.categoryID == .firstSteps
+    static func isFirstLeaf(_ speciesID: String) -> Bool {
+        RewardCatalog.shared.reward(forSpecies: speciesID)?.categoryID == .firstLeaf
     }
 
     private static func ordered(_ unlocks: [LeafUnlock]) -> [LeafUnlock] {

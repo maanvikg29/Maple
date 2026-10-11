@@ -42,7 +42,7 @@ struct HealthPrimerSheet: View {
 
     private var leaf: LeafSpecies? {
         let fallback = collection.permissionPrompt(at: clock.now())?.speciesID
-            ?? RewardCatalog.shared.rungs(in: .nightsTracked).first?.speciesID
+            ?? RewardCatalog.shared.rungs(in: .restedNights).first?.speciesID
         return (speciesID ?? fallback).flatMap { LeafCatalog.shared.species(id: $0) }
     }
 

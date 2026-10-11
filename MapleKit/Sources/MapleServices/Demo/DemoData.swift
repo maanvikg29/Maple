@@ -16,7 +16,7 @@ nonisolated public enum DemoData {
     ///
     /// - The cheapest rungs (threshold ÷ design pace) come first, from categories that are shipped and available
     ///   with `permissions`, so ladders fill from the bottom and counters match them; other categories fill only
-    ///   after those run out. The Sugar maple (First steps) is always there.
+    ///   after those run out. The Sugar maple (the first leaf) is always there.
     /// - Counters sit part-way to each category's next rung, so next-leaf bars show progress.
     /// - Unlock dates spread over about 1.6 × `tendedDays`, at noon, so pressed colourways mix seasons.
     /// - The `waiting` newest leaves are unopened and can be opened in morning, day and evening.
@@ -38,7 +38,7 @@ nonisolated public enum DemoData {
             LeafAvailability(category: category, permissions: permissions, features: features) == .available
         }
         func cost(_ rung: RewardAssignment) -> Double {
-            rung.categoryID == .firstSteps ? 0 : rung.threshold / RewardCategoryInfo(rung.categoryID).designPace
+            rung.categoryID == .firstLeaf ? 0 : rung.threshold / RewardCategoryInfo(rung.categoryID).designPace
         }
         let ranked = rewards.assignments.sorted { a, b in
             let pa = isAvailable(a.categoryID) ? 0 : 1, pb = isAvailable(b.categoryID) ? 0 : 1

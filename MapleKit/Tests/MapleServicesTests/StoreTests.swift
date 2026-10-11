@@ -23,8 +23,8 @@ struct CollectionStoreTests {
     func recordAndPersist() throws {
         let url = try temporaryDirectory().appendingPathComponent("collection.json")
         let store = CollectionStore(storage: JSONStorage(.file(url)), context: testContext, now: at(2026, 10, 1, 9))
-        store.raise(.firstSteps, to: 1, at: at(2026, 10, 1, 9))
-        let unlocked = store.record([.nightsTracked: 1], at: at(2026, 10, 2, 7))
+        store.raise(.firstLeaf, to: 1, at: at(2026, 10, 1, 9))
+        let unlocked = store.record([.hoursSaved: 1], at: at(2026, 10, 2, 7))
         #expect(unlocked.map(\.speciesID) == ["rubrum"])
         #expect(store.waiting.map(\.speciesID) == ["saccharum", "rubrum"])
         let opened = store.openReveals(at: at(2026, 10, 2, 8))
@@ -50,7 +50,7 @@ struct CollectionStoreTests {
     func memory() throws {
         let folder = try temporaryDirectory()
         let store = CollectionStore(storage: JSONStorage(.memory), context: testContext, now: at(2026, 10, 1, 9))
-        store.raise(.firstSteps, to: 1, at: at(2026, 10, 1, 9))
+        store.raise(.firstLeaf, to: 1, at: at(2026, 10, 1, 9))
         #expect(store.hasPlantedMaple)
         #expect(files(in: folder).isEmpty)
     }
@@ -68,9 +68,9 @@ struct CollectionStoreTests {
     @Test("Derived values follow the schedule and the clock")
     func derived() {
         let store = CollectionStore(storage: JSONStorage(.memory), context: testContext, now: at(2026, 10, 1, 9))
-        store.raise(.firstSteps, to: 1, at: at(2026, 10, 1, 9))
+        store.raise(.firstLeaf, to: 1, at: at(2026, 10, 1, 9))
         store.openReveals(at: at(2026, 10, 1, 9, 5))
-        store.record([.nightsTracked: 1], at: at(2026, 10, 2, 21))      // evening: held until morning
+        store.record([.hoursSaved: 1], at: at(2026, 10, 2, 21))         // evening: held until morning
         #expect(store.revealable(at: at(2026, 10, 2, 21, 30)).isEmpty)
         #expect(store.held(at: at(2026, 10, 2, 21, 30)).map(\.speciesID) == ["rubrum"])
         // Moving bedtime later makes 21:00 part of the day, so the leaf is pending at once.
@@ -79,9 +79,10 @@ struct CollectionStoreTests {
 
         let now = at(2026, 10, 2, 21, 30)
         #expect(store.progress(at: now).count == 155)
-        #expect(store.progress(for: "palmatum", at: now)?.current == 0)
+        #expect(store.progress(for: "saccharinum", at: now)?.current == 0)
         #expect(store.nextLeaf(at: now) != nil)
-        #expect(store.buds(at: now).count == 3)
+        // Before F1 ships, Rested nights is the only ladder that can be earned: one bud.
+        #expect(store.buds(at: now).count == 1)
         #expect(store.treeInputs(at: now).species.map(\.speciesID) == ["saccharum"])
         #expect(store.nowState(at: now, locale: Locale(identifier: "en_GB")).phase == .day)
         #expect(store.totals.leaves == 1)
@@ -91,15 +92,15 @@ struct CollectionStoreTests {
     @Test("Mark all seen, the bedtime run and nights")
     func housekeeping() {
         let store = CollectionStore(storage: JSONStorage(.memory), context: testContext, now: at(2026, 10, 1, 9))
-        store.raise(.firstSteps, to: 1, at: at(2026, 10, 1, 9))
-        store.record([.nightsTracked: 1], at: at(2026, 10, 2, 7))
+        store.raise(.firstLeaf, to: 1, at: at(2026, 10, 1, 9))
+        store.record([.hoursSaved: 1], at: at(2026, 10, 2, 7))
         store.openReveals(at: at(2026, 10, 2, 8))
         #expect(store.isUnseen("saccharum") && store.isUnseen("rubrum"))
         store.markAllSeen()
         #expect(!store.isUnseen("saccharum") && !store.isUnseen("rubrum"))
 
         let unlocked = store.setCurrentBedtimeRun(3, at: at(2026, 10, 3, 7))
-        #expect(unlocked.map(\.speciesID) == ["maximowiczianum"])
+        #expect(unlocked.isEmpty)                                       // the run earns no leaf in the focus table
         #expect(store.currentBedtimeRun == 3)
         store.setCurrentBedtimeRun(0, at: at(2026, 10, 4, 7))
         #expect(store.currentBedtimeRun == 0)
@@ -115,7 +116,7 @@ struct CollectionStoreTests {
         let store = CollectionStore(storage: JSONStorage(.memory), context: testContext, now: at(2026, 10, 1, 9))
         let now = at(2026, 10, 2, 12)
         #expect(store.progress(for: "rubrum", at: now)?.current == 0)
-        store.record([.nightsTracked: 1], at: at(2026, 10, 2, 7))
+        store.record([.restedNights: 1], at: at(2026, 10, 2, 7))
         #expect(store.progress(for: "saccharinum", at: now)?.current == 1)
     }
 }
@@ -135,10 +136,10 @@ struct ScheduleStoreTests {
         let mine = SleepSchedule(bedtime: ClockTime(hour: 22, minute: 30), wake: ClockTime(hour: 6, minute: 30), windDownMinutes: 30)
         let unlocked = schedules.save(.everyNight(mine), at: at(2026, 10, 1, 23, 40))
         #expect(unlocked.map(\.speciesID) == ["saccharum"])
-        #expect(RewardCatalog.shared.reward(forSpecies: "saccharum")?.unlockText == "Set your sleep schedule")
+        #expect(RewardCatalog.shared.reward(forSpecies: "saccharum")?.unlockText == "Plant your maple")
         #expect(collection.hasPlantedMaple)
         #expect(collection.schedule == .everyNight(mine))
-        #expect(collection.snapshot.counters[.firstSteps] == 1)
+        #expect(collection.snapshot.counters[.firstLeaf] == 1)
         #expect(collection.snapshot.tendedDays.isEmpty)
         // It is the one leaf that can be opened at night.
         #expect(collection.revealable(at: at(2026, 10, 1, 23, 45)).map(\.speciesID) == ["saccharum"])
@@ -233,14 +234,14 @@ struct ScheduleStoreTests {
         collection.recordSleep([tonight], at: at(2026, 10, 6, 7, 30))
         #expect(collection.snapshot.nights.recent.last?.night == LocalDay(year: 2026, month: 10, day: 5))
         #expect(collection.snapshot.nights.recent.last?.outcome == .late)
-        #expect(collection.snapshot.counters[.onTimeBedtimes, default: 0] == 0)
+        #expect(collection.snapshot.counters[.restedNights, default: 0] == 0)
 
         // From the next night on, 00:00 is the bedtime.
         let next = SleepNightObservation(onset: at(2026, 10, 7, 0, 10), finalWake: at(2026, 10, 7, 7), asleepMinutes: 400,
                                          source: .watchOrTracker, calendar: utc)
         collection.recordSleep([next], at: at(2026, 10, 7, 7, 30))
         #expect(collection.snapshot.nights.recent.last?.outcome == .onTime)
-        #expect(collection.snapshot.counters[.onTimeBedtimes] == 1)
+        #expect(collection.snapshot.counters[.restedNights] == 1)
     }
 }
 
@@ -250,12 +251,12 @@ struct CollectionCountTests {
     @Test("N counts opened leaves; waiting ones are told apart, and the stage follows N")
     func openedOnly() {
         let store = CollectionStore(storage: JSONStorage(.memory), context: testContext, now: at(2026, 10, 1, 9))
-        store.raise(.firstSteps, to: 1, at: at(2026, 10, 1, 9))
+        store.raise(.firstLeaf, to: 1, at: at(2026, 10, 1, 9))
         #expect(store.leafCount == LeafCount(opened: 0, waiting: 1, total: 155))
         #expect(store.openedCount == 0)
         #expect(store.stage == .seed)
         store.openReveals(at: at(2026, 10, 1, 9, 5))
-        store.record([.nightsTracked: 3], at: at(2026, 10, 2, 9))
+        store.record([.hoursSaved: 2], at: at(2026, 10, 2, 9))
         #expect(store.waiting.count == 2)
         #expect(store.openedCount == 1)
         #expect(store.leafCount.text == "1 of 155")
@@ -282,30 +283,30 @@ struct LeafShareStoreTests {
     @Test("Unconfigured: not enough members, and dormant leaves are not earnable")
     func unconfigured() async {
         let shares = store(UnconfiguredLeafShareProvider())
-        #expect(shares.share(for: "rubrum") == .loading)
+        #expect(shares.share(for: "saccharinum") == .loading)
         await shares.refreshIfNeeded()
-        #expect(shares.share(for: "rubrum") == .notEnoughMembers(soFar: nil))
+        #expect(shares.share(for: "saccharinum") == .notEnoughMembers(soFar: nil))
         #expect(shares.share(for: "buergerianum") == .notEarnableYet)
-        #expect(shares.estimate(for: "rubrum") == nil)
+        #expect(shares.estimate(for: "saccharinum") == nil)
         #expect(shares.memberCount == nil)
     }
 
     @Test("Fetches at most once a day and caches the result on disk")
     func caching() async throws {
         let folder = try temporaryDirectory()
-        let provider = StubShareProvider(.success(counts(members: 12_480, ["rubrum": 2_746])))
+        let provider = StubShareProvider(.success(counts(members: 12_480, ["saccharinum": 2_746])))
         let shares = store(provider, folder: folder)
         await shares.refreshIfNeeded()
         await shares.refreshIfNeeded()
         #expect(await provider.calls == 1)
-        #expect(shares.share(for: "rubrum") == .value(display: "22%", asOf: now))
+        #expect(shares.share(for: "saccharinum") == .value(display: "22%", asOf: now))
         #expect(shares.memberCount == 12_400)
         #expect(shares.weekStart == at(2026, 9, 28))
-        #expect(shares.estimate(for: "rubrum") != nil)
+        #expect(shares.estimate(for: "saccharinum") != nil)
 
         // A new launch reads the cache without asking again.
         let relaunched = store(provider, folder: folder, clock: .fixed(now.addingTimeInterval(23 * 3600)))
-        #expect(relaunched.share(for: "rubrum") == .value(display: "22%", asOf: now))
+        #expect(relaunched.share(for: "saccharinum") == .value(display: "22%", asOf: now))
         await relaunched.refreshIfNeeded()
         #expect(await provider.calls == 1)
 
@@ -323,28 +324,28 @@ struct LeafShareStoreTests {
         let provider = StubShareProvider(.failure(Offline()))
         let fresh = store(provider, folder: folder)
         await fresh.refreshIfNeeded()
-        #expect(fresh.share(for: "rubrum") == .neverFetched)
+        #expect(fresh.share(for: "saccharinum") == .neverFetched)
 
-        await provider.set(.success(counts(members: 12_400, ["rubrum": 2_728])))
+        await provider.set(.success(counts(members: 12_400, ["saccharinum": 2_728])))
         await fresh.refreshIfNeeded()
-        #expect(fresh.share(for: "rubrum") == .value(display: "22%", asOf: now))
+        #expect(fresh.share(for: "saccharinum") == .value(display: "22%", asOf: now))
 
         await provider.set(.failure(Offline()))
         let later = store(provider, folder: folder, clock: .fixed(now.addingTimeInterval(49 * 3600)))
         await later.refreshIfNeeded()
-        #expect(later.share(for: "rubrum") == .stale(display: "22%", asOf: now))
-        #expect(later.estimate(for: "rubrum") == nil)
+        #expect(later.share(for: "saccharinum") == .stale(display: "22%", asOf: now))
+        #expect(later.estimate(for: "saccharinum") == nil)
     }
 
     @Test("A cache from another provider is ignored")
     func providerChange() async throws {
         let folder = try temporaryDirectory()
         await store(UnconfiguredLeafShareProvider(), folder: folder).refreshIfNeeded()
-        let provider = StubShareProvider(identifier: "cloudkit", .success(counts(members: 5_000, ["rubrum": 900])))
+        let provider = StubShareProvider(identifier: "cloudkit", .success(counts(members: 5_000, ["saccharinum": 900])))
         let upgraded = store(provider, folder: folder)
-        #expect(upgraded.share(for: "rubrum") == .loading)
+        #expect(upgraded.share(for: "saccharinum") == .loading)
         await upgraded.refreshIfNeeded()
         #expect(await provider.calls == 1)
-        #expect(upgraded.share(for: "rubrum") == .value(display: "18%", asOf: now))
+        #expect(upgraded.share(for: "saccharinum") == .value(display: "18%", asOf: now))
     }
 }

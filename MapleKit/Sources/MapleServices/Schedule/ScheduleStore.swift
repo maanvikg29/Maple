@@ -28,7 +28,7 @@ nonisolated public struct SavedSchedule: Codable, Sendable, Equatable {
 /// ```
 ///
 /// Until the member saves one, `weekly` is `WeeklySleepSchedule.standard` and `hasSavedSchedule` is false. Saving the
-/// first schedule records First steps and unlocks the Sugar maple ("Set your sleep schedule"), the leaf revealed
+/// first schedule records the first leaf and unlocks the Sugar maple ("Plant your maple"), the leaf revealed
 /// at the end of onboarding (D12).
 @Observable
 public final class ScheduleStore {
@@ -92,7 +92,7 @@ public final class ScheduleStore {
         FirstRunStep.resume(hasSavedSchedule: hasSavedSchedule, firstLeaf: collection.firstLeaf)
     }
 
-    /// Resumes a first run the app was stopped in. If the schedule was saved but the First-steps leaf never made
+    /// Resumes a first run the app was stopped in. If the schedule was saved but the first leaf never made
     /// it into the collection (the app stopped between the two saves), this records it now; the award is
     /// idempotent, so the Sugar maple is never earned twice.
     /// - Returns: The step to show: `.schedule`, `.sprout` or `.finished` (never `.recordFirstLeaf`).
@@ -100,7 +100,7 @@ public final class ScheduleStore {
     public func resumeFirstRun(at date: Date) -> FirstRunStep {
         let step = firstRun
         guard step == .recordFirstLeaf else { return step }
-        collection.raise(.firstSteps, to: 1, at: date)
+        collection.raise(.firstLeaf, to: 1, at: date)
         let resumed = firstRun
         // Should the award still be missing, ask for the schedule again rather than stopping on an empty sprout.
         return resumed == .recordFirstLeaf ? .schedule : resumed
@@ -118,6 +118,6 @@ public final class ScheduleStore {
         savedAt = date
         storage.save(SavedSchedule(schedule: schedule, savedAt: date))
         collection.scheduleSaved(schedule, replacing: replaced, at: date)
-        return collection.raise(.firstSteps, to: 1, at: date)
+        return collection.raise(.firstLeaf, to: 1, at: date)
     }
 }

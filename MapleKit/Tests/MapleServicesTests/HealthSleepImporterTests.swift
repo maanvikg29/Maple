@@ -65,6 +65,11 @@ private func watchNight(_ onset: Date, _ wake: Date, tag: String) -> [SleepSampl
 @MainActor
 struct HealthSleepImporterTests {
     /// Planted at 21:00 on 1 October (install night 1 Oct), Apple Health connected, the standard schedule.
+    /// Nights the ledger judged tracked. Only on-time nights earn leaves now (Rested nights).
+    private func tracked(_ stores: MapleStores) -> Int {
+        stores.collection.snapshot.nights.recent.filter { $0.outcome.isTracked }.count
+    }
+
     private func member(
         connected: Bool = true, planted: Bool = true, reader: FakeSleepReader = FakeSleepReader()
     ) async throws -> (stores: MapleStores, importer: HealthSleepImporter, reader: FakeSleepReader, folder: URL) {
@@ -102,17 +107,18 @@ struct HealthSleepImporterTests {
         #expect(unavailable.importer.lastImportAt == nil)
     }
 
-    @Test("A Watch night is read, built and recorded: leaves the next morning, Home's numeral, the local cache")
+    @Test("A Watch night is read, built and recorded: counted the next morning, Home's numeral, the local cache")
     func importsANight() async throws {
         let (stores, importer, reader, folder) = try await member()
         reader.add(watchNight(at(2026, 10, 1, 23, 5), at(2026, 10, 2, 6, 55), tag: "oct1"))
 
         let unlocked = await importer.importNow(at: at(2026, 10, 2, 7, 30))
-        #expect(!unlocked.isEmpty)
-        #expect(stores.collection.snapshot.counters[.nightsTracked] == 1)
-        #expect(stores.collection.snapshot.counters[.onTimeBedtimes] == 1)
-        // A night with asleep time unlocks Full nights.
-        #expect(stores.collection.availability(of: .fullNights) == .available)
+        // Rested nights' first leaf comes at 3 nights.
+        #expect(unlocked.isEmpty)
+        #expect(tracked(stores) == 1)
+        #expect(stores.collection.snapshot.counters[.restedNights] == 1)
+        // A night with asleep time shows a Watch or tracker is there.
+        #expect(stores.collection.permissions.contains(.sleepTracker))
 
         // The first read has no anchor and starts the evening before the install night.
         let firstRead = try #require(reader.reads.first)
@@ -158,8 +164,8 @@ struct HealthSleepImporterTests {
 
         #expect(reader.reads.count == 3)
         #expect(reader.reads[1].anchor.map { String(decoding: $0, as: UTF8.self) } == "1")
-        #expect(stores.collection.snapshot.counters[.nightsTracked] == 2)
-        #expect(stores.collection.snapshot.counters[.onTimeBedtimes] == 2)
+        #expect(tracked(stores) == 2)
+        #expect(stores.collection.snapshot.counters[.restedNights] == 2)
         #expect(stores.collection.currentBedtimeRun == 2)
     }
 
@@ -171,7 +177,8 @@ struct HealthSleepImporterTests {
             reader.add(watchNight(onset, onset.addingTimeInterval(8 * 3600), tag: "sep\(day)"))
         }
         await importer.importNow(at: at(2026, 10, 1, 21, 30))
-        #expect(stores.collection.snapshot.counters[.nightsTracked] == nil)
+        #expect(stores.collection.snapshot.counters[.restedNights] == nil)
+        #expect(tracked(stores) == 0)
         // Only the night before the install night is even read.
         let read = try #require(reader.reads.first)
         #expect(read.start == at(2026, 9, 30, 18))
@@ -194,8 +201,8 @@ struct HealthSleepImporterTests {
 
         // It settles as rebuilt: tracked, but asleep after 23:30, so not on time.
         await importer.importNow(at: at(2026, 10, 2, 7, 30))
-        #expect(stores.collection.snapshot.counters[.nightsTracked] == 1)
-        #expect(stores.collection.snapshot.counters[.onTimeBedtimes] == nil)
+        #expect(tracked(stores) == 1)
+        #expect(stores.collection.snapshot.counters[.restedNights] == nil)
     }
 
     @Test("Late Watch data upgrades a night settled from iPhone's estimate")
@@ -205,18 +212,18 @@ struct HealthSleepImporterTests {
                                 origin: iPhone)])
         await importer.importNow(at: at(2026, 10, 2, 7, 30))
         #expect(importer.lastNight?.source == .iPhoneInBed)
-        #expect(stores.collection.snapshot.counters[.nightsTracked] == 1)
-        #expect(stores.collection.snapshot.counters[.onTimeBedtimes] == 1)
-        #expect(stores.collection.snapshot.counters[.fullNights] == nil)
-        #expect(stores.collection.availability(of: .fullNights) == .needsSleepTracker)
+        #expect(tracked(stores) == 1)
+        #expect(stores.collection.snapshot.counters[.restedNights] == 1)
+        #expect(stores.collection.snapshot.nights.recent.first { $0.night == LocalDay(year: 2026, month: 10, day: 1) }?.fullNight == nil)
+        #expect(!stores.collection.permissions.contains(.sleepTracker))
 
         // The Watch syncs a day later: the same night becomes a full night, and nothing counts twice.
         reader.add(watchNight(at(2026, 10, 1, 23, 15), at(2026, 10, 2, 7), tag: "oct1"))
         await importer.importNow(at: at(2026, 10, 3, 8))
-        #expect(stores.collection.snapshot.counters[.fullNights] == 1)
-        #expect(stores.collection.snapshot.counters[.nightsTracked] == 1)
-        #expect(stores.collection.snapshot.counters[.onTimeBedtimes] == 1)
-        #expect(stores.collection.availability(of: .fullNights) == .available)
+        #expect(stores.collection.snapshot.nights.recent.first { $0.night == LocalDay(year: 2026, month: 10, day: 1) }?.fullNight == true)
+        #expect(tracked(stores) == 1)
+        #expect(stores.collection.snapshot.counters[.restedNights] == 1)
+        #expect(stores.collection.permissions.contains(.sleepTracker))
     }
 
     @Test("A locked iPhone keeps everything and reads again on unlock; other errors change nothing")
@@ -234,12 +241,12 @@ struct HealthSleepImporterTests {
         #expect(try Data(contentsOf: cacheURL) == before)
         #expect(importer.lastNight?.night == LocalDay(year: 2026, month: 10, day: 1))
         // Nothing settled while Apple Health couldn't be read.
-        #expect(stores.collection.snapshot.counters[.nightsTracked] == 1)
+        #expect(tracked(stores) == 1)
 
         reader.failure = nil
         await importer.retryIfWaiting(at: at(2026, 10, 3, 7, 40))
         #expect(!importer.isWaitingForUnlock)
-        #expect(stores.collection.snapshot.counters[.nightsTracked] == 2)
+        #expect(tracked(stores) == 2)
 
         reader.failure = .failed("Something else")
         #expect(await importer.importNow(at: at(2026, 10, 3, 9)).isEmpty)
@@ -299,7 +306,7 @@ struct HealthSleepImporterTests {
         reader.add(watchNight(at(2026, 10, 1, 23), at(2026, 10, 2, 7), tag: "oct1"))
         let onChange = try #require(reader.onChange)
         await onChange()
-        #expect(stores.collection.snapshot.counters[.nightsTracked] == 1)
+        #expect(tracked(stores) == 1)
         importer.stopObserving()
         #expect(reader.onChange == nil)
 

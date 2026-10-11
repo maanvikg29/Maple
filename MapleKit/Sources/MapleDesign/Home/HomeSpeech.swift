@@ -95,7 +95,7 @@ nonisolated public enum HomeSpeech {
         let current = Int(progress.current.rounded(.down))
         let threshold = Int(progress.threshold.rounded())
         if progress.category == .focusHours || progress.category == .hoursSaved {
-            if progress.category == .hoursSaved { return "\(current) of \(threshold) hours saved" }
+            if progress.category == .hoursSaved { return "\(current) of \(threshold) \(threshold == 1 ? "hour" : "hours") saved" }
             return "\(current) of \(threshold) hours of focus"
         }
         return "\(current) of \(threshold) \(noun(for: progress.category, plural: threshold != 1))"

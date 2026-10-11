@@ -18,7 +18,7 @@ struct NightLedgerTests {
     /// The schedule saved (and the Sugar maple opened) at `date`.
     private func planted(at date: Date = MapleCoreTests.at(2026, 10, 1, 21)) -> CollectionSnapshot {
         var snapshot = CollectionSnapshot.empty(profileID: UUID(), createdAt: date)
-        snapshot.raise(.firstSteps, to: 1, at: date, calendar: utc)
+        snapshot.raise(.firstLeaf, to: 1, at: date, calendar: utc)
         snapshot.runEngine(at: date, context: context)
         snapshot.openReveals(nil, at: date, context: context)
         return snapshot
@@ -26,6 +26,12 @@ struct NightLedgerTests {
 
     /// Apple Health's main episode for the evening of `night`: onset at `onset` (after midnight for hours before
     /// 18), final wake at `wake` the next morning.
+    // What the ledger judged. Only on-time nights earn leaves now (Rested nights); the rest is kept for vitality.
+    private func tracked(_ snapshot: CollectionSnapshot) -> Int { snapshot.nights.recent.filter { $0.outcome.isTracked }.count }
+    private func steadyMornings(_ snapshot: CollectionSnapshot) -> Int { snapshot.nights.recent.filter(\.steadyMorning).count }
+    private func fullNights(_ snapshot: CollectionSnapshot) -> Int { snapshot.nights.recent.filter { $0.fullNight == true }.count }
+    private func bestRun(_ snapshot: CollectionSnapshot) -> Int { snapshot.nights.recent.map(\.run).max() ?? 0 }
+
     private func sleep(
         _ night: LocalDay, onset: (hour: Int, minute: Int), wake: (hour: Int, minute: Int) = (7, 0), asleep: Double? = 450,
         source: SleepSource = .watchOrTracker
@@ -76,28 +82,28 @@ struct NightLedgerTests {
                                       asleepMinutes: 360, source: .otherApp, calendar: utc).night == day(10, 1))
     }
 
-    @Test("An on-time night from Apple Health earns its leaves the next morning, once")
+    @Test("An on-time night from Apple Health counts the next morning, once")
     func onTimeNight() {
         var snapshot = planted()
         let observation = sleep(day(10, 1), onset: (22, 50), wake: (7, 5), asleep: 470)
         // Before the morning starts the night waits.
         #expect(snapshot.recordSleep([observation], at: MapleCoreTests.at(2026, 10, 2, 5, 59), context: context).isEmpty)
-        #expect(snapshot.counters[.nightsTracked] == nil)
+        #expect(snapshot.counters[.restedNights] == nil)
         // Kept with the zone it was recorded in, so it is judged there whenever it settles.
         var stamped = observation
         stamped.timeZoneIdentifier = utc.timeZone.identifier
         #expect(snapshot.nights.pending == [stamped])
 
         let unlocked = snapshot.recordSleep([], at: MapleCoreTests.at(2026, 10, 2, 6, 30), context: context)
-        #expect(unlocked.map(\.speciesID) == [species(.nightsTracked, rung: 0), species(.onTimeBedtimes, rung: 0)])
-        #expect(snapshot.counters[.nightsTracked] == 1 && snapshot.counters[.onTimeBedtimes] == 1)
-        #expect(snapshot.counters[.steadyMornings] == 1 && snapshot.counters[.fullNights] == 1)
-        #expect(snapshot.currentBedtimeRun == 1 && snapshot.counters[.bedtimeRun] == 1)
+        // Rested nights' first leaf comes at 3 nights.
+        #expect(unlocked.isEmpty)
+        #expect(snapshot.counters[.restedNights] == 1 && tracked(snapshot) == 1)
+        #expect(steadyMornings(snapshot) == 1 && fullNights(snapshot) == 1)
+        #expect(snapshot.currentBedtimeRun == 1 && bestRun(snapshot) == 1)
         #expect(snapshot.tendedDays == [day(10, 2)])
         #expect(snapshot.recentNights == [NightRecord(day: day(10, 1), onTime: true, fullNight: true, scrollFree: nil)])
         #expect(snapshot.nights.pending.isEmpty)
-        // Earned in the morning, so they open at once (the first morning reveal).
-        #expect(snapshot.revealable(at: MapleCoreTests.at(2026, 10, 2, 6, 30), context: context).count == 2)
+        #expect(snapshot.revealable(at: MapleCoreTests.at(2026, 10, 2, 6, 30), context: context).isEmpty)
 
         // Recording the same night again (the importer sends the last few nights every time) changes nothing.
         let settled = snapshot
@@ -122,11 +128,11 @@ struct NightLedgerTests {
         night(&snapshot, day(10, 4), onset: (23, 0), wake: (1, 30))                   // a 2.5 h episode: untracked
         night(&snapshot, day(10, 5), onset: (22, 30), wake: (6, 45), source: .iPhoneInBed)
         #expect(snapshot.nights.recent.map(\.outcome) == [.untracked, .early, .late, .untracked, .onTime])
-        #expect(snapshot.counters[.nightsTracked] == 3)
-        #expect(snapshot.counters[.onTimeBedtimes] == 1)
-        #expect(snapshot.counters[.steadyMornings] == 2)
-        // Full nights need asleep time: iPhone's in-bed estimate never earns one.
-        #expect(snapshot.counters[.fullNights] == 1)
+        #expect(tracked(snapshot) == 3)
+        #expect(snapshot.counters[.restedNights] == 1)
+        #expect(steadyMornings(snapshot) == 2)
+        // Full nights need asleep time: iPhone's in-bed estimate never makes one.
+        #expect(fullNights(snapshot) == 1)
         #expect(snapshot.currentBedtimeRun == 1)
         // Vitality hears on-time and late nights and full nights; untracked ones are neutral.
         #expect(snapshot.recentNights == [
@@ -142,22 +148,22 @@ struct NightLedgerTests {
         var late = planted(at: MapleCoreTests.at(2026, 10, 1, 22, 45))
         night(&late, day(10, 1), onset: (23, 5))
         #expect(late.nights.recent.map(\.outcome) == [.unscheduled])
-        #expect(late.counters[.nightsTracked] == 1 && late.counters[.onTimeBedtimes] == nil)
+        #expect(tracked(late) == 1 && late.counters[.restedNights] == nil)
         #expect(late.currentBedtimeRun == 0)
         night(&late, day(10, 2), onset: (23, 5))
-        #expect(late.counters[.onTimeBedtimes] == 1 && late.currentBedtimeRun == 1)
+        #expect(late.counters[.restedNights] == 1 && late.currentBedtimeRun == 1)
 
         // Asleep before setup finished: the install night doesn't count.
         var after = planted(at: MapleCoreTests.at(2026, 10, 1, 23, 30))
         night(&after, day(10, 1), onset: (23, 10))
-        #expect(after.counters[.nightsTracked] == nil)
+        #expect(after.counters[.restedNights] == nil)
 
         // Set up the next morning: that night and every night before it are history, not leaves (rewards.md).
         var morning = planted(at: MapleCoreTests.at(2026, 10, 2, 10))
         let unlocked = morning.recordSleep([sleep(day(9, 30), onset: (23, 0)), sleep(day(10, 1), onset: (23, 0))],
                                            at: MapleCoreTests.at(2026, 10, 2, 11), context: context)
         #expect(unlocked.isEmpty)
-        #expect(morning.counters[.nightsTracked] == nil)
+        #expect(morning.counters[.restedNights] == nil)
         #expect(morning.nights.recent.map(\.night) == [day(10, 1)])
     }
 
@@ -172,9 +178,9 @@ struct NightLedgerTests {
         night(&snapshot, day(10, 4), onset: (23, 0), source: .iPhoneInBed, context: need)
         #expect(snapshot.nights.recent.map(\.steadyMorning) == [true, false, true, true])
         #expect(snapshot.nights.recent.map(\.fullNight) == [true, false, true, nil])
-        #expect(snapshot.counters[.steadyMornings] == 3)
-        #expect(snapshot.counters[.fullNights] == 2)
-        #expect(snapshot.counters[.nightsTracked] == 4 && snapshot.counters[.onTimeBedtimes] == 4)
+        #expect(steadyMornings(snapshot) == 3)
+        #expect(fullNights(snapshot) == 2)
+        #expect(tracked(snapshot) == 4 && snapshot.counters[.restedNights] == 4)
     }
 
     @Test("A run forgives 2 slips in any 7 nights; the third ends it, and early nights are neutral")
@@ -190,8 +196,8 @@ struct NightLedgerTests {
         #expect(runs == [1, 2, 3, 3, 3, 4, 4, 5])
         night(&snapshot, day(10, 9), onset: (23, 59))                     // a third slip within 7 nights
         #expect(snapshot.currentBedtimeRun == 0)
-        #expect(snapshot.counters[.bedtimeRun] == 5)                      // the best run is kept
-        #expect(snapshot.unlocks.contains { $0.speciesID == species(.bedtimeRun, rung: 0) })
+        #expect(bestRun(snapshot) == 5)
+        #expect(snapshot.unlocks.contains { $0.speciesID == species(.restedNights, rung: 0) })
         night(&snapshot, day(10, 10), onset: (22, 30))
         #expect(snapshot.currentBedtimeRun == 1)
     }
@@ -207,11 +213,11 @@ struct NightLedgerTests {
         var index = 0
         while night <= end {
             self.night(&snapshot, night, onset: index < 5 ? (22, 45) : nil)
-            if night < end { #expect(snapshot.counters[.steadyWeeks] == nil) }
+            if night < end { #expect(snapshot.nights.steadyWeeks.isEmpty) }
             night = night.adding(days: 1, calendar: utc)
             index += 1
         }
-        #expect(snapshot.counters[.steadyWeeks] == 1)
+        #expect(snapshot.nights.steadyWeeks.count == 1)
 
         // The next week has only 4 on-time nights: not steady.
         var next = end.adding(days: 1, calendar: utc)
@@ -219,39 +225,7 @@ struct NightLedgerTests {
             self.night(&snapshot, next, onset: offset < 4 ? (22, 45) : nil)
             next = next.adding(days: 1, calendar: utc)
         }
-        #expect(snapshot.counters[.steadyWeeks] == 1)
-    }
-
-    @Test("A week belongs to the season of its Thursday")
-    func weekSeason() {
-        var mondayFirst = utc
-        mondayFirst.firstWeekday = 2
-        // Monday 23 February to Sunday 1 March 2026: its Thursday is in February, so it is a winter week.
-        let thursday = NightLedger.thursday(start: day(2, 23), end: day(3, 1), calendar: mondayFirst)
-        #expect(thursday == day(2, 26))
-        #expect(NightLedger.seasonBlock(of: thursday) == NightLedger.seasonBlock(of: LocalDay(year: 2025, month: 12, day: 15)))
-        #expect(NightLedger.seasonBlock(of: thursday) != NightLedger.seasonBlock(of: day(3, 1)))
-        // Monday 31 August to Sunday 6 September: an autumn week.
-        #expect(NightLedger.thursday(start: day(8, 31), end: day(9, 6), calendar: mondayFirst) == day(9, 3))
-        #expect(NightLedger.seasonBlock(of: day(9, 3)) == NightLedger.seasonBlock(of: day(11, 30)))
-    }
-
-    @Test("A season counts once, when its eighth steady week closes")
-    func seasonInRhythm() {
-        var snapshot = planted(at: MapleCoreTests.at(2026, 8, 31, 12))
-        var night = day(8, 31)
-        var countAtSevenWeeks: Double?
-        while night <= day(11, 29) {
-            self.night(&snapshot, night, onset: (22, 45))
-            if snapshot.counters[.steadyWeeks] == 7, countAtSevenWeeks == nil {
-                countAtSevenWeeks = snapshot.counters[.seasonsInRhythm] ?? 0
-            }
-            night = night.adding(days: 1, calendar: utc)
-        }
-        #expect(countAtSevenWeeks == 0)
-        #expect((snapshot.counters[.steadyWeeks] ?? 0) >= 12)
-        #expect(snapshot.counters[.seasonsInRhythm] == 1)
-        #expect(snapshot.counters[.onTimeBedtimes] == 91)
+        #expect(snapshot.nights.steadyWeeks.count == 1)
     }
 
     @Test("Late data upgrades a settled night for 72 hours, replays the run, and never downgrades")
@@ -261,14 +235,14 @@ struct NightLedgerTests {
         night(&snapshot, day(10, 2), onset: nil)                          // the Watch hasn't synced yet
         night(&snapshot, day(10, 3), onset: (22, 50))
         #expect(snapshot.currentBedtimeRun == 2)
-        #expect(snapshot.counters[.nightsTracked] == 2)
+        #expect(tracked(snapshot) == 2)
 
         // The Watch syncs the next day: the night is upgraded, and the run counts it.
         let unlocked = snapshot.recordSleep([sleep(day(10, 2), onset: (22, 55))], at: MapleCoreTests.at(2026, 10, 4, 9), context: context)
         #expect(snapshot.nights.recent.map(\.outcome) == [.onTime, .onTime, .onTime])
-        #expect(snapshot.counters[.nightsTracked] == 3 && snapshot.counters[.onTimeBedtimes] == 3)
-        #expect(snapshot.currentBedtimeRun == 3 && snapshot.counters[.bedtimeRun] == 3)
-        #expect(unlocked.contains { $0.speciesID == species(.bedtimeRun, rung: 0) })
+        #expect(tracked(snapshot) == 3 && snapshot.counters[.restedNights] == 3)
+        #expect(snapshot.currentBedtimeRun == 3 && bestRun(snapshot) == 3)
+        #expect(unlocked.contains { $0.speciesID == species(.restedNights, rung: 0) })
         #expect(snapshot.recentNights.map(\.day) == [day(10, 1), day(10, 2), day(10, 3)])
 
         // A worse reading never downgrades a night.
@@ -281,7 +255,7 @@ struct NightLedgerTests {
         night(&snapshot, day(10, 4), onset: nil)
         snapshot.recordSleep([sleep(day(10, 4), onset: (22, 50))], at: MapleCoreTests.at(2026, 10, 8, 7), context: context)
         #expect(snapshot.nights.recent.first { $0.night == day(10, 4) }?.outcome == .untracked)
-        #expect(snapshot.counters[.nightsTracked] == 3)
+        #expect(tracked(snapshot) == 3)
     }
 
     @Test("A late upgrade can complete a steady week that has already closed")
@@ -298,14 +272,14 @@ struct NightLedgerTests {
             index += 1
         }
         // Four on-time nights, then three slips: not steady, and the run has ended.
-        #expect(snapshot.counters[.steadyWeeks] == nil)
+        #expect(snapshot.nights.steadyWeeks.isEmpty)
         #expect(snapshot.currentBedtimeRun == 0)
 
         // The last night arrives later that morning.
         snapshot.recordSleep([sleep(end, onset: (22, 40))], at: at(end.adding(days: 1, calendar: utc), 12), context: context)
-        #expect(snapshot.counters[.steadyWeeks] == 1)
+        #expect(snapshot.nights.steadyWeeks.count == 1)
         #expect(snapshot.currentBedtimeRun == 5)
-        #expect(snapshot.counters[.bedtimeRun] == 5)
+        #expect(bestRun(snapshot) == 5)
     }
 
     @Test("A schedule change applies from the next night (18:00 cut-off)")
@@ -328,29 +302,27 @@ struct NightLedgerTests {
         night(&snapshot, day(10, 4), onset: (23, 50), context: current)                     // vs 23:30: on time
 
         #expect(snapshot.nights.recent.map(\.outcome) == [.untracked, .onTime, .onTime, .late, .onTime])
-        #expect(snapshot.counters[.onTimeBedtimes] == 3)
+        #expect(snapshot.counters[.restedNights] == 3)
         // The first schedule ever saved replaces nothing.
         var fresh = CollectionSnapshot.empty(profileID: UUID(), createdAt: MapleCoreTests.at(2026, 10, 1, 9))
         fresh.scheduleChanged(from: .standard, to: earlier, at: MapleCoreTests.at(2026, 10, 1, 9), calendar: utc)
         #expect(fresh.nights.pastSchedules.isEmpty)
     }
 
-    @Test("Full nights become earnable once Apple Health has delivered asleep time")
+    @Test("Asleep time from Apple Health adds the sleep-tracker permission")
     func sleepTracker() {
         var snapshot = planted()
         #expect(snapshot.permissions(in: context) == [.appleHealth])
-        #expect(snapshot.availability(of: .fullNights, context: context) == .needsSleepTracker)
         night(&snapshot, day(10, 1), onset: (22, 50), source: .iPhoneInBed)
         #expect(snapshot.permissions(in: context) == [.appleHealth])
         night(&snapshot, day(10, 2), onset: (22, 50))
         #expect(snapshot.permissions(in: context) == [.appleHealth, .sleepTracker])
-        #expect(snapshot.availability(of: .fullNights, context: context) == .available)
 
         // Without Apple Health granted, nothing is implied.
         var none = context
         none.permissions = []
         #expect(snapshot.permissions(in: none).isEmpty)
-        #expect(snapshot.availability(of: .nightsTracked, context: none) == .needsAppleHealth)
+        #expect(snapshot.availability(of: .restedNights, context: none) == .needsAppleHealth)
     }
 
     @Test("After weeks away the nights settle as untracked, and any run has ended")
@@ -362,8 +334,7 @@ struct NightLedgerTests {
         #expect(snapshot.nights.settledThrough == day(11, 19))
         #expect(snapshot.nights.recent.count == 14)
         #expect(snapshot.currentBedtimeRun == 0)
-        #expect(snapshot.counters[.nightsTracked] == 5)
-        #expect(snapshot.counters[.bedtimeRun] == 5)
+        #expect(snapshot.counters[.restedNights] == 5)
     }
 
     /// Review finding "catchup-drops-tapped-night", on the Apple Health ledger.
@@ -380,16 +351,13 @@ struct NightLedgerTests {
         for absence in [14, 20] {
             var snapshot = recordedBeforeAbsence()
             snapshot.recordSleep([], at: at(day(10, 3).adding(days: absence, calendar: utc), 8), context: context)
-            #expect(snapshot.counters[.nightsTracked] == 2)
-            #expect(snapshot.counters[.onTimeBedtimes] == 2)
-            #expect(snapshot.counters[.bedtimeRun] == 2)
+            #expect(snapshot.counters[.restedNights] == 2)
             #expect(snapshot.currentBedtimeRun == 0)
         }
         // More than two years away: the night is still settled before the untracked years are skipped.
         var snapshot = recordedBeforeAbsence()
         snapshot.recordSleep([], at: MapleCoreTests.at(2028, 11, 1, 8), context: context)
-        #expect(snapshot.counters[.nightsTracked] == 2)
-        #expect(snapshot.counters[.onTimeBedtimes] == 2)
+        #expect(snapshot.counters[.restedNights] == 2)
         #expect(snapshot.nights.settledThrough == LocalDay(year: 2028, month: 10, day: 31))
         #expect(snapshot.nights.pending.isEmpty)
         #expect(snapshot.currentBedtimeRun == 0)
@@ -436,7 +404,7 @@ struct NightLedgerTests {
             #expect(changes.settled == [day(10, 5)])
             #expect(ledger.recent.last?.outcome == .onTime)
             #expect(ledger.recent.last?.steadyMorning == true)
-            #expect(changes.increases[.onTimeBedtimes] == 1)
+            #expect(changes.increases == [.restedNights: 1])
         }
         // Apple Health's own zone wins over the one in force when the night is recorded.
         var ledger = settledThroughFourth()
@@ -479,32 +447,6 @@ struct NightLedgerTests {
 struct ReviewFixTests {
     private let context = CollectionContext(schedule: .standard, permissions: [.appleHealth], calendar: utc, hemisphere: .northern)
 
-    @Test("A locked run leaf counts from the live run, not the best one")
-    func liveRun() throws {
-        let builder = LeafProgressBuilder(permissions: [.appleHealth], features: .current)
-        let threeNights = species(.bedtimeRun, rung: 0)
-        func row(current run: Int) throws -> LeafProgress {
-            let rows = builder.progress(counters: [.bedtimeRun: 2], unlocks: [], history: [], today: LocalDay(year: 2026, month: 10, day: 10),
-                                        calendar: utc, currentBedtimeRun: run)
-            return try #require(rows.first { $0.speciesID == threeNights })
-        }
-        let broken = try row(current: 0)
-        #expect(broken.threshold == 3 && broken.current == 0 && broken.remaining == 3)
-        #expect(LeafRemainder(broken, phase: .evening).text == "3 nights")
-        #expect(LeafRemainder(broken, phase: .evening).amount == "0 of 3")
-        #expect(!LeafRemainder(broken, phase: .evening).showsBar)
-        let live = try row(current: 2)
-        #expect(LeafRemainder(live, phase: .evening).text == "Tonight")
-        #expect((live.estimatedDays ?? 99) < (broken.estimatedDays ?? 0))
-
-        // Through the snapshot: the best run is 2, the live run 0.
-        var snapshot = CollectionSnapshot.empty(profileID: UUID(), createdAt: at(2026, 10, 1, 9))
-        snapshot.raise(.bedtimeRun, to: 2, at: at(2026, 10, 3, 7), calendar: utc)
-        snapshot.currentBedtimeRun = 0
-        let progress = try #require(snapshot.progress(at: at(2026, 10, 4, 21), context: context).first { $0.speciesID == threeNights })
-        #expect(LeafRemainder(progress, phase: .evening).text == "3 nights")
-    }
-
     @Test("Vitality only reads the week before today: a six-week gap is full vitality")
     func vitalityWindow() {
         let august = (1...7).map {
@@ -523,27 +465,28 @@ struct ReviewFixTests {
     @Test("Leaves opened in Evening are placed after Wind-down begins; held leaves never open")
     func revealAcrossWindDown() {
         var snapshot = CollectionSnapshot.empty(profileID: UUID(), createdAt: at(2026, 10, 1, 21))
-        snapshot.raise(.firstSteps, to: 1, at: at(2026, 10, 1, 21), calendar: utc)
+        snapshot.raise(.firstLeaf, to: 1, at: at(2026, 10, 1, 21), calendar: utc)
         snapshot.runEngine(at: at(2026, 10, 1, 21), context: context)
         snapshot.openReveals(nil, at: at(2026, 10, 1, 21, 5), context: context)
-        snapshot.record([.nightsTracked: 1], at: at(2026, 10, 2, 14), calendar: utc)    // pending at once
+        let first = species(.restedNights, rung: 0), second = species(.restedNights, rung: 1)
+        snapshot.raise(.restedNights, to: 3, at: at(2026, 10, 2, 14), calendar: utc)    // pending at once
         snapshot.runEngine(at: at(2026, 10, 2, 14), context: context)
-        snapshot.record([.onTimeBedtimes: 1], at: at(2026, 10, 2, 21), calendar: utc)   // evening: held
+        snapshot.raise(.restedNights, to: 14, at: at(2026, 10, 2, 21), calendar: utc)   // evening: held
         snapshot.runEngine(at: at(2026, 10, 2, 21), context: context)
 
         let sessionStart = at(2026, 10, 2, 22, 14)                     // Evening; wind-down starts 22:15
         let place = at(2026, 10, 2, 22, 16)
         #expect(snapshot.phase(at: sessionStart, context: context) == .evening)
         #expect(snapshot.phase(at: place, context: context) == .windDown)
-        #expect(snapshot.revealable(at: sessionStart, context: context).map(\.speciesID) == ["rubrum"])
+        #expect(snapshot.revealable(at: sessionStart, context: context).map(\.speciesID) == [first])
 
         var unchanged = snapshot
-        #expect(unchanged.openReveals(["rubrum"], at: place, context: context).isEmpty)
+        #expect(unchanged.openReveals([first], at: place, context: context).isEmpty)
 
-        let placed = snapshot.openReveals(["rubrum", "palmatum"], at: place, eligibleAt: sessionStart, context: context)
-        #expect(placed.map(\.speciesID) == ["rubrum"])
-        #expect(snapshot.revealedAt["rubrum"] == place)
+        let placed = snapshot.openReveals([first, second], at: place, eligibleAt: sessionStart, context: context)
+        #expect(placed.map(\.speciesID) == [first])
+        #expect(snapshot.revealedAt[first] == place)
         #expect(snapshot.revealsOpened == 2)
-        #expect(snapshot.waiting.map(\.speciesID) == ["palmatum"])
+        #expect(snapshot.waiting.map(\.speciesID) == [second])
     }
 }

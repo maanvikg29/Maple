@@ -25,7 +25,7 @@ struct NotificationsPrimerTests {
 
     @Test("It renders on a sheet and on a full screen, with a leaf or with words alone")
     func renders() throws {
-        let saccharum = try #require(LeafCatalog.shared.species(id: RewardCatalog.shared.rungs(in: .firstSteps)[0].speciesID))
+        let saccharum = try #require(LeafCatalog.shared.species(id: RewardCatalog.shared.rungs(in: .firstLeaf)[0].speciesID))
         let views: [AnyView] = [
             AnyView(NotificationsPrimerView(species: saccharum, colourway: .autumn, onAllow: {}, onNotNow: {})),
             AnyView(NotificationsPrimerView(isAsking: true, page: .black, onAllow: {}, onNotNow: {})),

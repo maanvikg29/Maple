@@ -70,8 +70,8 @@ struct HerbariumLayoutTests {
     @Test("A leaf's status follows its state, its category's availability and whether it is a next rung")
     func statuses() {
         #expect(entry("rubrum", state: .earned(unlock("rubrum"))).status == .earned(unlock("rubrum")))
-        #expect(entry("palmatum", next: true).status == .next)
-        #expect(entry("amamiense").status == .locked)
+        #expect(entry("tataricum", next: true).status == .next)
+        #expect(entry("oligocarpum").status == .locked)
         #expect(entry("campestre", availability: .needsAppleHealth).status == .needsPermission(.needsAppleHealth))
         #expect(entry("griseum").status == .dormant)
         var waiting = unlock("japonicum")
@@ -85,34 +85,33 @@ struct HerbariumLayoutTests {
     func categorySections() {
         let sections = HerbariumLayout.sections(collection(), expanded: Set(RewardCategoryID.allCases.map(\.rawValue) + ["dormant"]))
         let ids = sections.map(\.id)
-        #expect(ids == ["first_steps", "nights_tracked", "on_time_bedtimes", "bedtime_run", "steady_weeks",
-                        "seasons_in_rhythm", "steady_mornings", "full_nights", "dormant"])
+        #expect(ids == ["first_leaf", "rested_nights", "dormant"])
         #expect(sections.reduce(0) { $0 + $1.entries.count } == 155)
         let dormant = sections.last
         #expect(dormant?.title == "Dormant")
-        #expect(dormant?.count == "82 leaves")
+        #expect(dormant?.count == "146 leaves")
         #expect(dormant?.definition == "These can't be earned in Maple yet.")
-        let nights = sections.first { $0.id == "nights_tracked" }
-        #expect(nights?.title == "Nights tracked")
-        #expect(nights?.count == "0 of 12")
-        #expect(nights?.spokenCount == "0 of 12 leaves")
-        #expect(nights?.definition == RewardCategoryInfo(.nightsTracked).definition)
+        let nights = sections.first { $0.id == "rested_nights" }
+        #expect(nights?.title == "Rested nights")
+        #expect(nights?.count == "0 of 8")
+        #expect(nights?.spokenCount == "0 of 8 leaves")
+        #expect(nights?.definition == RewardCategoryInfo(.restedNights).definition)
         #expect(sections.first?.count == "1 of 1")
     }
 
     @Test("A collapsed section shows its earned and waiting leaves, then 3 locked rungs, then Show N more")
     func collapsing() throws {
-        let entries = collection(earned: ["saccharum", "rubrum", "saccharinum"], waiting: ["nigrum"])
-        let nights = try #require(HerbariumLayout.sections(entries).first { $0.id == "nights_tracked" })
-        #expect(nights.entries.map(\.id) == ["rubrum", "saccharinum", "nigrum", "pycnanthum", "negundo", "floridanum"])
-        #expect(nights.hiddenCount == 6)
-        #expect(nights.expandTitle == "Show 6 more")
-        // One count rule (spec §5.2): the waiting Black maple is a tile, but not part of "N of 12".
-        #expect(nights.count == "2 of 12")
-        #expect(nights.spokenCount == "2 of 12 leaves")
+        let entries = collection(earned: ["saccharum", "saccharinum", "tataricum"], waiting: ["negundo"])
+        let nights = try #require(HerbariumLayout.sections(entries).first { $0.id == "rested_nights" })
+        #expect(nights.entries.map(\.id) == ["saccharinum", "tataricum", "negundo", "acuminatum", "sutchuenense", "erianthum"])
+        #expect(nights.hiddenCount == 2)
+        #expect(nights.expandTitle == "Show 2 more")
+        // One count rule (spec §5.2): the waiting Box elder is a tile, but not part of "N of 8".
+        #expect(nights.count == "2 of 8")
+        #expect(nights.spokenCount == "2 of 8 leaves")
 
-        let open = try #require(HerbariumLayout.sections(entries, expanded: ["nights_tracked"]).first { $0.id == "nights_tracked" })
-        #expect(open.entries.count == 12)
+        let open = try #require(HerbariumLayout.sections(entries, expanded: ["rested_nights"]).first { $0.id == "rested_nights" })
+        #expect(open.entries.count == 8)
         #expect(open.expandTitle == nil)
     }
 
@@ -127,7 +126,7 @@ struct HerbariumLayoutTests {
 
     @Test("Chip counts: Earned counts opened leaves only, though its scope also shows the waiting buds")
     func scopeCounts() {
-        let entries = collection(earned: ["saccharum", "rubrum"], waiting: ["saccharinum"])
+        let entries = collection(earned: ["saccharum", "saccharinum"], waiting: ["tataricum"])
         #expect(HerbariumScope.all.count(in: entries) == 155)
         #expect(HerbariumScope.earned.count(in: entries) == 2)
         #expect(HerbariumScope.locked.count(in: entries) == 152)
@@ -143,14 +142,14 @@ struct HerbariumLayoutTests {
 
     @Test("Filters, the Locked chip and the Earned chip show everything they match, uncollapsed")
     func scopesAndFiltersShowEverything() {
-        let entries = collection(earned: ["saccharum", "rubrum"], waiting: ["saccharinum"])
+        let entries = collection(earned: ["saccharum", "saccharinum"], waiting: ["tataricum"])
         let locked = HerbariumLayout.sections(entries, scope: .locked)
         #expect(locked.reduce(0) { $0 + $1.entries.count } == 152)
         #expect(locked.allSatisfy { $0.expandTitle == nil })
-        #expect(!locked.contains { $0.id == "first_steps" })
+        #expect(!locked.contains { $0.id == "first_leaf" })
 
         let earned = HerbariumLayout.sections(entries, scope: .earned)
-        #expect(earned.flatMap(\.entries).map(\.id) == ["saccharum", "rubrum", "saccharinum"])
+        #expect(earned.flatMap(\.entries).map(\.id) == ["saccharum", "saccharinum", "tataricum"])
 
         var filters = HerbariumFilters()
         filters.evergreenOnly = true
@@ -220,14 +219,14 @@ struct HerbariumLayoutTests {
             entry("griseum"),
             entry("campestre", availability: .needsAppleHealth),
             entry("negundo", next: true, days: 40),
-            entry("pycnanthum", next: true, days: 9),
+            entry("tataricum", next: true, days: 9),
             entry("rubrum", state: .earned(unlock("rubrum"))),
             entry("palmatum", state: .waiting(bud)),
         ]
         let ordered = HerbariumLayout.ordered(mixed, sort: .nextToEarn, grouping: .region).map(\.id)
-        #expect(ordered == ["palmatum", "rubrum", "pycnanthum", "negundo", "campestre", "griseum"])
-        let ladder = HerbariumLayout.ordered([entry("negundo"), entry("rubrum"), entry("pycnanthum")], sort: .nextToEarn, grouping: .category)
-        #expect(ladder.map(\.id) == ["rubrum", "pycnanthum", "negundo"])
+        #expect(ordered == ["palmatum", "rubrum", "tataricum", "negundo", "campestre", "griseum"])
+        let ladder = HerbariumLayout.ordered([entry("negundo"), entry("saccharinum"), entry("tataricum")], sort: .nextToEarn, grouping: .category)
+        #expect(ladder.map(\.id) == ["saccharinum", "tataricum", "negundo"])
     }
 
     @Test("Rarest first uses fresh shares only, rarest first; leaves without one sort last")
@@ -373,19 +372,19 @@ struct LeafCellModelTests {
 
     @Test("A next rung fills in the colourway it would be pressed in now and shows its amount and bar")
     func next() {
-        let model = LeafCellModel(entry("sieboldianum", current: 9, next: true), season: .winter, copy: copy)
+        let model = LeafCellModel(entry("tataricum", current: 9, next: true), season: .winter, copy: copy)
         #expect(model.variant == .next(progress: 9.0 / 14, colourway: .frost))
         #expect(model.meta == .amount("9 of 14", fraction: 9.0 / 14))
         #expect(model.nameIsSecondary)
-        #expect(model.accessibilityLabel == "Siebold's maple, locked. Fall asleep on time 14 nights. 9 of 14.")
+        #expect(model.accessibilityLabel == "Tatar maple, locked. 14 rested nights. 9 of 14.")
         // Evergreens are always pressed green.
-        let evergreen = LeafCellModel(entry("sempervirens", next: true), season: .winter)
+        let evergreen = LeafCellModel(entry("oligocarpum", next: true), season: .winter)
         #expect(evergreen.variant == .next(progress: 0, colourway: .summer))
     }
 
     @Test("Locked, needs-permission and dormant tiles say what they need")
     func locked() {
-        #expect(LeafCellModel(entry("amamiense"), season: .autumn).meta == .text("460 on time"))
+        #expect(LeafCellModel(entry("oligocarpum"), season: .autumn).meta == .text("365 rested"))
         let health = LeafCellModel(entry("campestre", availability: .needsAppleHealth), season: .autumn)
         #expect(health.variant == .needsPermission)
         #expect(health.meta == .text("Needs Apple Health"))
@@ -450,27 +449,28 @@ struct HerbariumCopyTests {
 
     @Test("Estimates use nights or mornings for short waits, and days, weeks, months or years otherwise")
     func durations() {
-        #expect(HerbariumCopy.duration(days: 5.2, category: .onTimeBedtimes) == "5 nights")
-        #expect(HerbariumCopy.duration(days: 0.4, category: .onTimeBedtimes) == "1 night")
-        #expect(HerbariumCopy.duration(days: 12, category: .steadyMornings) == "12 mornings")
-        #expect(HerbariumCopy.duration(days: 9, category: .steadyWeeks) == "9 days")
-        #expect(HerbariumCopy.duration(days: 35, category: .steadyWeeks) == "5 weeks")
-        #expect(HerbariumCopy.duration(days: 272, category: .nightsTracked) == "9 months")
-        #expect(HerbariumCopy.duration(days: 1015, category: .onTimeBedtimes) == "3 years")
+        #expect(HerbariumCopy.duration(days: 5.2, category: .restedNights) == "5 nights")
+        #expect(HerbariumCopy.duration(days: 0.4, category: .bedtimeKept) == "1 night")
+        #expect(HerbariumCopy.duration(days: 12, category: .phoneFreeMornings) == "12 mornings")
+        #expect(HerbariumCopy.duration(days: 9, category: .hoursSaved) == "9 days")
+        #expect(HerbariumCopy.duration(days: 35, category: .sessionsFinished) == "5 weeks")
+        #expect(HerbariumCopy.duration(days: 40, category: .focusStreak) == "40 days")
+        #expect(HerbariumCopy.duration(days: 272, category: .restedNights) == "9 months")
+        #expect(HerbariumCopy.duration(days: 1015, category: .restedNights) == "3 years")
     }
 
     @Test("The progress line adds the estimate only when the member has a pace")
     func progressLine() {
-        let leaf = entry("sieboldianum", current: 9).progress
+        let leaf = entry("tataricum", current: 9).progress
         #expect(HerbariumCopy.progressLine(leaf, rate: 0) == "9 of 14")
         #expect(HerbariumCopy.progressLine(leaf, rate: 1) == "9 of 14 · about 5 nights at your pace")
     }
 
     @Test("Almost-there remainders read “to go”, except Tonight and Today")
     func toGo() {
-        let leaf = entry("sieboldianum", current: 11).progress
+        let leaf = entry("tataricum", current: 11).progress
         #expect(HerbariumCopy.toGo(LeafRemainder(leaf, phase: .day)) == "3 nights to go")
-        let last = entry("sieboldianum", current: 13).progress
+        let last = entry("tataricum", current: 13).progress
         #expect(HerbariumCopy.toGo(LeafRemainder(last, phase: .evening)) == "Tonight")
     }
 
@@ -481,9 +481,9 @@ struct HerbariumCopyTests {
         #expect(pressed.hasPrefix("Pressed Sunday"))
         #expect(["4 October", "2026"].allSatisfy(pressed.contains))
         #expect(copy.shortDay(pressedDay) == "4 Oct")
-        let leaf = entry("sieboldianum").progress
-        #expect(HerbariumCopy.earnedLine(leaf, season: .autumn) == "For 14 on-time bedtimes · in autumn")
-        #expect(copy.shareCardLine(pressedOn: pressedDay, progress: leaf) == "Pressed 4 Oct 2026 · for 14 on-time bedtimes")
+        let leaf = entry("tataricum").progress
+        #expect(HerbariumCopy.earnedLine(leaf, season: .autumn) == "For 14 rested nights · in autumn")
+        #expect(copy.shareCardLine(pressedOn: pressedDay, progress: leaf) == "Pressed 4 Oct 2026 · for 14 rested nights")
         #expect(HerbariumCopy.pressedIn(.winter) == "Pressed in winter")
     }
 
