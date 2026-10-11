@@ -62,45 +62,46 @@ final class FakeNotificationCenter: NotificationCentering {
 struct NotificationSchedulerTests {
     private let now = at(2026, 10, 12, 21)
 
-    private func plan(at date: Date, settings: ReminderSettings = .allOn, waiting: [WaitingLeaf] = []) -> ReminderPlan {
+    private func plan(at date: Date, settings: ReminderSettings = .allOn) -> ReminderPlan {
         ReminderPlan(.init(
             nights: UpcomingNight.nights(for: .standard, around: date, calendar: utc), settings: settings,
-            waiting: waiting, now: date, calendar: utc, locale: Locale(identifier: "en_GB")
+            now: date, calendar: utc, locale: Locale(identifier: "en_GB")
         ))
-    }
-
-    private func heldLeaf() -> WaitingLeaf {
-        WaitingLeaf(speciesID: "rubrum", opensAt: at(2026, 10, 13, 6))
     }
 
     @Test("Rescheduling leaves exactly the plan's requests pending, at their wall-clock times")
     func reschedule() async throws {
         let center = FakeNotificationCenter()
         let scheduler = NotificationScheduler(center: center, clock: .fixed(now))
-        let plan = plan(at: now, waiting: [heldLeaf()])
+        let plan = plan(at: now)
         await scheduler.reschedule(plan: plan)
         #expect(center.mapleIdentifiers == Set(plan.requests.map(\.id)))
-        #expect(center.mapleIdentifiers.count == 8)
+        #expect(center.mapleIdentifiers.count == 7)
         #expect(scheduler.scheduled == plan.requests)
-        let morning = try #require(center.pending["maple.reminder.morningLeaf.2026-10-12"])
-        #expect(morning.trigger == .date(DateComponents(year: 2026, month: 10, day: 13, hour: 6, minute: 0, second: 0)))
-        #expect(morning.request.interruption == .passive)
+        let tonight = try #require(center.pending["maple.reminder.windDown.2026-10-12"])
+        #expect(tonight.trigger == .date(DateComponents(year: 2026, month: 10, day: 12, hour: 22, minute: 15, second: 0)))
+        #expect(tonight.request.interruption == .active)
     }
 
     @Test("Rescheduling again replaces rather than duplicates, and drops what the plan no longer has")
     func replaces() async {
         let center = FakeNotificationCenter()
         let scheduler = NotificationScheduler(center: center, clock: .fixed(now))
-        await scheduler.reschedule(plan: plan(at: now, waiting: [heldLeaf()]))
-        await scheduler.reschedule(plan: plan(at: now, waiting: [heldLeaf()]))
-        #expect(center.mapleIdentifiers.count == 8)
-        // The leaf was opened: the morning reminder goes.
+        await scheduler.reschedule(plan: plan(at: now))
         await scheduler.reschedule(plan: plan(at: now))
         #expect(center.mapleIdentifiers.count == 7)
-        #expect(!center.mapleIdentifiers.contains("maple.reminder.morningLeaf.2026-10-12"))
         // Wind-down turned off: nothing is left.
         await scheduler.reschedule(plan: plan(at: now, settings: .allOff))
         #expect(center.mapleIdentifiers.isEmpty)
+    }
+
+    @Test("A morning reminder left pending by an earlier build is removed")
+    func leftoverMorningReminderRemoved() async {
+        let center = FakeNotificationCenter(pending: ["maple.reminder.morningLeaf.2026-10-12"])
+        let scheduler = NotificationScheduler(center: center, clock: .fixed(now))
+        await scheduler.reschedule(plan: plan(at: now))
+        #expect(center.pending["maple.reminder.morningLeaf.2026-10-12"] == nil)
+        #expect(center.mapleIdentifiers.count == 7)
     }
 
     @Test("Other identifiers are never touched")
@@ -150,23 +151,21 @@ struct NotificationSchedulerTests {
     func serialised() async {
         let center = FakeNotificationCenter()
         let scheduler = NotificationScheduler(center: center, clock: .fixed(now))
-        let everything = plan(at: now, waiting: [heldLeaf()])
-        let morningOnly = plan(at: now, settings: ReminderSettings(windDown: false, morningLeaf: true), waiting: [heldLeaf()])
-        let first = Task { await scheduler.reschedule(plan: everything) }
-        let second = Task { await scheduler.reschedule(plan: morningOnly) }
+        let first = Task { await scheduler.reschedule(plan: plan(at: now)) }
+        let second = Task { await scheduler.reschedule(plan: plan(at: now, settings: .allOff)) }
         await first.value
         await second.value
-        #expect(center.mapleIdentifiers == ["maple.reminder.morningLeaf.2026-10-12"])
+        #expect(center.mapleIdentifiers.isEmpty)
     }
 
-    @Test("Delivered reminders that no longer hold leave Notification Center")
+    @Test("A delivered wind-down reminder that no longer holds leaves Notification Center")
     func clearsDelivered() async {
         let center = FakeNotificationCenter()
-        center.delivered = ["maple.reminder.morningLeaf.2026-10-11", "maple.reminder.windDown.2026-10-11", "com.example.other"]
+        center.delivered = ["maple.reminder.windDown.2026-10-11", "com.example.other"]
         let scheduler = NotificationScheduler(center: center, clock: .fixed(at(2026, 10, 12, 12)))
-        // Midday, nothing waiting: both Maple notifications are out of date; the other app's stays.
+        // Midday: last night's wind-down reminder is out of date; the other app's stays.
         await scheduler.reschedule(plan: plan(at: at(2026, 10, 12, 12)))
-        #expect(Set(center.removedDelivered) == ["maple.reminder.morningLeaf.2026-10-11", "maple.reminder.windDown.2026-10-11"])
+        #expect(center.removedDelivered == ["maple.reminder.windDown.2026-10-11"])
         #expect(center.delivered == ["com.example.other"])
     }
 
@@ -183,27 +182,6 @@ struct NotificationSchedulerTests {
         let other = NotificationScheduler(center: declining, clock: .fixed(now))
         #expect(await other.requestAuthorization() == false)
         #expect(other.authorization == .denied)
-    }
-
-    @Test("A tap on the morning leaf routes to the reveal, once; wind-down routes nowhere")
-    func route() {
-        let scheduler = NotificationScheduler(center: FakeNotificationCenter(), clock: .fixed(now))
-        scheduler.handleTap(identifier: "maple.reminder.windDown.2026-10-12")
-        #expect(scheduler.pendingRoute == nil)
-        scheduler.handleTap(identifier: "com.example.other")
-        #expect(scheduler.pendingRoute == nil)
-        scheduler.handleTap(identifier: "maple.reminder.morningLeaf.2026-10-12")
-        #expect(scheduler.pendingRoute == .reveal)
-        #expect(scheduler.takeRoute() == .reveal)
-        #expect(scheduler.pendingRoute == nil)
-        #expect(scheduler.takeRoute() == nil)
-    }
-
-    @Test("While Maple is open, only the morning leaf shows, as a banner")
-    func foreground() {
-        #expect(ReminderNotificationDelegate.foregroundOptions(for: "maple.reminder.windDown.2026-10-12").isEmpty)
-        #expect(ReminderNotificationDelegate.foregroundOptions(for: "maple.reminder.morningLeaf.2026-10-12") == [.banner, .list])
-        #expect(ReminderNotificationDelegate.foregroundOptions(for: "com.example.other").isEmpty)
     }
 
     @Test("DEBUG demo launches never touch the member's reminders")
@@ -229,28 +207,35 @@ struct NotificationSchedulerTests {
 @Suite("Reminder settings")
 @MainActor
 struct ReminderSettingsTests {
-    @Test("Both reminders are on by default, and each switch is saved")
+    @Test("The wind-down reminder is on by default, and its switch is saved")
     func persisted() throws {
         let url = try temporaryDirectory().appendingPathComponent(AppSettings.file)
         let settings = AppSettings(storage: JSONStorage(.file(url)), regionCode: "GB")
         #expect(settings.windDownReminder)
-        #expect(settings.morningLeafReminder)
         #expect(settings.reminders == .allOn)
         settings.windDownReminder = false
         let reloaded = AppSettings(storage: JSONStorage(.file(url)), regionCode: "GB")
         #expect(!reloaded.windDownReminder)
-        #expect(reloaded.morningLeafReminder)
-        #expect(reloaded.reminders == ReminderSettings(windDown: false, morningLeaf: true))
+        #expect(reloaded.reminders == .allOff)
     }
 
-    @Test("A settings file from before the reminders existed turns them on")
+    @Test("A settings file from before the reminders existed turns wind-down on")
     func olderFile() throws {
         let old = #"{"version":1,"hemisphere":"southern","sleepGoalMinutes":480,"revealSound":true}"#
         let snapshot = try JSONDecoder().decode(SettingsSnapshot.self, from: Data(old.utf8))
         #expect(snapshot.windDownReminder)
-        #expect(snapshot.morningLeafReminder)
         #expect(snapshot.hemisphere == .southern)
         let roundTrip = try JSONDecoder().decode(SettingsSnapshot.self, from: JSONEncoder().encode(snapshot))
         #expect(roundTrip == snapshot)
+    }
+
+    @Test("A settings file with the old morning-leaf switch still loads, and the switch is dropped on save")
+    func olderFileWithMorningSwitch() throws {
+        let old = #"{"version":1,"hemisphere":"northern","sleepGoalMinutes":450,"revealSound":false,"windDownReminder":false,"morningLeafReminder":true}"#
+        let snapshot = try JSONDecoder().decode(SettingsSnapshot.self, from: Data(old.utf8))
+        #expect(!snapshot.windDownReminder)
+        #expect(snapshot.sleepGoalMinutes == 450)
+        let saved = String(decoding: try JSONEncoder().encode(snapshot), as: UTF8.self)
+        #expect(!saved.contains("morningLeaf"))
     }
 }

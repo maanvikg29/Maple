@@ -40,9 +40,9 @@ public struct NotificationsPrimerView: View {
         self.onNotNow = onNotNow
     }
 
-    nonisolated public static let title = "Two gentle reminders"
+    nonisolated public static let title = "A gentle reminder"
     /// What Maple sends, and that it sends nothing more.
-    nonisolated public static let message = "One when it's time to wind down, and one in the morning when a leaf is waiting. Nothing else."
+    nonisolated public static let message = "Only when it's time to wind down. Nothing else."
     nonisolated public static let allowTitle = "Allow reminders"
     nonisolated public static let notNowTitle = "Not now"
 

@@ -46,9 +46,6 @@ public protocol NotificationCentering: AnyObject {
 
 /// The app's notification center.
 public final class UserNotificationCenter: NotificationCentering {
-    /// The `userInfo` key carrying a `ReminderRoute`'s raw value.
-    nonisolated public static let routeKey = "maple.route"
-
     private var center: UNUserNotificationCenter { .current() }
 
     public init() {}
@@ -87,7 +84,6 @@ public final class UserNotificationCenter: NotificationCentering {
         case .active: .active
         }
         content.sound = request.playsSound ? .default : nil
-        if let route = request.route { content.userInfo = [Self.routeKey: route.rawValue] }
         let notificationTrigger: UNNotificationTrigger = switch trigger {
         case .date(let components): UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
         case .after(let seconds): UNTimeIntervalNotificationTrigger(timeInterval: max(1, seconds), repeats: false)
@@ -96,8 +92,8 @@ public final class UserNotificationCenter: NotificationCentering {
     }
 }
 
-/// Maple's local notifications (M1): "Time to wind down" and "A new leaf is waiting", nothing else. One instance
-/// for the app, created by `MapleApp` and injected with `.environment(_:)`.
+/// Maple's local notification: "Time to wind down", nothing else (focus spec §8). One instance for the app,
+/// created by `MapleApp` and injected with `.environment(_:)`.
 ///
 /// ```swift
 /// @Environment(NotificationScheduler.self) private var reminders
@@ -105,20 +101,15 @@ public final class UserNotificationCenter: NotificationCentering {
 /// reminders.authorization                     // .notDetermined, .denied or .allowed
 /// await reminders.requestAuthorization()      // iOS's prompt (alerts and sounds, no badge)
 /// await reminders.reschedule(plan: plan)      // Maple's pending requests become exactly the plan's
-/// reminders.takeRoute()                       // .reveal after a tap on "A new leaf is waiting", once
 /// ```
 ///
-/// It is also the notification center's delegate: while Maple is open, wind-down shows nothing (the member is
-/// already here) and the morning leaf shows as a banner; a tap on the morning leaf sets `pendingRoute = .reveal`,
-/// which the app turns into the reveal.
+/// While Maple is open iOS shows nothing (there is no notification-center delegate); a tap just opens the app.
 @Observable
 public final class NotificationScheduler {
     /// Whether iOS lets Maple notify. Read again on every foreground (`refreshAuthorization()`).
     public private(set) var authorization: ReminderAuthorization
     /// iOS's prompt is up (or about to be).
     public private(set) var isRequesting = false
-    /// A screen a notification tap asked for; the app presents it and clears it with `takeRoute()`.
-    public private(set) var pendingRoute: ReminderRoute?
     /// What the last reschedule left pending, in fire order.
     public private(set) var scheduled: [ReminderRequest] = []
     /// False for DEBUG demo launches: their stores live in memory, so they never replace the member's real
@@ -127,7 +118,6 @@ public final class NotificationScheduler {
 
     @ObservationIgnored private let center: any NotificationCentering
     @ObservationIgnored private let clock: MapleClock
-    @ObservationIgnored private var delegate: ReminderNotificationDelegate?
     /// The reschedule in progress; each waits for the one before, so two never interleave.
     @ObservationIgnored private var work: Task<Void, Never>?
     private static var logger: Logger { Logger(subsystem: "com.maanvikgupta.maple", category: "reminders") }
@@ -138,14 +128,9 @@ public final class NotificationScheduler {
         self.authorization = authorization
     }
 
-    /// The app's scheduler: the system notification center, with this scheduler as its delegate (set at launch,
-    /// so a tap that opens Maple is heard).
+    /// The app's scheduler, on the system notification center.
     public static func live() -> NotificationScheduler {
-        let scheduler = NotificationScheduler(center: UserNotificationCenter())
-        let delegate = ReminderNotificationDelegate(scheduler: scheduler)
-        scheduler.delegate = delegate
-        UNUserNotificationCenter.current().delegate = delegate
-        return scheduler
+        NotificationScheduler(center: UserNotificationCenter())
     }
 
     /// What this launch should use: the live scheduler, which DEBUG demo launches keep from rescheduling.
@@ -209,18 +194,6 @@ public final class NotificationScheduler {
         await task.value
     }
 
-    /// The screen a notification tap asked for, once; nil when there is none.
-    public func takeRoute() -> ReminderRoute? {
-        defer { pendingRoute = nil }
-        return pendingRoute
-    }
-
-    /// A tap on a Maple notification (the notification's default action).
-    public func handleTap(identifier: String) {
-        guard let route = ReminderKind(identifier: identifier)?.route else { return }
-        pendingRoute = route
-    }
-
     // MARK: Private
 
     private func apply(_ plan: ReminderPlan) async {
@@ -272,33 +245,4 @@ public final class NotificationScheduler {
         }
     }
     #endif
-}
-
-/// The notification center's delegate: decides what shows while Maple is open and hands taps to the scheduler.
-final class ReminderNotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
-    private weak var scheduler: NotificationScheduler?
-
-    init(scheduler: NotificationScheduler) {
-        self.scheduler = scheduler
-    }
-
-    nonisolated func userNotificationCenter(
-        _ center: UNUserNotificationCenter, willPresent notification: UNNotification
-    ) async -> UNNotificationPresentationOptions {
-        Self.foregroundOptions(for: notification.request.identifier)
-    }
-
-    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
-        guard response.actionIdentifier == UNNotificationDefaultActionIdentifier else { return }
-        let identifier = response.notification.request.identifier
-        await MainActor.run { scheduler?.handleTap(identifier: identifier) }
-    }
-
-    /// Wind-down shows nothing while Maple is open; the morning leaf shows as a banner (and stays in the list).
-    nonisolated static func foregroundOptions(for identifier: String) -> UNNotificationPresentationOptions {
-        switch ReminderKind(identifier: identifier)?.foregroundPresentation {
-        case .banner: [.banner, .list]
-        case .hidden, nil: []
-        }
-    }
 }

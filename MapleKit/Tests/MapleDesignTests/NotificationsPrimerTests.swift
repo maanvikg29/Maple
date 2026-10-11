@@ -7,12 +7,14 @@ import Testing
 @Suite("Notifications primer")
 @MainActor
 struct NotificationsPrimerTests {
-    @Test("The primer names the only two reminders, in two calm sentences")
+    @Test("The primer names the only reminder, in two calm sentences")
     func copy() {
         let message = NotificationsPrimerView.message
         #expect(message.split(separator: ".").count == 2)
-        #expect(message.contains("wind down") && message.contains("leaf is waiting"))
+        #expect(message.contains("wind down"))
+        #expect(!message.contains("leaf") && !message.contains("morning"))
         #expect(message.hasSuffix("Nothing else."))
+        #expect(NotificationsPrimerView.title == "A gentle reminder")
         for line in [NotificationsPrimerView.title, message, NotificationsPrimerView.allowTitle, NotificationsPrimerView.notNowTitle] {
             #expect(!line.contains("!"))
             #expect(line.first?.isUppercase == true)

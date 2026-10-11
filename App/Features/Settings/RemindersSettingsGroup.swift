@@ -4,8 +4,8 @@ import MapleCore
 import MapleDesign
 import MapleServices
 
-/// Settings › the two reminders (spec §8.7): "Wind-down reminder" and "Morning leaf" as one Level-1 group, each
-/// saved at once through `AppSettings` and rescheduled by `ReminderUpkeep`.
+/// Settings › the wind-down reminder (spec §8.7) as a Level-1 group, saved at once through `AppSettings` and
+/// rescheduled by `ReminderUpkeep`.
 ///
 /// A switch shows on only when its reminder will really come: iOS must allow Maple's notifications. Until iOS has
 /// been asked, a status line says nothing is sent, and "Allow reminders" (or turning a switch on) opens the
@@ -24,9 +24,6 @@ struct RemindersSettingsGroup: View {
             ProfileListGroup {
                 ProfileSettingRow("Wind-down reminder", detail: Text("As wind-down begins, with your bedtime.")) {
                     ProfileToggle("Wind-down reminder", isOn: binding(\.windDownReminder))
-                }
-                ProfileSettingRow("Morning leaf", detail: Text("A silent note in the morning, only when a leaf is waiting.")) {
-                    ProfileToggle("Morning leaf", isOn: binding(\.morningLeafReminder))
                 }
             }
             .disabled(reminders.authorization == .denied)

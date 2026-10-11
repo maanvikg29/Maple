@@ -15,23 +15,15 @@ private func clock(_ date: Date, _ calendar: Calendar = utc) -> String {
     HomeFormat.clock(HomeFormat.clockTime(of: date, calendar: calendar), locale: enGB)
 }
 
-/// A plan from one repeating schedule, as the app builds it today.
+/// A plan from one repeating schedule.
 private func plan(
-    _ schedule: SleepSchedule = .standard, now: Date, settings: ReminderSettings = .allOn, waiting: [WaitingLeaf] = [],
+    _ schedule: SleepSchedule = .standard, now: Date, settings: ReminderSettings = .allOn,
     windDownOpenedAt: Date? = nil, calendar: Calendar = utc, locale: Locale = enGB
 ) -> ReminderPlan {
     ReminderPlan(.init(
         nights: UpcomingNight.nights(for: .everyNight(schedule), around: now, calendar: calendar), settings: settings,
-        waiting: waiting, windDownOpenedAt: windDownOpenedAt, now: now, calendar: calendar, locale: locale
+        windDownOpenedAt: windDownOpenedAt, now: now, calendar: calendar, locale: locale
     ))
-}
-
-/// A leaf unlocked at `date`, waiting from when the reveal schedule lets it open.
-private func leaf(
-    _ id: String = "rubrum", unlockedAt date: Date, schedule: SleepSchedule = .standard, calendar: Calendar = utc
-) -> WaitingLeaf {
-    let unlock = LeafUnlock(speciesID: id, date: date, season: .autumn, colourway: .autumn)
-    return WaitingLeaf(speciesID: id, opensAt: RevealSchedule.releaseDate(for: unlock, schedule: .everyNight(schedule), calendar: calendar))
 }
 
 private extension ReminderPlan {
@@ -110,7 +102,6 @@ struct ReminderPlanTests {
         #expect(tonight.threadID == "maple.windDown")
         #expect(tonight.interruption == .active)
         #expect(tonight.playsSound)
-        #expect(tonight.route == nil)
         // Scheduled as a local wall-clock time.
         #expect(tonight.fireComponents == DateComponents(year: 2026, month: 10, day: 12, hour: 22, minute: 15, second: 0))
     }
@@ -154,63 +145,7 @@ struct ReminderPlanTests {
         #expect(plan(none, now: noon).of(.windDown).isEmpty)
     }
 
-    @Test("A leaf earned at 22:00 is held, and the morning says so at its start, silently")
-    func heldLeafMorning() throws {
-        let earned = leaf(unlockedAt: at(2026, 10, 12, 22))
-        #expect(earned.opensAt == at(2026, 10, 13, 6))
-        let reminders = plan(now: at(2026, 10, 12, 22, 5), waiting: [earned]).of(.morningLeaf)
-        let morning = try #require(reminders.first)
-        #expect(reminders.count == 1)
-        #expect(morning.fireDate == at(2026, 10, 13, 6))
-        #expect(morning.title == "A new leaf is waiting")
-        #expect(morning.body == "Open it on your maple.")
-        #expect(morning.id == "maple.reminder.morningLeaf.2026-10-12")
-        #expect(morning.threadID == "maple.morningLeaf")
-        // The morning starts an hour before wake-up: never a sound, never a lit screen.
-        #expect(morning.interruption == .passive)
-        #expect(!morning.playsSound)
-        #expect(morning.route == .reveal)
-    }
-
-    @Test("Two leaves: \"2 new leaves are waiting\"")
-    func plural() throws {
-        let waiting = [leaf("rubrum", unlockedAt: at(2026, 10, 12, 21)), leaf("saccharinum", unlockedAt: at(2026, 10, 13, 1))]
-        let morning = try #require(plan(now: at(2026, 10, 13, 2), waiting: waiting).of(.morningLeaf).first)
-        #expect(morning.title == "2 new leaves are waiting")
-        #expect(morning.body == "Open them on your maple.")
-        #expect(ReminderCopy.morningLeafTitle(count: 3) == "3 new leaves are waiting")
-    }
-
-    @Test("No morning reminder unless a leaf is waiting")
-    func noLeafNoMorning() {
-        #expect(plan(now: noon).of(.morningLeaf).isEmpty)
-        #expect(plan(now: at(2026, 10, 12, 23, 30)).of(.morningLeaf).isEmpty)
-    }
-
-    @Test("A leaf that opened in the day and wasn't opened is announced the next morning, once")
-    func pendingLeafOnce() {
-        let afternoon = leaf(unlockedAt: at(2026, 10, 12, 14))
-        #expect(afternoon.opensAt == at(2026, 10, 12, 14))
-        let evening = plan(now: at(2026, 10, 12, 20), waiting: [afternoon]).of(.morningLeaf)
-        #expect(evening.map(\.fireDate) == [at(2026, 10, 13, 6)])
-        // The next day it is still waiting, but its morning has been: no second reminder.
-        #expect(plan(now: at(2026, 10, 13, 10), waiting: [afternoon]).of(.morningLeaf).isEmpty)
-        #expect(plan(now: at(2026, 10, 14, 3), waiting: [afternoon]).of(.morningLeaf).isEmpty)
-    }
-
-    @Test("A leaf held to this morning, already announced, isn't announced tomorrow")
-    func announcedThisMorning() {
-        let held = leaf(unlockedAt: at(2026, 10, 12, 23, 30))
-        #expect(held.opensAt == at(2026, 10, 13, 6))
-        #expect(plan(now: at(2026, 10, 13, 7), waiting: [held]).of(.morningLeaf).isEmpty)
-        // A newer one earned tonight is, and the count includes the one still waiting.
-        let tonight = leaf("saccharinum", unlockedAt: at(2026, 10, 13, 21))
-        let reminders = plan(now: at(2026, 10, 13, 21, 1), waiting: [held, tonight]).of(.morningLeaf)
-        #expect(reminders.map(\.fireDate) == [at(2026, 10, 14, 6)])
-        #expect(reminders.first?.title == "2 new leaves are waiting")
-    }
-
-    @Test("Nothing between bedtime and the morning start, ever")
+    @Test("Nothing between bedtime and the morning start, ever: every reminder falls in wind-down")
     func nothingAtNight() {
         let schedules = [
             SleepSchedule.standard,
@@ -221,26 +156,30 @@ struct ReminderPlanTests {
         for schedule in schedules {
             for hour in stride(from: 0, to: 24, by: 3) {
                 let now = at(2026, 10, 12, hour)
-                let waiting = [leaf(unlockedAt: now.addingTimeInterval(-600), schedule: schedule)]
-                let result = plan(schedule, now: now, waiting: waiting)
-                for request in result.requests {
+                for request in plan(schedule, now: now).requests {
                     let phase = NowPhase.resolve(date: request.fireDate, schedule: schedule, calendar: utc)
-                    #expect(phase != .night, "\(request.id) at \(clock(request.fireDate))")
-                    #expect(phase == (request.kind == .windDown ? .windDown : .morning))
+                    #expect(phase == .windDown, "\(request.id) at \(clock(request.fireDate))")
                 }
             }
         }
     }
 
-    @Test("At most one wind-down and one morning reminder per night, even from overlapping nights")
+    @Test("Wind-down is the only reminder: nothing in the morning, ever")
+    func onlyWindDown() {
+        #expect(ReminderKind.allCases == [.windDown])
+        for hour in stride(from: 0, to: 24, by: 2) {
+            let result = plan(now: at(2026, 10, 12, hour))
+            #expect(result.requests.allSatisfy { $0.kind == .windDown })
+            #expect(result.requests.allSatisfy { clock($0.fireDate) == "22:15" })
+        }
+    }
+
+    @Test("At most one wind-down reminder per night, even from overlapping nights")
     func onePerNight() {
         let now = at(2026, 10, 12, 21)
         let nights = UpcomingNight.nights(for: .standard, around: now, calendar: utc)
-        let doubled = ReminderPlan(.init(
-            nights: nights + nights, settings: .allOn, waiting: [leaf(unlockedAt: now)], now: now, calendar: utc, locale: enGB
-        ))
+        let doubled = ReminderPlan(.init(nights: nights + nights, settings: .allOn, now: now, calendar: utc, locale: enGB))
         #expect(doubled.of(.windDown).count == 7)
-        #expect(doubled.of(.morningLeaf).count == 1)
         #expect(Set(doubled.requests.map(\.id)).count == doubled.requests.count)
         let days = doubled.of(.windDown).map { LocalDay($0.fireDate, calendar: utc) }
         #expect(Set(days).count == days.count)
@@ -248,12 +187,11 @@ struct ReminderPlanTests {
 
     @Test("Identifiers are deterministic, so rescheduling replaces instead of duplicating")
     func deterministic() {
-        let waiting = [leaf(unlockedAt: at(2026, 10, 12, 22))]
-        let first = plan(now: at(2026, 10, 12, 21), waiting: waiting)
-        let again = plan(now: at(2026, 10, 12, 21), waiting: waiting)
+        let first = plan(now: at(2026, 10, 12, 21))
+        let again = plan(now: at(2026, 10, 12, 21))
         #expect(first == again)
         // An hour later the same nights keep the same identifiers.
-        let later = plan(now: at(2026, 10, 12, 22), waiting: waiting)
+        let later = plan(now: at(2026, 10, 12, 22))
         #expect(Set(later.requests.map(\.id)).isSubset(of: Set(first.requests.map(\.id))))
         #expect(first.requests.allSatisfy { $0.id.hasPrefix(ReminderKind.identifierPrefix) })
     }
@@ -268,33 +206,22 @@ struct ReminderPlanTests {
         #expect(result.requests.allSatisfy { $0.fireDate <= now.addingTimeInterval(7 * 24 * 3600) })
     }
 
-    @Test("Each toggle turns its reminder off")
+    @Test("The switch turns the reminder off")
     func toggles() {
         let now = at(2026, 10, 12, 21)
-        let waiting = [leaf(unlockedAt: at(2026, 10, 12, 20, 30))]
-        let noWindDown = plan(now: now, settings: ReminderSettings(windDown: false, morningLeaf: true), waiting: waiting)
-        #expect(noWindDown.of(.windDown).isEmpty)
-        #expect(noWindDown.of(.morningLeaf).count == 1)
-        let noMorning = plan(now: now, settings: ReminderSettings(windDown: true, morningLeaf: false), waiting: waiting)
-        #expect(noMorning.of(.windDown).count == 7)
-        #expect(noMorning.of(.morningLeaf).isEmpty)
-        #expect(plan(now: now, settings: .allOff, waiting: waiting).requests.isEmpty)
+        #expect(plan(now: now).of(.windDown).count == 7)
+        #expect(plan(now: now, settings: ReminderSettings(windDown: false)).requests.isEmpty)
+        #expect(plan(now: now, settings: .allOff).requests.isEmpty)
     }
 
     @Test("A bedtime after midnight: wind-down the evening before, named by that evening")
     func midnightWrap() throws {
         let late = SleepSchedule(bedtime: ClockTime(hour: 1), wake: ClockTime(hour: 9), windDownMinutes: 45)
-        let now = at(2026, 10, 12, 23)
-        let earned = leaf(unlockedAt: at(2026, 10, 12, 23, 30), schedule: late)
-        let result = plan(late, now: now, waiting: [earned])
-        let windDown = try #require(result.of(.windDown).first)
+        let windDown = try #require(plan(late, now: at(2026, 10, 12, 23)).of(.windDown).first)
         // Wind-down starts after midnight, at 00:15, and belongs to Monday night.
         #expect(windDown.fireDate == at(2026, 10, 13, 0, 15))
         #expect(windDown.id == "maple.reminder.windDown.2026-10-12")
         #expect(windDown.body == "Bed at 01:00.")
-        let morning = try #require(result.of(.morningLeaf).first)
-        #expect(morning.fireDate == at(2026, 10, 13, 8))
-        #expect(morning.id == "maple.reminder.morningLeaf.2026-10-12")
     }
 
     @Test("Across daylight-saving changes the reminders keep their local times")
@@ -302,16 +229,10 @@ struct ReminderPlanTests {
         let london = calendar("Europe/London")
         // Clocks go back on Sunday 25 October 2026 and forward on Sunday 29 March 2026.
         for start in [at(2026, 10, 22, 12, in: london), at(2026, 3, 26, 12, in: london)] {
-            let waiting = (0..<7).map { day in
-                leaf("leaf\(day)", unlockedAt: start.addingTimeInterval(TimeInterval(day) * 86_400 + 10 * 3600), calendar: london)
-            }
-            let result = plan(now: start, waiting: waiting, calendar: london)
-            let windDowns = result.of(.windDown), mornings = result.of(.morningLeaf)
+            let windDowns = plan(now: start, calendar: london).of(.windDown)
             #expect(windDowns.count == 7)
             #expect(windDowns.allSatisfy { clock($0.fireDate, london) == "22:15" })
             #expect(windDowns.allSatisfy { $0.body == "Bed at 23:00." })
-            #expect(mornings.count == 7)
-            #expect(mornings.allSatisfy { clock($0.fireDate, london) == "06:00" })
             #expect(Set(windDowns.map { LocalDay($0.fireDate, calendar: london) }).count == 7)
         }
     }
@@ -330,40 +251,26 @@ struct ReminderPlanTests {
         #expect(result.requests.allSatisfy { request in !nights.contains { request.fireDate > $0.bedtime && request.fireDate < $0.morningStart } })
     }
 
-    @Test("Delivered reminders that no longer hold are cleared")
+    @Test("A delivered wind-down reminder is cleared once it no longer holds")
     func staleDelivered() {
-        // Nothing waiting: a delivered "A new leaf is waiting" is out of date.
-        #expect(plan(now: noon).staleDelivered.contains(.morningLeaf))
-        let waiting = [leaf(unlockedAt: at(2026, 10, 12, 8))]
-        #expect(!plan(now: noon, waiting: waiting).staleDelivered.contains(.morningLeaf))
-        // Held leaves aren't openable yet, so a delivered morning reminder is from an earlier morning.
-        #expect(plan(now: at(2026, 10, 12, 22, 30), waiting: [leaf(unlockedAt: at(2026, 10, 12, 22))]).staleDelivered.contains(.morningLeaf))
         // "Time to wind down" holds only during a wind-down the member hasn't started.
         #expect(!plan(now: at(2026, 10, 12, 22, 30)).staleDelivered.contains(.windDown))
         #expect(plan(now: at(2026, 10, 12, 22, 30), windDownOpenedAt: at(2026, 10, 12, 22, 20)).staleDelivered.contains(.windDown))
         #expect(plan(now: at(2026, 10, 12, 23, 30)).staleDelivered.contains(.windDown))
-        #expect(plan(now: noon).staleDelivered.contains(.windDown))
+        #expect(plan(now: at(2026, 10, 12, 12)).staleDelivered.contains(.windDown))
     }
 
-    @Test("Identifiers name their kind; only the morning leaf shows in the app and opens the reveal")
+    @Test("Identifiers name their kind; anything else isn't Maple's")
     func kinds() {
         #expect(ReminderKind(identifier: "maple.reminder.windDown.2026-10-12") == .windDown)
-        #expect(ReminderKind(identifier: "maple.reminder.morningLeaf.2026-10-12") == .morningLeaf)
+        #expect(ReminderKind(identifier: "maple.reminder.morningLeaf.2026-10-12") == nil)
         #expect(ReminderKind(identifier: "maple.reminder.other") == nil)
         #expect(ReminderKind(identifier: "com.example.windDown") == nil)
-        #expect(ReminderKind.windDown.foregroundPresentation == .hidden)
-        #expect(ReminderKind.morningLeaf.foregroundPresentation == .banner)
-        #expect(ReminderKind.morningLeaf.route == .reveal)
-        #expect(ReminderKind.windDown.route == nil)
     }
 
     @Test("Copy is calm: one short line each, no exclamation marks, no emoji")
     func copy() {
-        let lines = [
-            ReminderCopy.windDownTitle, ReminderCopy.windDownBody(bedtime: at(2026, 10, 12, 23), calendar: utc, locale: enGB),
-            ReminderCopy.morningLeafTitle(count: 1), ReminderCopy.morningLeafBody(count: 1),
-            ReminderCopy.morningLeafTitle(count: 2), ReminderCopy.morningLeafBody(count: 2),
-        ]
+        let lines = [ReminderCopy.windDownTitle, ReminderCopy.windDownBody(bedtime: at(2026, 10, 12, 23), calendar: utc, locale: enGB)]
         for line in lines {
             #expect(!line.contains("!"))
             #expect(line.count <= 32)
