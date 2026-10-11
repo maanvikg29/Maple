@@ -88,6 +88,23 @@ struct CollectionCounterTests {
         #expect(snapshot.counters[.firstLeaf] == 1)
         #expect(snapshot.hasPlantedMaple)
     }
+
+    @Test("Recording sleep keeps no bedtime run and raises nothing but Rested nights")
+    func noBedtimeRun() throws {
+        let calendar = utc
+        var snapshot = CollectionSnapshot.empty(profileID: UUID(), createdAt: at(2026, 10, 1, 12))
+        let context = CollectionContext(schedule: .standard, permissions: [.appleHealth], calendar: calendar, hemisphere: .northern)
+        snapshot.raise(.firstLeaf, to: 1, at: at(2026, 10, 1, 20), calendar: calendar)
+        _ = snapshot.runEngine(at: at(2026, 10, 1, 20), context: context)
+        let observations = (1...6).map { day in
+            SleepNightObservation(onset: at(2026, 10, day, 23, 5), finalWake: at(2026, 10, day + 1, 7), asleepMinutes: 450,
+                                  source: .watchOrTracker, calendar: calendar)
+        }
+        snapshot.recordSleep(observations, at: at(2026, 10, 7, 9), context: context)
+        #expect(Set(snapshot.counters.keys) == [.firstLeaf, .restedNights])
+        let encoded = String(decoding: try JSONEncoder().encode(snapshot), as: UTF8.self)
+        #expect(!encoded.contains("currentBedtimeRun"))
+    }
 }
 
 @Suite("Collection: unlocks and reveals")

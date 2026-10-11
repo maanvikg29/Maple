@@ -128,16 +128,6 @@ public final class CollectionStore {
         mutate { $0.runEngine(at: date, context: context, engine: engine) }
     }
 
-    /// Updates the current bedtime run; the Bedtime-runs counter keeps the best run.
-    @discardableResult
-    public func setCurrentBedtimeRun(_ nights: Int, at date: Date) -> [LeafUnlock] {
-        mutate { snapshot in
-            snapshot.currentBedtimeRun = max(0, nights)
-            snapshot.raise(.bedtimeRun, to: Double(nights), at: date, calendar: context.calendar)
-            return snapshot.runEngine(at: date, context: context, engine: engine)
-        }
-    }
-
     /// Opens leaves that may be opened now, in queue order: the given ids, or all of them. Held leaves, and any
     /// leaf in wind-down or at night (except First steps), stay closed.
     /// - Parameter eligibleAt: When the reveal began. Leaves that could be opened then are still placed if the
@@ -236,8 +226,6 @@ public final class CollectionStore {
     public var rarityConsent: RarityConsent { snapshot.rarityConsent }
     /// The first 3 reveals ever get the full ritual.
     public var revealsOpened: Int { snapshot.revealsOpened }
-    /// Home's streak; hidden under 2.
-    public var currentBedtimeRun: Int { snapshot.currentBedtimeRun }
     public var tendedDays: Int { snapshot.tendedDayCount }
     /// Structural growth g.
     public var growth: Double { TreeGrowth.structure(tendedDays: snapshot.tendedDayCount) }

@@ -113,7 +113,6 @@ nonisolated public enum DemoData {
             NightRecord(day: today.adding(days: index - 7, calendar: calendar), onTime: onTime[index],
                         fullNight: permissions.contains(.sleepTracker) ? full[index] : nil, scrollFree: nil)
         }
-        snapshot.currentBedtimeRun = Int(min(12, counters[.bedtimeRun] ?? 0))
         return snapshot
     }
 

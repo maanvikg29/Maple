@@ -68,7 +68,7 @@ struct HomeContent {
         leaves = count.opened
         total = count.total
         tendedDays = inputs.tendedDays
-        streak = collection.currentBedtimeRun
+        streak = 0 // The Focus streak arrives with F1 (focus spec §6).
         if let featured = collection.featuredLeaf, let species = LeafCatalog.shared.species(id: featured),
            let unlock = collection.unlock(for: featured) {
             avatar = HomeHeader.Avatar(species: species, colourway: unlock.colourway)

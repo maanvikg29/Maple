@@ -216,7 +216,7 @@ struct StoreSafetyTests {
         let unlocked = store.recordSleep(nights, at: at(2026, 10, 4, 7, 10))
         #expect(unlocked.map(\.speciesID) == ["saccharinum"])                           // three rested nights
         #expect(store.revealable(at: at(2026, 10, 4, 7, 10)).count == 1)
-        #expect(store.currentBedtimeRun == 3)
+        #expect(store.snapshot.nights.run == 3)
 
         let reloaded = CollectionStore(storage: JSONStorage(.file(url)), context: context)
         #expect(reloaded.snapshot == store.snapshot)

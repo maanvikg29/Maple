@@ -178,7 +178,6 @@ struct CollectionSnapshotTests {
         snapshot.featuredSpeciesID = "saccharum"
         snapshot.rarityConsent = .included
         snapshot.revealsOpened = 1
-        snapshot.currentBedtimeRun = 2
 
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601

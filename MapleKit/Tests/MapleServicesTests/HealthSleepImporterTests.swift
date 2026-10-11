@@ -166,7 +166,7 @@ struct HealthSleepImporterTests {
         #expect(reader.reads[1].anchor.map { String(decoding: $0, as: UTF8.self) } == "1")
         #expect(tracked(stores) == 2)
         #expect(stores.collection.snapshot.counters[.restedNights] == 2)
-        #expect(stores.collection.currentBedtimeRun == 2)
+        #expect(stores.collection.snapshot.nights.run == 2)
     }
 
     @Test("No backfill: nights before the install night are read but never counted")

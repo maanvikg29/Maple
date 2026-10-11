@@ -107,17 +107,6 @@ nonisolated public enum HomeSpeech {
         return "\(name), pressed \(HomeDateText.dayMonth(pressed, locale: locale, calendar: calendar))"
     }
 
-    /// The streak sheet's 14 nights: "Last 14 nights: 12 in your run, 1 forgiven."
-    public static func runNights(_ marks: [BedtimeRunNights.Mark]) -> String {
-        let inRun = marks.filter { $0 == .inRun }.count
-        let forgiven = marks.filter { $0 == .forgiven }.count
-        var text = "Last \(marks.count) nights: \(inRun) in your run"
-        if forgiven > 0 {
-            text += ", \(forgiven) forgiven"
-        }
-        return text + "."
-    }
-
     private static func noun(for category: RewardCategoryID, plural: Bool) -> String {
         func s(_ singular: String, _ many: String) -> String { plural ? many : singular }
         return switch category {

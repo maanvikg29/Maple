@@ -61,8 +61,6 @@ struct HomeView: View {
                 ProfileView()
                     .presentationDetents([.large])
                     .presentationBackground(theme.colors.surface2)
-            case .streak:
-                StreakSheet()
             case .health(let request):
                 HealthPrimerSheet(speciesID: request.speciesID)
             }
@@ -161,7 +159,7 @@ struct HomeView: View {
         .safeAreaBar(edge: .top) {
             HomeHeader(
                 season: season, date: content.now, streak: content.streak, avatar: content.avatar,
-                onStreak: { sheet = .streak }, onAvatar: { sheet = .profile }
+                onStreak: {}, onAvatar: { sheet = .profile }
             )
             .opacity(state.contentOpacity)
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { measured.header = $0 }
@@ -277,8 +275,6 @@ struct HomeView: View {
             cover = .tree(focusing: nil)
         case let value where value.hasPrefix("tree:"):
             cover = .tree(focusing: String(value.dropFirst("tree:".count)))
-        case "streak":
-            sheet = .streak
         case "health":
             sheet = .health(HealthPrimerRequest())
         case let value where value.hasPrefix("leaf:"):
@@ -290,16 +286,14 @@ struct HomeView: View {
     #endif
 }
 
-/// Home's sheets (spec §2.3): Profile `.large`, Streak `.medium`, and the Apple Health primer `.medium` from the
-/// needs-permission row.
+/// Home's sheets (spec §2.3): Profile `.large`, and the Apple Health primer `.medium` from the needs-permission row.
 enum HomeSheet: Identifiable, Hashable {
-    case profile, streak
+    case profile
     case health(HealthPrimerRequest)
 
     var id: String {
         switch self {
         case .profile: "profile"
-        case .streak: "streak"
         case .health(let request): request.id
         }
     }

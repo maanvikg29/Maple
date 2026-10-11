@@ -175,9 +175,6 @@ extension CollectionSnapshot {
         let changes = nights.record(observations, at: date, rules: rules)
         guard !changes.isEmpty else { return [] }
         record(changes.increases, at: date, calendar: calendar)
-        if let run = changes.run {
-            currentBedtimeRun = run
-        }
         for night in changes.vitality { recordNight(night) }
         return runEngine(at: date, context: context, engine: engine)
     }
@@ -251,7 +248,7 @@ extension CollectionSnapshot {
     public func progress(at date: Date, context: CollectionContext) -> [LeafProgress] {
         LeafProgressBuilder(permissions: permissions(in: context), features: context.features)
             .progress(counters: counters, unlocks: unlocks, history: history, today: LocalDay(date, calendar: context.calendar),
-                      calendar: context.calendar, currentBedtimeRun: currentBedtimeRun)
+                      calendar: context.calendar)
     }
 
     public func picker(at date: Date, context: CollectionContext) -> NextLeafPicker {

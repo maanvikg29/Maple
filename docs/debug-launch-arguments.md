@@ -39,7 +39,7 @@ DEBUG builds read these arguments, which `xcrun simctl launch <udid> com.maanvik
 
 `-MapleDemoPresent` values:
 - **App-level** (`App/DemoPresenter.swift`, over any tab): `reveal` (cover), `profile` (sheet; add `-MapleDemoProfile` for a page inside it), `winddown` (cover). `onboarding` makes `RootView` open on the end of onboarding instead of the tabs (pair it with `-MapleDemoFresh YES`; with an already planted collection it goes straight to Home).
-- **Home:** `tree` (Tree view), `tree:<speciesID>` (Tree view zoomed onto that leaf, as "Show on my maple"), `streak` (Streak sheet), `leaf:<speciesID>` (leaf detail pushed from Home), `health` (the Apple Health primer, as "Turn on Apple Health" opens it)
+- **Home:** `tree` (Tree view), `tree:<speciesID>` (Tree view zoomed onto that leaf, as "Show on my maple"), `leaf:<speciesID>` (leaf detail pushed from Home), `health` (the Apple Health primer, as "Turn on Apple Health" opens it)
 - **Herbarium:** `leaf:<speciesID>` (pushes leaf detail), `share:<speciesID>` (leaf detail, then the rendered share-card PNG at its point size), `rarity` (leaf detail of the rarest earned leaf, or the featured one, with the rarity explainer open), `filter`, `search` or `search:<query>` (the Search sheet, already searching)
 - **Rest:** `schedule` (the schedule editor at `.medium`, on Every day or tonight's nights), `schedule:bedtime` and `schedule:wake` (the editor at `.large` with that time's wheel open), `schedule:everyday`, `schedule:weekdays` and `schedule:weekends` (the editor on that segment; pair the last two with `-MapleDemoWeekendSchedule` to see a separate weekend)
 

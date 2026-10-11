@@ -89,7 +89,7 @@ struct CollectionStoreTests {
         #expect(store.vitality(at: now).value == 1)
     }
 
-    @Test("Mark all seen, the bedtime run and nights")
+    @Test("Mark all seen, and nights")
     func housekeeping() {
         let store = CollectionStore(storage: JSONStorage(.memory), context: testContext, now: at(2026, 10, 1, 9))
         store.raise(.firstLeaf, to: 1, at: at(2026, 10, 1, 9))
@@ -98,13 +98,6 @@ struct CollectionStoreTests {
         #expect(store.isUnseen("saccharum") && store.isUnseen("rubrum"))
         store.markAllSeen()
         #expect(!store.isUnseen("saccharum") && !store.isUnseen("rubrum"))
-
-        let unlocked = store.setCurrentBedtimeRun(3, at: at(2026, 10, 3, 7))
-        #expect(unlocked.isEmpty)                                       // the run earns no leaf in the focus table
-        #expect(store.currentBedtimeRun == 3)
-        store.setCurrentBedtimeRun(0, at: at(2026, 10, 4, 7))
-        #expect(store.currentBedtimeRun == 0)
-        #expect(store.snapshot.counters[.bedtimeRun] == 3)            // the best run is kept
 
         store.recordNight(NightRecord(day: LocalDay(year: 2026, month: 10, day: 3), onTime: false, fullNight: nil, scrollFree: nil))
         #expect(store.vitality(at: at(2026, 10, 4, 7)).value == 0.4)
