@@ -34,3 +34,6 @@ Everything through M2 is testable on a free personal team. Blocking (M3) needs t
 - MVP sounds are generated in code (no licensing). Recorded content source to be chosen by M6.
 - Smart wake: overnight-audio fade-in + AlarmKit backup (AlarmKit can't ramp volume).
 - Health-derived data lives in a local-only store (guideline 5.1.3(ii)).
+
+## 2026-10-11 — M1 branches merged; no morning notification
+The three parked M1 branches (weekday and weekend schedules with the onboarding questions, the Apple Health importer, reminders) are merged into the focus work. Reminders and the Health demo seeder plan each night on its own (weekday or weekend) schedule. The morning-leaf reminder is removed: Maple sends no morning notification (rewards.md, focus spec §8), so wind-down is the only reminder until F1's session-end notification. Onboarding shows the reminders primer after Apple Health; the focus-first opening steps (what pulls you in, hours saved) arrive with F1, when blocking exists.
