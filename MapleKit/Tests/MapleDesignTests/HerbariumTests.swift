@@ -389,7 +389,6 @@ struct LeafCellModelTests {
         #expect(health.variant == .needsPermission)
         #expect(health.meta == .text("Needs Apple Health"))
         #expect(health.accessibilityLabel.hasSuffix("Needs Apple Health."))
-        #expect(LeafCellModel(entry("pseudoplatanus", availability: .needsSleepTracker), season: .autumn).meta == .text("Needs a sleep tracker"))
         let dormant = LeafCellModel(entry("griseum", share: .notEarnableYet), season: .autumn)
         #expect(dormant.variant == .dormant)
         #expect(dormant.meta == .text("Not earnable yet"))
@@ -492,7 +491,6 @@ struct HerbariumCopyTests {
         #expect(HerbariumCopy.permissionLine(.needsScreenTime) == "Needs Screen Time")
         #expect(HerbariumCopy.permissionLine(.available) == nil)
         #expect(HerbariumCopy.turnOnTitle(.needsAppleHealth) == "Turn on Apple Health")
-        #expect(HerbariumCopy.turnOnTitle(.needsSleepTracker) == nil)
         #expect(HerbariumCopy.turnOnTitle(.dormant) == nil)
     }
 }

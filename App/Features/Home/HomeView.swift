@@ -249,9 +249,6 @@ struct HomeView: View {
         case .startFocus, .returnToFocus:
             // Focus lives in Rest (spec §2.2); Home offers it only once it ships.
             router.selectedTab = .rest
-        case .checkIn:
-            // Check-ins are absent until they ship; NowState never asks for one before then.
-            break
         }
     }
 

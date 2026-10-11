@@ -61,7 +61,6 @@ public struct NowState: Sendable, Equatable {
         case returnToFocus
         /// Opens the reveal for the waiting leaves.
         case openReveals(count: Int)
-        case checkIn
 
         /// The capsule's label.
         public var title: String {
@@ -71,7 +70,6 @@ public struct NowState: Sendable, Equatable {
             case .startFocus(let minutes, let firstTime): firstTime ? "Start a \(minutes)-minute focus" : "Start focus · \(minutes)m"
             case .returnToFocus: "Return to focus"
             case .openReveals(let count): count == 1 ? "Open your new leaf" : "Open \(count) new leaves"
-            case .checkIn: "Check in"
             }
         }
     }
@@ -144,17 +142,16 @@ public struct NowState: Sendable, Equatable {
     ///   - goodnightAt: Last night's Goodnight tap, used when Apple Health has nothing.
     ///   - focus: Today's focus, once the timer ships.
     ///   - windDownActive: Wind-down mode is open.
-    ///   - checkInDue: The morning check-in hasn't been done (once check-ins ship).
     public static func resolve(
         date: Date, schedule: SleepSchedule, calendar: Calendar = .current, locale: Locale = .current,
         pending: Int = 0, counters: [RewardCategoryID: Double] = [:], features: ShippedFeatures = .current,
         lastNight: LastNightSleep? = nil, goodnightAt: Date? = nil, focus: FocusStatus? = nil,
-        windDownActive: Bool = false, checkInDue: Bool = false
+        windDownActive: Bool = false
     ) -> NowState {
         resolve(
             date: date, weekly: .everyNight(schedule), calendar: calendar, locale: locale, pending: pending,
             counters: counters, features: features, lastNight: lastNight, goodnightAt: goodnightAt, focus: focus,
-            windDownActive: windDownActive, checkInDue: checkInDue
+            windDownActive: windDownActive
         )
     }
 
@@ -165,7 +162,7 @@ public struct NowState: Sendable, Equatable {
         date: Date, weekly: WeeklySleepSchedule, calendar: Calendar = .current, locale: Locale = .current,
         pending: Int = 0, counters: [RewardCategoryID: Double] = [:], features: ShippedFeatures = .current,
         lastNight: LastNightSleep? = nil, goodnightAt: Date? = nil, focus: FocusStatus? = nil,
-        windDownActive: Bool = false, checkInDue: Bool = false
+        windDownActive: Bool = false
     ) -> NowState {
         let windows = PhaseWindows(weekly: weekly)
         let today = windows.day(containing: date, calendar: calendar)
@@ -243,7 +240,7 @@ public struct NowState: Sendable, Equatable {
         } else {
             switch phase {
             case .morning:
-                action = features.checkIns && checkInDue ? .checkIn : nil
+                action = nil
             case .day:
                 let firstTime = (counters[.sessionsFinished] ?? 0) == 0 && (counters[.hoursSaved] ?? 0) == 0
                 action = features.focus ? .startFocus(minutes: defaultFocusMinutes, firstTime: firstTime) : nil

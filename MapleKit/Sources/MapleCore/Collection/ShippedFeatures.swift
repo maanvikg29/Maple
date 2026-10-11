@@ -24,8 +24,6 @@ public struct ShippedFeatures: Sendable, Hashable {
     public var sleepSounds: Bool { releases.contains(.f2) }
     /// Screen Time: blocking and the leaves that need it (F1).
     public var screenTime: Bool { releases.contains(.f1) }
-    /// Morning mood check-ins.
-    public var checkIns: Bool { releases.contains(.m4) }
 }
 
 /// System permissions the member has granted. Categories that need a missing one show "Needs Apple Health" or
@@ -62,12 +60,6 @@ extension LeafAvailability {
             self = .available
         case .appleHealth:
             self = permissions.contains(.appleHealth) ? .available : .needsAppleHealth
-        case .sleepTracker:
-            if !permissions.contains(.appleHealth) {
-                self = .needsAppleHealth
-            } else {
-                self = permissions.contains(.sleepTracker) ? .available : .needsSleepTracker
-            }
         case .screenTime:
             self = permissions.contains(.screenTime) ? .available : .needsScreenTime
         }
@@ -75,8 +67,7 @@ extension LeafAvailability {
 }
 
 extension LeafAvailability {
-    /// A permission is missing that the member can turn on from Maple (Apple Health, Screen Time). A sleep tracker
-    /// is hardware, so `needsSleepTracker` can't be.
+    /// A permission is missing that the member can turn on from Maple (Apple Health, Screen Time).
     public var canBeTurnedOn: Bool {
         self == .needsAppleHealth || self == .needsScreenTime
     }

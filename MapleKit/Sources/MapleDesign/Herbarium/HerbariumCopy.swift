@@ -13,11 +13,10 @@ nonisolated public struct HerbariumCopy: Sendable {
 
     // MARK: States
 
-    /// "Needs Apple Health", "Needs a sleep tracker", "Needs Screen Time"; nil when nothing is missing.
+    /// "Needs Apple Health", "Needs Screen Time"; nil when nothing is missing.
     public static func permissionLine(_ availability: LeafAvailability) -> String? {
         switch availability {
         case .needsAppleHealth: "Needs Apple Health"
-        case .needsSleepTracker: "Needs a sleep tracker"
         case .needsScreenTime: "Needs Screen Time"
         case .available, .dormant: nil
         }
@@ -28,7 +27,7 @@ nonisolated public struct HerbariumCopy: Sendable {
         switch availability {
         case .needsAppleHealth: "Turn on Apple Health"
         case .needsScreenTime: "Turn on Screen Time"
-        case .needsSleepTracker, .available, .dormant: nil
+        case .available, .dormant: nil
         }
     }
 
@@ -78,12 +77,12 @@ nonisolated public struct HerbariumCopy: Sendable {
         "Pressed in \(season.rawValue)"
     }
 
-    /// "For 14 on-time bedtimes · in autumn" (status tile).
+    /// "For 14 rested nights · in autumn" (status tile).
     public static func earnedLine(_ progress: LeafProgress, season: Season) -> String {
         "\(RewardCategoryInfo(progress.category).earnedLine(progress.threshold)) · in \(season.rawValue)"
     }
 
-    /// "Pressed 4 Oct 2026 · for 14 on-time bedtimes" (share card).
+    /// "Pressed 4 Oct 2026 · for 14 rested nights" (share card).
     public func shareCardLine(pressedOn date: Date, progress: LeafProgress) -> String {
         "Pressed \(pressedShort(date)) · \(Self.lowercasingFirst(RewardCategoryInfo(progress.category).earnedLine(progress.threshold)))"
     }
@@ -119,23 +118,20 @@ nonisolated public struct HerbariumCopy: Sendable {
         return "\(amount) · about \(duration(days: progress.remaining / rate, category: progress.category)) at your pace"
     }
 
-    /// A time estimate: in the category's own unit where one night, morning or evening is one day and the wait is
+    /// A time estimate: in the category's own unit where one night, morning or day is one day and the wait is
     /// under two months ("5 nights"), otherwise in days, weeks, months or years ("3 years", never "1015 nights").
     public static func duration(days: Double, category: RewardCategoryID) -> String {
         let whole = max(1, Int(days.rounded()))
         func count(_ number: Int, _ word: String) -> String { "\(number) \(number == 1 ? word : word + "s")" }
         if days < 60 {
             switch category {
-            case .nightsTracked, .onTimeBedtimes, .bedtimeRun, .fullNights, .soundWindDowns, .bedtimeShieldKept,
-                 .bedtimeKept, .restedNights:
+            case .bedtimeKept, .restedNights:
                 return count(whole, "night")
-            case .steadyMornings, .phoneFreeMornings:
+            case .phoneFreeMornings:
                 return count(whole, "morning")
-            case .scrollFreeWindDowns, .windDownRituals:
-                return count(whole, "evening")
             case .focusStreak:
                 return count(whole, "day")
-            default:
+            case .firstLeaf, .hoursSaved, .sessionsFinished:
                 break
             }
         }

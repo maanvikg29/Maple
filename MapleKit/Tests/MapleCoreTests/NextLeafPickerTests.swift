@@ -154,16 +154,15 @@ struct NextLeafPickerTests {
         let streak = progressRow("s1", .focusStreak, threshold: 3, availability: .needsAppleHealth, estimate: nil)      // about 3.8
         let hours = progressRow("o1", .hoursSaved, threshold: 1, availability: .needsAppleHealth, estimate: nil)        // about 0.5
         let hoursNext = progressRow("o2", .hoursSaved, threshold: 3, availability: .needsAppleHealth, estimate: nil)
-        let full = progressRow("f1", .restedNights, threshold: 3, availability: .needsSleepTracker, estimate: nil)      // hardware
         let focus = progressRow("d1", .sessionsFinished, threshold: 1, availability: .dormant, estimate: nil)
-        #expect(NextLeafPicker(progress: [kept, streak, hours, hoursNext, full, focus]).permissionPrompt()?.speciesID == "o1")
-        // Only hardware is missing: nothing to turn on.
-        #expect(NextLeafPicker(progress: [full, focus]).permissionPrompt() == nil)
+        #expect(NextLeafPicker(progress: [kept, streak, hours, hoursNext, focus]).permissionPrompt()?.speciesID == "o1")
+        // Only dormant leaves are left: nothing to turn on.
+        #expect(NextLeafPicker(progress: [focus]).permissionPrompt() == nil)
         // Something can be earned: no prompt.
         let mornings = progressRow("n1", .phoneFreeMornings, threshold: 1, estimate: 1.1)
         #expect(NextLeafPicker(progress: [kept, streak, hours, mornings]).permissionPrompt() == nil)
         #expect(LeafAvailability.needsAppleHealth.canBeTurnedOn && LeafAvailability.needsScreenTime.canBeTurnedOn)
-        #expect(!LeafAvailability.needsSleepTracker.canBeTurnedOn && !LeafAvailability.dormant.canBeTurnedOn)
+        #expect(!LeafAvailability.dormant.canBeTurnedOn)
     }
 
     @Test("Home's pick is the lowest hours-saved rung, ahead of anything closer")

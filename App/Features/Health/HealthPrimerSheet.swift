@@ -80,7 +80,7 @@ func turnOnPermission(
         showHealthPrimer(HealthPrimerRequest(speciesID: speciesID))
     case .needsScreenTime:
         if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
-    case .needsSleepTracker, .available, .dormant:
+    case .available, .dormant:
         break
     }
 }

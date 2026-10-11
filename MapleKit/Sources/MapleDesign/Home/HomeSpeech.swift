@@ -90,13 +90,12 @@ nonisolated public enum HomeSpeech {
         count == 1 ? "A new leaf is waiting" : "\(count) new leaves are waiting"
     }
 
-    /// Progress in the category's own words: "11 of 14 on-time bedtimes", "3 of 7 nights in a row".
+    /// Progress in the category's own words: "11 of 14 rested nights", "3 of 7 days in a row".
     public static func amount(_ progress: LeafProgress) -> String {
         let current = Int(progress.current.rounded(.down))
         let threshold = Int(progress.threshold.rounded())
-        if progress.category == .focusHours || progress.category == .hoursSaved {
-            if progress.category == .hoursSaved { return "\(current) of \(threshold) \(threshold == 1 ? "hour" : "hours") saved" }
-            return "\(current) of \(threshold) hours of focus"
+        if progress.category == .hoursSaved {
+            return "\(current) of \(threshold) \(threshold == 1 ? "hour" : "hours") saved"
         }
         return "\(current) of \(threshold) \(noun(for: progress.category, plural: threshold != 1))"
     }
@@ -116,25 +115,7 @@ nonisolated public enum HomeSpeech {
         case .focusStreak: s("day in a row", "days in a row")
         case .bedtimeKept: s("bedtime kept", "bedtimes kept")
         case .restedNights: s("rested night", "rested nights")
-        case .firstSteps: s("step", "steps")
-        case .nightsTracked: s("night tracked", "nights tracked")
-        case .onTimeBedtimes: s("on-time bedtime", "on-time bedtimes")
-        case .bedtimeRun: s("night in a row", "nights in a row")
-        case .steadyWeeks: s("steady week", "steady weeks")
-        case .seasonsInRhythm: s("season in rhythm", "seasons in rhythm")
-        case .steadyMornings: s("steady morning", "steady mornings")
-        case .fullNights: s("full night", "full nights")
-        case .focusHours: s("hour of focus", "hours of focus")
-        case .focusDays: s("focus day", "focus days")
-        case .focusWeeks: s("focus week", "focus weeks")
-        case .soundWindDowns: s("wind-down with sound", "wind-downs with sound")
-        case .scrollFreeWindDowns: s("scroll-free wind-down", "scroll-free wind-downs")
         case .phoneFreeMornings: s("phone-free morning", "phone-free mornings")
-        case .bedtimeShieldKept: s("shield night", "shield nights")
-        case .reflectionWeeks: s("reflection week", "reflection weeks")
-        case .caffeineCurfew: s("caffeine curfew kept", "caffeine curfews kept")
-        case .windDownRituals: s("wind-down ritual", "wind-down rituals")
-        case .communityChallenges: s("community challenge", "community challenges")
         }
     }
 }

@@ -281,12 +281,12 @@ public final class CollectionStore {
     /// without Apple Health, spec §3.4; it earns nothing) and focus are passed in once they exist.
     public func nowState(
         at date: Date, locale: Locale = .current, lastNight: LastNightSleep? = nil, goodnightAt: Date? = nil,
-        focus: FocusStatus? = nil, windDownActive: Bool = false, checkInDue: Bool = false
+        focus: FocusStatus? = nil, windDownActive: Bool = false
     ) -> NowState {
         NowState.resolve(
             date: date, weekly: context.schedule, calendar: context.calendar, locale: locale,
             pending: pending(at: date).count, counters: snapshot.counters, features: context.features,
-            lastNight: lastNight, goodnightAt: goodnightAt, focus: focus, windDownActive: windDownActive, checkInDue: checkInDue
+            lastNight: lastNight, goodnightAt: goodnightAt, focus: focus, windDownActive: windDownActive
         )
     }
 

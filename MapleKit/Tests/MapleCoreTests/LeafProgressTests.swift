@@ -38,12 +38,10 @@ struct AvailabilityTests {
     @Test("Only M1 categories ship today")
     func shipped() {
         let shipped = RewardCategoryID.allCases.filter { ShippedFeatures.current.isShipped($0) }
-        #expect(shipped == [.firstLeaf, .restedNights, .firstSteps, .nightsTracked, .onTimeBedtimes, .bedtimeRun, .steadyWeeks,
-                            .seasonsInRhythm, .steadyMornings, .fullNights])
+        #expect(shipped == [.firstLeaf, .restedNights])
         #expect(!ShippedFeatures.current.focus)
         #expect(!ShippedFeatures.current.sleepSounds)
-        #expect(!ShippedFeatures.current.checkIns)
-        #expect(ShippedFeatures.all.focus && ShippedFeatures.all.sleepSounds && ShippedFeatures.all.checkIns)
+        #expect(ShippedFeatures.all.focus && ShippedFeatures.all.sleepSounds)
         #expect(RewardCategoryID.allCases.allSatisfy { ShippedFeatures.all.isShipped($0) })
     }
 

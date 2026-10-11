@@ -72,12 +72,12 @@ struct NowStateTests {
         _ hour: Int, _ minute: Int = 0, locale: Locale = enGB, pending: Int = 0,
         counters: [RewardCategoryID: Double] = [:], features: ShippedFeatures = .current,
         lastNight: LastNightSleep? = nil, goodnightAt: Date? = nil, focus: FocusStatus? = nil,
-        windDownActive: Bool = false, checkInDue: Bool = false
+        windDownActive: Bool = false
     ) -> NowState {
         NowState.resolve(
             date: at(2026, 10, 10, hour, minute), schedule: .standard, calendar: utc, locale: locale,
             pending: pending, counters: counters, features: features, lastNight: lastNight, goodnightAt: goodnightAt,
-            focus: focus, windDownActive: windDownActive, checkInDue: checkInDue
+            focus: focus, windDownActive: windDownActive
         )
     }
 
@@ -229,13 +229,6 @@ struct NowStateTests {
         #expect(us.caption == "wind-down tonight · bed 12:30 AM")
     }
 
-    @Test("Check-in once mood check-ins ship")
-    func checkIn() {
-        #expect(state(7, 40, checkInDue: true).action == nil)
-        #expect(state(7, 40, features: .all, checkInDue: true).action == .checkIn)
-        #expect(state(7, 40, features: .all, checkInDue: true).action?.title == "Check in")
-    }
-
     @Test("Pending reveals take over the action in morning, day and evening only")
     func pending() {
         let day = state(13, 40, pending: 2)
@@ -247,7 +240,7 @@ struct NowStateTests {
         #expect(evening.action?.title == "Open your new leaf")
         #expect(evening.waitingLine == "A new leaf is waiting")
         #expect(evening.actionIsDimmed)
-        let morning = state(7, 40, pending: 1, features: .all, checkInDue: true)
+        let morning = state(7, 40, pending: 1, features: .all)
         #expect(morning.action == .openReveals(count: 1))
         for (hour, minute) in [(22, 22), (23, 30), (3, 0)] {
             let quiet = state(hour, minute, pending: 3)
