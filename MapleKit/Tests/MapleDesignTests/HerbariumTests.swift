@@ -429,6 +429,17 @@ struct LeafCellModelTests {
 
 @Suite("Herbarium copy")
 struct HerbariumCopyTests {
+    @Test("Leaf detail names a threatened status with its source year; others say nothing")
+    func conservationLine() {
+        let endangered = LeafSpecies.Conservation(category: .en, year: 2020, source: "https://example.org", note: nil)
+        #expect(HerbariumCopy.conservationLine(endangered) == "Endangered · IUCN Red List, 2020")
+        let noted = LeafSpecies.Conservation(category: .cr, year: 2019, source: "https://example.org", note: "Fewer than 50 wild trees")
+        #expect(HerbariumCopy.conservationLine(noted) == "Critically endangered · IUCN Red List, 2019 · Fewer than 50 wild trees")
+        let common = LeafSpecies.Conservation(category: .lc, year: 2020, source: "https://example.org", note: nil)
+        #expect(HerbariumCopy.conservationLine(common) == nil)
+        #expect(HerbariumCopy.conservationLine(nil) == nil)
+    }
+
     @Test("Leaf descriptions name the form, its lobes or leaflets, and the margin")
     func leafDescriptions() {
         #expect(HerbariumCopy.leafDescription(species("amamiense")) == "Palmate · 5 lobes · toothed")

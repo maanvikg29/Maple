@@ -82,3 +82,26 @@ struct RewardCatalogTests {
         }
     }
 }
+
+@Suite("Conservation data")
+struct ConservationTests {
+    @Test("Assessed species carry their IUCN category, year and source; the rest have none")
+    func decoded() throws {
+        let assessed = LeafCatalog.shared.species.filter { $0.conservation != nil }
+        #expect(!assessed.isEmpty)
+        for species in assessed {
+            let status = try #require(species.conservation)
+            #expect(status.year >= 1990 && status.year <= 2026, "\(species.id)")
+            #expect(status.source.hasPrefix("https://"), "\(species.id)")
+        }
+        #expect(LeafCatalog.shared.species.contains { $0.conservation?.category.isThreatened == true })
+    }
+
+    @Test("Threatened means Critically endangered, Endangered or Vulnerable")
+    func threatened() {
+        #expect(RedListCategory.allCases.filter(\.isThreatened) == [.cr, .en, .vu])
+        #expect(RedListCategory.cr.displayName == "Critically endangered")
+        #expect(RedListCategory.en.displayName == "Endangered")
+        #expect(RedListCategory.vu.displayName == "Vulnerable")
+    }
+}

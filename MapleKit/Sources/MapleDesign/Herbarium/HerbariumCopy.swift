@@ -36,6 +36,15 @@ nonisolated public struct HerbariumCopy: Sendable {
     public static let waitingName = "A new leaf"
     public static let source = "Species list: Plants of the World Online, Royal Botanic Gardens, Kew."
 
+    /// "Endangered · IUCN Red List, 2020", plus the sourced note when there is one; nil unless the species is
+    /// threatened (Critically endangered, Endangered or Vulnerable). Focus spec §4.3.
+    public static func conservationLine(_ status: LeafSpecies.Conservation?) -> String? {
+        guard let status, status.category.isThreatened else { return nil }
+        var parts = [status.category.displayName, "IUCN Red List, \(status.year)"]
+        if let note = status.note, !note.isEmpty { parts.append(note) }
+        return parts.joined(separator: " · ")
+    }
+
     // MARK: Dates
 
     /// "4 Oct" (tile meta when there is no share).

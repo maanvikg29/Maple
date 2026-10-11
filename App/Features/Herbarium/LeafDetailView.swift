@@ -119,6 +119,14 @@ struct LeafDetailView: View {
                 if !entry.isWaiting {
                     SpecimenLabel(species: species)
                         .padding(.top, theme.spacing.sm)
+                    if let line = HerbariumCopy.conservationLine(species.conservation) {
+                        Text(line)
+                            .font(MapleFont.footnote)
+                            .foregroundStyle(theme.colors.textSecondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.top, theme.spacing.sm)
+                            .padding(.horizontal, theme.spacing.md)
+                    }
                     Text(HerbariumCopy.source)
                         .font(.caption)
                         .foregroundStyle(theme.colors.textSecondary)

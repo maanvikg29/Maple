@@ -1,0 +1,942 @@
+{
+  "sources": [
+    {
+      "title": "IUCN (2026). The IUCN Red List of Threatened Species, Version 2026-1, published by IUCN as a GBIF checklist (doi:10.15468/0qnb58); per-species category and assessment citation read from the GBIF API on 2026-10-11 (iucnredlist.org itself returned HTTP 403)",
+      "url": "https://doi.org/10.15468/0qnb58",
+      "year": 2026
+    },
+    {
+      "title": "Crowley, D., Barstow, M., Rivers, M. & Harvey-Brown, Y. (2020) The Red List of Acer: revised and extended. BGCI (PDF >10 MB, could not be fetched; its headline totals of 7 CR / 14 EN / 15 VU match the species-level IUCN data above, excluding the 2021 A. iranicum assessment)",
+      "url": "https://www.bgci.org/wp/wp-content/uploads/2020/09/AcerMedRes2.pdf",
+      "year": 2020
+    },
+    {
+      "title": "The Ecologist, report on the 2020 Red List of Acer (states 7 CR, 14 EN, 15 VU)",
+      "url": "https://theecologist.org/node/2992904",
+      "year": 2020
+    },
+    {
+      "title": "English Wikipedia species pages (wikitext via API, 2026-10-11): cross-check of category and year for 19 threatened catalog species with an article, all matching the IUCN data; source of the notes for pentaphyllum, binzayedii, amamiense",
+      "url": "https://en.wikipedia.org/wiki/Acer_pentaphyllum",
+      "year": 2026
+    },
+    {
+      "title": "(2020) A tree species with an extremely small population: recategorizing the Critically Endangered Acer yangbiense. Oryx (abstract); source of the yangbiense note",
+      "url": "https://pure.ecnu.edu.cn/en/publications/a-tree-species-with-an-extremely-small-population-recategorizing-/",
+      "year": 2020
+    }
+  ],
+  "species": {
+    "acuminatum": {
+      "category": "LC",
+      "year": 2018,
+      "url": "https://api.gbif.org/v1/species/176773657/distributions",
+      "citation": "Chen, Y., Gibbs, D. & Oldfield, S. 2018. Acer acuminatum Wall. ex D.Don. The IUCN Red List of Threatened Species 2018: https://doi.org/10.2305/IUCN.UK.2018-1.RLTS.T193514A2240864.en"
+    },
+    "acutum": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773764/distributions",
+      "citation": "Barstow, M., Crowley, D. & Rivers, M.C. 2020. Acer acutum W.P.Fang. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T194726A2360621.en"
+    },
+    "albopurpurascens": {
+      "category": "LC",
+      "year": 2018,
+      "url": "https://api.gbif.org/v1/species/176773772/distributions",
+      "citation": "Barstow, M. 2018. Acer albopurpurascens Hayata. The IUCN Red List of Threatened Species 2018: https://doi.org/10.2305/IUCN.UK.2018-1.RLTS.T194723A2360399.en"
+    },
+    "amamiense": {
+      "category": "CR",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773691/distributions",
+      "citation": "Harvey-Brown, Y. 2020. Acer amamiense T.Yamaz.. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T103451090A103452327.en",
+      "note": "Only about a dozen trees are known in the wild",
+      "noteUrl": "https://en.wikipedia.org/wiki/Acer_amamiense"
+    },
+    "amplum": {
+      "category": "LC",
+      "year": 2018,
+      "url": "https://api.gbif.org/v1/species/176773641/distributions",
+      "citation": "Oldfield, S., Gibbs, D. & Chen, Y. 2018. Acer amplum Rehder. The IUCN Red List of Threatened Species 2018: https://doi.org/10.2305/IUCN.UK.2018-1.RLTS.T193515A2240947.en"
+    },
+    "argutum": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773666/distributions",
+      "citation": "Harvey-Brown, Y. 2020. Acer argutum Maxim. ex Miq.. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T193519A2241234.en"
+    },
+    "barbinerve": {
+      "category": "LC",
+      "year": 2018,
+      "url": "https://api.gbif.org/v1/species/176773664/distributions",
+      "citation": "Chen, Y., Gibbs, D. & Oldfield, S. 2018. Acer barbinerve Maxim. ex Miq.. The IUCN Red List of Threatened Species 2018: https://doi.org/10.2305/IUCN.UK.2018-1.RLTS.T193520A2241297.en"
+    },
+    "binzayedii": {
+      "category": "CR",
+      "year": 2017,
+      "url": "https://api.gbif.org/v1/species/176773678/distributions",
+      "citation": "Vargas Rodríguez, Y.L. 2017. Acer binzayedii Vargas-Rodriguez. The IUCN Red List of Threatened Species 2017: https://doi.org/10.2305/IUCN.UK.2017-3.RLTS.T112788439A112788448.en",
+      "note": "Only 90 mature trees have been observed in the wild",
+      "noteUrl": "https://en.wikipedia.org/wiki/Acer_binzayedii"
+    },
+    "brevipes": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773457/distributions",
+      "citation": "Barstow, M., Crowley, D. & Rivers, M.C. 2020. Acer sikkimense Miq.. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T191455A1983537.en",
+      "assessedAs": "Acer sikkimense",
+      "synonymRecordUrl": "https://api.gbif.org/v1/species/176773468"
+    },
+    "buergerianum": {
+      "category": "LC",
+      "year": 2018,
+      "url": "https://api.gbif.org/v1/species/176773346/distributions",
+      "citation": "Oldfield, S., Chen, Y. & Gibbs, D. 2018. Acer buergerianum Miq.. The IUCN Red List of Threatened Species 2018: https://doi.org/10.2305/IUCN.UK.2018-1.RLTS.T62936A3116830.en"
+    },
+    "caesium": {
+      "category": "LC",
+      "year": 2018,
+      "url": "https://api.gbif.org/v1/species/176773344/distributions",
+      "citation": "Chen, Y., Gibbs, D. & Oldfield, S. 2018. Acer caesium Wall. ex Brandis. The IUCN Red List of Threatened Species 2018: https://doi.org/10.2305/IUCN.UK.2018-1.RLTS.T62937A3116837.en"
+    },
+    "calcaratum": {
+      "category": "VU",
+      "year": 2019,
+      "url": "https://api.gbif.org/v1/species/176773445/distributions",
+      "citation": "Crowley, D., Barstow, M. & Rivers, M.C. 2019. Acer calcaratum Gagnep.. The IUCN Red List of Threatened Species 2019: https://doi.org/10.2305/IUCN.UK.2019-2.RLTS.T191458A1983782.en"
+    },
+    "campbellii": {
+      "category": "LC",
+      "year": 2018,
+      "url": "https://api.gbif.org/v1/species/176773746/distributions",
+      "citation": "Gibbs, D., Oldfield, S. & Chen, Y. 2018. Acer campbellii Hook.f. & Thomson ex Hiern. The IUCN Red List of Threatened Species 2018: https://doi.org/10.2305/IUCN.UK.2018-1.RLTS.T194685A2357802.en"
+    },
+    "campestre": {
+      "category": "LC",
+      "year": 2017,
+      "url": "https://api.gbif.org/v1/species/176773662/distributions",
+      "citation": "Crowley, D. & Rivers, M.C. 2017. Acer campestre L.. The IUCN Red List of Threatened Species 2017: https://doi.org/10.2305/IUCN.UK.2017-3.RLTS.T193523A2241515.en"
+    },
+    "capillipes": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773826/distributions",
+      "citation": "Harvey-Brown, Y. 2020. Acer capillipes Maxim. ex Miq.. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T193524A2241804.en"
+    },
+    "cappadocicum": {
+      "category": "LC",
+      "year": 2017,
+      "url": "https://api.gbif.org/v1/species/176773677/distributions",
+      "citation": "Crowley, D., Barstow, M. & Rivers, M.C. 2017. Acer cappadocicum Gled.. The IUCN Red List of Threatened Species 2017: https://doi.org/10.2305/IUCN.UK.2017-3.RLTS.T193525A2241869.en"
+    },
+    "carpinifolium": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773668/distributions",
+      "citation": "Harvey-Brown, Y. 2020. Acer carpinifolium Siebold & Zucc.. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T193530A2242223.en"
+    },
+    "caudatifolium": {
+      "category": "LC",
+      "year": 2018,
+      "url": "https://api.gbif.org/v1/species/176773614/distributions",
+      "citation": "Barstow, M., Crowley, D. & Rivers, M.C. 2018. Acer kawakamii Koidz.. The IUCN Red List of Threatened Species 2018: https://doi.org/10.2305/IUCN.UK.2018-2.RLTS.T193531A2242295.en",
+      "assessedAs": "Acer kawakamii",
+      "synonymRecordUrl": "https://api.gbif.org/v1/species/176773616"
+    },
+    "caudatum": {
+      "category": "LC",
+      "year": 2018,
+      "url": "https://api.gbif.org/v1/species/176773618/distributions",
+      "citation": "Chen, Y., Gibbs, D. & Oldfield, S. 2018. Acer caudatum Wall.. The IUCN Red List of Threatened Species 2018: https://doi.org/10.2305/IUCN.UK.2018-1.RLTS.T193532A2242355.en"
+    },
+    "chiangdaoense": {
+      "category": "EN",
+      "year": 2019,
+      "url": "https://api.gbif.org/v1/species/176773403/distributions",
+      "citation": "Barstow, M., Crowley, D. & Rivers, M.C. 2019. Acer chiangdaoense Santisuk. The IUCN Red List of Threatened Species 2019: https://doi.org/10.2305/IUCN.UK.2019-1.RLTS.T191522A1987122.en"
+    },
+    "chienii": {
+      "category": "LC",
+      "year": 2019,
+      "url": "https://api.gbif.org/v1/species/176773441/distributions",
+      "citation": "Barstow, M., Crowley, D. & Rivers, M.C. 2019. Acer chienii Hu & W.C.Cheng. The IUCN Red List of Threatened Species 2019: https://doi.org/10.2305/IUCN.UK.2019-1.RLTS.T191457A1983712.en"
+    },
+    "chingii": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773783/distributions",
+      "citation": "Barstow, M., Crowley, D. & Rivers, M.C. 2020. Acer chingii Hu. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T194739A2361787.en"
+    },
+    "chunii": {
+      "category": "VU",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773744/distributions",
+      "citation": "Crowley, D. & Rivers, M.C. 2020. Acer chunii W.P.Fang. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T194688A2357973.en"
+    },
+    "circinatum": {
+      "category": "LC",
+      "year": 2017,
+      "url": "https://api.gbif.org/v1/species/176773620/distributions",
+      "citation": "Barstow, M., Crowley, D. & Rivers, M.C. 2017. Acer circinatum Pursh. The IUCN Red List of Threatened Species 2017: https://doi.org/10.2305/IUCN.UK.2017-3.RLTS.T193533A2242484.en"
+    },
+    "cissifolium": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773608/distributions",
+      "citation": "Harvey-Brown, Y. 2020. Acer cissifolium (Siebold & Zucc.) K.Koch. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T193534A2242541.en"
+    },
+    "confertifolium": {
+      "category": "VU",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773610/distributions",
+      "citation": "Crowley, D. 2020. Acer confertifolium Merr. & F.P.Metcalf. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-2.RLTS.T193535A171592455.en"
+    },
+    "cordatum": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773611/distributions",
+      "citation": "Crowley, D. 2020. Acer cordatum Pax. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T193536A2242688.en"
+    },
+    "coriaceifolium": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773812/distributions",
+      "citation": "Crowley, D. 2020. Acer coriaceifolium H.Lév.. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-2.RLTS.T194743A171593408.en"
+    },
+    "crassum": {
+      "category": "VU",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773486/distributions",
+      "citation": "Crowley, D. 2020. Acer crassum Hu & W.C.Cheng. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T191450A1983182.en"
+    },
+    "crataegifolium": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773613/distributions",
+      "citation": "Harvey-Brown, Y. 2020. Acer crataegifolium Siebold & Zucc.. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T193539A2242873.en"
+    },
+    "davidii": {
+      "category": "LC",
+      "year": 2018,
+      "url": "https://api.gbif.org/v1/species/176773621/distributions",
+      "citation": "Chen, Y., Gibbs, D. & Oldfield, S. 2018. Acer davidii Franch.. The IUCN Red List of Threatened Species 2018: https://doi.org/10.2305/IUCN.UK.2018-1.RLTS.T193540A2242947.en"
+    },
+    "diabolicum": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773623/distributions",
+      "citation": "Harvey-Brown, Y. 2020. Acer diabolicum Blume ex K.Koch. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T193541A2243094.en"
+    },
+    "distylum": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773625/distributions",
+      "citation": "Harvey-Brown, Y. 2020. Acer distylum Siebold & Zucc.. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T193542A2243139.en"
+    },
+    "duplicatoserratum": {
+      "category": "LC",
+      "year": 2018,
+      "url": "https://api.gbif.org/v1/species/176773370/distributions",
+      "citation": "Oldfield, S. 2018. Acer duplicatoserratum Hayata. The IUCN Red List of Threatened Species 2018: https://doi.org/10.2305/IUCN.UK.2018-1.RLTS.T36476A2865933.en"
+    },
+    "elegantulum": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773628/distributions",
+      "citation": "Crowley, D. 2020. Acer elegantulum W.P.Fang & P.L.Chiu. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-2.RLTS.T193543A171593655.en"
+    },
+    "erianthum": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773627/distributions",
+      "citation": "Crowley, D. 2020. Acer erianthum Schwer.. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-2.RLTS.T193544A171593806.en"
+    },
+    "erythranthum": {
+      "category": "NT",
+      "year": 2017,
+      "url": "https://api.gbif.org/v1/species/176773399/distributions",
+      "citation": "Barstow, M. 2017. Acer erythranthum Gagnep.. The IUCN Red List of Threatened Species 2017: https://doi.org/10.2305/IUCN.UK.2017-3.RLTS.T32810A2824304.en"
+    },
+    "fabri": {
+      "category": "LC",
+      "year": 2018,
+      "url": "https://api.gbif.org/v1/species/176773632/distributions",
+      "citation": "Crowley, D., Barstow, M. & Rivers, M.C. 2018. Acer fabri Hance. The IUCN Red List of Threatened Species 2018: https://doi.org/10.2305/IUCN.UK.2018-1.RLTS.T193545A2243385.en"
+    },
+    "fenzelianum": {
+      "category": "VU",
+      "year": 2018,
+      "url": "https://api.gbif.org/v1/species/176773480/distributions",
+      "citation": "Crowley, D., Rivers, M.C. & Wilson, B. 2018. Acer fenzelianum Hand.-Mazz.. The IUCN Red List of Threatened Species 2018: https://doi.org/10.2305/IUCN.UK.2018-1.RLTS.T191452A1983303.en"
+    },
+    "floridanum": {
+      "category": "LC",
+      "year": 2017,
+      "url": "https://api.gbif.org/v1/species/176773697/distributions",
+      "citation": "Barstow, M. & Crowley, D. 2017. Acer floridanum (Chapm.) Pax. The IUCN Red List of Threatened Species 2017: https://doi.org/10.2305/IUCN.UK.2017-3.RLTS.T103451786A103451818.en"
+    },
+    "forrestii": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773768/distributions",
+      "citation": "Barstow, M., Crowley, D. & Rivers, M.C. 2020. Acer forrestii Diels. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T194722A2360326.en"
+    },
+    "fulvescens": {
+      "category": "VU",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773754/distributions",
+      "citation": "Crowley, D. 2020. Acer fulvescens Rehder. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T194729A2360890.en"
+    },
+    "glabrum": {
+      "category": "LC",
+      "year": 2018,
+      "url": "https://api.gbif.org/v1/species/176773630/distributions",
+      "citation": "Barstow, M., Crowley, D. & Rivers, M.C. 2018. Acer glabrum Torr.. The IUCN Red List of Threatened Species 2018: https://doi.org/10.2305/IUCN.UK.2017-3.RLTS.T193546A125923759.en"
+    },
+    "gracilifolium": {
+      "category": "EN",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773636/distributions",
+      "citation": "Crowley, D. 2020. Acer gracilifolium W.P.Fang. & C.C.Fu. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T193592A2244501.en"
+    },
+    "granatense": {
+      "category": "LC",
+      "year": 2018,
+      "url": "https://api.gbif.org/v1/species/176773335/distributions",
+      "citation": "Barstow, M., Crowley, D. & Rivers, M.C. 2018. Acer granatense Boiss.. The IUCN Red List of Threatened Species 2018: https://doi.org/10.2305/IUCN.UK.2018-2.RLTS.T79927845A96471955.en"
+    },
+    "grandidentatum": {
+      "category": "LC",
+      "year": 2017,
+      "url": "https://api.gbif.org/v1/species/176773706/distributions",
+      "citation": "Barstow, M. & Crowley, D. 2017. Acer grandidentatum Nutt.. The IUCN Red List of Threatened Species 2017: https://doi.org/10.2305/IUCN.UK.2017-3.RLTS.T103451869A103451885.en"
+    },
+    "griseum": {
+      "category": "EN",
+      "year": 2019,
+      "url": "https://api.gbif.org/v1/species/176773634/distributions",
+      "citation": "Aiello, A. & Crowley, D. 2019. Acer griseum (Franch.) Pax. The IUCN Red List of Threatened Species 2019: https://doi.org/10.2305/IUCN.UK.2019-1.RLTS.T193593A2244567.en"
+    },
+    "heldreichii": {
+      "category": "LC",
+      "year": 2017,
+      "url": "https://api.gbif.org/v1/species/176773639/distributions",
+      "citation": "Crowley, D. & Rivers, M.C. 2017. Acer heldreichii Orph. ex Boiss.. The IUCN Red List of Threatened Species 2017: https://doi.org/10.2305/IUCN.UK.2017-3.RLTS.T193594A2244672.en"
+    },
+    "henryi": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773637/distributions",
+      "citation": "Crowley, D. 2020. Acer henryi Pax. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T193595A2244773.en"
+    },
+    "hilaense": {
+      "category": "CR",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773484/distributions",
+      "citation": "Crowley, D. 2020. Acer hilaense Hu & W.C.Cheng. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-2.RLTS.T191451A171591735.en"
+    },
+    "hyrcanum": {
+      "category": "LC",
+      "year": 2018,
+      "url": "https://api.gbif.org/v1/species/176773822/distributions",
+      "citation": "Crowley, D. & Rivers, M.C. 2018. Acer hyrcanum Fisch. & C.A.Mey.. The IUCN Red List of Threatened Species 2018: https://doi.org/10.2305/IUCN.UK.2018-1.RLTS.T193616A2248156.en"
+    },
+    "insulare": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773740/distributions",
+      "citation": "Harvey-Brown, Y. 2020. Acer insulare Makino. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-2.RLTS.T159782239A159782801.en"
+    },
+    "iranicum": {
+      "category": "CR",
+      "year": 2021,
+      "url": "https://api.gbif.org/v1/species/188436060/distributions",
+      "citation": "Mohtashamian, M., Rastegar, A. & Crowley, D. 2021. Acer iranicum M.Mohtashamian & A.Rastegar. The IUCN Red List of Threatened Species 2021: https://doi.org/10.2305/IUCN.UK.2021-1.RLTS.T180760147A180760313.en"
+    },
+    "japonicum": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773824/distributions",
+      "citation": "Harvey-Brown, Y. 2020. Acer japonicum Thunb.. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T193617A2248293.en"
+    },
+    "komarovii": {
+      "category": "LC",
+      "year": 2019,
+      "url": "https://api.gbif.org/v1/species/176773752/distributions",
+      "citation": "Crowley, D. & Barstow, M. 2019. Acer komarovii Pojark.. The IUCN Red List of Threatened Species 2019: https://doi.org/10.2305/IUCN.UK.2019-1.RLTS.T194728A2360809.en"
+    },
+    "kungshanense": {
+      "category": "VU",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773450/distributions",
+      "citation": "Crowley, D. 2020. Acer kungshanense W.P.Fang & C.Yu Chang. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T191454A1983477.en"
+    },
+    "kuomeii": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773411/distributions",
+      "citation": "Crowley, D. 2020. Acer kuomeii W.P.Fang & M.Y.Fang. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T191464A1984262.en"
+    },
+    "kwangnanense": {
+      "category": "EN",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773413/distributions",
+      "citation": "Crowley, D. 2020. Acer kwangnanense Hu & W.C.Cheng. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T191466A1984397.en"
+    },
+    "kweilinense": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773742/distributions",
+      "citation": "Crowley, D. 2020. Acer kweilinense W.P.Fang & M.Y.Fang. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T194698A2358780.en"
+    },
+    "laevigatum": {
+      "category": "LC",
+      "year": 2018,
+      "url": "https://api.gbif.org/v1/species/176773774/distributions",
+      "citation": "Crowley, D., Barstow, M. & Rivers, M.C. 2018. Acer laevigatum Wall.. The IUCN Red List of Threatened Species 2018: https://doi.org/10.2305/IUCN.UK.2018-1.RLTS.T194699A2358843.en"
+    },
+    "laurinum": {
+      "category": "LC",
+      "year": 2018,
+      "url": "https://api.gbif.org/v1/species/176773382/distributions",
+      "citation": "Crowley, D., Barstow, M. & Rivers, M.C. 2018. Acer laurinum Hassk.. The IUCN Red List of Threatened Species 2018: https://doi.org/10.2305/IUCN.UK.2018-1.RLTS.T33284A2836036.en"
+    },
+    "laxiflorum": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773757/distributions",
+      "citation": "Crowley, D. 2020. Acer laxiflorum Pax. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T194724A2360457.en"
+    },
+    "leipoense": {
+      "category": "EN",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773359/distributions",
+      "citation": "Crowley, D. 2020. Acer leipoense W.P.Fang & Soong. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T46386A3005900.en"
+    },
+    "leucoderme": {
+      "category": "LC",
+      "year": 2017,
+      "url": "https://api.gbif.org/v1/species/176773682/distributions",
+      "citation": "Barstow, M. & Crowley, D. 2017. Acer leucoderme Small. The IUCN Red List of Threatened Species 2017: https://doi.org/10.2305/IUCN.UK.2017-3.RLTS.T103451921A103451931.en"
+    },
+    "lobelii": {
+      "category": "LC",
+      "year": 2017,
+      "url": "https://api.gbif.org/v1/species/176773669/distributions",
+      "citation": "Crowley, D. & Rivers, M.C. 2017. Acer lobelii Ten.. The IUCN Red List of Threatened Species 2017: https://doi.org/10.2305/IUCN.UK.2017-3.RLTS.T193529A2242167.en"
+    },
+    "longipes": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773342/distributions",
+      "citation": "Crowley, D. 2020. Acer longipes Franch. ex Rehder. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T62938A3116966.en"
+    },
+    "lucidum": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773595/distributions",
+      "citation": "Crowley, D. 2020. Acer lucidum Metcalf. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T193829A2284261.en"
+    },
+    "lungshengense": {
+      "category": "DD",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773793/distributions",
+      "citation": "Crowley, D. 2020. Acer lungshengense W.P.Fang & L.C.Hu. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T194736A2361493.en"
+    },
+    "macrophyllum": {
+      "category": "LC",
+      "year": 2017,
+      "url": "https://api.gbif.org/v1/species/176773591/distributions",
+      "citation": "Barstow, M., Crowley, D. & Rivers, M.C. 2017. Acer macrophyllum Pursh. The IUCN Red List of Threatened Species 2017: https://doi.org/10.2305/IUCN.UK.2017-3.RLTS.T193830A2284337.en"
+    },
+    "mandshuricum": {
+      "category": "LC",
+      "year": 2018,
+      "url": "https://api.gbif.org/v1/species/176773593/distributions",
+      "citation": "Chen, Y., Gibbs, D. & Oldfield, S. 2018. Acer mandshuricum Maxim.. The IUCN Red List of Threatened Species 2018: https://doi.org/10.2305/IUCN.UK.2018-1.RLTS.T193831A2284396.en"
+    },
+    "maximowiczianum": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773600/distributions",
+      "citation": "Harvey-Brown, Y. 2020. Acer maximowiczianum Miq.. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T193832A2284497.en"
+    },
+    "maximowiczii": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773785/distributions",
+      "citation": "Crowley, D. 2020. Acer maximowiczii Pax. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-2.RLTS.T194737A171593956.en"
+    },
+    "mazandaranicum": {
+      "category": "EN",
+      "year": 2018,
+      "url": "https://api.gbif.org/v1/species/176773689/distributions",
+      "citation": "Barstow, M. & Crowley, D. 2018. Acer mazandaranicum Amini, H.Zare & Assadi. The IUCN Red List of Threatened Species 2018: https://doi.org/10.2305/IUCN.UK.2018-2.RLTS.T103451025A103451041.en"
+    },
+    "metcalfii": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773806/distributions",
+      "citation": "Crowley, D. 2020. Acer metcalfii Rehder. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T194731A2361051.en"
+    },
+    "miaoshanicum": {
+      "category": "DD",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773598/distributions",
+      "citation": "Barstow, M., Chen, Y., Rivers, M.C., Crowley, D. & Gibbs, D. 2020. Acer miaoshanicum W.P.Fang. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T193833A2284594.en"
+    },
+    "micranthum": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773596/distributions",
+      "citation": "Harvey-Brown, Y. 2020. Acer micranthum Siebold & Zucc.. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T193834A2284652.en"
+    },
+    "miyabei": {
+      "category": "VU",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773350/distributions",
+      "citation": "Harvey-Brown, Y. 2020. Acer miyabei Maxim.. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T62939A103449728.en"
+    },
+    "monspessulanum": {
+      "category": "LC",
+      "year": 2018,
+      "url": "https://api.gbif.org/v1/species/176773560/distributions",
+      "citation": "Crowley, D., Rivers, M.C. & Barstow, M. 2018. Acer monspessulanum L.. The IUCN Red List of Threatened Species 2018: https://doi.org/10.2305/IUCN.UK.2018-1.RLTS.T193835A124731677.en"
+    },
+    "morifolium": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773562/distributions",
+      "citation": "Harvey-Brown, Y. 2020. Acer morifolium Koidz.. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T193836A2284887.en"
+    },
+    "negundo": {
+      "category": "LC",
+      "year": 2017,
+      "url": "https://api.gbif.org/v1/species/176773348/distributions",
+      "citation": "Barstow, M., Crowley, D. & Rivers, M.C. 2017. Acer negundo L.. The IUCN Red List of Threatened Species 2017: https://doi.org/10.2305/IUCN.UK.2017-3.RLTS.T62940A3117065.en"
+    },
+    "nigrum": {
+      "category": "LC",
+      "year": 2017,
+      "url": "https://api.gbif.org/v1/species/176773354/distributions",
+      "citation": "Barstow, M. & Crowley, D. 2017. Acer nigrum F.Michx.. The IUCN Red List of Threatened Species 2017: https://doi.org/10.2305/IUCN.UK.2017-3.RLTS.T61961045A61961056.en"
+    },
+    "nipponicum": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773555/distributions",
+      "citation": "Harvey-Brown, Y. 2020. Acer nipponicum H.Hara. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T193840A2285150.en"
+    },
+    "oblongum": {
+      "category": "LC",
+      "year": 2017,
+      "url": "https://api.gbif.org/v1/species/176773352/distributions",
+      "citation": "Barstow, M., Crowley, D. & Rivers, M.C. 2017. Acer oblongum Wall. ex DC.. The IUCN Red List of Threatened Species 2017: https://doi.org/10.2305/IUCN.UK.2017-3.RLTS.T62941A3117072.en"
+    },
+    "obtusifolium": {
+      "category": "LC",
+      "year": 2017,
+      "url": "https://api.gbif.org/v1/species/176773557/distributions",
+      "citation": "Crowley, D., Barstow, M. & Rivers, M.C. 2017. Acer obtusifolium Sm.. The IUCN Red List of Threatened Species 2017: https://doi.org/10.2305/IUCN.UK.2017-3.RLTS.T193841A2285222.en"
+    },
+    "okamotoanum": {
+      "category": "VU",
+      "year": 2019,
+      "url": "https://api.gbif.org/v1/species/176773725/distributions",
+      "citation": "Barstow, M., Crowley, D. & Rivers, M.C. 2019. Acer okamotoanum Nakai. The IUCN Red List of Threatened Species 2019: https://doi.org/10.2305/IUCN.UK.2019-1.RLTS.T103451615A103451619.en"
+    },
+    "oligocarpum": {
+      "category": "EN",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773545/distributions",
+      "citation": "Crowley, D. 2020. Acer oligocarpum W.P.Fang & L.C.Hu. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T193842A2285303.en"
+    },
+    "oliverianum": {
+      "category": "LC",
+      "year": 2018,
+      "url": "https://api.gbif.org/v1/species/176773544/distributions",
+      "citation": "Crowley, D., Barstow, M. & Rivers, M.C. 2018. Acer oliverianum Pax. The IUCN Red List of Threatened Species 2018: https://doi.org/10.2305/IUCN.UK.2018-1.RLTS.T193843A2285359.en"
+    },
+    "opalus": {
+      "category": "LC",
+      "year": 2018,
+      "url": "https://api.gbif.org/v1/species/176773547/distributions",
+      "citation": "Crowley, D. & Rivers, M.C. 2018. Acer opalus Mill.. The IUCN Red List of Threatened Species 2018: https://doi.org/10.2305/IUCN.UK.2018-1.RLTS.T193844A2285496.en"
+    },
+    "paihengii": {
+      "category": "EN",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773437/distributions",
+      "citation": "Crowley, D. 2020. Acer paihengii W.P.Fang. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T191456A1983634.en"
+    },
+    "palmatum": {
+      "category": "LC",
+      "year": 2017,
+      "url": "https://api.gbif.org/v1/species/176773553/distributions",
+      "citation": "Barstow, M. & Crowley, D. 2017. Acer palmatum Thunb.. The IUCN Red List of Threatened Species 2017: https://doi.org/10.2305/IUCN.UK.2017-3.RLTS.T193845A2285627.en"
+    },
+    "pauciflorum": {
+      "category": "NT",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773540/distributions",
+      "citation": "Crowley, D. 2020. Acer pauciflorum W.P.Fang. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T193846A2285717.en"
+    },
+    "paxii": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773810/distributions",
+      "citation": "Crowley, D. 2020. Acer paxii Franch.. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T194742A2362029.en"
+    },
+    "pectinatum": {
+      "category": "LC",
+      "year": 2018,
+      "url": "https://api.gbif.org/v1/species/176773542/distributions",
+      "citation": "Chen, Y., Oldfield, S. & Gibbs, D. 2018. Acer pectinatum Wall. ex Brandis. The IUCN Red List of Threatened Species 2018: https://doi.org/10.2305/IUCN.UK.2018-1.RLTS.T193847A2285798.en"
+    },
+    "pensylvanicum": {
+      "category": "LC",
+      "year": 2017,
+      "url": "https://api.gbif.org/v1/species/176773529/distributions",
+      "citation": "Barstow, M. & Crowley, D. 2017. Acer pensylvanicum L.. The IUCN Red List of Threatened Species 2017: https://doi.org/10.2305/IUCN.UK.2017-3.RLTS.T193849A2285894.en"
+    },
+    "pentaphyllum": {
+      "category": "CR",
+      "year": 2019,
+      "url": "https://api.gbif.org/v1/species/176773530/distributions",
+      "citation": "Barstow, M., Wang, K. & Crowley, D. 2019. Acer pentaphyllum Diels. The IUCN Red List of Threatened Species 2019: https://doi.org/10.2305/IUCN.UK.2019-1.RLTS.T193850A2285958.en",
+      "note": "Fewer than 500 plants recorded in the wild",
+      "noteUrl": "https://en.wikipedia.org/wiki/Acer_pentaphyllum"
+    },
+    "pentapomicum": {
+      "category": "LC",
+      "year": 2017,
+      "url": "https://api.gbif.org/v1/species/176773527/distributions",
+      "citation": "Crowley, D. & Barstow, M. 2017. Acer pentapomicum Stewart ex Brandis. The IUCN Red List of Threatened Species 2017: https://doi.org/10.2305/IUCN.UK.2017-3.RLTS.T193851A2286029.en"
+    },
+    "pictum": {
+      "category": "LC",
+      "year": 2017,
+      "url": "https://api.gbif.org/v1/species/176773778/distributions",
+      "citation": "Crowley, D., Barstow, M. & Rivers, M.C. 2017. Acer pictum Thunb.. The IUCN Red List of Threatened Species 2017: https://doi.org/10.2305/IUCN.UK.2017-3.RLTS.T194704A2359246.en"
+    },
+    "pilosum": {
+      "category": "DD",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773538/distributions",
+      "citation": "Crowley, D. 2020. Acer pilosum Maxim.. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T193852A2286098.en"
+    },
+    "platanoides": {
+      "category": "LC",
+      "year": 2017,
+      "url": "https://api.gbif.org/v1/species/176773532/distributions",
+      "citation": "Crowley, D. & Barstow, M. 2017. Acer platanoides L.. The IUCN Red List of Threatened Species 2017: https://doi.org/10.2305/IUCN.UK.2017-3.RLTS.T193853A2286184.en"
+    },
+    "poliophyllum": {
+      "category": "VU",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773425/distributions",
+      "citation": "Crowley, D. 2020. Acer poliophyllum W.P.Fang & Y.T.Wu. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T191461A1984023.en"
+    },
+    "pseudoplatanus": {
+      "category": "LC",
+      "year": 2017,
+      "url": "https://api.gbif.org/v1/species/176773519/distributions",
+      "citation": "Crowley, D., Rivers, M.C. & Barstow, M. 2017. Acer pseudoplatanus L.. The IUCN Red List of Threatened Species 2017: https://doi.org/10.2305/IUCN.UK.2017-3.RLTS.T193856A2286517.en"
+    },
+    "pseudosieboldianum": {
+      "category": "LC",
+      "year": 2018,
+      "url": "https://api.gbif.org/v1/species/176773525/distributions",
+      "citation": "Chen, Y., Gibbs, D. & Oldfield, S. 2018. Acer pseudosieboldianum (Pax) Kom.. The IUCN Red List of Threatened Species 2018: https://doi.org/10.2305/IUCN.UK.2018-1.RLTS.T193857A2286750.en"
+    },
+    "pseudowilsonii": {
+      "category": "EN",
+      "year": 2018,
+      "url": "https://api.gbif.org/v1/species/176773729/distributions",
+      "citation": "Barstow, M., Crowley, D., Rivers, M.C. & Pooma, R. 2018. Acer pseudowilsonii Y.S.Chen. The IUCN Red List of Threatened Species 2018: https://doi.org/10.2305/IUCN.UK.2018-2.RLTS.T120483837A120484007.en"
+    },
+    "pubinerve": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773747/distributions",
+      "citation": "Crowley, D. 2020. Acer pubinerve Rehder. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-2.RLTS.T194727A171594326.en"
+    },
+    "pubipetiolatum": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773493/distributions",
+      "citation": "Crowley, D. 2020. Acer pubipetiolatum Hu & W.C.Cheng. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T191448A103452322.en"
+    },
+    "pycnanthum": {
+      "category": "VU",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773521/distributions",
+      "citation": "Harvey-Brown, Y. 2020. Acer pycnanthum K.Koch. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T193858A2286832.en"
+    },
+    "robustum": {
+      "category": "DD",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773735/distributions",
+      "citation": "Crowley, D. & Barstow, M. 2020. Acer anhweiense W.P.Fang & M.Y.Fang. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T124102526A124102534.en",
+      "assessedAs": "Acer anhweiense",
+      "synonymRecordUrl": "https://api.gbif.org/v1/species/176773736"
+    },
+    "rubrum": {
+      "category": "LC",
+      "year": 2017,
+      "url": "https://api.gbif.org/v1/species/176773523/distributions",
+      "citation": "Crowley, D. & Barstow, M. 2017. Acer rubrum L.. The IUCN Red List of Threatened Species 2017: https://doi.org/10.2305/IUCN.UK.2017-3.RLTS.T193860A2287111.en"
+    },
+    "rufinerve": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773506/distributions",
+      "citation": "Harvey-Brown, Y. 2020. Acer rufinerve Siebold & Zucc.. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T193861A2287185.en"
+    },
+    "saccharinum": {
+      "category": "LC",
+      "year": 2017,
+      "url": "https://api.gbif.org/v1/species/176773505/distributions",
+      "citation": "Barstow, M. & Crowley, D. 2017. Acer saccharinum L.. The IUCN Red List of Threatened Species 2017: https://doi.org/10.2305/IUCN.UK.2017-3.RLTS.T193862A2287256.en"
+    },
+    "saccharum": {
+      "category": "LC",
+      "year": 2017,
+      "url": "https://api.gbif.org/v1/species/176773503/distributions",
+      "citation": "Barstow, M., Crowley, D. & Rivers, M.C. 2017. Acer saccharum Marshall. The IUCN Red List of Threatened Species 2017: https://doi.org/10.2305/IUCN.UK.2017-3.RLTS.T193863A2287314.en"
+    },
+    "sempervirens": {
+      "category": "LC",
+      "year": 2018,
+      "url": "https://api.gbif.org/v1/species/176773501/distributions",
+      "citation": "Crowley, D. & Rivers, M.C. 2018. Acer sempervirens L.. The IUCN Red List of Threatened Species 2018: https://doi.org/10.2305/IUCN.UK.2018-1.RLTS.T193864A2287383.en"
+    },
+    "serrulatum": {
+      "category": "LC",
+      "year": 2018,
+      "url": "https://api.gbif.org/v1/species/176773794/distributions",
+      "citation": "Barstow, M. 2018. Acer serrulatum Hayata. The IUCN Red List of Threatened Species 2018: https://doi.org/10.2305/IUCN.UK.2018-1.RLTS.T194733A2361290.en"
+    },
+    "shenkanense": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773508/distributions",
+      "citation": "Crowley, D. 2020. Acer shenkanense W.P.Fang ex C.C.Fu. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T193865A2287442.en"
+    },
+    "shihweii": {
+      "category": "CR",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773496/distributions",
+      "citation": "Barstow, M., Crowley, D. & Rivers, M.C. 2020. Acer shihweii F.Chun & W.P.Fang. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T193866A2287519.en"
+    },
+    "shirasawanum": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773495/distributions",
+      "citation": "Harvey-Brown, Y. 2020. Acer shirasawanum Koidz.. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T193867A2287571.en"
+    },
+    "sieboldianum": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773500/distributions",
+      "citation": "Harvey-Brown, Y. 2020. Acer sieboldianum Miq.. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T193868A2287645.en"
+    },
+    "sikkimense": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773457/distributions",
+      "citation": "Barstow, M., Crowley, D. & Rivers, M.C. 2020. Acer sikkimense Miq.. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T191455A1983537.en"
+    },
+    "sino-oblongum": {
+      "category": "EN",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773421/distributions",
+      "citation": "Crowley, D. 2020. Acer sino-oblongum F.P.Metcalf. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T191460A1983954.en"
+    },
+    "sinopurpurascens": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773498/distributions",
+      "citation": "Barstow, M., Crowley, D. & Rivers, M.C. 2020. Acer sinopurpurascens W.C.Cheng. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T193869A2287710.en"
+    },
+    "skutchii": {
+      "category": "CR",
+      "year": 2017,
+      "url": "https://api.gbif.org/v1/species/176773686/distributions",
+      "citation": "Vargas Rodríguez, Y.L., Crowley, D., Barstow, M. & Rivers, M.C. 2017. Acer skutchii Rehder. The IUCN Red List of Threatened Species 2017: https://doi.org/10.2305/IUCN.UK.2017-3.RLTS.T103451945A103451954.en"
+    },
+    "sosnowskyi": {
+      "category": "DD",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773738/distributions",
+      "citation": "Crowley, D., Barstow, M. & Rivers, M.C. 2020. Acer sosnowskyi Doluch.. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T135617131A135617142.en"
+    },
+    "spicatum": {
+      "category": "LC",
+      "year": 2018,
+      "url": "https://api.gbif.org/v1/species/176773589/distributions",
+      "citation": "Crowley, D. & Rivers, M.C. 2018. Acer spicatum Lam.. The IUCN Red List of Threatened Species 2018: https://doi.org/10.2305/IUCN.UK.2018-2.RLTS.T193872A2287797.en"
+    },
+    "stachyophyllum": {
+      "category": "LC",
+      "year": 2018,
+      "url": "https://api.gbif.org/v1/species/176773588/distributions",
+      "citation": "Chen, Y., Gibbs, D. & Oldfield, S. 2018. Acer stachyophyllum Hiern. The IUCN Red List of Threatened Species 2018: https://doi.org/10.2305/IUCN.UK.2018-1.RLTS.T193873A2287852.en"
+    },
+    "sterculiaceum": {
+      "category": "LC",
+      "year": 2018,
+      "url": "https://api.gbif.org/v1/species/176773584/distributions",
+      "citation": "Oldfield, S. 2018. Acer sterculiaceum Wall.. The IUCN Red List of Threatened Species 2018: https://doi.org/10.2305/IUCN.UK.2018-1.RLTS.T193874A2287979.en"
+    },
+    "sutchuenense": {
+      "category": "EN",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773582/distributions",
+      "citation": "Crowley, D. 2020. Acer sutchuenense Franch.. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T193876A2288054.en"
+    },
+    "sycopseoides": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773407/distributions",
+      "citation": "Barstow, M., Crowley, D. & Rivers, M.C. 2020. Acer sycopseoides F.Chun. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T191465A1984331.en"
+    },
+    "tataricum": {
+      "category": "LC",
+      "year": 2018,
+      "url": "https://api.gbif.org/v1/species/176773586/distributions",
+      "citation": "Crowley, D. 2018. Acer tataricum L.. The IUCN Red List of Threatened Species 2018: https://doi.org/10.2305/IUCN.UK.2018-1.RLTS.T193877A2288126.en"
+    },
+    "tegmentosum": {
+      "category": "LC",
+      "year": 2018,
+      "url": "https://api.gbif.org/v1/species/176773581/distributions",
+      "citation": "Chen, Y., Gibbs, D. & Oldfield, S. 2018. Acer tegmentosum Maxim.. The IUCN Red List of Threatened Species 2018: https://doi.org/10.2305/IUCN.UK.2018-1.RLTS.T193883A2288647.en"
+    },
+    "tenellum": {
+      "category": "EN",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773779/distributions",
+      "citation": "Barstow, M., Crowley, D. & Rivers, M.C. 2020. Acer tenellum Pax. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T194715A2360064.en"
+    },
+    "tenuifolium": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773721/distributions",
+      "citation": "Harvey-Brown, Y. 2020. Acer tenuifolium (Koidz.) Koidz.. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T103451679A103451682.en"
+    },
+    "thomsonii": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773470/distributions",
+      "citation": "Barstow, M., Crowley, D. & Rivers, M.C. 2020. Acer thomsonii Miq.. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T191453A1983371.en"
+    },
+    "tibetense": {
+      "category": "VU",
+      "year": 2019,
+      "url": "https://api.gbif.org/v1/species/176773579/distributions",
+      "citation": "Crowley, D., Barstow, M. & Rivers, M.C. 2019. Acer tibetense W.P.Fang. The IUCN Red List of Threatened Species 2019: https://doi.org/10.2305/IUCN.UK.2019-1.RLTS.T193884A2288738.en"
+    },
+    "tonkinense": {
+      "category": "NT",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773427/distributions",
+      "citation": "Barstow, M., Crowley, D. & Rivers, M.C. 2020. Acer tonkinense Lecomte. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T191462A1984089.en"
+    },
+    "triflorum": {
+      "category": "LC",
+      "year": 2019,
+      "url": "https://api.gbif.org/v1/species/176773574/distributions",
+      "citation": "Crowley, D. & Barstow, M. 2019. Acer triflorum Kom.. The IUCN Red List of Threatened Species 2019: https://doi.org/10.2305/IUCN.UK.2019-1.RLTS.T193885A2288798.en"
+    },
+    "truncatum": {
+      "category": "LC",
+      "year": 2018,
+      "url": "https://api.gbif.org/v1/species/176773572/distributions",
+      "citation": "Chen, Y., Gibbs, D. & Oldfield, S. 2018. Acer truncatum Bunge. The IUCN Red List of Threatened Species 2018: https://doi.org/10.2305/IUCN.UK.2018-1.RLTS.T193886A2288883.en"
+    },
+    "tschonoskii": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773577/distributions",
+      "citation": "Harvey-Brown, Y. 2020. Acer tschonoskii Maxim.. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T193887A2289010.en"
+    },
+    "tsinglingense": {
+      "category": "LC",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773800/distributions",
+      "citation": "Crowley, D. 2020. Acer tsinglingense W.P.Fang & C.C.Hsieh. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T194735A2361410.en"
+    },
+    "tutcheri": {
+      "category": "LC",
+      "year": 2018,
+      "url": "https://api.gbif.org/v1/species/176773766/distributions",
+      "citation": "Gibbs, D., Chen, Y. & Oldfield, S. 2018. Acer tutcheri Duthie. The IUCN Red List of Threatened Species 2018: https://doi.org/10.2305/IUCN.UK.2018-1.RLTS.T194718A2360197.en"
+    },
+    "ukurunduense": {
+      "category": "LC",
+      "year": 2019,
+      "url": "https://api.gbif.org/v1/species/176773762/distributions",
+      "citation": "Barstow, M. & Crowley, D. 2019. Acer ukurunduense Trautv. & C.A.Mey.. The IUCN Red List of Threatened Species 2019: https://doi.org/10.2305/IUCN.UK.2019-1.RLTS.T194725A2360522.en"
+    },
+    "undulatum": {
+      "category": "CR",
+      "year": 2018,
+      "url": "https://api.gbif.org/v1/species/176773392/distributions",
+      "citation": "Crowley, D., Güner, A. & Rivers, M.C. 2018. Acer undulatum Pojark.. The IUCN Red List of Threatened Species 2018: https://doi.org/10.2305/IUCN.UK.2018-1.RLTS.T33003A2829580.en"
+    },
+    "velutinum": {
+      "category": "LC",
+      "year": 2017,
+      "url": "https://api.gbif.org/v1/species/176773575/distributions",
+      "citation": "Crowley, D., Barstow, M. & Rivers, M.C. 2017. Acer velutinum Boiss.. The IUCN Red List of Threatened Species 2017: https://doi.org/10.2305/IUCN.UK.2017-3.RLTS.T193888A2289069.en"
+    },
+    "wangchii": {
+      "category": "NT",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773570/distributions",
+      "citation": "Crowley, D. 2020. Acer wangchii W.P.Fang. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T193889A2289150.en"
+    },
+    "wardii": {
+      "category": "LC",
+      "year": 2019,
+      "url": "https://api.gbif.org/v1/species/176773418/distributions",
+      "citation": "Crowley, D., Barstow, M. & Rivers, M.C. 2019. Acer wardii W.W.Sm.. The IUCN Red List of Threatened Species 2019: https://doi.org/10.2305/IUCN.UK.2019-1.RLTS.T191459A1983878.en"
+    },
+    "wilsonii": {
+      "category": "LC",
+      "year": 2018,
+      "url": "https://api.gbif.org/v1/species/176773798/distributions",
+      "citation": "Crowley, D., Barstow, M. & Rivers, M.C. 2018. Acer wilsonii Rehder. The IUCN Red List of Threatened Species 2018: https://doi.org/10.2305/IUCN.UK.2018-1.RLTS.T194732A2361139.en"
+    },
+    "yangbiense": {
+      "category": "EN",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773405/distributions",
+      "citation": "Barstow, M. 2020. Acer yangbiense Y.S.Chen & Q.E.Yang. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T191463A1984196.en",
+      "note": "Surveys in 2016 found 577 trees at 12 sites, only 62 of them protected",
+      "noteUrl": "https://pure.ecnu.edu.cn/en/publications/a-tree-species-with-an-extremely-small-population-recategorizing-/"
+    },
+    "yinkunii": {
+      "category": "DD",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773568/distributions",
+      "citation": "Barstow, M., Crowley, D. & Rivers, M.C. 2020. Acer yinkunii W.P.Fang. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T193890A2289414.en"
+    },
+    "yui": {
+      "category": "EN",
+      "year": 2020,
+      "url": "https://api.gbif.org/v1/species/176773564/distributions",
+      "citation": "Crowley, D. 2020. Acer yui W.P.Fang. The IUCN Red List of Threatened Species 2020: https://doi.org/10.2305/IUCN.UK.2020-1.RLTS.T193891A2289468.en"
+    }
+  },
+  "unverified": [
+    "cinerascentiforme",
+    "leptophyllum",
+    "mapienense",
+    "orthocampestre",
+    "shangszeense",
+    "shenzhenensis",
+    "zarei"
+  ]
+}
