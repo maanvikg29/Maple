@@ -132,7 +132,7 @@ Never shown:
 
 | Category id | Name | Unit | Rungs | Needs | Release |
 |---|---|---|---|---|---|
-| `first_leaf` | First leaf | step | 1 | — | F1 |
+| `first_leaf` | First leaf | step | 1 | — | Now (step 1) |
 | `hours_saved` | Hours saved | hours | 114 (§4.2) | Screen Time | F1 |
 | `sessions_finished` | Sessions finished | sessions | 1, 10, 25, 50, 100, 250, 500, 1000 | Screen Time | F1 |
 | `focus_streak` | Focus streak | days (best run) | 3, 7, 14, 30, 50, 75, 100, 150, 250, 365 | Screen Time | F1 |
@@ -140,7 +140,7 @@ Never shown:
 | `bedtime_kept` | Bedtime kept | nights | 1, 7, 25, 50, 100, 200, 365 | Screen Time | F2 |
 | `rested_nights` | Rested nights | nights | 3, 14, 30, 60, 100, 175, 250, 365 | Apple Health | Sleep import |
 
-- **`first_leaf`:** Sugar maple, "Plant your maple". Earned at the end of onboarding at any hour (D12 unchanged). It no longer depends on saving a sleep schedule.
+- **`first_leaf`:** Sugar maple, "Plant your maple". Earned at the end of onboarding at any hour (D12 unchanged). It ships now, because onboarding reveals it. Until F1 restructures onboarding it is still awarded when onboarding saves the schedule, the step just before the sprout. From F1 on it no longer depends on the schedule.
 - **`rested_nights`:** counts nights the NightLedger settles as `.onTime` (asleep by the target bedtime, from Apple Health only, D9). Its leaves follow the existing reveal schedule (held overnight, opened in the morning). It is never Home's automatic next leaf.
 
 ### 4.2 Hours-saved thresholds
