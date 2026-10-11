@@ -22,8 +22,14 @@ nonisolated public struct DemoLaunchOptions: Sendable, Equatable {
     public var fresh = false
     /// `-MapleDemoPermissions none|health|all`: granted permissions (demo collections default to `health`).
     public var permissions: GrantedPermissions?
-    /// `-MapleDemoSchedule 00:30-08:30` (bedtime-wake, optionally `/60` wind-down minutes): the saved schedule.
+    /// `-MapleDemoSchedule 00:30-08:30` (bedtime-wake, optionally `/60` wind-down minutes): the saved schedule,
+    /// every night unless `weekendSchedule` is given too.
     public var schedule: SleepSchedule?
+    /// `-MapleDemoWeekendSchedule 00:30-09:00/60`: the saved weekend schedule (same format as `schedule`).
+    public var weekendSchedule: SleepSchedule?
+    /// `-MapleDemoDay friday` (a weekday name) or `2026-10-09`: the day `phase` freezes the clock on, so a weekend
+    /// night's evening can be shown on any day.
+    public var day: String?
 
     public init() {}
 
@@ -54,6 +60,34 @@ nonisolated public struct DemoLaunchOptions: Sendable, Equatable {
         default: nil
         }
         schedule = value("MapleDemoSchedule").flatMap(Self.schedule(from:))
+        weekendSchedule = value("MapleDemoWeekendSchedule").flatMap(Self.schedule(from:))
+        day = value("MapleDemoDay")
+    }
+
+    /// The saved weekly schedule these arguments make from `saved` (the demo's own, or the member's): the
+    /// `-MapleDemoSchedule` every night, and the `-MapleDemoWeekendSchedule` on weekend nights. Nil when neither
+    /// is given.
+    public func weekly(replacing saved: WeeklySleepSchedule?) -> WeeklySleepSchedule? {
+        guard schedule != nil || weekendSchedule != nil else { return nil }
+        var weekly = schedule.map(WeeklySleepSchedule.everyNight) ?? saved ?? .standard
+        if let weekendSchedule { weekly.weekend = weekendSchedule }
+        return weekly
+    }
+
+    /// The day `-MapleDemoDay` names, on or after `now`'s day: the next such weekday (today if it is one), or a
+    /// `yyyy-MM-dd` date. Nil without the argument or when it can't be read.
+    public func demoDay(from now: Date, calendar: Calendar) -> Date? {
+        guard let day = day?.lowercased() else { return nil }
+        let parts = day.split(separator: "-").compactMap { Int($0) }
+        if parts.count == 3 {
+            return calendar.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2], hour: 12))
+        }
+        var english = Calendar(identifier: .gregorian)
+        english.locale = Locale(identifier: "en_US_POSIX")
+        guard let index = english.weekdaySymbols.firstIndex(where: { $0.lowercased() == day }) else { return nil }
+        let noon = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: now) ?? now
+        if calendar.component(.weekday, from: noon) == index + 1 { return noon }
+        return calendar.nextDate(after: noon, matching: DateComponents(hour: 12, weekday: index + 1), matchingPolicy: .nextTime)
     }
 
     /// "00:30-08:30" or "00:30-08:30/60"; nil when malformed. Wind-down defaults to the standard 45 minutes.

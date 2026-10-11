@@ -86,7 +86,7 @@ struct StoreSafetyTests {
         let collection = CollectionStore(storage: JSONStorage(.memory), context: testContext, now: at(2026, 10, 1, 21))
         let scheduleURL = folder.appendingPathComponent(MapleStores.scheduleFile)
         let mine = SleepSchedule(bedtime: ClockTime(hour: 22, minute: 30), wake: ClockTime(hour: 6, minute: 30), windDownMinutes: 30)
-        JSONStorage<SavedSchedule>(.file(scheduleURL)).save(SavedSchedule(schedule: mine, savedAt: at(2026, 10, 1, 21)))
+        JSONStorage<SavedSchedule>(.file(scheduleURL)).save(SavedSchedule(schedule: .everyNight(mine), savedAt: at(2026, 10, 1, 21)))
         let settingsURL = folder.appendingPathComponent(AppSettings.file)
         let settings = AppSettings(storage: JSONStorage(.file(settingsURL)), regionCode: "GB")
         settings.sleepGoalMinutes = 8 * 60
@@ -103,7 +103,7 @@ struct StoreSafetyTests {
         try unlock(scheduleURL)
         try unlock(settingsURL)
         #expect(schedules.reloadIfUnavailable())
-        #expect(schedules.schedule == mine && collection.schedule == mine)
+        #expect(schedules.schedule == mine && collection.schedule == .everyNight(mine))
         #expect(lockedSettings.reloadIfUnavailable())
         #expect(lockedSettings.sleepGoalMinutes == 8 * 60)
         #expect(AppSettings(storage: JSONStorage(.file(settingsURL)), regionCode: "GB").sleepGoalMinutes == 8 * 60)

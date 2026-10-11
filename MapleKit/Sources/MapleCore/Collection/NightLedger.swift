@@ -40,8 +40,10 @@ public enum BedtimeOutcome: String, Codable, Sendable {
 ///
 /// - A night runs 18:00 to 18:00 local and belongs to the evening it starts on.
 /// - Counting starts on the install night (the night the first schedule was saved in) when setup finished before
-///   that night's sleep began. The schedule that judges a night is the one in force at 18:00 that evening; the very
-///   first one applies to the install night only if it was saved at least 30 minutes before its bedtime.
+///   that night's sleep began. The schedule that judges a night is the weekly schedule in force at 18:00 that
+///   evening, and within it the night's own variant: a night that wakes into a weekend day is judged by the weekend
+///   schedule (`WeeklySleepSchedule.times(forNight:calendar:)`). The very first schedule applies to the install
+///   night only if it was saved at least 30 minutes before its bedtime.
 /// - A night is tracked when Apple Health has a main episode of 3 hours or more. It is on time when sleep onset
 ///   falls from bedtime − 2 h to bedtime + 30 min (earlier is early: neutral), and a steady morning when final wake
 ///   is within 30 minutes of the wake time. A full night has asleep time of at least the sleep need − 30 minutes,
@@ -61,14 +63,14 @@ public struct NightLedger: Sendable, Equatable {
     public struct Rules: Sendable {
         /// When the first schedule was saved (the Sugar maple's unlock): nights before it don't count.
         public var setup: Date
-        /// The schedule in force now. Nights that began before a change use the one recorded with
+        /// The weekly schedule in force now. Nights that began before a change use the one recorded with
         /// `scheduleChanged(from:at:calendar:)`.
-        public var schedule: SleepSchedule
+        public var schedule: WeeklySleepSchedule
         /// The member's sleep need in minutes; a full night is at least this − 30 minutes asleep.
         public var sleepNeedMinutes: Int
         public var calendar: Calendar
 
-        public init(setup: Date, schedule: SleepSchedule, sleepNeedMinutes: Int, calendar: Calendar) {
+        public init(setup: Date, schedule: WeeklySleepSchedule, sleepNeedMinutes: Int, calendar: Calendar) {
             self.setup = setup
             self.schedule = schedule
             self.sleepNeedMinutes = sleepNeedMinutes
@@ -121,12 +123,13 @@ public struct NightLedger: Sendable, Equatable {
         }
     }
 
-    /// A schedule that was replaced, and the last night it judged.
+    /// A schedule that was replaced, and the last night it judged. One saved before weekend schedules existed
+    /// decodes as the same schedule every night (`WeeklySleepSchedule`'s coding).
     public struct PastSchedule: Codable, Sendable, Hashable {
         public var through: LocalDay
-        public var schedule: SleepSchedule
+        public var schedule: WeeklySleepSchedule
 
-        public init(through: LocalDay, schedule: SleepSchedule) {
+        public init(through: LocalDay, schedule: WeeklySleepSchedule) {
             self.through = through
             self.schedule = schedule
         }
@@ -215,12 +218,10 @@ public struct NightLedger: Sendable, Equatable {
         return calendar.date(from: parts) ?? day.startDate(in: calendar)
     }
 
-    /// When `night` can be settled under `schedule`: the next morning's start, an hour before wake time.
-    public static func settleDate(of night: LocalDay, schedule: SleepSchedule, calendar: Calendar) -> Date {
-        let morning = night.adding(days: 1, calendar: calendar)
-        let parts = DateComponents(year: morning.year, month: morning.month, day: morning.day,
-                                   hour: schedule.wake.hour, minute: schedule.wake.minute)
-        return (calendar.date(from: parts) ?? morning.startDate(in: calendar)).addingTimeInterval(-3600)
+    /// When `night` can be settled under `schedule`: the next morning's start, an hour before that night's wake time
+    /// (the weekend wake for a weekend night).
+    public static func settleDate(of night: LocalDay, schedule: WeeklySleepSchedule, calendar: Calendar) -> Date {
+        schedule.times(forNight: night, calendar: calendar).morningStart
     }
 
     /// On time, late or early: sleep onset against that night's bedtime.
@@ -237,9 +238,15 @@ public struct NightLedger: Sendable, Equatable {
         night(containing: setup, calendar: calendar)
     }
 
-    /// The schedule that judges `night`: the one in force at 18:00 that evening.
-    public func schedule(for night: LocalDay, current: SleepSchedule) -> SleepSchedule {
+    /// The weekly schedule that judges `night`: the one in force at 18:00 that evening.
+    public func schedule(for night: LocalDay, current: WeeklySleepSchedule) -> WeeklySleepSchedule {
         pastSchedules.first { $0.through >= night }?.schedule ?? current
+    }
+
+    /// `night`'s bedtime and wake as it is judged: the weekly schedule in force at 18:00 that evening, and within it
+    /// the night's own variant (a night waking into a weekend day uses the weekend schedule), in `calendar`.
+    public func times(for night: LocalDay, current: WeeklySleepSchedule, calendar: Calendar) -> NightTimes {
+        schedule(for: night, current: current).times(forNight: night, calendar: calendar)
     }
 
     /// Judges one night from its observation (nil: untracked). Run fields are left at zero. Bedtime and wake time are
@@ -252,12 +259,12 @@ public struct NightLedger: Sendable, Equatable {
         if night == first, observation.onset <= rules.setup { return Night(night: night, outcome: .untracked) }
 
         let calendar = observation.calendar(from: rules.calendar)
-        let schedule = schedule(for: night, current: rules.schedule)
-        let bedtime = Self.date(schedule.bedtime, on: night, calendar: calendar)
+        let times = times(for: night, current: rules.schedule, calendar: calendar)
+        let bedtime = times.bedtime
         let judged = night != first || rules.setup <= bedtime.addingTimeInterval(-Self.firstScheduleLead)
         let outcome = judged ? Self.outcome(onset: observation.onset, bedtime: bedtime) : .unscheduled
-        let wake = Self.date(schedule.wake, on: night, calendar: calendar)
-        let steadyMorning = abs(observation.finalWake.timeIntervalSince(wake)) <= Self.steadyMorningWindow
+        // That day's target wake time (rewards.json `steady_mornings`): the weekend wake after a weekend night.
+        let steadyMorning = abs(observation.finalWake.timeIntervalSince(times.wake)) <= Self.steadyMorningWindow
         let fullNight: Bool? = observation.source.hasAsleepTime
             ? (observation.asleepMinutes ?? 0) >= Double(rules.sleepNeedMinutes - Self.fullNightAllowanceMinutes)
             : nil
@@ -313,7 +320,7 @@ public struct NightLedger: Sendable, Equatable {
 
     /// A schedule was replaced at `date`. Nights that had begun by then (18:00 cut-off) keep being judged by `old`
     /// (rewards.md: "Schedule edits apply from the next night").
-    public mutating func scheduleChanged(from old: SleepSchedule, at date: Date, calendar: Calendar) {
+    public mutating func scheduleChanged(from old: WeeklySleepSchedule, at date: Date, calendar: Calendar) {
         let through = Self.night(containing: date, calendar: calendar)
         pastSchedules.append(PastSchedule(through: through, schedule: old))
         if pastSchedules.count > Self.pastSchedulesKept {

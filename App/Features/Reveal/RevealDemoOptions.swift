@@ -20,10 +20,11 @@ enum RevealDemoOptions {
     /// `-MapleDemoReduceMotion YES`: the reveal and the onboarding end render as under Reduce Motion
     /// (`simctl` has no Reduce Motion switch).
     static var reduceMotion: Bool { isDemoLaunch && UserDefaults.standard.bool(forKey: "MapleDemoReduceMotion") }
-    /// `-MapleDemoOnboardingStep seed|sprout|reveal|placed`: starts the onboarding end past the schedule step
-    /// (the default schedule is saved through `ScheduleStore`, in memory). `seed` holds the neutral bud,
-    /// `sprout` lets it turn amber, `reveal` opens the Sugar maple (freeze it with `-MapleDemoRevealAt`), `placed`
-    /// shows the grafted seedling and stays there.
+    /// `-MapleDemoOnboardingStep <step>`: opens onboarding on one screen (docs/debug-launch-arguments.md). The
+    /// setup screens: `wake`, `weekend`, `weekend:later`, `sleep`, `winddown`, `schedule`, `schedule:weekend`,
+    /// `health`, `notifications`. The end, past the schedule step (the default schedule is saved through
+    /// `ScheduleStore`, in memory): `seed` holds the neutral bud, `sprout` lets it turn amber, `reveal` opens the
+    /// Sugar maple (freeze it with `-MapleDemoRevealAt`), `placed` shows the grafted seedling and stays there.
     static var onboardingStep: String? {
         isDemoLaunch ? UserDefaults.standard.string(forKey: "MapleDemoOnboardingStep") : nil
     }

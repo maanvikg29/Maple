@@ -74,7 +74,7 @@ public struct MapleStores {
         let healthReloaded = health.reloadIfUnavailable()
         if collectionReloaded, !scheduleReloaded {
             // The collection's placeholder had the standard schedule; give it the member's again.
-            collection.schedule = schedule.schedule
+            collection.schedule = schedule.weekly
         }
         if collectionReloaded || healthReloaded { health.apply(to: collection) }
         return collectionReloaded || scheduleReloaded
@@ -122,7 +122,7 @@ public struct MapleStores {
             snapshot = realCollection.load()
             saved = realSchedule.load()
         }
-        if let custom = options.schedule, !options.fresh {
+        if let custom = options.weekly(replacing: saved?.schedule), !options.fresh {
             saved = SavedSchedule(schedule: custom, savedAt: saved?.savedAt ?? now)
         }
 
@@ -130,9 +130,11 @@ public struct MapleStores {
         let schedule = ScheduleStore(storage: JSONStorage(.memory, initial: saved), collection: collection)
         if options.rarity { collection.setRarityConsent(true) }
 
+        let day = options.demoDay(from: now, calendar: calendar) ?? now
         let clock: MapleClock = options.phase.map { phase in
-            .fixed(PhaseWindows(schedule: schedule.schedule).sampleDate(in: phase, onDayOf: now, calendar: calendar))
+            .fixed(PhaseWindows(weekly: schedule.weekly).sampleDate(in: phase, onDayOf: day, calendar: calendar))
         } ?? .live
+        schedule.clock = clock
         let provider: any LeafShareProvider = options.rarity ? PreviewLeafShareProvider() : UnconfiguredLeafShareProvider()
         let shares = LeafShareStore(provider: provider, storage: JSONStorage(.memory), features: context.features, clock: clock)
         return MapleStores(collection: collection, schedule: schedule, shares: shares, health: health, clock: clock,
