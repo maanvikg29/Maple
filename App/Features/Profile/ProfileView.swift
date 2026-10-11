@@ -163,19 +163,19 @@ struct ProfileTotalItem: Identifiable, Equatable {
 
     static func items(_ totals: ProfileTotals) -> [ProfileTotalItem] {
         var items: [ProfileTotalItem] = []
-        if let nights = totals.nightsOnTime {
-            items.append(count(nights, one: "night on time", many: "nights on time"))
-        }
-        if let hours = totals.focusHours {
+        if let hours = totals.hoursSaved {
             let value = hours.formatted(.number.precision(.fractionLength(0...1)))
-            items.append(ProfileTotalItem(value: value, caption: hours == 1 ? "focus hour" : "focus hours",
-                                          spoken: "\(value) \(hours == 1 ? "hour" : "hours") of focus"))
+            items.append(ProfileTotalItem(value: value, caption: hours == 1 ? "hour saved" : "hours saved",
+                                          spoken: "\(value) \(hours == 1 ? "hour" : "hours") saved"))
         }
-        if let windDowns = totals.windDowns {
-            items.append(count(windDowns, one: "wind-down", many: "wind-downs"))
+        if let sessions = totals.sessionsFinished {
+            items.append(count(sessions, one: "session", many: "sessions"))
         }
-        if let mornings = totals.mornings {
-            items.append(count(mornings, one: "steady morning", many: "steady mornings"))
+        if let nights = totals.restedNights {
+            items.append(count(nights, one: "rested night", many: "rested nights"))
+        }
+        if let mornings = totals.phoneFreeMornings {
+            items.append(count(mornings, one: "phone-free morning", many: "phone-free mornings"))
         }
         return items
     }

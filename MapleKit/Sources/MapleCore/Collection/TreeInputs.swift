@@ -90,18 +90,21 @@ public struct ProfileTotals: Sendable, Equatable {
     public var leaves: Int
     public var tendedDays: Int
     public var stage: TreeStage
-    public var nightsOnTime: Int?
-    public var focusHours: Double?
-    public var windDowns: Int?
-    public var mornings: Int?
+    public var hoursSaved: Double?
+    public var sessionsFinished: Int?
+    public var restedNights: Int?
+    public var phoneFreeMornings: Int?
 
-    public init(leaves: Int, tendedDays: Int, stage: TreeStage, nightsOnTime: Int?, focusHours: Double?, windDowns: Int?, mornings: Int?) {
+    public init(
+        leaves: Int, tendedDays: Int, stage: TreeStage, hoursSaved: Double?, sessionsFinished: Int?, restedNights: Int?,
+        phoneFreeMornings: Int?
+    ) {
         self.leaves = leaves
         self.tendedDays = tendedDays
         self.stage = stage
-        self.nightsOnTime = nightsOnTime
-        self.focusHours = focusHours
-        self.windDowns = windDowns
-        self.mornings = mornings
+        self.hoursSaved = hoursSaved
+        self.sessionsFinished = sessionsFinished
+        self.restedNights = restedNights
+        self.phoneFreeMornings = phoneFreeMornings
     }
 }

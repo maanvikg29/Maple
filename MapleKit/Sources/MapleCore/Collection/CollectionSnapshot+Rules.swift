@@ -319,8 +319,8 @@ extension CollectionSnapshot {
         let opened = leafCount.opened
         return ProfileTotals(
             leaves: opened, tendedDays: tendedDayCount, stage: TreeStage(speciesCount: opened),
-            nightsOnTime: total(.restedNights).map { Int($0) }, focusHours: total(.focusHours),
-            windDowns: total(.windDownRituals).map { Int($0) }, mornings: total(.steadyMornings).map { Int($0) }
+            hoursSaved: total(.hoursSaved), sessionsFinished: total(.sessionsFinished).map { Int($0) },
+            restedNights: total(.restedNights).map { Int($0) }, phoneFreeMornings: total(.phoneFreeMornings).map { Int($0) }
         )
     }
 }

@@ -316,18 +316,31 @@ struct CollectionTreeTests {
         #expect(totals.leaves == snapshot.earned.count)
         #expect(totals.tendedDays == 3)
         #expect(totals.stage == .sapling)
-        #expect(totals.nightsOnTime == 3)
-        #expect(totals.focusHours == nil)
-        #expect(totals.windDowns == nil)
-        #expect(totals.mornings == 0)
-        // Without Apple Health no sleep category can count, so none has a total.
+        #expect(totals.restedNights == 3)
+        // The focus categories ship with F1 and F2.
+        #expect(totals.hoursSaved == nil && totals.sessionsFinished == nil && totals.phoneFreeMornings == nil)
+        // Without Apple Health no sleep category can count, so it has no total.
         var withoutHealth = context
         withoutHealth.permissions = []
-        #expect(snapshot.totals(context: withoutHealth).nightsOnTime == nil)
-        #expect(snapshot.totals(context: withoutHealth).mornings == nil)
+        #expect(snapshot.totals(context: withoutHealth).restedNights == nil)
         var everything = context
         everything.features = .all
-        #expect(snapshot.totals(context: everything).focusHours == 0)
+        everything.permissions = [.appleHealth, .screenTime]
+        #expect(snapshot.totals(context: everything).hoursSaved == 3)
+    }
+
+    @Test("Profile totals: hours saved, sessions, rested nights and mornings, each only once it can be earned")
+    func focusTotals() {
+        var snapshot = CollectionSnapshot.empty(profileID: UUID(), createdAt: at(2026, 10, 1, 12))
+        snapshot.counters = [.hoursSaved: 12.5, .sessionsFinished: 9, .restedNights: 4, .phoneFreeMornings: 2]
+        let now = CollectionContext(schedule: .standard, permissions: [.appleHealth], calendar: utc, hemisphere: .northern)
+        let today = snapshot.totals(context: now)
+        #expect(today.hoursSaved == nil && today.sessionsFinished == nil && today.phoneFreeMornings == nil)
+        #expect(today.restedNights == 4)
+        let f2 = CollectionContext(schedule: .standard, permissions: [.appleHealth, .screenTime],
+                                   features: ShippedFeatures(releases: [.m1, .f1, .f2]), calendar: utc, hemisphere: .northern)
+        let later = snapshot.totals(context: f2)
+        #expect(later.hoursSaved == 12.5 && later.sessionsFinished == 9 && later.phoneFreeMornings == 2)
     }
 
     @Test("Progress and the picker read the snapshot")

@@ -56,7 +56,7 @@ struct HealthPermissionTests {
         #expect(stores.collection.buds(at: evening).isEmpty)
         #expect(stores.collection.almostThere(at: evening).isEmpty)
         #expect(stores.collection.nextRungIDs(at: evening).isEmpty)
-        #expect(stores.collection.totals.nightsOnTime == nil && stores.collection.totals.mornings == nil)
+        #expect(stores.collection.totals.restedNights == nil && stores.collection.totals.hoursSaved == nil)
         // Home's row offers the cheapest sleep leaf, with "Turn on Apple Health".
         let prompt = try #require(stores.collection.permissionPrompt(at: evening))
         #expect(prompt.speciesID == "saccharinum")                    // Rested nights' first rung
