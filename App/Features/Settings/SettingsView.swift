@@ -27,6 +27,8 @@ struct SettingsView: View {
                     ProfileToggle("Reveal sound", isOn: $settings.revealSound)
                 }
             }
+            // The wind-down and morning-leaf reminders, with iOS's permission (RemindersSettingsGroup).
+            RemindersSettingsGroup()
         }
     }
 

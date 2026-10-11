@@ -37,21 +37,27 @@ nonisolated public struct SettingsSnapshot: Codable, Sendable, Equatable {
     public var sleepGoalMinutes: Int
     /// A soft sound as a leaf opens. Off by default (spec §8.7).
     public var revealSound: Bool
+    /// "Time to wind down" at the start of wind-down. On by default; sent only once iOS allows notifications.
+    public var windDownReminder: Bool
+    /// "A new leaf is waiting" at the start of the morning, only when one is. On by default, like wind-down.
+    public var morningLeafReminder: Bool
 
     public init(
         hemisphere: HemisphereChoice = .automatic, sleepGoalMinutes: Int = AppSettings.defaultSleepGoalMinutes,
-        revealSound: Bool = false
+        revealSound: Bool = false, windDownReminder: Bool = true, morningLeafReminder: Bool = true
     ) {
         version = Self.currentVersion
         self.hemisphere = hemisphere
         self.sleepGoalMinutes = AppSettings.validSleepGoal(sleepGoalMinutes)
         self.revealSound = revealSound
+        self.windDownReminder = windDownReminder
+        self.morningLeafReminder = morningLeafReminder
     }
 
     // MARK: Codable (tolerant: missing or unknown values take their defaults)
 
     private enum CodingKeys: String, CodingKey {
-        case version, hemisphere, sleepGoalMinutes, revealSound
+        case version, hemisphere, sleepGoalMinutes, revealSound, windDownReminder, morningLeafReminder
     }
 
     public init(from decoder: any Decoder) throws {
@@ -63,6 +69,8 @@ nonisolated public struct SettingsSnapshot: Codable, Sendable, Equatable {
             (try? c.decodeIfPresent(Int.self, forKey: .sleepGoalMinutes)) ?? AppSettings.defaultSleepGoalMinutes
         )
         revealSound = (try? c.decodeIfPresent(Bool.self, forKey: .revealSound)) ?? false
+        windDownReminder = (try? c.decodeIfPresent(Bool.self, forKey: .windDownReminder)) ?? true
+        morningLeafReminder = (try? c.decodeIfPresent(Bool.self, forKey: .morningLeafReminder)) ?? true
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -71,12 +79,14 @@ nonisolated public struct SettingsSnapshot: Codable, Sendable, Equatable {
         try c.encode(hemisphere, forKey: .hemisphere)
         try c.encode(sleepGoalMinutes, forKey: .sleepGoalMinutes)
         try c.encode(revealSound, forKey: .revealSound)
+        try c.encode(windDownReminder, forKey: .windDownReminder)
+        try c.encode(morningLeafReminder, forKey: .morningLeafReminder)
     }
 }
 
-/// The member's settings: hemisphere, sleep goal and the reveal sound (spec §8.7). One instance for the app,
-/// injected with `.environment(_:)`; screens read it with `@Environment(AppSettings.self)` and assign to its
-/// properties, which saves at once.
+/// The member's settings: hemisphere, sleep goal, the reveal sound and the two reminders (spec §8.7). One instance
+/// for the app, injected with `.environment(_:)`; screens read it with `@Environment(AppSettings.self)` and assign
+/// to its properties, which saves at once.
 ///
 /// ```swift
 /// @Environment(AppSettings.self) private var settings
@@ -152,6 +162,23 @@ public final class AppSettings {
     public var revealSound: Bool {
         get { snapshot.revealSound }
         set { change { $0.revealSound = newValue } }
+    }
+
+    /// "Time to wind down" at the start of wind-down (Profile › Settings). On until the member turns it off.
+    public var windDownReminder: Bool {
+        get { snapshot.windDownReminder }
+        set { change { $0.windDownReminder = newValue } }
+    }
+
+    /// "A new leaf is waiting" at the start of the morning, only when one is. On until the member turns it off.
+    public var morningLeafReminder: Bool {
+        get { snapshot.morningLeafReminder }
+        set { change { $0.morningLeafReminder = newValue } }
+    }
+
+    /// The two reminder switches, as `ReminderPlan` reads them.
+    public var reminders: ReminderSettings {
+        ReminderSettings(windDown: windDownReminder, morningLeaf: morningLeafReminder)
     }
 
     public var canIncreaseSleepGoal: Bool { sleepGoalMinutes < Self.sleepGoalRange.upperBound }
