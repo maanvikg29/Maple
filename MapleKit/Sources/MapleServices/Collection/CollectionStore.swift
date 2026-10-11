@@ -97,8 +97,8 @@ public final class CollectionStore {
 
     // MARK: - Changes
 
-    /// Adds to category counters (non-positive amounts are ignored), marks the day tended (except First steps and
-    /// Community challenges) and runs the engine.
+    /// Adds to category counters (non-positive amounts are ignored), marks the day tended (except First leaf) and runs
+    /// the engine.
     /// - Returns: Leaves unlocked by this change.
     @discardableResult
     public func record(_ increases: [RewardCategoryID: Double], at date: Date) -> [LeafUnlock] {

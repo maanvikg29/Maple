@@ -36,7 +36,7 @@ For a one-off action use `clock.now()`: `collection.openReveals(at: clock.now())
 
 ## Home: `NowState`
 
-`collection.nowState(at:)` resolves the §3.4 table: phase, numeral, caption, next-leaf preference and the one primary action.
+`collection.nowState(at:)` resolves the §3.4 table: phase, numeral, caption and the one primary action.
 
 ```swift
 let state = collection.nowState(at: now)
@@ -60,7 +60,7 @@ if let action = state.action {                         // nil: no capsule at all
 ## Leaves: progress, next leaf, buds, Almost there
 
 ```swift
-let next = collection.nextLeaf(at: now)                    // Home's next-leaf row (pinned, phase-preferred, closest)
+let next = collection.nextLeaf(at: now)                    // Home's next-leaf row (pinned, lowest hours rung, closest)
 if let next {
     let remainder = LeafRemainder(next, phase: state.phase)
     Text(remainder.text)                                    // "3 nights", "Tonight", "1h 40m"
@@ -68,11 +68,13 @@ if let next {
 }
 ```
 
-- `collection.progress(at:)`: all 155 `LeafProgress` rows in canonical order (category, then rung). `progress(for:at:)` for one leaf. Each row has `state` (`.earned(unlock)`, `.waiting(unlock)`, `.locked`), `availability` (`.available`, `.needsAppleHealth`, `.needsSleepTracker`, `.needsScreenTime`, `.dormant`), `current` (clamped), `fraction`, `remaining` and `estimatedDays` (nil when earned, waiting or unavailable).
+- The 7 categories (`RewardCategoryID`, canonical order, rewards.md): `firstLeaf`, `hoursSaved`, `sessionsFinished`, `focusStreak`, `phoneFreeMornings`, `bedtimeKept`, `restedNights`. Before F1 only First leaf and Rested nights can be earned; the rest are dormant.
+- `collection.progress(at:)`: all 155 `LeafProgress` rows in canonical order (category, then rung). `progress(for:at:)` for one leaf. Each row has `state` (`.earned(unlock)`, `.waiting(unlock)`, `.locked`), `availability` (`.available`, `.needsAppleHealth`, `.needsScreenTime`, `.dormant`), `current` (clamped), `fraction`, `remaining` and `estimatedDays` (nil when earned, waiting or unavailable).
 - `collection.buds(at:)`: the tree's 3 buds, Home's next leaf first.
+- `NextLeafPicker(progress:)` (MapleCore) holds the rule (focus spec §4.5): `next(pinned:)` is a pinned leaf while it is locked and available, otherwise the lowest hours-saved rung, otherwise the closest of `homeCandidates`; `buds(pinned:)` puts that leaf first; `homeCandidates` is every candidate, except that Rested nights is left out once any focus category has shipped; `permissionPrompt()` answers only when `homeCandidates` is empty. There is no phase preference.
 - `collection.almostThere(at:)`: up to 6 leaves within 60 days (hide the rail below 2).
 - `collection.nextRungIDs(at:)`: species drawn as "Next" tiles (3 per available category).
-- `collection.permissionPrompt(at:)`: when `nextLeaf(at:)` is nil because nothing can be earned without a permission (no Apple Health: every M1 sleep category needs it), the cheapest leaf turning it on would make earnable, by design pace. Home draws it as `NextLeafRow(.needsPermission(prompt), action:, turnOn:)`: the neutral skeleton at 50%, the name with "Needs Apple Health", and a "Turn on Apple Health" `TextLink` that opens the primer. It is not a next leaf: D9 keeps needs-permission leaves out of the next leaf, buds, Almost there and pacing.
+- `collection.permissionPrompt(at:)`: when `nextLeaf(at:)` is nil because nothing can be earned without a permission (before F1, no Apple Health: Rested nights needs it; once focus ships, no Screen Time), the cheapest leaf turning it on would make earnable, by design pace. Home draws it as `NextLeafRow(.needsPermission(prompt), action:, turnOn:)`: the neutral skeleton at 50%, the name with "Needs Apple Health", and a "Turn on Apple Health" `TextLink` that opens the primer. It is not a next leaf: D9 keeps needs-permission leaves out of the next leaf, buds, Almost there and pacing.
 - Copy: `RewardCategoryInfo(progress.category)` has `definition`, `shortRule(_:)`, `earnedLine(_:)`, `action`; the leaf's rule is `RewardCatalog.shared.reward(forSpecies:)?.unlockText`. `LeafRemainder(progress, phase:).amount` is "11 of 14". Estimates ("about 5 nights at your pace") are for leaf detail only.
 - Actions: `collection.pin(id)` / `unpin()`, `collection.feature(id)` (earned leaves only), `collection.markSeen(id)` / `markAllSeen()`, `collection.isUnseen(id)` for the amber dot, `collection.featuredLeaf` for the avatar.
 
@@ -108,7 +110,7 @@ let model = TreeSceneModel(
 
 The scene and Home's sky pause on their last frame (a paused timeline, never a repaint) off screen, while the app is inactive, in Low Power Mode, under a full-screen cover (`.environment(\.treeScenesPaused, true)`) and after a minute at Night without a tap. Put `.nightIdleFreeze(phase:)` (MapleDesign) on a screen that shows both, so they freeze and wake together; `SkyBackdrop(…, paused:)` takes the caller's own reasons.
 
-Also on the store: `stage` (Seedling … Grand maple, from opened leaves), `tendedDays` ("grown over 41 days"), `vitality(at:)` (from the nights of the week before that day; `.isQuiet` is VoiceOver's "Resting."), `currentBedtimeRun` (Home's streak; hidden under 2) and `totals` (Profile; a nil total means its category doesn't exist yet).
+Also on the store: `stage` (Seedling … Grand maple, from opened leaves), `tendedDays` ("grown over 41 days"), `vitality(at:)` (from the nights of the week before that day; `.isQuiet` is VoiceOver's "Resting."), and `totals` (Profile: hours saved, sessions, rested nights and phone-free mornings; a nil total means its category can't be earned yet).
 
 **Counts.** "N of 155" counts opened leaves only, everywhere (spec §5.2): read `collection.leafCount` (`LeafCount`: `opened`, `waiting`, `total`, `text` "23 of 155", `waitingText` "1 waiting", `spoken`) or `collection.openedCount`. `LeafCount(progressRows)` counts one Herbarium section. Never use `earned.count + waiting.count`.
 
@@ -139,7 +141,7 @@ schedule.weekly.differsOnWeekends                 // a separate weekend exists
 
 let unlocked = schedule.save(.everyNight(SleepSchedule(bedtime: ClockTime(hour: 23), wake: ClockTime(hour: 7), windDownMinutes: 45)),
                              at: clock.now())
-// First save: unlocked == [Sugar maple] (First steps), revealable at any hour. Later saves: [].
+// First save: unlocked == [Sugar maple] (First leaf), revealable at any hour. Later saves: [].
 let split = WeeklySleepSchedule(weekday: weekday,
                                 weekend: SleepSchedule(bedtime: ClockTime(hour: 0, minute: 30), wake: ClockTime(hour: 9)))
 schedule.save(split, at: clock.now())
@@ -195,7 +197,7 @@ settings.windDownReminder              // AppSettings switch, on by default; sen
 
 ## Recording behaviour
 
-Data sources call the collection; it runs the engine and returns new leaves. The M1 sleep categories (Nights tracked, On-time bedtimes, Bedtime runs, Steady weeks, Seasons in rhythm, Steady mornings, Full nights) come **only from Apple Health** (rewards.json data sources, spec D9: there is no manual self-report fallback). Wind-down mode's Goodnight tap is the phone-down time in the bedside log, for wind-down's own state and Home's "Morning, no Apple Health" numeral (§3.4); it feeds no counter, so no leaf can be earned by tapping.
+Data sources call the collection; it runs the engine and returns new leaves. Rested nights, the one sleep category, comes **only from Apple Health** (rewards.json data sources, spec D9: there is no manual self-report fallback). Wind-down mode's Goodnight tap is the phone-down time in the bedside log, for wind-down's own state and Home's "Morning, no Apple Health" numeral (§3.4); it feeds no counter, so no leaf can be earned by tapping.
 
 M1's HealthKit importer (`HealthSleepImporter`, MapleServices) makes one call:
 
@@ -227,20 +229,19 @@ sleep.lastImportAt
 - Counting starts on the install night (the night the first schedule was saved in) when setup finished before sleep began. A night is judged by the schedule in force at 18:00 that evening, with the times it gives that night (weekend times on a weekend night; `ScheduleStore.save` tells the collection, which keeps the replaced one for nights under way); the very first schedule judges the install night only if it was saved at least 30 minutes before its bedtime (otherwise that night is tracked but unscheduled, which is neutral).
 - Tracked: a main episode of 3 hours or more. On time: onset from bedtime − 2 h to bedtime + 30 min (earlier is early: neutral). Steady morning: final wake within 30 minutes of the wake time. Full night: asleep at least the sleep need − 30 minutes (`CollectionContext.sleepNeedMinutes`, from Settings › Sleep goal), only from sources with asleep time.
 - A night settles once its next morning starts (wake − 60 min); a night with nothing from Apple Health by then is untracked (a slip for the run). Every night since the last settle is settled in turn, however long the app was closed; only an absence of more than two years skips straight to the last two, and never past a night Apple Health had already delivered. For 72 hours after that, late data (a Watch syncing) can upgrade a night, never downgrade it, and the run and a closed week are replayed with it. Recording the same nights again changes nothing, so the importer can send the last few nights on every run.
-- Settling records Nights tracked, On-time bedtimes, Steady mornings and Full nights per night, the live bedtime run (5 of every 7 nights on time: two slips in 7 forgiven, a third ends it; early and unscheduled nights are neutral) with the best run as the counter, Steady weeks (5+ on-time nights, counted as the calendar week closes) and Seasons in rhythm (a season's 8th steady week; a week belongs to the season of its Thursday), plus each tracked night for vitality. Leaves are stamped with the call's time, so ones earned in the morning or day open at once and ones earned from Evening on are held until morning.
-- Once a night with asleep time has arrived, the collection adds `.sleepTracker` to Apple Health (`collection.permissions`), so Full nights become earnable; with iPhone in-bed data only they show "Needs a sleep tracker".
+- Settling raises Rested nights (`rested_nights`) by one for each night judged on time, including a night a late upgrade turns on time; Apple Health's on-time nights raise nothing else. The ledger still keeps its own run, steady weeks and seasons, which no category reads. Each tracked night is also kept for vitality. Leaves are stamped with the call's time, so ones earned in the morning or day open at once and ones earned from Evening on are held until morning.
+- Once a night with asleep time has arrived, the collection adds `.sleepTracker` to `collection.permissions`; no category needs it now.
 - DEBUG demo stores are built with their counters and are never fed nights.
 
 Lower-level calls (tests, demos, and later sources):
 
 ```swift
-collection.record([.focusDays: 1], at: now)                            // increments
-collection.raise(.bedtimeRun, to: 12, at: now)                         // high-water marks
-collection.setCurrentBedtimeRun(12, at: now)
+collection.record([.sessionsFinished: 1], at: now)                     // increments
+collection.raise(.focusStreak, to: 12, at: now)                        // high-water marks
 collection.recordNight(NightRecord(day: LocalDay(now, calendar: .current), onTime: true, fullNight: nil, scrollFree: nil))
 ```
 
-Counters never go down. Any rise marks the day tended (tree growth), except First steps and Community challenges. A locked Bedtime-runs leaf shows progress from the live run (`currentBedtimeRun`), not the best one, so "Tonight" appears only when tonight can finish it.
+Counters never go down. Any rise marks the day tended (tree growth), except First leaf.
 
 ## Files, unlocks and time zones
 
@@ -250,9 +251,9 @@ Counters never go down. Any rise marks the day tended (tree growth), except Firs
 
 ## Shipped features and permissions
 
-`collection.context.features` is `ShippedFeatures.current` (M1 only): `.focus`, `.sleepSounds`, `.screenTime`, `.checkIns` are false and their categories are dormant ("Not earnable yet"). A feature that hasn't shipped is absent from every screen.
+`collection.context.features` is `ShippedFeatures.current` (M1 only): `.focus`, `.sleepSounds`, `.screenTime` are false and their categories are dormant ("Not earnable yet"). A feature that hasn't shipped is absent from every screen.
 
-`collection.context.permissions` (`GrantedPermissions`) is real: empty until the member has been through Apple's Health prompt, then `.appleHealth`. `collection.permissions` adds `.sleepTracker` once Apple Health has delivered a night with asleep time. `collection.availability(of:)` gives a category's state: every M1 sleep category but Full nights needs Apple Health (`.needsAppleHealth`), Full nights needs a sleep tracker too (`.needsSleepTracker`), and First steps needs nothing. Needs-permission leaves show "Needs Apple Health" (tiles, section headers with "Turn on", leaf detail with "Turn on Apple Health"), have no estimate, and are left out of the next leaf, buds, Almost there, pacing and Profile's totals (D9).
+`collection.context.permissions` (`GrantedPermissions`) is real: empty until the member has been through Apple's Health prompt, then `.appleHealth`. `collection.availability(of:)` gives a category's state: Rested nights needs Apple Health (`.needsAppleHealth`), the focus categories need Screen Time (`.needsScreenTime`) once they ship, and First leaf needs nothing. Needs-permission leaves show "Needs Apple Health" (tiles, section headers with "Turn on", leaf detail with "Turn on Apple Health"), have no estimate, and are left out of the next leaf, buds, Almost there, pacing and Profile's totals (D9).
 
 `HealthPermission` (MapleServices) owns Apple Health:
 

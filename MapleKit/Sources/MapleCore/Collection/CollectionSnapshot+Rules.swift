@@ -44,7 +44,7 @@ extension CollectionSnapshot {
     static let nightsKept = 14
 
     /// Adds `increases` to the counters. Non-positive amounts are ignored, so counters never fall. Any rise marks
-    /// the local day as tended, except First steps and Community challenges (spec §4.1).
+    /// the local day as tended, except First leaf.
     /// - Returns: Whether any counter rose.
     @discardableResult
     public mutating func record(_ increases: [RewardCategoryID: Double], at date: Date, calendar: Calendar) -> Bool {
