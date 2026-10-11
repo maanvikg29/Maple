@@ -58,21 +58,33 @@ struct OnboardingHealthStep: View {
     }
 }
 
-/// The notifications step's place in the flow, between Apple Health and the sprout.
-///
-/// TODO(integrator): replace this with the notifications primer (the notifications engineer's view). It should call
-/// `onDone` once the member has answered it, exactly as `OnboardingHealthStep` does; `OnboardingStore` then saves
-/// the answer and the flow moves on to the sprout. Until then the step draws nothing and continues at once, so no
-/// placeholder screen ever shows.
+/// The notifications step, between Apple Health and the sprout: the reminders primer (`NotificationsPrimerStep`,
+/// "Allow reminders" or "Not now") while iOS hasn't been asked; once it has (a reinstall, or a member who answered
+/// iOS elsewhere) there is nothing to ask, so the step continues at once and draws only the background.
+/// `onDone` is called exactly once; `OnboardingStore` then saves the answer and the flow moves on to the sprout.
 struct OnboardingNotificationsStep: View {
     var onDone: () -> Void
 
     @Environment(\.theme) private var theme
+    @Environment(NotificationScheduler.self) private var reminders
+    @State private var finished = false
 
     var body: some View {
-        theme.colors.background
-            .ignoresSafeArea()
-            .accessibilityHidden(true)
-            .task { onDone() }
+        if NotificationsPrimerStep.isNeeded(reminders) {
+            NotificationsPrimerStep(onContinue: finish)
+        } else {
+            theme.colors.background
+                .ignoresSafeArea()
+                .accessibilityHidden(true)
+                .task { finish() }
+        }
+    }
+
+    /// Answering "Allow reminders" changes iOS's answer, which also swaps the primer for the background; the guard
+    /// keeps that from finishing twice.
+    private func finish() {
+        guard !finished else { return }
+        finished = true
+        onDone()
     }
 }

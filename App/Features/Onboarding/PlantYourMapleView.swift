@@ -9,8 +9,8 @@ import MapleServices
 ///    (which becomes Settings › Sleep goal) and the wind-down length.
 /// 2. "Your sleep schedule", opening on the schedule proposed from the answers. Saving it through `ScheduleStore`
 ///    earns the First-steps leaf (the Sugar maple).
-/// 3. The Apple Health primer ("Not now" allowed), then the notifications primer's place (`OnboardingStep
-///    .notifications`).
+/// 3. The Apple Health primer ("Not now" allowed), then the reminders primer (`OnboardingNotificationsStep`,
+///    skipped once iOS has been asked).
 /// 4. The scene with the 44 pt sprout and its neutral bud on the hill; the bud turns amber. "Your maple",
 ///    "Tap to open your first leaf".
 /// 5. The full reveal of the Sugar maple ("For setting your sleep schedule"), at any hour.
@@ -129,7 +129,6 @@ private struct PlantYourMapleScreen: View {
         case .health:
             OnboardingHealthStep { answered(.health) }
         case .notifications:
-            // TODO(integrator): the notifications primer goes here (see `OnboardingNotificationsStep`).
             OnboardingNotificationsStep { answered(.notifications) }
         case .sprout:
             Color.clear
@@ -389,8 +388,11 @@ private struct PlantYourMapleScreen: View {
                 case .health:
                     try? await Task.sleep(for: .seconds(pause))
                     if setupStep == .health { answered(.health) }
-                case .notifications, .sprout:
-                    // The notifications step moves on by itself.
+                case .notifications:
+                    // "Not now" on the reminders primer (iOS's own prompt needs a real tap).
+                    try? await Task.sleep(for: .seconds(pause))
+                    if setupStep == .notifications { answered(.notifications) }
+                case .sprout:
                     try? await Task.sleep(for: .seconds(0.3))
                 }
             }
