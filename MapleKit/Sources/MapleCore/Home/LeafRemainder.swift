@@ -31,7 +31,7 @@ public struct LeafRemainder: Sendable, Equatable {
     }
 
     enum Unit: Equatable {
-        case nights, evenings, mornings, days, weeks, seasons, hours, challenges, steps
+        case nights, evenings, mornings, days, weeks, seasons, hours, challenges, steps, sessions
 
         var singular: String {
             switch self {
@@ -44,6 +44,7 @@ public struct LeafRemainder: Sendable, Equatable {
             case .hours: "hour"
             case .challenges: "challenge"
             case .steps: "step"
+            case .sessions: "session"
             }
         }
 
@@ -55,6 +56,11 @@ public struct LeafRemainder: Sendable, Equatable {
 
     static func unit(for category: RewardCategoryID) -> Unit {
         switch category {
+        case .firstLeaf: .steps
+        case .hoursSaved: .hours
+        case .sessionsFinished: .sessions
+        case .focusStreak: .days
+        case .bedtimeKept, .restedNights: .nights
         case .firstSteps: .steps
         case .nightsTracked, .onTimeBedtimes, .bedtimeRun, .fullNights, .soundWindDowns, .bedtimeShieldKept: .nights
         case .scrollFreeWindDowns, .windDownRituals: .evenings

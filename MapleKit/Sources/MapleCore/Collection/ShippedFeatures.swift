@@ -18,12 +18,12 @@ public struct ShippedFeatures: Sendable, Hashable {
         releases.contains(RewardCategoryInfo(category).release)
     }
 
-    /// The focus timer (Rest › Focus, Home's day numeral and "Start focus").
-    public var focus: Bool { releases.contains(.m2) }
-    /// Sleep sounds (Home's night capsule, the Sounds sheet).
-    public var sleepSounds: Bool { releases.contains(.m2) }
-    /// Screen Time: wind-down apps, the shield and their leaves.
-    public var screenTime: Bool { releases.contains(.m3) }
+    /// The Focus tab, sessions and their leaves (F1).
+    public var focus: Bool { releases.contains(.f1) }
+    /// Sounds (F2).
+    public var sleepSounds: Bool { releases.contains(.f2) }
+    /// Screen Time: blocking and the leaves that need it (F1).
+    public var screenTime: Bool { releases.contains(.f1) }
     /// Morning mood check-ins.
     public var checkIns: Bool { releases.contains(.m4) }
 }

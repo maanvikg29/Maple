@@ -94,7 +94,8 @@ nonisolated public enum HomeSpeech {
     public static func amount(_ progress: LeafProgress) -> String {
         let current = Int(progress.current.rounded(.down))
         let threshold = Int(progress.threshold.rounded())
-        if progress.category == .focusHours {
+        if progress.category == .focusHours || progress.category == .hoursSaved {
+            if progress.category == .hoursSaved { return "\(current) of \(threshold) hours saved" }
             return "\(current) of \(threshold) hours of focus"
         }
         return "\(current) of \(threshold) \(noun(for: progress.category, plural: threshold != 1))"
@@ -120,6 +121,12 @@ nonisolated public enum HomeSpeech {
     private static func noun(for category: RewardCategoryID, plural: Bool) -> String {
         func s(_ singular: String, _ many: String) -> String { plural ? many : singular }
         return switch category {
+        case .firstLeaf: s("step", "steps")
+        case .hoursSaved: s("hour saved", "hours saved")
+        case .sessionsFinished: s("finished session", "finished sessions")
+        case .focusStreak: s("day in a row", "days in a row")
+        case .bedtimeKept: s("bedtime kept", "bedtimes kept")
+        case .restedNights: s("rested night", "rested nights")
         case .firstSteps: s("step", "steps")
         case .nightsTracked: s("night tracked", "nights tracked")
         case .onTimeBedtimes: s("on-time bedtime", "on-time bedtimes")

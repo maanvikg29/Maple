@@ -126,12 +126,15 @@ nonisolated public struct HerbariumCopy: Sendable {
         func count(_ number: Int, _ word: String) -> String { "\(number) \(number == 1 ? word : word + "s")" }
         if days < 60 {
             switch category {
-            case .nightsTracked, .onTimeBedtimes, .bedtimeRun, .fullNights, .soundWindDowns, .bedtimeShieldKept:
+            case .nightsTracked, .onTimeBedtimes, .bedtimeRun, .fullNights, .soundWindDowns, .bedtimeShieldKept,
+                 .bedtimeKept, .restedNights:
                 return count(whole, "night")
             case .steadyMornings, .phoneFreeMornings:
                 return count(whole, "morning")
             case .scrollFreeWindDowns, .windDownRituals:
                 return count(whole, "evening")
+            case .focusStreak:
+                return count(whole, "day")
             default:
                 break
             }

@@ -38,8 +38,8 @@ struct AvailabilityTests {
     @Test("Only M1 categories ship today")
     func shipped() {
         let shipped = RewardCategoryID.allCases.filter { ShippedFeatures.current.isShipped($0) }
-        #expect(shipped == [.firstSteps, .nightsTracked, .onTimeBedtimes, .bedtimeRun, .steadyWeeks, .seasonsInRhythm,
-                            .steadyMornings, .fullNights])
+        #expect(shipped == [.firstLeaf, .restedNights, .firstSteps, .nightsTracked, .onTimeBedtimes, .bedtimeRun, .steadyWeeks,
+                            .seasonsInRhythm, .steadyMornings, .fullNights])
         #expect(!ShippedFeatures.current.focus)
         #expect(!ShippedFeatures.current.sleepSounds)
         #expect(!ShippedFeatures.current.checkIns)
@@ -122,7 +122,7 @@ struct LeafProgressBuilderTests {
         #expect(Set(rows.map(\.speciesID)).count == 155)
         let expected = RewardCatalog.shared.categories.flatMap { RewardCatalog.shared.rungs(in: $0.id).map(\.speciesID) }
         #expect(rows.map(\.speciesID) == expected)
-        #expect(rows.first?.speciesID == "saccharum")
+        #expect(rows.first { $0.category == .firstSteps }?.speciesID == "saccharum")
     }
 
     @Test("States follow unlocks: earned once revealed, waiting before")
