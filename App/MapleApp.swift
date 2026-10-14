@@ -76,8 +76,9 @@ struct LaunchGate: Equatable {
 /// - files that couldn't be read at launch are read once protected data is available (or the app is active);
 /// - a time-zone or clock change moves the collection's calendar and refreshes every screen;
 /// - each foreground checks Apple Health's permission against Apple's own record (so the sleep leaves are
-///   available exactly when Apple Health is connected) and refreshes rarity. Nights come only from Apple Health,
-///   which M1's importer reads (`CollectionStore.recordSleep(_:at:)`); nothing here settles them;
+///   available exactly when Apple Health is connected), imports the recent nights from Apple Health
+///   (`SleepImporter`, also run as soon as Apple Health is connected) and refreshes rarity. Nights come only from
+///   Apple Health: nothing else settles them;
 /// - the season is read again on every foreground and at each significant time change (which iOS posts at local
 ///   midnight), so a month boundary passed with the app open changes it everywhere. (A root `TimelineView` would do
 ///   it too, but one at the root kept the first frame from ever committing.)
@@ -106,6 +107,7 @@ private struct ThemedRoot: View {
                 reloadUnreadableFiles()
                 await health.refresh(at: clock.now())
                 health.apply(to: collection)
+                await stores.sleep?.importRecentNights(at: clock.now())
                 await shares.refreshIfNeeded()
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.protectedDataDidBecomeAvailableNotification)) { _ in
@@ -126,6 +128,7 @@ private struct ThemedRoot: View {
             }
             .onChange(of: health.isConnected) {
                 health.apply(to: collection)
+                Task { await stores.sleep?.importRecentNights(at: clock.now()) }
             }
     }
 
