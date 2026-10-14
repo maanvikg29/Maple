@@ -18,6 +18,8 @@ public struct MapleStores {
     public let seasonOverride: Season?
     /// The member's real files (false for DEBUG demos, which live in memory).
     public var isLive = false
+    /// Reads Apple Health's nights into the collection: live stores only, so DEBUG demos are never fed nights.
+    public var sleep: SleepImporter?
 
     public static let collectionFile = "collection.json"
     public static let scheduleFile = "schedule.json"
@@ -32,7 +34,8 @@ public struct MapleStores {
         return live()
     }
 
-    /// The member's own collection, schedule, rarity cache and Apple Health record, saved in `directory`.
+    /// The member's own collection, schedule, rarity cache and Apple Health record, saved in `directory`, with the
+    /// importer that reads their nights from Apple Health.
     ///
     /// Permissions are real: Apple Health is granted only once the member has been through Apple's prompt
     /// (`HealthPermission`), and nothing else can be granted in this build.
@@ -41,7 +44,8 @@ public struct MapleStores {
     /// calls `collection.systemTimeChanged()` on a time-zone change to refresh what screens already drew.
     public static func live(
         directory: URL = MapleContainer.directory(), calendar: Calendar = .autoupdatingCurrent, now: Date = .now,
-        healthAuthorizer: any HealthAuthorizing = HealthKitAuthorizer()
+        healthAuthorizer: any HealthAuthorizing = HealthKitAuthorizer(),
+        sleepReader: any SleepSampleReading = HealthKitSleepReader()
     ) -> MapleStores {
         let health = HealthPermission.live(directory: directory, authorizer: healthAuthorizer)
         let context = CollectionContext(permissions: health.permissions, calendar: calendar, hemisphere: .current)
@@ -57,6 +61,7 @@ public struct MapleStores {
         var stores = MapleStores(collection: collection, schedule: schedule, shares: shares, health: health, clock: .live,
                                  seasonOverride: nil)
         stores.isLive = true
+        stores.sleep = SleepImporter(collection: collection, health: health, reader: sleepReader)
         return stores
     }
 

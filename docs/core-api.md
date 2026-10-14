@@ -138,12 +138,17 @@ let unlocked = schedule.save(SleepSchedule(bedtime: ClockTime(hour: 23), wake: C
 
 Data sources call the collection; it runs the engine and returns new leaves. The M1 sleep categories (Nights tracked, On-time bedtimes, Bedtime runs, Steady weeks, Seasons in rhythm, Steady mornings, Full nights) come **only from Apple Health** (rewards.json data sources, spec D9: there is no manual self-report fallback). Wind-down mode's Goodnight tap is the phone-down time in the bedside log, for wind-down's own state and Home's "Morning, no Apple Health" numeral (§3.4); it feeds no counter, so no leaf can be earned by tapping.
 
-M1's HealthKit importer makes one call, and nothing in the app makes it yet:
+M1's HealthKit importer, `SleepImporter` (MapleServices), makes one call. The live app runs it on every foreground and as soon as Apple Health is connected; it reads the last night and the four before it (the 72-hour upgrade window) and does nothing until Apple Health is connected and the maple is planted, or when Apple Health can't be read (a locked device), so no night is settled untracked by a failed read:
 
 ```swift
+await stores.sleep?.importRecentNights(at: clock.now())   // HealthKitSleepReader → SleepNightBuilder → recordSleep
+
+// What it does inside:
 let observations: [SleepNightObservation] = …            // one per night: the main episode, best source available
 collection.recordSleep(observations, at: clock.now())      // returns the leaves it unlocked
 ```
+
+`SleepSampleOrigin` (MapleCore) places each HealthKit sample on the source ladder: asleep stages from Apple Watch (or a tracker in `allowListedTrackers`, empty for now) are A, other apps' asleep samples B, and in-bed samples from iPhone's Sleep schedule C; user-entered samples, awake stages and every other in-bed sample never count. `SleepNightBuilder` (MapleCore, pure) groups the samples into one observation per night by the rules below. Tests use a `SleepSampleReading` stand-in; DEBUG demo stores have no importer.
 
 `SleepNightObservation` (MapleCore) is the night (named by its evening; nights run 18:00 to 18:00), the main episode's sleep onset and final wake, the minutes asleep (nil for iPhone's in-bed estimate), its `SleepSource`, rewards.json's ladder: `.watchOrTracker` (A: asleep stages from an Apple Watch or an allow-listed tracker), `.otherApp` (B: asleep samples another app wrote), `.iPhoneInBed` (C: "estimated from iPhone", times only), and optionally `timeZoneIdentifier`, the zone the night was spent in (HealthKit's `HKMetadataKeyTimeZone` when the samples carry it). The importer resolves sources, groups samples into nights, drops user-entered samples and naps; `NightLedger` (MapleCore) judges what it is given:
 
