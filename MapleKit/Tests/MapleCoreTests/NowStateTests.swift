@@ -312,6 +312,13 @@ struct LeafRemainderTests {
         #expect(remainder(.bedtimeKept, 7, 3.5) == "4 nights")
     }
 
+    @Test("Hours round up to the next minute, so a leaf a few seconds away never reads 0m")
+    func hoursRoundUp() {
+        #expect(remainder(.hoursSaved, 1, 1 - 10.0 / 3600) == "1m")
+        #expect(remainder(.hoursSaved, 1, 1 - 61.0 / 3600) == "2m")
+        #expect(remainder(.hoursSaved, 2, 1) == "1h")
+    }
+
     @Test("One to go reads Tonight in the evening, Today in the day")
     func tonightToday() {
         #expect(remainder(.restedNights, 3, 2, .evening) == "Tonight")
@@ -388,5 +395,16 @@ struct MapleClockTests {
         #expect(abs(live.now().timeIntervalSinceNow) < 1)
         #expect(live.date(forTimeline: at(2030, 1, 1)) == at(2030, 1, 1))
         #expect(!live.isFixed)
+    }
+
+    @Test("A shifted clock runs from a demo instant and keeps ticking")
+    func shifted() {
+        let target = at(2030, 1, 1, 9)
+        let clock = MapleClock.shifted(by: target.timeIntervalSinceNow)
+        #expect(abs(clock.now().timeIntervalSince(target)) < 1)
+        #expect(!clock.isFixed)
+        #expect(clock.date(forTimeline: at(2026, 1, 1)) == at(2026, 1, 1).addingTimeInterval(clock.offset))
+        #expect(MapleClock.live.offset == 0)
+        #expect(MapleClock.fixed(target).offset == 0)
     }
 }

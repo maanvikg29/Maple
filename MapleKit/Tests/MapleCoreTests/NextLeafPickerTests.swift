@@ -29,6 +29,19 @@ struct NextLeafPickerTests {
         #expect(NextLeafPicker(progress: rows).candidates.map(\.speciesID) == ["a2"])
     }
 
+    @Test("A free build keeps Rested nights as Home's next leaf and asks for nothing it can't use")
+    func freeBuild() {
+        let rows = [
+            progressRow("h1", .hoursSaved, threshold: 1, availability: .notInThisBuild, estimate: nil),
+            progressRow("s1", .sessionsFinished, threshold: 1, availability: .notInThisBuild, estimate: nil),
+            progressRow("r1", .restedNights, threshold: 3, current: 1, estimate: 2),
+        ]
+        let picker = NextLeafPicker(progress: rows)
+        #expect(picker.next(pinned: nil)?.speciesID == "r1")
+        #expect(picker.next(pinned: "h1")?.speciesID == "r1")
+        #expect(NextLeafPicker(progress: Array(rows.prefix(2))).permissionPrompt() == nil)
+    }
+
     @Test("A pinned leaf wins while it is locked and available")
     func pinned() {
         let rows = [

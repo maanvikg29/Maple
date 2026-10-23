@@ -23,9 +23,12 @@ public struct NextLeafPicker: Sendable {
     }
 
     /// What Home may pick from: every candidate, except that once any focus category has shipped, Rested nights is
-    /// left out (focus spec §4.1, §4.5: sleep is never Home's automatic next leaf in a focus build).
+    /// left out (focus spec §4.1, §4.5: sleep is never Home's automatic next leaf in a focus build). A free build's
+    /// focus categories are `notInThisBuild`, so it keeps Rested nights.
     public var homeCandidates: [LeafProgress] {
-        let focusShipped = progress.contains { $0.category != .restedNights && $0.category != .firstLeaf && $0.availability != .dormant }
+        let focusShipped = progress.contains {
+            $0.category != .restedNights && $0.category != .firstLeaf && $0.availability != .dormant && $0.availability != .notInThisBuild
+        }
         return focusShipped ? candidates.filter { $0.category != .restedNights } : candidates
     }
 

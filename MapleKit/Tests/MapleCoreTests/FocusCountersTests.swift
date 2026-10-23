@@ -143,4 +143,29 @@ struct FocusCountersTests {
         #expect(decoded.hasPlantedMaple)
         #expect(decoded.isFromNewerBuild)
     }
+
+    @Test("Streak progress shows the current run; streak leaves follow the best run")
+    func streakProgress() {
+        var snapshot = planted()
+        var all = context
+        all.features = .all
+        all.permissions = [.appleHealth, .screenTime]
+        let days = [19, 20, 21].map { LocalDay(year: 2026, month: 10, day: $0) }
+        snapshot.applyFocus(days.map { credit(seconds: 1800, provenAt: at(2026, 10, $0.day, 12), day: $0) }, at: at(2026, 10, 21, 13), context: all)
+        func sevenDays(_ date: Date) -> Double? {
+            snapshot.progress(at: date, context: all).first { $0.category == .focusStreak && $0.threshold == 7 }?.current
+        }
+        #expect(sevenDays(at(2026, 10, 23, 12)) == 3)
+        #expect(sevenDays(at(2026, 10, 25, 12)) == 0)
+        #expect(snapshot.counters[.focusStreak] == 3)
+    }
+
+    @Test("A free build's context makes Screen Time leaves not in this build")
+    func freeContext() {
+        var free = context
+        free.features = .all
+        free.blocking = .unavailableInBuild
+        #expect(planted().availability(of: .hoursSaved, context: free) == .notInThisBuild)
+        #expect(planted().progress(at: at(2026, 10, 23, 12), context: free).first { $0.category == .hoursSaved }?.availability == .notInThisBuild)
+    }
 }

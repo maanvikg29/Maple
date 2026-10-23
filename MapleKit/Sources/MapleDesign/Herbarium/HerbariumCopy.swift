@@ -13,11 +13,12 @@ nonisolated public struct HerbariumCopy: Sendable {
 
     // MARK: States
 
-    /// "Needs Apple Health", "Needs Screen Time"; nil when nothing is missing.
+    /// "Needs Apple Health", "Needs Screen Time", "Not available in this build"; nil when nothing is missing.
     public static func permissionLine(_ availability: LeafAvailability) -> String? {
         switch availability {
         case .needsAppleHealth: "Needs Apple Health"
         case .needsScreenTime: "Needs Screen Time"
+        case .notInThisBuild: "Not available in this build"
         case .available, .dormant: nil
         }
     }
@@ -27,7 +28,7 @@ nonisolated public struct HerbariumCopy: Sendable {
         switch availability {
         case .needsAppleHealth: "Turn on Apple Health"
         case .needsScreenTime: "Turn on Screen Time"
-        case .available, .dormant: nil
+        case .available, .dormant, .notInThisBuild: nil
         }
     }
 

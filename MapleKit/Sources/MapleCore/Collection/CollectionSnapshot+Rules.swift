@@ -1,4 +1,5 @@
 import Foundation
+import MapleFocusCore
 
 /// The member's circumstances that the collection rules depend on but that aren't part of the collection itself.
 public struct CollectionContext: Sendable, Equatable {
@@ -15,6 +16,8 @@ public struct CollectionContext: Sendable, Equatable {
     public var seasonOverride: Season?
     /// The member's sleep need (Settings › Sleep goal): a full night is at least this − 30 minutes asleep.
     public var sleepNeedMinutes: Int
+    /// What this build can do about blocking (`MapleBuild`). A free build's Screen Time leaves are "not in this build".
+    public var blocking: BlockingCapability
 
     /// 7h 30m, until the member changes it (rewards.json `full_nights`, which supersedes spec §5.1's 7h;
     /// `AppSettings.defaultSleepGoalMinutes`).
@@ -24,7 +27,7 @@ public struct CollectionContext: Sendable, Equatable {
     public init(
         schedule: WeeklySleepSchedule = .standard, permissions: GrantedPermissions = [], features: ShippedFeatures = .current,
         calendar: Calendar = .autoupdatingCurrent, hemisphere: Hemisphere = .current, seasonOverride: Season? = nil,
-        sleepNeedMinutes: Int = CollectionContext.defaultSleepNeedMinutes
+        sleepNeedMinutes: Int = CollectionContext.defaultSleepNeedMinutes, blocking: BlockingCapability = .screenTime
     ) {
         self.schedule = schedule
         self.permissions = permissions
@@ -33,6 +36,7 @@ public struct CollectionContext: Sendable, Equatable {
         self.hemisphere = hemisphere
         self.seasonOverride = seasonOverride
         self.sleepNeedMinutes = sleepNeedMinutes
+        self.blocking = blocking
     }
 }
 
@@ -242,12 +246,16 @@ extension CollectionSnapshot {
     }
 
     public func availability(of category: RewardCategoryID, context: CollectionContext) -> LeafAvailability {
-        LeafAvailability(category: category, permissions: permissions(in: context), features: context.features)
+        LeafAvailability(category: category, permissions: permissions(in: context), features: context.features, blocking: context.blocking)
     }
 
+    /// All 155 leaves. Focus streak rows show the current run as their progress (§3.4); their leaves follow the
+    /// counter, which keeps the best run.
     public func progress(at date: Date, context: CollectionContext) -> [LeafProgress] {
-        LeafProgressBuilder(permissions: permissions(in: context), features: context.features)
-            .progress(counters: counters, unlocks: unlocks, history: history, today: LocalDay(date, calendar: context.calendar),
+        var shown = counters
+        shown[.focusStreak] = Double(currentRun(at: date, context: context))
+        return LeafProgressBuilder(permissions: permissions(in: context), features: context.features, blocking: context.blocking)
+            .progress(counters: shown, unlocks: unlocks, history: history, today: LocalDay(date, calendar: context.calendar),
                       calendar: context.calendar)
     }
 

@@ -492,6 +492,8 @@ struct HerbariumCopyTests {
         #expect(HerbariumCopy.permissionLine(.available) == nil)
         #expect(HerbariumCopy.turnOnTitle(.needsAppleHealth) == "Turn on Apple Health")
         #expect(HerbariumCopy.turnOnTitle(.dormant) == nil)
+        #expect(HerbariumCopy.permissionLine(.notInThisBuild) == "Not available in this build")
+        #expect(HerbariumCopy.turnOnTitle(.notInThisBuild) == nil)
     }
 }
 

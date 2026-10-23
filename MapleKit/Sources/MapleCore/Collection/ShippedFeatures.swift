@@ -1,4 +1,5 @@
 import Foundation
+import MapleFocusCore
 
 /// The releases this build ships. A category from an unshipped release is "Not earnable yet", and a feature
 /// that hasn't shipped is absent everywhere (spec §2.2, §8).
@@ -49,8 +50,13 @@ public struct GrantedPermissions: OptionSet, Sendable, Hashable, Codable {
 }
 
 extension LeafAvailability {
-    /// Whether `category` can be earned: shipped first, then its required permission.
-    public init(category: RewardCategoryID, permissions: GrantedPermissions, features: ShippedFeatures) {
+    /// Whether `category` can be earned: shipped first, then whether this build can block, then the required
+    /// permission.
+    /// - Parameter blocking: What this build can do (`MapleBuild`); a free build can't block at all.
+    public init(
+        category: RewardCategoryID, permissions: GrantedPermissions, features: ShippedFeatures,
+        blocking: BlockingCapability = .screenTime
+    ) {
         guard features.isShipped(category) else {
             self = .dormant
             return
@@ -61,6 +67,10 @@ extension LeafAvailability {
         case .appleHealth:
             self = permissions.contains(.appleHealth) ? .available : .needsAppleHealth
         case .screenTime:
+            guard blocking.canBlock else {
+                self = .notInThisBuild
+                return
+            }
             self = permissions.contains(.screenTime) ? .available : .needsScreenTime
         }
     }

@@ -14,6 +14,7 @@ public struct MapleClock: Sendable, Hashable {
     private enum Source: Sendable, Hashable {
         case live
         case fixed(Date)
+        case shifted(TimeInterval)
     }
 
     private let source: Source
@@ -26,11 +27,23 @@ public struct MapleClock: Sendable, Hashable {
         MapleClock(source: .fixed(date))
     }
 
+    /// The real time moved by `offset`, still ticking: a demo launch puts "now" inside the phase it asks for and lets
+    /// a session run (F1 design §7.6). The demo focus time source uses the same offset, so Home and the dial agree.
+    public static func shifted(by offset: TimeInterval) -> MapleClock {
+        MapleClock(source: .shifted(offset))
+    }
+
+    /// How far a shifted clock is moved; 0 for the live and fixed clocks.
+    public var offset: TimeInterval {
+        if case .shifted(let offset) = source { offset } else { 0 }
+    }
+
     /// The current instant.
     public func now() -> Date {
         switch source {
         case .live: Date()
         case .fixed(let date): date
+        case .shifted(let offset): Date().addingTimeInterval(offset)
         }
     }
 
@@ -40,6 +53,7 @@ public struct MapleClock: Sendable, Hashable {
         switch source {
         case .live: timelineDate
         case .fixed(let date): date
+        case .shifted(let offset): timelineDate.addingTimeInterval(offset)
         }
     }
 
