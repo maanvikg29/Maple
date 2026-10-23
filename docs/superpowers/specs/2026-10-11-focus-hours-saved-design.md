@@ -1,6 +1,8 @@
 # Focus tab and hours saved: design
 
-Status: draft for the owner's review (2026-10-11). Once approved it is binding for everything it covers, and it wins over `docs/design/spec.md` and `docs/design/rewards.md` where they disagree (§12 lists every override).
+Status: approved by the owner (2026-10-11), and binding for everything it covers. It wins over `docs/design/spec.md` and `docs/design/rewards.md` where they disagree (§12 lists every override).
+
+Amended on 2026-10-23 to match the F1 design, `2026-10-23-f1-focus-design.md`, which holds F1's detail (the dial, the screens, the architecture and the test list).
 
 Sources: 15 research agents (run `wf_14378e2b-21f`, 2026-10-11). They covered:
 - Opal in depth, plus 22 study-timer and blocker apps;
@@ -35,7 +37,7 @@ Sources: 15 research agents (run `wf_14378e2b-21f`, 2026-10-11). They covered:
 | O2 | Tab name | **Focus**. "Study" is the default session type ("Start study · 50m"). |
 | O3 | Pricing | **Decide later.** This build has no paywall code, and everything in it is free. Apple Guideline 4.10 bars charging for Screen Time features in any case. |
 | O4 | Sync | **Yes.** Maple's own session ledger and its leaf list sync to the member's private iCloud (§9.5). Screen Time usage data and health data never sync. |
-| O5 | Breaks | **Locked breaks by default.** Short breaks keep apps locked and count. An opt-in Phone break unlocks apps and earns nothing. |
+| O5 | Breaks | **Locked breaks by default.** Short breaks keep apps locked and count. An opt-in Phone break (F2) unlocks apps and earns nothing. |
 | O6 | Audience | **13+ students and adults.** Productivity category, 9+ rating, no social features in v1, no under-13 support. |
 
 ## 3. Hours saved (approach A+)
@@ -57,27 +59,37 @@ Sources: 15 research agents (run `wf_14378e2b-21f`, 2026-10-11). They covered:
   4. then capped (R8, R9).
 
   Overlapping sessions or blocks count once. Two iPhones on one iCloud account merge into one timeline.
-- **R2. Start of an interval.** A verified locked interval starts at a ledger `shieldApplied` event. That event must be written by the process that applied the shield (the app for sessions, the monitor extension for schedules), while authorization is `.approved` and the selection qualifies (R3). No start event, no credit.
-- **R3. Qualifying selection.** At least one app category, or 3 or more apps or sites, or "Only these apps" mode. The selection is frozen when a session starts; edits apply to the next session.
+- **R2. Start of an interval.** A verified locked interval starts at a ledger `shieldApplied` event. Any Maple process may write it, but only after reading its own block back from the store (protection is probed, never assumed from `authorizationStatus`), and only for a qualifying selection (R3). No start event, no credit. Events written by the preview blocker carry `source: preview` and never count.
+- **R3. Qualifying selection.**
+  - "Block these" needs at least one app category, or 3 or more apps or sites.
+  - "Only these" needs no allowed categories and at most 20 apps or sites.
+  - Across all active stores, Maple never shields more than 50 app tokens or 50 web tokens. Above that, iOS silently blocks nothing.
+  - The selection is frozen when a session starts; edits apply to the next session.
 - **R4. End of an interval.** The earliest of:
   - the planned end;
   - an End tap;
   - "End session" on the shield;
   - an emergency release;
+  - "Release all apps";
   - the start of an override or Phone break;
   - the last provable checkpoint before access was revoked, Maple was deleted, or a token expired.
 
-  A checkpoint is the app in the foreground, a monitor callback, or a shield-action event. DeviceActivity callback timestamps are never boundaries.
+  A checkpoint is the app in the foreground, a monitor callback, or a shield-action event, and each one reads the shield store back. Credit runs only up to the last proven checkpoint, and the receipt says so ("Couldn't confirm the block after 14:10"). DeviceActivity callback timestamps are never boundaries.
 - **R5. Timing.**
-  - Every event records the wall clock, the continuous clock and the boot session.
+  - Every event records the wall clock, the continuous clock (`ContinuousClock`, which keeps running while the phone sleeps) and the boot session (`kern.bootsessionuuid`).
   - Credit for a segment = min(planned length, wall-clock elapsed, continuous elapsed within one boot).
   - After a restart, only uptime counts.
   - A clock change can only lower credit.
+  - Time after the last event is provisional: the dial shows it, but it never reaches the counters.
+  - A session lands on the day it really happened: the last trusted time plus the continuous time elapsed since. When the wall clock disagrees by more than 2 minutes, the trusted time wins. No session is placed on a day earlier than the newest ledger event.
 - **R6. Awake window.**
   - Nothing between the scheduled bedtime and the wake time counts.
   - Bedtime blocks count only their wind-down.
   - A session started after bedtime still blocks, but earns 0, with a gentle note.
   - Apple Health sleep never subtracts credit.
+  - Each session freezes that night's bedtime, wake and wind-down, and its time zone, when it starts. Schedule edits made after 18:00 apply from the next night.
+  - For credit, the sleep window is at least 6 hours.
+  - One exception to the first bullet: sessions the member starts count from 60 minutes before wake, so early risers aren't zeroed.
 - **R7. Breaks and overrides.**
   - A short break with shields up counts.
   - A Phone break counts nothing.
@@ -85,24 +97,33 @@ Sources: 15 research agents (run `wf_14378e2b-21f`, 2026-10-11). They covered:
   - Limits per session: Steady 2, Gentle unlimited (each one logged and removed), Locked none.
 - **R8. Session limits.** User-started sessions are planned at 15 min–3h (15 min is the DeviceActivity minimum). Flow (count-up) sessions also cap at 3h, with a check-in at 90 min. No session credits more than its planned length.
 - **R9. Daily caps.**
-  - At most 6h per local day counts.
+  - At most 6h per Maple day counts (R10).
   - At most 2h of that can come from blocks that started on their own (Morning, wind-down, unconfirmed Study blocks).
   - Tapping Start on a Study block within its first 10 minutes makes it user-started.
   - Time over a cap stays in History, greyed, with its reason.
 - **R10. Days and travel.**
   - Events store UTC instants plus the time zone.
-  - Minutes count toward the local day they happened in, split at local midnight.
+  - Minutes count toward the Maple day they happened in. A Maple day (`PhaseWindows.Day`) turns over inside the sleep window, not at midnight, so a 23:40–00:30 session is one session on one day. Caps, finished sessions (by start time) and the streak all use the Maple day.
   - Scheduled blocks are clamped to their nominal length across daylight-saving and time-zone changes.
 - **R11. Totals never go down.**
   - The ledger is append-only and replayed deterministically.
+  - Each Maple day's credit is stored on its own (`FocusBook`). A day can be recounted upward for 3 days after it ends, then it is frozen. Counters are the sum of the days, so a recount, a deleted session or a damaged file can never stall new leaves.
   - Deleting a session hides it but never removes an earned leaf.
   - Each day stores the rules version it was counted under, and rule changes apply only to future days.
 - **R12. No Screen Time, no credit.** Without Screen Time permission, and on free-tier builds, hours saved stays 0 and no ladder counts unblocked sessions. The tab shows its "Needs Screen Time" state (§5.10).
 - **R13. Secondary ladders.**
-  - A *finished session* must meet all of these: user-started, planned at 20 min or more, reached its planned end (overrides allowed but subtracted). At most 4 count per day.
+  - A *finished session* must meet all of these:
+    - it was user-started;
+    - it reached its planned end with no early end of any kind;
+    - it has at least 20 locked minutes inside the awake window, counted before the caps;
+    - those minutes are at least ¾ of its planned focus time.
+
+    At most 3 count per day.
+  - An emergency release or "Release all apps" never counts as finished. Both end the session and keep its minutes.
   - A *Focus streak day* has at least one finished session.
-  - Any 2 days per calendar week (the locale's week) count as rest days automatically, and Away (F2) pauses the streak. Away is set for today or later, never back-dated.
-  - Streak leaves use the best run.
+  - Any 2 days per calendar week (the locale's week) count as rest days automatically, and they count toward the run's length. Days before a run starts never use them, and today stays pending until it ends.
+  - Away (F2) pauses the streak. It is set for today or later, never back-dated.
+  - Streak progress shows the current run, while streak leaves use the best run. A broken run reads "Best: 21 days", never "streak lost".
   - A *Phone-free morning* or a *Bedtime kept* means that block ran to its end with no override, early end or Phone break.
 - **R14. Never a source of credit:** usage thresholds, DeviceActivityReport numbers and the EU data-access API. These may only drive gentle hints, and only after device testing.
 
@@ -111,18 +132,19 @@ Sources: 15 research agents (run `wf_14378e2b-21f`, 2026-10-11). They covered:
 |---|---|
 | Definition (first use, then behind an info button) | "Time your chosen apps stayed locked while you were awake." |
 | Home, day | Hero "2h 15m", caption "saved today · 41h in all" |
-| Home, session running | Hero "18 min", caption "left in this session" |
+| Home, session running | Hero "18m", caption "left in this session" |
 | Next leaf | "Trident maple · 3h 20m to go" |
 | Receipt | "50m saved · apps locked the whole time", or "45m saved · 5m unlocked, not counted" |
-| Saved today sheet | Counted stretches ("Study · 14:00–15:10 · 1h 05m") plus greyed time with its reason ("Unlocked 5 min", "After bedtime", "Over today's 6h", "Protection was off") |
+| Saved today sheet | Counted stretches ("Study · 14:00–15:10 · 1h 05m") plus greyed time with its reason ("Unlocked 5 min", "After bedtime", "Over today's 6h", "Couldn't confirm the block") |
 | How we count (5 lines) | "Counts only while your chosen apps are locked. Sleep doesn't count. Unlocks and phone breaks don't count. Overlaps count once. Up to 6 hours count each day." |
-| Week / lifetime | "9h 40m saved this week · 1h more than last" / "412 hours saved" |
+| Week / lifetime | "9h 40m saved this week" / "412 hours saved" |
 | Feedback only | "Back to studying 3 times" (receipt and weekly recap; never currency) |
 
 Never shown:
 - conversions ("= 3 books");
 - "you would have wasted";
 - goal percentages or composite scores;
+- week-against-week comparisons;
 - any claim that the number is a measured drop in screen time.
 
 ## 4. Reward table
@@ -146,11 +168,7 @@ Never shown:
 ### 4.2 Hours-saved thresholds
 1, 2, 3, 5, 7, 10, 13, 16, 20, 24, 28, 32, 36, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100, 110, 120, 130, 140, 150, 160, 168, 180, 190, 200, 210, 220, 230, 240, 250, 265, 280, 295, 310, 325, 340, 355, 370, 385, 400, 420, 440, 460, 480, 500, 520, 540, 560, 580, 600, 620, 640, 660, 680, 700, 720, 740, 760, 780, 800, 825, 850, 875, 900, 925, 950, 975, 1000, 1025, 1050, 1075, 1100, 1125, 1150, 1175, 1200, 1225, 1250, 1275, 1300, 1325, 1350, 1375, 1400, 1425, 1450, 1475, 1500, 1530, 1560, 1590, 1620, 1650, 1680, 1710, 1740, 1770, 1800, 1840, 1880, 1920, 1960, 2000.
 
-That is 114 unique, ascending thresholds, roughly h_k ≈ k + 0.145k². Landmark rungs carry a line:
-- 24h "A day back"
-- 168h "A week back"
-- 720h "A month back"
-- 2,000h "A working year back"
+That is 114 unique, ascending thresholds, roughly h_k ≈ k + 0.145k². Landmark rungs (24h, 168h, 720h and 2,000h) keep their famous species, but their unlock text is a plain fact ("Save 24 hours"), like every other rung. Their figurative lines ("A day back" and similar) were dropped on 2026-10-23.
 
 ### 4.3 Placement of the 155 species
 - **Early and landmark rungs:** famous garden species (red, Japanese, Fullmoon, Norway, paperbark, trident and similar).
@@ -188,19 +206,21 @@ All screens follow spec §1: one hero per screen, calm dark design, amber only f
 
 ### 5.1 Idle root
 - **Header:** 44pt, "Focus" in `screenTitle`, with "History ›" as a `TextLink` (F2).
-- **Hero ring:** 240–280pt.
-  - A 2pt track and a 3pt season-tint arc ending in a 14pt silhouette of the next hours leaf.
-  - Inside: the preset name and "50:00" in the hero numeral.
-  - Dragging the leaf handle sets 15–180 min in 5-minute steps. A −/+ stepper is the accessible alternative.
-- **Preset chips:** Study 50m · Quick 25m · Deep 90m · Read 30m · +, with the last-used one selected.
+- **Hero dial:** the minute-marks dial (F1 design §4).
+  - One mark per minute, or per 2 or 3 minutes for long sessions.
+  - A tinted dot marks where the next hours leaf opens, and the next leaf sits in the centre with "50m".
+  - Turning the dial sets 15–180 min in 5-minute steps. VoiceOver adjusts it by swiping up or down.
+- **Preset chips:** Study 50m · Quick 25m · Deep 90m · Read 30m · +, with the last-used one selected. Quick is preselected for the very first session.
 - **Lines under the chips:**
   - "Blocking 6 apps ›", with up to 5 app icons; opens the Blocking sheet;
   - "Counts toward Trident maple · 6h 40m of 8h" (13pt secondary);
   - an optional nearest exam, "Biology · 12 days" (F2).
 - **Primary capsule:** "Start study · 50m". In Locked, it is hold-to-start.
-- **Below the fold:**
-  - the Schedules grid (§5.8, F2);
+- **Below the fold (F2):**
+  - the Schedules grid (§5.8);
   - a "This week" strip, "4h 10m saved this week".
+
+  In F1 nothing scrolls.
 - **Time of day:** the tab adapts.
   - In the evening, the Bedtime tile moves first.
   - During wind-down and at night, the hero becomes the Bedtime status ("Wind-down · 38m until bed"). Starting a long session becomes a quiet link that suggests a short review instead.
@@ -219,9 +239,9 @@ All screens follow spec §1: one hero per screen, calm dark design, amber only f
 - A preset holds:
   - **shape:**
     - Countdown;
-    - Cycles: 25/5 ×4 with a 15-minute long break, or 50/10;
-    - Flow: count-up with a 3h cap, suggesting a 5, 8 or 10-minute break depending on how long you've focused;
-  - length and break plan, with "Breaks off your phone" (default) or "Phone break";
+    - Cycles (F2): 25/5 ×4 with a 15-minute long break, or 50/10;
+    - Flow (F2): count-up with a 3h cap, suggesting a 5, 8 or 10-minute break depending on how long you've focused;
+  - length and break plan, with "Breaks off your phone" (default) or "Phone break" (F2);
   - app set;
   - strictness;
   - sound (F2);
@@ -230,20 +250,26 @@ All screens follow spec §1: one hero per screen, calm dark design, amber only f
 - **Strictness levels** (all free):
   - **Gentle:** unlimited overrides (each one subtracted). End early after a 5-second breathing ring.
   - **Steady (default):** 2 overrides per session, and from the second one a 10-second breath in Maple. End early is hold 3s, then a 15-second quiet countdown, with "Take a 5-minute break instead" offered when break time remains.
-  - **Locked:** no overrides and no ending. One Emergency release per 7 days: hold to confirm; it ends this session only and keeps the minutes. The copy says honestly that Screen Time access can always be withdrawn in Settings.
+  - **Locked:** no overrides and no ending early.
+    - The Emergency release is always available but slow: hold for 10 seconds, then one slow breath. It ends this session only, keeps the minutes and never counts as finished.
+    - A Locked session never starts with one tap: it is always hold to start.
+    - The copy says honestly that Screen Time access can always be withdrawn in Settings.
 - **Changing strictness:** tighter applies now, looser from the next day ("Steady starts tomorrow"). Nothing changes during a running session.
 
 ### 5.4 Running session (full-screen cover)
 - **Background:** scene black with a faint season-tint bloom. A `chevron.down` button minimises the view while the session keeps running.
-- **Header:** "Study · Chemistry ch. 4", plus the status row "Blocking 6 apps · Protection on".
-- **Ring:** 280pt; the arc advances, showing "18:42" and "of 50m". The leaf rides the arc end, and "Trident maple · 6h 40m of 8h" ticks up each minute.
-- **Cycles:** "Round 2 of 4". A break shows its own countdown ring with one off-phone suggestion (stand, look outside, water).
+- **Header:** "Study · Chemistry ch. 4", plus the status row "6 apps resting".
+- **Dial:** the minute-marks dial (F1 design §4).
+  - Passed minutes are lit and the current one is tinted.
+  - The centre shows "32m" and "left of 50m" in calm minutes, with seconds only in the last minute.
+  - The next leaf fills at the centre, and the leaf line reads "Field maple · 17m to go".
+- **Cycles (F2):** "Round 2 of 4". A break shows its own countdown ring with one off-phone suggestion (stand, look outside, water).
 - **Bottom row:** a "Break" capsule when the plan allows, a sound button (F2) and an "End early" `TextLink`.
 - **Display:**
   - dims to 50% after 30s;
-  - under Reduce Motion the arc steps once a minute;
+  - under Reduce Motion the marks step once a minute;
   - StandBy desk mode (F2).
-- **Mini bar:** while a session runs, a `tabViewBottomAccessory` mini bar shows on Home and Herbarium.
+- **Mini bar:** while a session runs, a `tabViewBottomAccessory` mini bar shows on Herbarium. Home shows the session itself.
 
 ### 5.5 Shield (system block screen)
 - **Look:** background `#05070D`, with the next leaf's PNG (pre-rendered into the App Group) as the icon and no amber.
@@ -261,10 +287,10 @@ All screens follow spec §1: one hero per screen, calm dark design, amber only f
 - **Friction** follows the strictness level (§5.3).
 - **History** marks an early end with a neutral half ring.
 
-### 5.7 Receipt (`.medium` sheet at session end)
+### 5.7 Receipt (the running screen's final frame)
 - **Hero:** "50m", captioned "saved · 2h 10m today".
 - **Breakdown:** "50m locked · 5m unlocked, not counted · 2 breaks" and "Back to studying 3 times".
-- **Leaf:** the next-leaf hairline animates. If a leaf opened, a capsule shows "A new leaf opened · Open" by day, or "waiting in the morning" otherwise.
+- **Leaf:** the dial's finish (F1 design §4.6). If a leaf opened, the line reads "A new leaf is waiting · Open". It reads "A new leaf will open in the morning" when the session ended during wind-down or at night.
 - **Reflection:** an optional one-tap "How did it go?" (Done, Partly, Not yet) and a "Next time, start with…" note that pre-fills the next intention.
 - **Buttons:** primary "Done". Secondary "Again · 50m" or "Start break".
 
@@ -310,15 +336,15 @@ All screens follow spec §1: one hero per screen, calm dark design, amber only f
 - **When it shows:** whenever authorization isn't `.approved`, and always on free-tier builds.
 - **Content:** a designed primer explaining what blocking does and that Maple never sees which apps are chosen, with a "Turn on Screen Time" primary.
 - **Plain timer:** a `TextLink` "Use as a plain timer" runs a session with no shields. The ring and receipt still work, but the receipt reads "Not counted · apps weren't locked", and nothing counts toward any ladder (R12).
-- **Revoked access:** if access is revoked mid-session, the session continues as a plain timer, and the receipt shows "Protection was off from 14:32".
+- **Revoked access:** if access is revoked mid-session, the session continues as a plain timer, and the receipt shows "Couldn't confirm the block after 14:10".
 
 ### 5.11 Outside the app
 - **Live Activity and Dynamic Island (F1):**
-  - the leaf, a minute-precision countdown (`.timer`), the ring and "6 apps resting";
-  - a Break button and no End button;
+  - the leaf, a minute-precision countdown (`.timer`), the system ring and "6 apps resting";
+  - no buttons in F1, because a Break button would pull App Intents in (it can come with `StartFocusSession` in F2);
   - `staleDate` shows "Session complete".
 - **End-of-session notification (F1):** a local notification with a soft chime. It becomes Time Sensitive on the paid tier.
-- **One App Intent (F2), `StartFocusSession`:** a `LiveActivityIntent` pinned to the main app. It powers:
+- **One App Intent (F2; the Control Center start comes earlier, with F1-paid), `StartFocusSession`:** a `LiveActivityIntent` pinned to the main app. It powers:
   - a Control for Control Center, the Lock Screen and the Action Button (starts the default preset);
   - a small interactive widget with 2 preset buttons;
   - Lock Screen accessories for next-leaf progress;
@@ -346,16 +372,18 @@ Only the NowBlock, the next-leaf row, the header streak and the actions change. 
 | Morning block running | Time left, "38m" | "left of your phone-free morning" | None |
 | Morning, with Apple Health | Last night's sleep (unchanged) | unchanged | unchanged |
 | Morning, no sleep data | Saved yesterday, "1h 50m" | "saved yesterday · 41h in all" | None |
-| Day | Saved today, "2h 15m" (or "0m") | "saved today · 41h in all" | "Start study · 50m" (the last-used preset). It starts at once; a long-press lists the other presets. |
-| Session running (any phase except night) | Time left, "18 min" | "left in this session" | "Return to session" |
+| Day | Saved today, "2h 15m" (or "0m") | "saved today · 41h in all" | "Start study · 50m" (the last-used preset). It starts at once, or with a hold for Locked; a long-press lists the other presets. |
+| Session running (any phase except night) | Time left, "18m" | "left in this session" | "Return to session" |
 | Evening, wind-down, night | Unchanged | Unchanged | "Start wind-down" opens wind-down mode, as now |
 
 - **Without Screen Time**, the day numeral is the countdown to wind-down (today's "Day, before focus ships" row), and the action reads "Turn on blocking".
-- **Header streak:** shows the Focus streak (SF `leaf.fill`, amber, hidden under 2) instead of the bedtime run. The Streak sheet shows the Focus streak with its rest days.
+- **Header streak:** shows the Focus streak's current run (a drawn amber leaf, hidden under 2) instead of the bedtime run. The Streak sheet shows the current run, the best run and this week's rest days.
 - **WeekBlock:** markers show days with a finished session (filled season tint) instead of on-time nights.
 - **The ScoreBlock** stays out of scope.
 
 ## 7. Onboarding
+F1 keeps today's onboarding. The order below arrives with F1-paid, because step 2 needs Apple's app picker.
+
 The order moves to phone habits first. The parked `m1-schedule-onboarding` steps are reused.
 
 1. **Welcome:** one line on hours saved.
@@ -369,7 +397,8 @@ There is no questionnaire before the first timer.
 
 ## 8. Notifications
 - **Allowed:**
-  - session end;
+  - session end (a `ReminderPlan` kind exempt from the night rule);
+  - an opt-in daily study reminder, off by default, which never mentions leaves, streaks or missed days;
   - an opt-in 5-minute heads-up per scheduled block;
   - an opt-in wind-down reminder;
   - the shield fallback for the 10-second breath.
@@ -386,13 +415,17 @@ There is no questionnaire before the first timer.
   - kind, one of `sessionStarted`, `shieldApplied`, `checkpoint`, `breakStarted`, `breakEnded`, `phoneBreakStarted`, `phoneBreakEnded`, `overrideGranted`, `overrideEnded`, `backToStudy`, `sessionEnded(reason)`, `authorizationLost`, `tokensExpired`, `blockStarted`, `blockEnded`;
   - a session or block id;
   - the wall date, continuous uptime, boot session id and time zone identifier;
-  - the source process.
+  - the source (`app`, `monitor`, `shieldAction` or `preview`).
+
+  Two more kinds: `shieldCleared(reason)`, and `.unknown`, so older builds skip newer events.
 - **`FocusPlan`:** shape, planned length, break plan, strictness, selection summary (category count, app and site count, mode) and kind (`userStarted` or `scheduled`). It is frozen into `sessionStarted`.
 - **`FocusLedger`:** replays events into sessions with their segments. It is deterministic and idempotent: merging two copies of the ledger and replaying gives the same result.
 - **`HoursCredit`:** applies R1–R10 to the replayed sessions, the awake windows (from the sleep schedule) and the calendar. It produces per-local-day credit with labelled counted and uncounted stretches (for Saved today and History) and the rules version.
-- **`FocusCounters`:** produces the counter values for `hours_saved`, `sessions_finished`, `focus_streak` (best run), `phone_free_mornings` and `bedtime_kept`. These feed the existing `CollectionSnapshot.raise(_:to:)` high-water marks, so `LeafEngine` stays unchanged.
+- **`FocusCounters`:** produces the counter values for `hours_saved`, `sessions_finished`, `focus_streak` (best run), `phone_free_mornings` and `bedtime_kept`. Credit is kept per Maple day in a `FocusBook` inside `CollectionSnapshot` (R11). Counters are applied as dated marks through `applyFocus(marks:)`, so unlocks carry the moment credit was earned, and `LeafEngine` stays unchanged.
 - **`ShieldReconciler`:** given the time, the running session, scheduled blocks and the current store states, it returns the actions to apply or clear for each named store. It is pure and unit-tested. Every process that can act runs it.
 - **`RewardCategoryID` / `RewardCategoryInfo` / `rewards.json`:** re-cut to the 7 categories in §4.1. `ShippedFeatures` gains F1 and F2 (replacing the old M2/M3 focus and Screen Time gates).
+
+**MapleStorage**, a new nonisolated target, holds the App Group container and the append-only JSON-lines ledger files that the app and every extension share (F1 design §7.2).
 
 The NightLedger is kept. Its settled nights now raise only `rested_nights`, and vitality (§4.8) still reads them.
 
@@ -401,12 +434,16 @@ The NightLedger is kept. Its settled nights now raise only `rested_nights`, and 
 - **`BlockingService` (protocol):**
   - `ScreenTimeBlockingService` (paid tier): FamilyControls authorization, `ManagedSettingsStore` with one named store per purpose (`session`, `morning`, `bedtime`, `study-<id>`), cleanup via `deleteStores`, and token refresh on `tokensDidExpire`.
   - `UnavailableBlockingService` (free tier, Release): always reports not authorized.
-  - `PreviewBlockingService` (DEBUG): drives every shield state, including revocation and expired tokens, for the simulator and tests.
+  - `PreviewBlockingService` (DEBUG):
+    - runs only on demo stores, in a sandbox folder;
+    - tags its events `source: preview`, which are never credited;
+    - drives every shield state and failure mode for the simulator and tests.
+  - **`BlockingCapability`** keeps what the build can do (from a `MapleTier` Info.plist key) separate from whether permission was granted. Permission is probed by reading the store back.
 - **`AppSetStore`:** named app sets (opaque `FamilyActivitySelection` data, encoded in the App Group) plus their qualifying summary.
 - **`PresetStore`:** presets, the last-used one, and strictness-change scheduling.
 - **`FocusScheduleStore` (F2):** Morning, Bedtime and Study blocks, registered with `DeviceActivityCenter`.
 
-### 9.3 Extensions (paid tier: real entitlements; free tier: built without Family Controls, inert)
+### 9.3 Extensions (F1-paid, with real entitlements; F1 builds only `MapleWidgets`)
 | Target | Bundle suffix | Job |
 |---|---|---|
 | `MapleMonitor` | `.monitor` | `DeviceActivityMonitor`: applies or clears block shields, writes `blockStarted`, `shieldApplied`, `checkpoint` and `blockEnded`, and runs the reconciler. No SwiftUI or SwiftData (~6 MB memory ceiling). |
@@ -415,14 +452,17 @@ The NightLedger is kept. Its settled nights now raise only `rested_nights`, and 
 | `MapleWidgets` | `.widgets` | Live Activity (F1); Control, widget and accessories (F2). Free tier works. |
 | `MapleReport` | `.report` | Later: the display-only trend card. Requested with the others so approval covers it. |
 
+- **The monitor ends sessions and re-locks after unlocks** with Maple closed. It uses one one-off activity per session and one per re-lock, each uniquely named (F1 design §7.7).
 - **One file per process:** each process appends events to its own small JSON-lines file in the App Group (`ledger-app`, `ledger-monitor`, `ledger-shieldaction`). The app merges them by event id. No two processes ever write the same file.
 - **Signing:** free-tier builds must still sign on a free account, so no embedded target carries a Family Controls entitlement in the free tier (the existing `Maple-$(MAPLE_TIER).entitlements` pattern, extended per target).
 
 ### 9.4 Reliability layer (F1)
 - Sessions apply shields from the app itself. Schedules use the monitor, with the reconciler as a backstop.
 - **The reconciler runs** on every foreground, every extension callback and every intent.
-- **Every session has redundant end paths:** the DeviceActivity interval end, the reconciler and the Live Activity's end date.
-- **Status and escape hatch:** a "Protection on" status row, and an always-available "Release all apps" in the running screen and in Settings.
+- **Every session has redundant end paths:** the DeviceActivity interval end (F1-paid's monitor) and the reconciler. The Live Activity's end date runs no code, so it isn't an end path.
+- **Status and escape hatch:**
+  - a status row, "6 apps resting", which reads "Couldn't confirm the block" when a probe fails;
+  - "Release all apps" in Settings, for stuck shields. During a session it goes through that strictness level's own end path.
 - **Authorization** is checked on every launch and in every extension callback. Losing it writes `authorizationLost` at the last checkpoint.
 - **Missed scheduled starts** produce the "Start now?" prompt, never a penalty.
 
@@ -457,6 +497,7 @@ The NightLedger is kept. Its settled nights now raise only `rested_nights`, and 
   - stuck-shield recovery with the app killed and the phone off Xcode;
   - `requireAutomaticDateAndTime` in Locked.
 - **Gates:** zero warnings, Swift 6 strict concurrency, and the whole suite green.
+- **F1's full test list** is in the F1 design (§8).
 
 ## 11. Build order
 Each step gets its own implementation plan.
@@ -464,12 +505,18 @@ Each step gets its own implementation plan.
 1. **Reward re-cut and parked M1 merge.**
    - Re-cut `rewards.json` and the category code to §4.
    - Merge `m1-schedule-onboarding`, `m1-health-import` and `m1-notifications`, adapted to §7 and §8: Rested nights from Apple Health; no morning notification.
-2. **F1 Focus core.**
-   - The MapleCore ledger, credit and reconciler.
-   - The Focus tab: idle root, Blocking sheet, presets, strictness, running session, end early, receipt, Saved today and Needs Screen Time.
-   - Shield and shield-action extensions, Live Activity, end notification and Home changes.
-   - Ladders: `first_leaf`, `hours_saved`, `sessions_finished` and `focus_streak`.
-   - On the free tier everything runs against `PreviewBlockingService` in DEBUG.
+2. **F1 Focus core** (detail: `2026-10-23-f1-focus-design.md`), in three plans:
+   - **F1a, logic:** MapleStorage, the MapleCore ledger, credit, `FocusBook`, counters and reconciler, and the stores with preview blocking. Ladders: `first_leaf`, `hours_saved`, `sessions_finished` and `focus_streak`.
+   - **F1b, screens:**
+     - the Focus tab: idle root, Blocking sheet, presets, strictness, running session, break, end early, emergency release, receipt, Saved today and Needs Screen Time;
+     - Home changes, the Live Activity and the notifications.
+
+     Everything runs against `PreviewBlockingService` in DEBUG.
+   - **F1-paid, after joining the paid program:**
+     - on-device tests first;
+     - then `ScreenTimeBlockingService`, and the monitor, shield and shield-action extensions;
+     - onboarding's "What pulls you in", the Control Center start and Time Sensitive alerts;
+     - App Store housekeeping.
 3. **F2 Focus schedules and surfaces.**
    - Morning, Bedtime and Study blocks with the monitor extension.
    - Ladders: `phone_free_mornings` and `bedtime_kept`.
@@ -530,4 +577,4 @@ Each step gets its own implementation plan.
 - **The paid program gates** 146 of the 155 leaves (everything except Rested nights and the first leaf) and all device testing. The Needs Screen Time primer has to convert well.
 - **The pacing model** rests on assumed usage profiles. Validate it in TestFlight and freeze thresholds before rarity goes live.
 - **Scope:** the F1 and F2 split, and flags for everything later.
-- **Opal is recovering** (October review average 3.47), so its weak moment may not last.
+- **Opal has largely recovered** (4.72★ overall; its October review average was 3.47), so Maple can't count on its weak moment. Forest's reviews have averaged about 2.05★ since its September 2026 redesign.

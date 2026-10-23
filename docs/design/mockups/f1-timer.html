@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maple focus timer</title>
+<style>
+  :root {
+    --page: #0b0d12; --ink: #e9ecf2; --muted: #9aa3b4; --line: #222836;
+    --bg: #05070D; --text: #F2F5FA; --text2: #8A96AD; --tint: #E3A49E; --amber: #E8A35C; --gold: #F0C24A;
+    --ease: cubic-bezier(.2, .8, .2, 1); --pop: cubic-bezier(.34, 1.45, .64, 1);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.55 -apple-system, system-ui, sans-serif; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 28px 16px 60px; }
+  h1 { font: 600 28px/1.2 ui-rounded, -apple-system, system-ui; margin: 0 0 8px; }
+  .intro { color: var(--muted); max-width: 64ch; margin: 0; }
+  .bar { position: sticky; top: 0; z-index: 5; display: flex; gap: 10px 14px; align-items: center; flex-wrap: wrap;
+    padding: 14px 0; margin: 18px 0 8px; background: color-mix(in srgb, var(--page) 92%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+  .bar button { font: 600 14px ui-rounded, system-ui; color: var(--bg); background: linear-gradient(#E2E8F2, #B4C0D6); border: 0; border-radius: 999px; padding: 9px 18px; cursor: pointer; }
+  .bar input[type=range] { flex: 1; min-width: 180px; accent-color: var(--tint); }
+  .bar .t { font: 600 14px ui-rounded, system-ui; font-variant-numeric: tabular-nums; min-width: 120px; color: var(--muted); }
+  .bar .jumps { display: flex; gap: 6px; flex-wrap: wrap; }
+  .bar .jumps button { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 10px; font-weight: 500; }
+  .stage { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 28px 40px; align-items: start; margin-top: 22px; }
+  @media (max-width: 720px) { .stage { grid-template-columns: minmax(0, 1fr); justify-items: center; } .side { width: 100%; max-width: 300px; } }
+  .side { display: grid; gap: 22px; }
+  .mini { margin: 0 0 8px; font-size: 11px; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+  .side ul { margin: 0; padding-left: 18px; display: grid; gap: 7px; font-size: 14px; }
+
+  /* Phone */
+  .phone { width: 300px; height: 650px; border-radius: 48px; position: relative; overflow: hidden; background: var(--bg);
+    border: 1px solid rgba(157,180,230,.2); box-shadow: 0 24px 60px rgba(0,0,0,.45); color: var(--text);
+    font-family: ui-rounded, "SF Pro Rounded", -apple-system, system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+  .island { position: absolute; top: 11px; left: 50%; transform: translateX(-50%); width: 96px; height: 28px; border-radius: 15px; background: #000; z-index: 3; }
+  .sbar { position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: center; padding: 17px 30px 0 34px; font-size: 14px; font-weight: 600; z-index: 2; }
+  .sbar .icons { display: inline-flex; gap: 5px; align-items: center; fill: var(--text); color: var(--text); }
+  .screen { position: absolute; inset: 52px 0 0; display: flex; flex-direction: column; padding: 0 22px; z-index: 1; }
+  .topbar { height: 36px; }
+  .iconbtn { width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(157,180,230,.18); display: grid; place-content: center; color: var(--text2); background: rgba(12,21,39,.4); }
+  .head { text-align: center; margin-top: 2px; } .head b { display: block; font-size: 17px; font-weight: 600; } .head span { font-size: 12.5px; color: var(--text2); }
+
+  /* Background glow: two stacked layers so the tint-to-gold change is a crossfade. */
+  .bloom { position: absolute; left: 50%; top: 268px; width: 380px; height: 380px; margin: -190px 0 0 -190px; border-radius: 50%; z-index: 0; pointer-events: none;
+    background: radial-gradient(closest-side, rgba(227,164,158,.14), rgba(227,164,158,0)); opacity: .55; transition: opacity .8s var(--ease); }
+  .bloom.gold { background: radial-gradient(closest-side, rgba(240,194,74,.18), rgba(240,194,74,0)); opacity: 0; }
+  .ripe .bloom.gold { opacity: .6; } .isdone .bloom.gold { opacity: 1; } .ripe .bloom.tint { opacity: .25; }
+
+  /* Dial */
+  .dial { position: relative; width: 236px; height: 236px; margin: 22px auto 0; z-index: 1; }
+  .dial > svg { position: absolute; inset: 0; overflow: visible; }
+  .tick { stroke: rgba(242,245,250,.16); stroke-width: 1.6; stroke-linecap: round; transition: stroke .3s linear; }
+  .tick.lit { stroke: rgba(242,245,250,.88); }
+  .tick.cur { stroke: var(--tint); stroke-width: 2.2; transition: none; }
+  #sweep line { stroke: var(--gold); stroke-width: 2.6; stroke-linecap: round; opacity: 0; }
+  .leafmark { fill: var(--tint); transition: fill .6s var(--ease), opacity .6s var(--ease); }
+  .ripe .leafmark { fill: var(--amber); }
+  .isdone .leafmark { opacity: 0; }
+  .finishring { position: absolute; inset: 0; border-radius: 50%; border: 1.5px solid var(--gold); opacity: 0; pointer-events: none; }
+
+  /* Centre: each piece is absolutely placed and only ever moved with transform, so state changes never relayout. */
+  .c { position: absolute; left: 50%; top: 50%; transition: transform .8s var(--ease), opacity .8s var(--ease); }
+  .c-leaf { width: 98px; height: 98px; margin: -49px 0 0 -49px; transform: translateY(-44px) scale(.41); transition-timing-function: var(--pop); will-change: transform; }
+  .c-leaf svg { display: block; }
+  .c-glow { width: 150px; height: 150px; margin: -75px 0 0 -75px; transform: translateY(-44px) scale(.4); opacity: 0; }
+  .c-glow i { position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(closest-side, rgba(240,194,74,.5), rgba(240,194,74,0)); }
+  .c-big { transform: translate(-50%, -50%) translateY(4px); white-space: nowrap; }
+  .c-cap { transform: translate(-50%, -50%) translateY(40px); white-space: nowrap; font-size: 12px; color: var(--text2); }
+  .big { display: block; font-size: 48px; font-weight: 600; letter-spacing: -1.5px; line-height: 1; }
+  .big .u { font-size: 27px; color: var(--text2); letter-spacing: 0; margin-left: 1px; }
+  .ripe .c-glow { opacity: .55; transform: translateY(-44px) scale(.5); }
+  .isdone .c-leaf { transform: translateY(-34px) scale(1); }
+  .isdone .c-glow { opacity: 1; transform: translateY(-34px) scale(1); }
+  .isdone .c-big { transform: translate(-50%, -50%) translateY(33px) scale(.72); }
+  .isdone .c-cap { transform: translate(-50%, -50%) translateY(57px); }
+
+  /* Leaf */
+  .leaf .stalk { stroke: rgba(201,211,227,.42); stroke-width: 2.4; }
+  .leaf .blade-base { fill: rgba(242,245,250,.03); }
+  .leaf .blade-line { stroke: rgba(201,211,227,.5); stroke-width: .9; }
+  .leaf .vein { stroke: rgba(201,211,227,.26); stroke-width: .8; }
+  .leaf .fill-prev { fill: #c99a2c; opacity: .62; }
+  .leaf .fill-edge { fill: #FFE8A8; opacity: .85; }
+  .leaf .stalk, .leaf .blade-line, .leaf .vein { transition: stroke .6s var(--ease), opacity .6s var(--ease); }
+  .leaf .fill-prev, .leaf .fill-edge { transition: opacity .6s var(--ease); }
+  .ripe .leaf .fill-prev { opacity: 1; }
+  .ripe .leaf .blade-line { stroke: #725811; stroke-width: .8; }
+  .ripe .leaf .vein { stroke: #725811; opacity: .55; }
+  .ripe .leaf .stalk { stroke: #725811; }
+  .ripe .leaf .fill-edge { opacity: 0; }
+
+  /* Lines under the dial */
+  .leafline { text-align: center; font-size: 13.5px; white-space: nowrap; margin-top: 22px; position: relative; z-index: 1; min-height: 21px; }
+  .bud { display: inline-block; width: 9px; height: 0; border-radius: 50%; background: var(--amber); box-shadow: 0 0 10px rgba(232,163,92,.6);
+    margin-right: 0; vertical-align: 1px; opacity: 0; transform: scale(.4); transition: opacity .5s var(--ease), transform .5s var(--pop); }
+  .ripe .bud { height: 9px; margin-right: 8px; opacity: 1; transform: none; }
+  .sec { color: var(--text2); }
+  .controls { margin-top: auto; margin-bottom: 34px; display: grid; gap: 15px; position: relative; z-index: 1; }
+  .controls.done, .isdone .controls.running { display: none; } .isdone .controls.done { display: grid; }
+  .glass { height: 46px; border-radius: 999px; display: grid; place-content: center; font-weight: 600; font-size: 15px; background: rgba(17,29,53,.72); border: 1px solid rgba(157,180,230,.18); }
+  .primary { height: 48px; border-radius: 999px; display: grid; place-content: center; font-weight: 600; font-size: 15.5px; color: var(--bg); background: linear-gradient(#E2E8F2, #B4C0D6); box-shadow: 0 0 24px rgba(157,180,230,.12); }
+  .link { text-align: center; font-size: 14px; color: var(--text2); text-decoration: underline; text-decoration-color: rgba(138,150,173,.45); text-underline-offset: 3px; }
+
+  /* The finish plays once, on the way into "done". */
+  .finishing #sweep line { animation: sweep .9s var(--ease) calc(var(--i) * 14ms) both; }
+  .finishing .finishring { animation: ripple 1.5s var(--ease) .15s; }
+  .finishing .c-glow i { animation: pulse 1.6s ease-in-out .1s; }
+  .finishing .bloom.gold { animation: bloom 1.6s var(--ease); }
+  .finishing .big { animation: swap .5s var(--ease) both; }
+  .finishing .leafline { animation: rise .6s var(--ease) .4s both; }
+  .finishing .controls.done { animation: rise .6s var(--ease) .6s both; }
+  @keyframes sweep { 0% { opacity: 0; } 25% { opacity: 1; } 100% { opacity: 0; } }
+  @keyframes ripple { 0% { opacity: .7; transform: scale(.55); } 100% { opacity: 0; transform: scale(1.3); } }
+  @keyframes pulse { 0%, 100% { opacity: 1; transform: none; } 45% { opacity: 1; transform: scale(1.25); } 70% { opacity: .75; } }
+  @keyframes bloom { 0% { transform: scale(.75); } 50% { transform: scale(1.12); } 100% { transform: none; } }
+  @keyframes swap { from { opacity: 0; transform: translateY(8px); } }
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } }
+
+  /* Lock Screen and Dynamic Island */
+  .lockcard { display: flex; gap: 12px; align-items: center; padding: 12px 14px; border-radius: 22px; background: rgba(40,42,48,.92);
+    font-family: ui-rounded, -apple-system, system-ui; color: var(--text); font-variant-numeric: tabular-nums; }
+  .la-mid { flex: 1; display: grid; min-width: 0; } .la-mid b { font-size: 21px; font-weight: 600; } .la-mid span { font-size: 12px; color: #a7adba; }
+  .diband { padding: 14px 0; border-radius: 22px; background: linear-gradient(#1b2236, #10131c); display: grid; place-items: center; }
+  .di { width: 210px; height: 37px; border-radius: 19px; background: #000; display: flex; align-items: center; justify-content: space-between; padding: 0 10px 0 13px;
+    font-family: ui-rounded, -apple-system, system-ui; font-variant-numeric: tabular-nums; color: var(--text); }
+  .di-right { display: flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 600; }
+  .ring-bg { stroke: rgba(242,245,250,.18); } .ring-p { stroke: var(--text); transition: stroke-dasharray .3s linear; }
+
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Timer C · Minute marks</h1>
+  <p class="intro">The direction you picked, with a smoother finish. You're in a 50-minute Study session and your next leaf, the <b>Field maple</b>, completes at minute 35. Press <b>Play</b> to watch the whole session in 12 seconds, or jump to a moment. <b>Done</b> replays the finish.</p>
+  <div class="bar">
+    <button id="play" type="button" aria-pressed="false">Play</button>
+    <input id="t" type="range" min="0" max="50" step="any" value="18" aria-label="Minutes into the session">
+    <span class="t" id="tl" aria-live="off">18 min into 50</span>
+    <span class="jumps"><button type="button" data-jump="0">Start</button><button type="button" data-jump="18">18 min</button><button type="button" data-jump="35.2">Leaf ready</button><button type="button" data-jump="49.3">Last minute</button><button type="button" data-jump="50">Done</button></span>
+  </div>
+  <div class="stage">
+    <div class="phone" id="phone"><div class="island"></div><div class="sbar"><span id="clock">14:21</span><span class="icons">
+<svg width="16" height="11" viewBox="0 0 16 11"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.3" y="5" width="3" height="6" rx="1"/><rect x="8.6" y="3" width="3" height="8" rx="1"/><rect x="12.9" y="0" width="3" height="11" rx="1"/></svg>
+<svg width="24" height="11" viewBox="0 0 24 11"><rect x=".5" y=".5" width="20" height="10" rx="3" fill="none" stroke="currentColor" opacity=".5"/><rect x="2" y="2" width="15" height="7" rx="1.5"/><rect x="21.5" y="3.5" width="1.5" height="4" rx=".7" opacity=".5"/></svg></span></div>
+<div class="bloom tint"></div><div class="bloom gold"></div>
+<div class="screen">
+  <div class="topbar"><div class="iconbtn" aria-label="Minimise">
+    <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 4l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></div></div>
+  <div class="head"><b>Study · Chemistry ch. 4</b><span>6 apps resting</span></div>
+  <div class="dial">
+    <div class="finishring"></div>
+    <svg viewBox="0 0 200 200" width="236" height="236" aria-hidden="true"><g id="marks"></g><g id="sweep"></g><circle id="leafmark" class="leafmark" r="2.6"/></svg>
+    <div class="c c-glow"><i></i></div>
+    <div class="c c-leaf"><svg class="leaf" id="cleaf" width="98" height="98" viewBox="-68.2 -96.1 130.5 130.5" aria-hidden="true">
+  <defs><clipPath id="cleaf-clip"><path d="M0.0 2.4L-2.1 5.5L-4.0 8.1L-5.7 10.4L-7.2 12.2L-8.6 13.5L-9.8 14.5L-10.8 15.0L-11.6 15.1L-13.9 15.9L-16.1 16.5L-18.3 17.1L-20.4 17.7L-22.5 18.2L-24.6 18.6L-26.7 19.0L-28.7 19.3L-30.7 19.5L-32.7 19.7L-34.6 19.8L-36.5 19.8L-38.4 19.8L-40.2 19.8L-42.0 19.6L-43.8 19.4L-45.6 19.2L-47.3 18.8L-46.6 17.5L-45.9 16.1L-45.1 14.8L-44.3 13.5L-43.4 12.2L-42.5 10.9L-41.5 9.7L-40.4 8.4L-39.4 7.2L-38.2 6.0L-37.0 4.8L-35.8 3.7L-34.5 2.5L-33.2 1.4L-31.8 0.3L-30.3 -0.8L-28.8 -1.9L-27.2 -3.0L-29.4 -4.7L-31.5 -6.4L-33.5 -8.2L-35.4 -9.9L-37.3 -11.7L-39.0 -13.5L-40.7 -15.3L-42.3 -17.2L-43.8 -19.0L-45.2 -20.9L-46.6 -22.8L-47.9 -24.7L-49.0 -26.6L-50.1 -28.5L-51.1 -30.5L-52.1 -32.4L-52.9 -34.4L-53.7 -36.4L-51.7 -36.6L-49.8 -36.8L-47.8 -36.9L-45.8 -36.9L-43.8 -36.9L-41.7 -36.7L-39.7 -36.6L-37.6 -36.3L-35.5 -36.0L-33.4 -35.6L-31.2 -35.1L-29.1 -34.6L-26.9 -34.0L-24.8 -33.3L-22.6 -32.5L-20.3 -31.7L-18.1 -30.8L-15.8 -29.9L-15.5 -32.8L-15.0 -35.6L-14.6 -38.3L-14.0 -41.0L-13.4 -43.6L-12.7 -46.2L-12.0 -48.7L-11.2 -51.1L-10.4 -53.5L-9.4 -55.8L-8.5 -58.1L-7.4 -60.2L-6.4 -62.4L-5.2 -64.4L-4.0 -66.4L-2.7 -68.3L-1.4 -70.2L0.0 -72.0L1.4 -70.2L2.7 -68.3L4.0 -66.4L5.2 -64.4L6.4 -62.4L7.4 -60.2L8.5 -58.1L9.4 -55.8L10.4 -53.5L11.2 -51.1L12.0 -48.7L12.7 -46.2L13.4 -43.6L14.0 -41.0L14.6 -38.3L15.0 -35.6L15.5 -32.8L15.8 -29.9L18.1 -30.8L20.3 -31.7L22.6 -32.5L24.8 -33.3L26.9 -34.0L29.1 -34.6L31.2 -35.1L33.4 -35.6L35.5 -36.0L37.6 -36.3L39.7 -36.6L41.7 -36.7L43.8 -36.9L45.8 -36.9L47.8 -36.9L49.8 -36.8L51.7 -36.6L53.7 -36.4L52.9 -34.4L52.1 -32.4L51.1 -30.5L50.1 -28.5L49.0 -26.6L47.9 -24.7L46.6 -22.8L45.2 -20.9L43.8 -19.0L42.3 -17.2L40.7 -15.3L39.0 -13.5L37.3 -11.7L35.4 -9.9L33.5 -8.2L31.5 -6.4L29.4 -4.7L27.2 -3.0L28.8 -1.9L30.3 -0.8L31.8 0.3L33.2 1.4L34.5 2.5L35.8 3.7L37.0 4.8L38.2 6.0L39.4 7.2L40.4 8.4L41.5 9.7L42.5 10.9L43.4 12.2L44.3 13.5L45.1 14.8L45.9 16.1L46.6 17.5L47.3 18.8L45.6 19.2L43.8 19.4L42.0 19.6L40.2 19.8L38.4 19.8L36.5 19.8L34.6 19.8L32.7 19.7L30.7 19.5L28.7 19.3L26.7 19.0L24.6 18.6L22.5 18.2L20.4 17.7L18.3 17.1L16.1 16.5L13.9 15.9L11.6 15.1L10.8 15.0L9.8 14.5L8.6 13.5L7.2 12.2L5.7 10.4L4.0 8.1L2.1 5.5L-0.0 2.4Z"/></clipPath>
+    <linearGradient id="cleaf-grad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F0C24A"/><stop offset="1" stop-color="#d1a020"/></linearGradient></defs>
+  <g transform="rotate(-5.4) translate(0 -10)">
+    <path d="M0 0 Q3 15 2 30" class="stalk" fill="none" stroke-linecap="round"/>
+    <path d="M0.0 2.4L-2.1 5.5L-4.0 8.1L-5.7 10.4L-7.2 12.2L-8.6 13.5L-9.8 14.5L-10.8 15.0L-11.6 15.1L-13.9 15.9L-16.1 16.5L-18.3 17.1L-20.4 17.7L-22.5 18.2L-24.6 18.6L-26.7 19.0L-28.7 19.3L-30.7 19.5L-32.7 19.7L-34.6 19.8L-36.5 19.8L-38.4 19.8L-40.2 19.8L-42.0 19.6L-43.8 19.4L-45.6 19.2L-47.3 18.8L-46.6 17.5L-45.9 16.1L-45.1 14.8L-44.3 13.5L-43.4 12.2L-42.5 10.9L-41.5 9.7L-40.4 8.4L-39.4 7.2L-38.2 6.0L-37.0 4.8L-35.8 3.7L-34.5 2.5L-33.2 1.4L-31.8 0.3L-30.3 -0.8L-28.8 -1.9L-27.2 -3.0L-29.4 -4.7L-31.5 -6.4L-33.5 -8.2L-35.4 -9.9L-37.3 -11.7L-39.0 -13.5L-40.7 -15.3L-42.3 -17.2L-43.8 -19.0L-45.2 -20.9L-46.6 -22.8L-47.9 -24.7L-49.0 -26.6L-50.1 -28.5L-51.1 -30.5L-52.1 -32.4L-52.9 -34.4L-53.7 -36.4L-51.7 -36.6L-49.8 -36.8L-47.8 -36.9L-45.8 -36.9L-43.8 -36.9L-41.7 -36.7L-39.7 -36.6L-37.6 -36.3L-35.5 -36.0L-33.4 -35.6L-31.2 -35.1L-29.1 -34.6L-26.9 -34.0L-24.8 -33.3L-22.6 -32.5L-20.3 -31.7L-18.1 -30.8L-15.8 -29.9L-15.5 -32.8L-15.0 -35.6L-14.6 -38.3L-14.0 -41.0L-13.4 -43.6L-12.7 -46.2L-12.0 -48.7L-11.2 -51.1L-10.4 -53.5L-9.4 -55.8L-8.5 -58.1L-7.4 -60.2L-6.4 -62.4L-5.2 -64.4L-4.0 -66.4L-2.7 -68.3L-1.4 -70.2L0.0 -72.0L1.4 -70.2L2.7 -68.3L4.0 -66.4L5.2 -64.4L6.4 -62.4L7.4 -60.2L8.5 -58.1L9.4 -55.8L10.4 -53.5L11.2 -51.1L12.0 -48.7L12.7 -46.2L13.4 -43.6L14.0 -41.0L14.6 -38.3L15.0 -35.6L15.5 -32.8L15.8 -29.9L18.1 -30.8L20.3 -31.7L22.6 -32.5L24.8 -33.3L26.9 -34.0L29.1 -34.6L31.2 -35.1L33.4 -35.6L35.5 -36.0L37.6 -36.3L39.7 -36.6L41.7 -36.7L43.8 -36.9L45.8 -36.9L47.8 -36.9L49.8 -36.8L51.7 -36.6L53.7 -36.4L52.9 -34.4L52.1 -32.4L51.1 -30.5L50.1 -28.5L49.0 -26.6L47.9 -24.7L46.6 -22.8L45.2 -20.9L43.8 -19.0L42.3 -17.2L40.7 -15.3L39.0 -13.5L37.3 -11.7L35.4 -9.9L33.5 -8.2L31.5 -6.4L29.4 -4.7L27.2 -3.0L28.8 -1.9L30.3 -0.8L31.8 0.3L33.2 1.4L34.5 2.5L35.8 3.7L37.0 4.8L38.2 6.0L39.4 7.2L40.4 8.4L41.5 9.7L42.5 10.9L43.4 12.2L44.3 13.5L45.1 14.8L45.9 16.1L46.6 17.5L47.3 18.8L45.6 19.2L43.8 19.4L42.0 19.6L40.2 19.8L38.4 19.8L36.5 19.8L34.6 19.8L32.7 19.7L30.7 19.5L28.7 19.3L26.7 19.0L24.6 18.6L22.5 18.2L20.4 17.7L18.3 17.1L16.1 16.5L13.9 15.9L11.6 15.1L10.8 15.0L9.8 14.5L8.6 13.5L7.2 12.2L5.7 10.4L4.0 8.1L2.1 5.5L-0.0 2.4Z" class="blade-base"/>
+    <g clip-path="url(#cleaf-clip)">
+      <rect class="fill-prev" x="-80" width="160" y="0" height="0"/>
+      <rect class="fill-now" x="-80" width="160" y="0" height="0" fill="url(#cleaf-grad)"/>
+      <rect class="fill-edge" x="-80" width="160" y="0" height="1.4"/>
+    </g>
+    <path d="M0.0 2.4L-2.1 5.5L-4.0 8.1L-5.7 10.4L-7.2 12.2L-8.6 13.5L-9.8 14.5L-10.8 15.0L-11.6 15.1L-13.9 15.9L-16.1 16.5L-18.3 17.1L-20.4 17.7L-22.5 18.2L-24.6 18.6L-26.7 19.0L-28.7 19.3L-30.7 19.5L-32.7 19.7L-34.6 19.8L-36.5 19.8L-38.4 19.8L-40.2 19.8L-42.0 19.6L-43.8 19.4L-45.6 19.2L-47.3 18.8L-46.6 17.5L-45.9 16.1L-45.1 14.8L-44.3 13.5L-43.4 12.2L-42.5 10.9L-41.5 9.7L-40.4 8.4L-39.4 7.2L-38.2 6.0L-37.0 4.8L-35.8 3.7L-34.5 2.5L-33.2 1.4L-31.8 0.3L-30.3 -0.8L-28.8 -1.9L-27.2 -3.0L-29.4 -4.7L-31.5 -6.4L-33.5 -8.2L-35.4 -9.9L-37.3 -11.7L-39.0 -13.5L-40.7 -15.3L-42.3 -17.2L-43.8 -19.0L-45.2 -20.9L-46.6 -22.8L-47.9 -24.7L-49.0 -26.6L-50.1 -28.5L-51.1 -30.5L-52.1 -32.4L-52.9 -34.4L-53.7 -36.4L-51.7 -36.6L-49.8 -36.8L-47.8 -36.9L-45.8 -36.9L-43.8 -36.9L-41.7 -36.7L-39.7 -36.6L-37.6 -36.3L-35.5 -36.0L-33.4 -35.6L-31.2 -35.1L-29.1 -34.6L-26.9 -34.0L-24.8 -33.3L-22.6 -32.5L-20.3 -31.7L-18.1 -30.8L-15.8 -29.9L-15.5 -32.8L-15.0 -35.6L-14.6 -38.3L-14.0 -41.0L-13.4 -43.6L-12.7 -46.2L-12.0 -48.7L-11.2 -51.1L-10.4 -53.5L-9.4 -55.8L-8.5 -58.1L-7.4 -60.2L-6.4 -62.4L-5.2 -64.4L-4.0 -66.4L-2.7 -68.3L-1.4 -70.2L0.0 -72.0L1.4 -70.2L2.7 -68.3L4.0 -66.4L5.2 -64.4L6.4 -62.4L7.4 -60.2L8.5 -58.1L9.4 -55.8L10.4 -53.5L11.2 -51.1L12.0 -48.7L12.7 -46.2L13.4 -43.6L14.0 -41.0L14.6 -38.3L15.0 -35.6L15.5 -32.8L15.8 -29.9L18.1 -30.8L20.3 -31.7L22.6 -32.5L24.8 -33.3L26.9 -34.0L29.1 -34.6L31.2 -35.1L33.4 -35.6L35.5 -36.0L37.6 -36.3L39.7 -36.6L41.7 -36.7L43.8 -36.9L45.8 -36.9L47.8 -36.9L49.8 -36.8L51.7 -36.6L53.7 -36.4L52.9 -34.4L52.1 -32.4L51.1 -30.5L50.1 -28.5L49.0 -26.6L47.9 -24.7L46.6 -22.8L45.2 -20.9L43.8 -19.0L42.3 -17.2L40.7 -15.3L39.0 -13.5L37.3 -11.7L35.4 -9.9L33.5 -8.2L31.5 -6.4L29.4 -4.7L27.2 -3.0L28.8 -1.9L30.3 -0.8L31.8 0.3L33.2 1.4L34.5 2.5L35.8 3.7L37.0 4.8L38.2 6.0L39.4 7.2L40.4 8.4L41.5 9.7L42.5 10.9L43.4 12.2L44.3 13.5L45.1 14.8L45.9 16.1L46.6 17.5L47.3 18.8L45.6 19.2L43.8 19.4L42.0 19.6L40.2 19.8L38.4 19.8L36.5 19.8L34.6 19.8L32.7 19.7L30.7 19.5L28.7 19.3L26.7 19.0L24.6 18.6L22.5 18.2L20.4 17.7L18.3 17.1L16.1 16.5L13.9 15.9L11.6 15.1L10.8 15.0L9.8 14.5L8.6 13.5L7.2 12.2L5.7 10.4L4.0 8.1L2.1 5.5L-0.0 2.4Z" class="blade-line" fill="none" stroke-linejoin="round"/>
+    <g fill="none"><path d="M0.0 0.0L-40.7 16.2" class="vein"/><path d="M0.0 0.0L-46.2 -31.3" class="vein"/><path d="M0.0 0.0L0.0 -61.9" class="vein"/><path d="M0.0 0.0L46.2 -31.3" class="vein"/><path d="M0.0 0.0L40.7 16.2" class="vein"/></g>
+  </g>
+</svg></div>
+    <div class="c c-big"><span class="big"><span id="n">32</span><span class="u" id="u">m</span></span></div>
+    <div class="c c-cap" id="cap">left of 50m</div>
+  </div>
+  <div class="leafline"><span class="bud"></span><span id="ll">Field maple · 17m to go</span></div>
+  <div class="controls running"><div class="glass">Take a break</div><div class="link">End early</div></div>
+  <div class="controls done"><div class="primary">Done</div><div class="link">Again · 50m</div></div>
+</div></div>
+    <div class="side">
+      <div><p class="mini">On the Lock Screen</p><div class="lockcard"><svg width="30" height="30" viewBox="-68.2 -96.1 130.5 130.5" aria-hidden="true"><g transform="rotate(-5.4) translate(0 -10)"><path d="M0 0 Q3 15 2 30" stroke="#725811" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M0.0 2.4L-2.1 5.5L-4.0 8.1L-5.7 10.4L-7.2 12.2L-8.6 13.5L-9.8 14.5L-10.8 15.0L-11.6 15.1L-13.9 15.9L-16.1 16.5L-18.3 17.1L-20.4 17.7L-22.5 18.2L-24.6 18.6L-26.7 19.0L-28.7 19.3L-30.7 19.5L-32.7 19.7L-34.6 19.8L-36.5 19.8L-38.4 19.8L-40.2 19.8L-42.0 19.6L-43.8 19.4L-45.6 19.2L-47.3 18.8L-46.6 17.5L-45.9 16.1L-45.1 14.8L-44.3 13.5L-43.4 12.2L-42.5 10.9L-41.5 9.7L-40.4 8.4L-39.4 7.2L-38.2 6.0L-37.0 4.8L-35.8 3.7L-34.5 2.5L-33.2 1.4L-31.8 0.3L-30.3 -0.8L-28.8 -1.9L-27.2 -3.0L-29.4 -4.7L-31.5 -6.4L-33.5 -8.2L-35.4 -9.9L-37.3 -11.7L-39.0 -13.5L-40.7 -15.3L-42.3 -17.2L-43.8 -19.0L-45.2 -20.9L-46.6 -22.8L-47.9 -24.7L-49.0 -26.6L-50.1 -28.5L-51.1 -30.5L-52.1 -32.4L-52.9 -34.4L-53.7 -36.4L-51.7 -36.6L-49.8 -36.8L-47.8 -36.9L-45.8 -36.9L-43.8 -36.9L-41.7 -36.7L-39.7 -36.6L-37.6 -36.3L-35.5 -36.0L-33.4 -35.6L-31.2 -35.1L-29.1 -34.6L-26.9 -34.0L-24.8 -33.3L-22.6 -32.5L-20.3 -31.7L-18.1 -30.8L-15.8 -29.9L-15.5 -32.8L-15.0 -35.6L-14.6 -38.3L-14.0 -41.0L-13.4 -43.6L-12.7 -46.2L-12.0 -48.7L-11.2 -51.1L-10.4 -53.5L-9.4 -55.8L-8.5 -58.1L-7.4 -60.2L-6.4 -62.4L-5.2 -64.4L-4.0 -66.4L-2.7 -68.3L-1.4 -70.2L0.0 -72.0L1.4 -70.2L2.7 -68.3L4.0 -66.4L5.2 -64.4L6.4 -62.4L7.4 -60.2L8.5 -58.1L9.4 -55.8L10.4 -53.5L11.2 -51.1L12.0 -48.7L12.7 -46.2L13.4 -43.6L14.0 -41.0L14.6 -38.3L15.0 -35.6L15.5 -32.8L15.8 -29.9L18.1 -30.8L20.3 -31.7L22.6 -32.5L24.8 -33.3L26.9 -34.0L29.1 -34.6L31.2 -35.1L33.4 -35.6L35.5 -36.0L37.6 -36.3L39.7 -36.6L41.7 -36.7L43.8 -36.9L45.8 -36.9L47.8 -36.9L49.8 -36.8L51.7 -36.6L53.7 -36.4L52.9 -34.4L52.1 -32.4L51.1 -30.5L50.1 -28.5L49.0 -26.6L47.9 -24.7L46.6 -22.8L45.2 -20.9L43.8 -19.0L42.3 -17.2L40.7 -15.3L39.0 -13.5L37.3 -11.7L35.4 -9.9L33.5 -8.2L31.5 -6.4L29.4 -4.7L27.2 -3.0L28.8 -1.9L30.3 -0.8L31.8 0.3L33.2 1.4L34.5 2.5L35.8 3.7L37.0 4.8L38.2 6.0L39.4 7.2L40.4 8.4L41.5 9.7L42.5 10.9L43.4 12.2L44.3 13.5L45.1 14.8L45.9 16.1L46.6 17.5L47.3 18.8L45.6 19.2L43.8 19.4L42.0 19.6L40.2 19.8L38.4 19.8L36.5 19.8L34.6 19.8L32.7 19.7L30.7 19.5L28.7 19.3L26.7 19.0L24.6 18.6L22.5 18.2L20.4 17.7L18.3 17.1L16.1 16.5L13.9 15.9L11.6 15.1L10.8 15.0L9.8 14.5L8.6 13.5L7.2 12.2L5.7 10.4L4.0 8.1L2.1 5.5L-0.0 2.4Z" fill="#d1a020" stroke="#725811" stroke-width="1.4"/><path d="M0.0 0.0L-40.7 16.2" stroke="#725811" stroke-width="1.6" opacity=".5" fill="none"/><path d="M0.0 0.0L-46.2 -31.3" stroke="#725811" stroke-width="1.6" opacity=".5" fill="none"/><path d="M0.0 0.0L0.0 -61.9" stroke="#725811" stroke-width="1.6" opacity=".5" fill="none"/><path d="M0.0 0.0L46.2 -31.3" stroke="#725811" stroke-width="1.6" opacity=".5" fill="none"/><path d="M0.0 0.0L40.7 16.2" stroke="#725811" stroke-width="1.6" opacity=".5" fill="none"/></g></svg>
+<div class="la-mid"><b id="la-time">32m left</b><span>Study · 6 apps resting</span></div><svg width="36" height="36" viewBox="0 0 36 36" aria-hidden="true"><circle class="ring-bg" cx="18" cy="18" r="16.25" fill="none" stroke-width="3.5"/><circle class="ring-p" cx="18" cy="18" r="16.25" fill="none" stroke-width="3.5" stroke-linecap="round" pathLength="100" stroke-dasharray="36 100" transform="rotate(-90 18 18)"/></svg></div></div>
+      <div><p class="mini">In the Dynamic Island</p><div class="diband"><div class="di"><svg width="20" height="20" viewBox="-68.2 -96.1 130.5 130.5" aria-hidden="true"><g transform="rotate(-5.4) translate(0 -10)"><path d="M0 0 Q3 15 2 30" stroke="#725811" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M0.0 2.4L-2.1 5.5L-4.0 8.1L-5.7 10.4L-7.2 12.2L-8.6 13.5L-9.8 14.5L-10.8 15.0L-11.6 15.1L-13.9 15.9L-16.1 16.5L-18.3 17.1L-20.4 17.7L-22.5 18.2L-24.6 18.6L-26.7 19.0L-28.7 19.3L-30.7 19.5L-32.7 19.7L-34.6 19.8L-36.5 19.8L-38.4 19.8L-40.2 19.8L-42.0 19.6L-43.8 19.4L-45.6 19.2L-47.3 18.8L-46.6 17.5L-45.9 16.1L-45.1 14.8L-44.3 13.5L-43.4 12.2L-42.5 10.9L-41.5 9.7L-40.4 8.4L-39.4 7.2L-38.2 6.0L-37.0 4.8L-35.8 3.7L-34.5 2.5L-33.2 1.4L-31.8 0.3L-30.3 -0.8L-28.8 -1.9L-27.2 -3.0L-29.4 -4.7L-31.5 -6.4L-33.5 -8.2L-35.4 -9.9L-37.3 -11.7L-39.0 -13.5L-40.7 -15.3L-42.3 -17.2L-43.8 -19.0L-45.2 -20.9L-46.6 -22.8L-47.9 -24.7L-49.0 -26.6L-50.1 -28.5L-51.1 -30.5L-52.1 -32.4L-52.9 -34.4L-53.7 -36.4L-51.7 -36.6L-49.8 -36.8L-47.8 -36.9L-45.8 -36.9L-43.8 -36.9L-41.7 -36.7L-39.7 -36.6L-37.6 -36.3L-35.5 -36.0L-33.4 -35.6L-31.2 -35.1L-29.1 -34.6L-26.9 -34.0L-24.8 -33.3L-22.6 -32.5L-20.3 -31.7L-18.1 -30.8L-15.8 -29.9L-15.5 -32.8L-15.0 -35.6L-14.6 -38.3L-14.0 -41.0L-13.4 -43.6L-12.7 -46.2L-12.0 -48.7L-11.2 -51.1L-10.4 -53.5L-9.4 -55.8L-8.5 -58.1L-7.4 -60.2L-6.4 -62.4L-5.2 -64.4L-4.0 -66.4L-2.7 -68.3L-1.4 -70.2L0.0 -72.0L1.4 -70.2L2.7 -68.3L4.0 -66.4L5.2 -64.4L6.4 -62.4L7.4 -60.2L8.5 -58.1L9.4 -55.8L10.4 -53.5L11.2 -51.1L12.0 -48.7L12.7 -46.2L13.4 -43.6L14.0 -41.0L14.6 -38.3L15.0 -35.6L15.5 -32.8L15.8 -29.9L18.1 -30.8L20.3 -31.7L22.6 -32.5L24.8 -33.3L26.9 -34.0L29.1 -34.6L31.2 -35.1L33.4 -35.6L35.5 -36.0L37.6 -36.3L39.7 -36.6L41.7 -36.7L43.8 -36.9L45.8 -36.9L47.8 -36.9L49.8 -36.8L51.7 -36.6L53.7 -36.4L52.9 -34.4L52.1 -32.4L51.1 -30.5L50.1 -28.5L49.0 -26.6L47.9 -24.7L46.6 -22.8L45.2 -20.9L43.8 -19.0L42.3 -17.2L40.7 -15.3L39.0 -13.5L37.3 -11.7L35.4 -9.9L33.5 -8.2L31.5 -6.4L29.4 -4.7L27.2 -3.0L28.8 -1.9L30.3 -0.8L31.8 0.3L33.2 1.4L34.5 2.5L35.8 3.7L37.0 4.8L38.2 6.0L39.4 7.2L40.4 8.4L41.5 9.7L42.5 10.9L43.4 12.2L44.3 13.5L45.1 14.8L45.9 16.1L46.6 17.5L47.3 18.8L45.6 19.2L43.8 19.4L42.0 19.6L40.2 19.8L38.4 19.8L36.5 19.8L34.6 19.8L32.7 19.7L30.7 19.5L28.7 19.3L26.7 19.0L24.6 18.6L22.5 18.2L20.4 17.7L18.3 17.1L16.1 16.5L13.9 15.9L11.6 15.1L10.8 15.0L9.8 14.5L8.6 13.5L7.2 12.2L5.7 10.4L4.0 8.1L2.1 5.5L-0.0 2.4Z" fill="#d1a020" stroke="#725811" stroke-width="1.4"/><path d="M0.0 0.0L-40.7 16.2" stroke="#725811" stroke-width="1.6" opacity=".5" fill="none"/><path d="M0.0 0.0L-46.2 -31.3" stroke="#725811" stroke-width="1.6" opacity=".5" fill="none"/><path d="M0.0 0.0L0.0 -61.9" stroke="#725811" stroke-width="1.6" opacity=".5" fill="none"/><path d="M0.0 0.0L46.2 -31.3" stroke="#725811" stroke-width="1.6" opacity=".5" fill="none"/><path d="M0.0 0.0L40.7 16.2" stroke="#725811" stroke-width="1.6" opacity=".5" fill="none"/></g></svg><span class="di-right"><span id="di-time">32m</span><svg width="20" height="20" viewBox="0 0 36 36" aria-hidden="true"><circle class="ring-bg" cx="18" cy="18" r="16.4" fill="none" stroke-width="3.2"/><circle class="ring-p" cx="18" cy="18" r="16.4" fill="none" stroke-width="3.2" stroke-linecap="round" pathLength="100" stroke-dasharray="36 100" transform="rotate(-90 18 18)"/></svg></span></div></div></div>
+      <div><p class="mini">How it behaves</p><ul>
+        <li>One fine mark per minute. Passed minutes glow, and the current mark brightens as its minute passes.</li>
+        <li>The tinted dot is where your next leaf completes. When you reach it, the leaf at the centre turns gold and a bud appears by its name.</li>
+        <li>In the last minute the number switches to seconds.</li>
+        <li>At the end the marks sweep gold, the leaf grows to fill the centre and Done fades in.</li>
+        <li>Sessions over an hour show one mark per 2 minutes (up to 2h) or per 5 minutes (up to 3h), so the dial stays calm.</li>
+      </ul></div>
+    </div>
+  </div>
+</div>
+<script>
+(() => {
+  const SESSION = 50, PREV = 25, RUNG = 60, LEAF_AT = 35, START = 14 * 60 + 3, PLAY_MS = 12000;
+  const TOP = -72.0, BOTTOM = 19.8, H = BOTTOM - TOP;
+  const $ = s => document.querySelector(s);
+  const phone = $('#phone'), slider = $('#t'), label = $('#tl'), play = $('#play');
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+
+  // Minute marks, plus a gold copy of each one for the finishing sweep.
+  const NS = 'http://www.w3.org/2000/svg', marks = $('#marks'), sweep = $('#sweep'), ticks = [];
+  for (let i = 0; i < SESSION; i++) {
+    const a = i / SESSION * Math.PI * 2 - Math.PI / 2, r1 = i % 5 ? 84 : 80, r2 = 92;
+    const at = { x1: 100 + r1 * Math.cos(a), y1: 100 + r1 * Math.sin(a), x2: 100 + r2 * Math.cos(a), y2: 100 + r2 * Math.sin(a) };
+    const tick = document.createElementNS(NS, 'line'), gold = document.createElementNS(NS, 'line');
+    for (const k in at) { tick.setAttribute(k, at[k].toFixed(2)); gold.setAttribute(k, at[k].toFixed(2)); }
+    tick.setAttribute('class', 'tick'); gold.style.setProperty('--i', i);
+    marks.appendChild(tick); sweep.appendChild(gold); ticks.push(tick);
+  }
+  const la = LEAF_AT / SESSION * Math.PI * 2 - Math.PI / 2, mark = $('#leafmark');
+  mark.setAttribute('cx', (100 + 99 * Math.cos(la)).toFixed(2)); mark.setAttribute('cy', (100 + 99 * Math.sin(la)).toFixed(2));
+
+  // Every write goes through put(), which skips values that haven't changed.
+  const cache = new WeakMap();
+  function put(node, key, value) {
+    let seen = cache.get(node);
+    if (!seen) cache.set(node, seen = {});
+    if (seen[key] === value) return;
+    seen[key] = value;
+    if (key === 'text') node.textContent = value;
+    else if (key === 'html') node.innerHTML = value;
+    else node.setAttribute(key, value);
+  }
+  const el = { n: $('#n'), u: $('#u'), cap: $('#cap'), ll: $('#ll'), clock: $('#clock'), la: $('#la-time'), di: $('#di-time'),
+    prev: $('#cleaf .fill-prev'), now: $('#cleaf .fill-now'), edge: $('#cleaf .fill-edge'), rings: [...document.querySelectorAll('.ring-p')] };
+  const prevH = PREV / RUNG * H;
+  put(el.prev, 'y', (BOTTOM - prevH).toFixed(2)); put(el.prev, 'height', prevH.toFixed(2));
+
+  const clockAt = m => { const t = Math.floor(START + m); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
+  let wasDone = null, cur = -1, finishTimer = 0;
+
+  function finish() {
+    if (reduceMotion.matches) return;
+    phone.classList.remove('finishing');
+    void phone.offsetWidth; // restart the animations
+    phone.classList.add('finishing');
+    clearTimeout(finishTimer);
+    finishTimer = setTimeout(() => phone.classList.remove('finishing'), 2400);
+  }
+
+  function render(e, replay = false) {
+    const done = e >= SESSION, ripe = e >= LEAF_AT, left = SESSION - e, secs = Math.ceil(left * 60);
+    phone.classList.toggle('ripe', ripe);
+    phone.classList.toggle('isdone', done);
+    if (done && (wasDone === false || replay)) finish();
+    if (!done && wasDone) { clearTimeout(finishTimer); phone.classList.remove('finishing'); }
+    wasDone = done;
+
+    const seconds = `0:${String(secs).padStart(2, '0')}`;
+    const [n, u, cap] = done ? ['50', 'm', 'saved · 2h 10m today'] : secs < 60 ? [seconds, '', 'left of 50m'] : [String(Math.ceil(left)), 'm', 'left of 50m'];
+    put(el.n, 'text', n); put(el.u, 'text', u); put(el.cap, 'text', cap);
+    put(el.ll, 'html', done ? 'A new leaf is waiting · <u style="text-underline-offset:3px">Open</u>'
+      : ripe ? 'Field maple is ready <span class="sec">· yours at the end</span>'
+      : `Field maple <span class="sec">· ${Math.ceil(LEAF_AT - e)}m to go</span>`);
+    put(el.clock, 'text', clockAt(e));
+    put(el.la, 'text', done ? '50m saved' : secs < 60 ? `${seconds} left` : `${Math.ceil(left)}m left`);
+    put(el.di, 'text', done ? '50m' : secs < 60 ? seconds : `${Math.ceil(left)}m`);
+    put(label, 'text', done ? 'Session done' : `${Math.floor(e)} min into 50`);
+    put(slider, 'aria-valuetext', done ? 'Session done' : `${Math.floor(e)} minutes in, ${Math.ceil(left)} left`);
+
+    // Leaf fill: progress toward the Field maple within its rung.
+    const fillH = Math.min(1, (PREV + e) / RUNG) * H, top = BOTTOM - fillH;
+    put(el.now, 'y', top.toFixed(2)); put(el.now, 'height', Math.max(0, fillH - prevH).toFixed(2));
+    put(el.edge, 'y', (top - 0.7).toFixed(2));
+
+    // Minute marks: passed ones lit, the current one tinted and brightening through its minute.
+    const whole = Math.min(SESSION, Math.floor(e));
+    for (let i = 0; i < SESSION; i++) ticks[i].classList.toggle('lit', done || i < whole);
+    if (cur !== whole && ticks[cur]) { ticks[cur].classList.remove('cur'); ticks[cur].style.opacity = ''; }
+    cur = whole;
+    if (!done && ticks[cur]) { ticks[cur].classList.add('cur'); ticks[cur].style.opacity = (.35 + .65 * (e - whole)).toFixed(2); }
+
+    const p = (Math.min(e, SESSION) / SESSION * 100).toFixed(1);
+    for (const r of el.rings) put(r, 'stroke-dasharray', `${p} 100`);
+  }
+
+  // Time lives here, not in the slider, so playback isn't rounded to the slider's steps.
+  let t = +slider.value, raf = 0, lastTs = 0;
+  function setTime(v, replay = false) { t = Math.max(0, Math.min(SESSION, v)); slider.value = t; render(t, replay); }
+  function stop() { cancelAnimationFrame(raf); raf = 0; play.textContent = 'Play'; play.setAttribute('aria-pressed', 'false'); }
+  function step(ts) {
+    const dt = lastTs ? Math.min(64, ts - lastTs) : 0; // clamp so a hidden tab doesn't jump on return
+    lastTs = ts;
+    setTime(t + dt / PLAY_MS * SESSION);
+    if (t >= SESSION) { stop(); return; }
+    raf = requestAnimationFrame(step);
+  }
+  play.addEventListener('click', () => {
+    if (raf) { stop(); return; }
+    if (t >= SESSION) setTime(0);
+    lastTs = 0; play.textContent = 'Pause'; play.setAttribute('aria-pressed', 'true');
+    raf = requestAnimationFrame(step);
+  });
+  slider.addEventListener('input', () => { stop(); setTime(+slider.value); });
+  document.querySelectorAll('[data-jump]').forEach(b => b.addEventListener('click', () => { stop(); setTime(+b.dataset.jump, +b.dataset.jump >= SESSION); }));
+  setTime(t);
+})();
+</script>
+</body>
+</html>

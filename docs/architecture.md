@@ -105,13 +105,19 @@ Each milestone ends with: unit tests pass, a clean build for the iPhone simulato
 
 **Focus-first order** (`docs/superpowers/specs/2026-10-11-focus-hours-saved-design.md` §11). Each step gets its own implementation plan.
 
-1. **Reward re-cut and parked M1 merge (this step).** `rewards.json` and the category code re-cut to the 7 focus categories; `m1-schedule-onboarding`, `m1-health-import` and `m1-notifications` merged, with Rested nights from Apple Health and no morning notification.
-2. **F1 Focus core.**
-   - The MapleCore ledger, credit and reconciler.
-   - The Focus tab: idle root, Blocking sheet, presets, strictness, running session, end early, receipt, Saved today and Needs Screen Time.
-   - Shield and shield-action extensions, Live Activity, end notification and Home changes.
-   - Ladders: `first_leaf`, `hours_saved`, `sessions_finished` and `focus_streak`.
-   - On the free tier everything runs against `PreviewBlockingService` in DEBUG.
+1. **Reward re-cut and parked M1 merge (done).** `rewards.json` and the category code re-cut to the 7 focus categories; `m1-schedule-onboarding`, `m1-health-import` and `m1-notifications` merged, with Rested nights from Apple Health and no morning notification.
+2. **F1 Focus core** (`docs/superpowers/specs/2026-10-23-f1-focus-design.md`), in three plans:
+   - **F1a, logic:** MapleStorage, the MapleCore ledger, credit, `FocusBook`, counters and reconciler, and the stores with preview blocking. Ladders: `first_leaf`, `hours_saved`, `sessions_finished` and `focus_streak`.
+   - **F1b, screens:**
+     - the Focus tab, built around the minute-marks dial;
+     - Home changes, the Live Activity and the notifications.
+
+     Everything runs against `PreviewBlockingService` in DEBUG.
+   - **F1-paid, after joining the paid program:**
+     - on-device tests first;
+     - then real Screen Time blocking, and the monitor, shield and shield-action extensions;
+     - onboarding's "What pulls you in", the Control Center start and Time Sensitive alerts;
+     - App Store housekeeping.
 3. **F2 Focus schedules and surfaces.**
    - Morning, Bedtime and Study blocks with the monitor extension.
    - Ladders: `phone_free_mornings` and `bedtime_kept`.
