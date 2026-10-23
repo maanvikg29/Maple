@@ -851,7 +851,7 @@ It ends with a `TextLink` "Privacy settings". The member count is rounded down t
   - the Home CTA;
   - the waiting bud;
   - a waiting tile;
-  - the focus-session summary ("A new leaf opened" with a `GlassCapsule` "Open", in Morning and Day only).
+  - the focus-session summary ("A new leaf opened" with a `GlassCapsule` "Open", in Morning, Day and Evening only).
 - Leaves earned from Wind-down onward are held. The focus summary then says "A new leaf will be waiting in the morning."
 - Never presented in Wind-down or Night. The only exception is the First-steps leaf at the end of onboarding (D12).
 
@@ -1246,7 +1246,7 @@ Rule for all of them: each screen is built around its own object or real data. A
     - the line "Counts toward Trident maple · 6h of 8h" (13 secondary);
     - primary "Start focus".
   - **Running:** the arc fills and the numeral counts down. "End early" is a `TextLink`.
-  - **Finished:** a summary sheet with minutes, today's total and the leaf progress line, plus "A new leaf opened · Open" or "A new leaf will be waiting in the morning" when one was earned.
+  - **Finished:** a summary sheet with minutes, today's total and the leaf progress line, plus "A new leaf opened · Open" when one was earned, or "A new leaf will be waiting in the morning" when it was earned in wind-down or at night.
 
 ### 8.2 Insights (pushed from Home or Profile)
 
