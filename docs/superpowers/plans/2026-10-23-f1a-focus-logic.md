@@ -7148,8 +7148,9 @@ struct FocusSessionStoreTests {
     @Test("Review Focus 5: a second Start while one is starting or running is refused")
     func doubleStart() async {
         let h = Harness()
-        async let first = h.store.start(h.request())
-        async let second = h.store.start(h.request())
+        let request = h.request()
+        async let first = h.store.start(request)
+        async let second = h.store.start(request)
         let outcomes = await [first, second]
         #expect(outcomes.filter { if case .started = $0 { true } else { false } }.count == 1)
         #expect(outcomes.contains(.alreadyRunning))
@@ -7767,3 +7768,441 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
+### Task 23: Live, demo and sandbox launches
+
+Each launch gets its Focus stores (F1 design §7.6): live ones on files, demo ones in memory, and a DEBUG sandbox with its own complete container where whole sessions run against the preview blocker.
+
+**Files:**
+- Create: `MapleKit/Sources/MapleServices/Focus/FocusStores.swift`
+- Modify: `MapleKit/Sources/MapleServices/MapleStores.swift` (a `focus` field; the sandbox launch)
+- Modify: `MapleKit/Sources/MapleServices/Demo/DemoLaunchOptions.swift` (`sandbox`, `sessionSeconds`)
+- Modify: `MapleKit/Sources/MapleServices/Focus/FocusSessionStore.swift` (`plannedSecondsOverride`)
+- Test: `MapleKit/Tests/MapleServicesTests/LaunchModeTests.swift`
+
+**Interfaces:**
+- Consumes: Tasks 8, 20, 21 and 22.
+- Produces:
+  - `LaunchMode` (`.live`, `.demo`, `.sandbox`), with `credited: Set<FocusSource>` and `usesPreview`;
+  - `FocusStores` (`sessions`, `presets`, `appSets`, `notes`, `mode`), with `FocusStores.live(directory:collection:tier:)` and DEBUG `FocusStores.demo(collection:clock:)` and `FocusStores.sandbox(directory:collection:sessionSeconds:)`;
+  - `FocusStores.ledgerFolder` (`Ledger`) and `MapleStores.sandboxFolder` (`Sandbox`);
+  - `MapleStores.focus: FocusStores`, and `MapleStores.live(directory:calendar:now:healthAuthorizer:focusMode:sessionSeconds:)`;
+  - `FocusSessionStore`'s init gains `plannedSecondsOverride: Int? = nil`;
+  - `DemoLaunchOptions.sandbox: Bool` (`-MapleDemoSandbox YES`) and `DemoLaunchOptions.sessionSeconds: Int?` (`-MapleDemoSessionSeconds <n>`).
+
+**Rulings this task carries:**
+- **Demo launches credit `live` and `preview` events in memory.** The §7.6 table's "nothing new" means nothing new is saved; crediting the in-memory collection keeps a demo session's dial and leaves honest, and nothing reaches the live files.
+- **The other Focus DEBUG arguments** (`-MapleDemoShip`, `-MapleDemoFocus` and the rest of §8.2) arrive with F1b's screens, which are what they open. The stores already accept any seeded ledger and time source, which is all a scenario needs.
+- **`MapleApp` doesn't inject the Focus stores yet;** F1b does, with the screens that read them. Building them at launch has one side effect: `device-id.txt` is created in the container.
+- **A device id that can't be read yet** (before the first unlock) gets a random id for that launch. Its events stay valid and simply carry a different device id.
+
+- [ ] **Step 1: Write the failing tests**
+
+`MapleKit/Tests/MapleServicesTests/LaunchModeTests.swift`:
+```swift
+import Foundation
+import Testing
+@testable import MapleCore
+@testable import MapleServices
+
+@Suite("Launch modes")
+@MainActor
+struct LaunchModeTests {
+    @Test("Each mode credits its own sources and blocks with the right service")
+    func modes() {
+        #expect(LaunchMode.live.credited == [.live])
+        #expect(LaunchMode.demo.credited == [.live, .preview])
+        #expect(LaunchMode.sandbox.credited == [.live, .preview])
+        #expect(!LaunchMode.live.usesPreview && LaunchMode.demo.usesPreview && LaunchMode.sandbox.usesPreview)
+    }
+
+    @Test("Sandbox arguments are demo arguments")
+    func arguments() {
+        let options = DemoLaunchOptions(arguments: ["Maple", "-MapleDemoSandbox", "YES", "-MapleDemoSessionSeconds", "90"])
+        #expect(options.sandbox)
+        #expect(options.sessionSeconds == 90)
+        #expect(options.isActive)
+        #expect(!DemoLaunchOptions(arguments: ["Maple"]).sandbox)
+    }
+
+    @Test("A live launch keeps its ledger in the container and can't block on a free build")
+    func live() throws {
+        let folder = try temporaryDirectory()
+        let stores = MapleStores.live(directory: folder, calendar: utc, now: at(2026, 10, 23, 9), healthAuthorizer: FakeHealthAuthorizer())
+        #expect(stores.focus.mode == .live)
+        #expect(stores.focus.sessions.blocking.capability == .unavailableInBuild)
+        #expect(files(in: folder).contains(DeviceIdentity.file))
+    }
+
+    @Test("A demo launch runs a session in memory and writes nothing to the live files")
+    func demo() async throws {
+        let folder = try temporaryDirectory()
+        let stores = MapleStores.make(DemoLaunchOptions(arguments: ["-MapleDemoSpecies", "10"]), directory: folder, calendar: utc,
+                                      now: at(2026, 10, 23, 9))
+        #expect(stores.focus.mode == .demo)
+        #expect(stores.focus.sessions.blocking.capability == .preview)
+        let preset = try #require(stores.focus.presets.lastUsed)
+        let outcome = await stores.focus.sessions.start(.init(preset: preset, minutes: 25,
+                                                              appSet: stores.focus.appSets.set(id: AppSet.distractionsID), from: .focusTab))
+        #expect(stores.focus.sessions.running != nil, "\(outcome)")
+        #expect(files(in: folder).isEmpty)
+    }
+
+    @Test("The sandbox is a complete parallel container, with short sessions when asked")
+    func sandbox() async throws {
+        let folder = try temporaryDirectory()
+        let stores = MapleStores.live(directory: folder.appending(path: MapleStores.sandboxFolder), calendar: utc, now: at(2026, 10, 23, 9),
+                                      healthAuthorizer: FakeHealthAuthorizer(), focusMode: .sandbox, sessionSeconds: 90)
+        #expect(stores.focus.mode == .sandbox)
+        #expect(stores.focus.sessions.blocking.capability == .preview)
+        let preset = try #require(stores.focus.presets.lastUsed)
+        _ = await stores.focus.sessions.start(.init(preset: preset, minutes: 50, appSet: stores.focus.appSets.set(id: AppSet.distractionsID),
+                                                    from: .focusTab))
+        #expect(stores.focus.sessions.running?.plan.plannedSeconds == 90)
+        #expect(files(in: folder) == [MapleStores.sandboxFolder])
+        #expect(files(in: folder.appending(path: MapleStores.sandboxFolder)).contains(FocusStores.ledgerFolder))
+    }
+}
+```
+
+- [ ] **Step 2: Run them to verify they fail**
+
+Run: `SIMULATOR="iPhone 17" Scripts/test.sh -only-testing:MapleServicesTests/LaunchModeTests > "$WS/test.log" 2>&1; grep -E "error:" "$WS/test.log" | head -5`
+Expected: `error: cannot find 'LaunchMode' in scope`
+
+- [ ] **Step 3: Write the Focus stores and modes**
+
+`MapleKit/Sources/MapleServices/Focus/FocusStores.swift`:
+```swift
+import Foundation
+import MapleCore
+import MapleStorage
+
+/// Where a launch's Focus data lives and what it credits (F1 design §7.6).
+public enum LaunchMode: Sendable, Equatable {
+    /// Files in the container; `live` events credit. Release and ordinary DEBUG runs.
+    case live
+    /// DEBUG `-MapleDemo…` launches: memory only, with the preview blocker. Nothing touches the live files.
+    case demo
+    /// DEBUG `-MapleDemoSandbox YES`: its own folder, the preview blocker, and preview events credit.
+    case sandbox
+
+    public var credited: Set<FocusSource> { self == .live ? [.live] : [.live, .preview] }
+    public var usesPreview: Bool { self != .live }
+}
+
+/// A launch's Focus stores.
+public struct FocusStores {
+    /// The ledger's folder inside the container.
+    public static let ledgerFolder = "Ledger"
+
+    public let sessions: FocusSessionStore
+    public let presets: PresetStore
+    public let appSets: AppSetStore
+    public let notes: SessionNotesStore
+    public let mode: LaunchMode
+
+    /// Files in `directory`. The blocker follows the build's tier (an ordinary DEBUG launch behaves like its tier).
+    public static func live(
+        directory: URL, collection: CollectionStore, tier: MapleTier = MapleBuild.tier
+    ) -> FocusStores {
+        // F1-paid: ScreenTimeBlockingService when MapleBuild.capability(tier:usesPreview: false) is .screenTime. Until
+        // then no live launch can block.
+        return files(directory: directory, collection: collection, mode: .live, blocking: UnavailableBlockingService(), sessionSeconds: nil)
+    }
+
+    private static func files(
+        directory: URL, collection: CollectionStore, mode: LaunchMode, blocking: any BlockingService, sessionSeconds: Int?
+    ) -> FocusStores {
+        let deviceID = DeviceIdentity.load(in: directory) ?? UUID()
+        let ledger = FileLedgerStore(directory: directory.appending(path: ledgerFolder, directoryHint: .isDirectory))
+        let writer = LedgerWriter(store: ledger, time: LiveFocusTime(deviceID: deviceID), deviceID: deviceID, writer: .app,
+                                  source: blocking.source)
+        return FocusStores(
+            sessions: FocusSessionStore(ledger: ledger, writer: writer, blocking: blocking, collection: collection, credited: mode.credited,
+                                        liveActivity: NoLiveActivityController(), appBuild: appBuild,
+                                        plannedSecondsOverride: sessionSeconds),
+            presets: PresetStore(storage: JSONStorage(.file(directory.appending(path: PresetStore.file))), defaultAppSetID: AppSet.distractionsID),
+            appSets: AppSetStore(storage: JSONStorage(.file(directory.appending(path: AppSetStore.file)))),
+            notes: SessionNotesStore(storage: JSONStorage(.file(directory.appending(path: SessionNotesStore.file)))),
+            mode: mode
+        )
+    }
+
+    private static var appBuild: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "dev"
+    }
+
+    #if DEBUG
+    /// Memory only, on the demo clock's offset, with the preview blocker.
+    public static func demo(collection: CollectionStore, clock: MapleClock) -> FocusStores {
+        let deviceID = UUID()
+        let ledger = MemoryLedgerStore()
+        let blocking = PreviewBlockingService()
+        let time = ShiftedFocusTime(base: LiveFocusTime(deviceID: deviceID), offset: clock.offset)
+        let writer = LedgerWriter(store: ledger, time: time, deviceID: deviceID, writer: .app, source: blocking.source)
+        return FocusStores(
+            sessions: FocusSessionStore(ledger: ledger, writer: writer, blocking: blocking, collection: collection,
+                                        credited: LaunchMode.demo.credited, liveActivity: NoLiveActivityController(), appBuild: appBuild),
+            presets: PresetStore(storage: JSONStorage(.memory), defaultAppSetID: AppSet.distractionsID),
+            appSets: AppSetStore(storage: JSONStorage(.memory)),
+            notes: SessionNotesStore(storage: JSONStorage(.memory)),
+            mode: .demo
+        )
+    }
+
+    /// Files in the sandbox's own folder, with the preview blocker; `sessionSeconds` makes sessions short, in real time.
+    public static func sandbox(directory: URL, collection: CollectionStore, sessionSeconds: Int?) -> FocusStores {
+        files(directory: directory, collection: collection, mode: .sandbox, blocking: PreviewBlockingService(), sessionSeconds: sessionSeconds)
+    }
+    #endif
+}
+```
+The `tier` parameter is the F1-paid hook: `ScreenTimeBlockingService` replaces the unavailable one there.
+
+- [ ] **Step 4: Wire the launches**
+
+In `MapleKit/Sources/MapleServices/Focus/FocusSessionStore.swift`:
+- add `@ObservationIgnored private let plannedSecondsOverride: Int?` after `appBuild`;
+- add the init parameter `plannedSecondsOverride: Int? = nil` after `appBuild: String`, with the doc line `///   - plannedSecondsOverride: DEBUG sandbox only: every session lasts this long (`-MapleDemoSessionSeconds`).` and `self.plannedSecondsOverride = plannedSecondsOverride`;
+- in `performStart`, change `plannedSeconds: minutes * 60` to `plannedSeconds: plannedSecondsOverride ?? minutes * 60`.
+
+In `MapleKit/Sources/MapleServices/Demo/DemoLaunchOptions.swift`:
+- add `public var sandbox = false` and `public var sessionSeconds: Int?` after `day`, each with a doc line (`/// -MapleDemoSandbox YES: the sandbox container (F1 design §7.6).`, `/// -MapleDemoSessionSeconds <n>: sandbox sessions last n seconds, in real time.`);
+- in `init(arguments:)`, add `sandbox = flag("MapleDemoSandbox")` and `sessionSeconds = count("MapleDemoSessionSeconds").flatMap { $0 > 0 ? $0 : nil }`.
+
+In `MapleKit/Sources/MapleServices/MapleStores.swift`:
+- add `public let focus: FocusStores` after `health`, and `public static let sandboxFolder = "Sandbox"` after `sharesFile`;
+- give `live(...)` two more parameters, `focusMode: LaunchMode = .live, sessionSeconds: Int? = nil`, and before `var stores = …` build
+```swift
+        let focus: FocusStores
+        #if DEBUG
+        focus = focusMode == .sandbox
+            ? .sandbox(directory: directory, collection: collection, sessionSeconds: sessionSeconds)
+            : .live(directory: directory, collection: collection)
+        #else
+        focus = .live(directory: directory, collection: collection)
+        #endif
+```
+  then pass `focus: focus` in the `MapleStores(...)` call (after `health: health`), and set `stores.isLive = focusMode == .live`;
+- in `make(...)`, at the top, add
+```swift
+        if options.sandbox {
+            return live(directory: directory.appending(path: sandboxFolder, directoryHint: .isDirectory), calendar: calendar,
+                        now: now, focusMode: .sandbox, sessionSeconds: options.sessionSeconds)
+        }
+```
+  and pass `focus: .demo(collection: collection, clock: clock)` in its `MapleStores(...)` call.
+
+`isLive` stays false for the sandbox, so nothing that treats the live store specially (the system calendar, Health's background delivery) runs against the sandbox's files.
+
+- [ ] **Step 5: Run the tests and the build**
+
+Run: `SIMULATOR="iPhone 17" Scripts/test.sh > "$WS/test.log" 2>&1; tail -3 "$WS/test.log"; grep -c "warning:" "$WS/test.log"`
+Expected: `** TEST SUCCEEDED **` and `0`.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add MapleKit/Sources/MapleServices MapleKit/Tests/MapleServicesTests/LaunchModeTests.swift
+git commit -m "Launch modes: live Focus stores on files, demo ones in memory, and a DEBUG sandbox container with short sessions
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+```
+
+---
+### Task 24: Speed limits and the Release check
+
+**Files:**
+- Test: `MapleKit/Tests/MapleCoreTests/FocusPerformanceTests.swift`
+- Create: `Scripts/check-release.sh`
+
+**Interfaces:**
+- Consumes: `FocusDay` (Task 10), `FocusLedger`, `HoursCredit`, `FocusBook`, `FocusRuns`, `FocusCounters`.
+- Produces: `Scripts/check-release.sh`, which exits non-zero when a Release build contains demo or preview code.
+
+- [ ] **Step 1: Write the speed tests**
+
+`MapleKit/Tests/MapleCoreTests/FocusPerformanceTests.swift`:
+```swift
+import Foundation
+import Testing
+@testable import MapleCore
+
+/// F1 design §8.1: replaying the open days stays well inside a frame budget, and a full rebuild of years of sessions
+/// stays under a second, in the Debug simulator.
+@Suite("Focus performance")
+struct FocusPerformanceTests {
+    /// Two sessions a day (50 and 25 minutes) for `days` days, each in its own day's awake window.
+    private func synthetic(days: Int) -> [FocusEvent] {
+        let first = at(2023, 10, 23, 9)
+        let day = FocusDay(first)
+        for index in 0..<days {
+            let morning = first.addingTimeInterval(Double(index) * 86_400)
+            let label = LocalDay(morning, calendar: utc).description
+            let window = AwakeWindow(start: morning.addingTimeInterval(-3 * 3600), end: morning.addingTimeInterval(14 * 3600),
+                                     windDown: morning.addingTimeInterval(13 * 3600))
+            day.at(morning)
+            day.session(minutes: 50, plan: FocusFixtures.plan(day: label, window: window))
+            day.at(morning.addingTimeInterval(4 * 3600))
+            day.session(minutes: 25, plan: FocusFixtures.plan(minutes: 25, day: label, window: window))
+        }
+        return day.events
+    }
+
+    private func rebuild(_ events: [FocusEvent]) -> FocusBook {
+        var book = FocusBook()
+        book.record(HoursCredit.credit(FocusLedger(events).sessions(), crediting: [.live], now: .distantFuture))
+        _ = FocusCounters.marks(book: book)
+        _ = FocusRuns(focusDays: book.focusDays, today: LocalDay(year: 2026, month: 10, day: 23))
+        return book
+    }
+
+    @Test("Replaying two months of open days takes under 50 ms")
+    func openDays() {
+        let events = synthetic(days: 62)
+        var book = FocusBook()
+        let elapsed = ContinuousClock().measure { book = rebuild(events) }
+        #expect(book.days.count == 62)
+        #expect(elapsed < .milliseconds(50), "\(elapsed)")
+    }
+
+    @Test("Rebuilding 3 years of sessions takes under a second")
+    func threeYears() {
+        let events = synthetic(days: 3 * 365)
+        var book = FocusBook()
+        let elapsed = ContinuousClock().measure { book = rebuild(events) }
+        #expect(book.days.count == 3 * 365)
+        #expect(book.totalFinished == 2 * 3 * 365)
+        #expect(elapsed < .seconds(1), "\(elapsed)")
+    }
+}
+```
+
+- [ ] **Step 2: Run them**
+
+Run: `SIMULATOR="iPhone 17" Scripts/test.sh -only-testing:MapleCoreTests/FocusPerformanceTests > "$WS/test.log" 2>&1; tail -3 "$WS/test.log"; grep -E "Expectation failed" "$WS/test.log" | head -3`
+Expected: `** TEST SUCCEEDED **`. They test code that already exists, so they may pass at once; a limit's job is to catch a later slowdown. If either limit fails, profile before changing anything: the likely costs are `FocusLedger`'s placement (it must sort once, not per event) and `FocusRuns.fits` (it sorts the run's rest days on every gap). Fix the slow step, keep every other test green, and record the change as a ruling.
+
+- [ ] **Step 3: Write the Release check**
+
+`Scripts/check-release.sh`:
+```zsh
+#!/bin/zsh
+# Builds Maple in Release for the iPhone simulator and fails if any DEBUG-only demo or preview type made it into the
+# binary (F1 design §8.4). Run from anywhere: Scripts/check-release.sh
+set -euo pipefail
+cd "${0:A:h}/.."
+SIMULATOR="${SIMULATOR:-iPhone 17}"
+DERIVED_DATA="${DERIVED_DATA:-$HOME/Library/Developer/Xcode/DerivedData/Maple-release-$(pwd -P | shasum | cut -c1-8)}"
+xcodebuild build \
+  -project Maple.xcodeproj -scheme Maple -configuration Release \
+  -destination "platform=iOS Simulator,name=$SIMULATOR" \
+  -derivedDataPath "$DERIVED_DATA" CODE_SIGNING_ALLOWED=NO -quiet
+BINARY="$DERIVED_DATA/Build/Products/Release-iphonesimulator/Maple.app/Maple"
+FORBIDDEN='PreviewBlockingService|RecordingLiveActivityController|DemoLaunchOptions|DemoData|PreviewLeafShareProvider|HealthSleepSeeder|FocusDemo'
+FOUND=$( { nm "$BINARY" | xcrun swift-demangle; strings - "$BINARY"; } | grep -Eo "$FORBIDDEN" | sort -u || true)
+if [[ -n "$FOUND" ]]; then
+  echo "Release build contains DEBUG-only code:"
+  echo "$FOUND"
+  exit 1
+fi
+echo "Release build has no demo or preview code."
+```
+
+Run: `chmod +x Scripts/check-release.sh && Scripts/check-release.sh > "$WS/release.log" 2>&1; tail -3 "$WS/release.log"`
+Expected: `Release build has no demo or preview code.`
+
+If the Release build itself fails, read the first `error:` in the log. A DEBUG-only type used outside `#if DEBUG` is the usual cause; wrap the use, never the type's definition, and record it as a ruling.
+
+- [ ] **Step 4: Prove the check can fail**
+
+Temporarily delete the `#if DEBUG` line and its matching `#endif` in `MapleKit/Sources/MapleServices/Focus/PreviewBlockingService.swift`, run `Scripts/check-release.sh > "$WS/release.log" 2>&1; tail -3 "$WS/release.log"`, and expect `PreviewBlockingService` under "Release build contains DEBUG-only code:". Then restore the file with `git checkout MapleKit/Sources/MapleServices/Focus/PreviewBlockingService.swift` and run the check again to see it pass.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add MapleKit/Tests/MapleCoreTests/FocusPerformanceTests.swift Scripts/check-release.sh
+git commit -m "Focus speed limits (open days under 50 ms, 3 years under 1 s) and a Release check for DEBUG-only code
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+```
+
+---
+### Task 25: The docs
+
+**Files:**
+- Modify: `docs/core-api.md` (a Focus section; the Home, Reminders and Shipped features sections)
+- Modify: `docs/debug-launch-arguments.md` (two rows)
+- Modify: `docs/architecture.md` (the new modules)
+
+**Interfaces:**
+- Consumes: everything above.
+- Produces: docs only.
+
+- [ ] **Step 1: Add the Focus section to core-api.md**
+
+In `docs/core-api.md`, insert before `## Files, unlocks and time zones`:
+````markdown
+## Focus (F1 design §3, §7)
+
+Credit is a pure pipeline: the session ledger (`FocusLedger`, JSON lines per writer per month) → `SessionRecord` (one session's proof, breaks, overrides and end) → `HoursCredit` (counted seconds per session, with labelled stretches for Saved today) → `FocusBook` in the collection (per-day high-water marks, frozen 3 days on) → the counters, applied as dated marks so each leaf is dated when its credit was proven. Screens never compute any of it.
+
+`MapleStores.focus` holds a launch's Focus stores (`FocusStores`): `sessions` (`FocusSessionStore`), `presets`, `appSets` and `notes`. F1b injects them; until then nothing reads them.
+
+```swift
+let store = stores.focus.sessions
+await store.refresh()                                   // on launch, every foreground, and from a running session's timeline
+let outcome = await store.start(.init(preset: preset, minutes: 50, appSet: appSet, from: .focusTab))
+// .started(id), .alreadyRunning, .ledgerUnavailable, .blockingFailed(failure) ("Couldn't lock your apps"), .notRecorded
+store.running                                           // the running session (SessionRecord), drawn from the ledger
+store.displayCredit(at: now)                            // today, yesterday and total seconds: counted plus provisional
+await store.end(.endedEarly)                            // or .emergencyRelease; .completed happens on refresh at the planned end
+await store.startBreak(); await store.endBreak()        // one locked break, inside the planned length
+await store.releaseAll()                                // Settings › Release all apps
+await store.reflect(.partly, on: id)                    // the receipt's "How did it go?"
+```
+
+- **Starting.** The block is applied and read back before anything is written; a second Start while one is starting is refused. Without an app set, or on a build that can't block, a session is a plain timer that counts nothing.
+- **Proof.** Each `refresh()` reads the block back and writes a checkpoint at most once a minute. If the block has gone, the session is marked lost and runs on as a plain timer; credit stops at the last checkpoint.
+- **Unknown state.** While the ledger can't be read (`isLedgerReadable` false) the store neither writes nor clears.
+- **Permissions.** The store grants `.screenTime` in `collection.context.permissions` while blocking is available and allowed, and sets `collection.context.blocking` to the build's capability. A free build's Screen Time leaves read "Not available in this build" (`LeafAvailability.notInThisBuild`), with no button.
+- **Pure helpers for the screens:** `DialLayout` (marks, angles, turning), `FocusTimeText` (calm minutes), `SessionForecast` (the leaf dot's minute and the counts line), `StartReadiness` (Home's Start and Again), `RecentIntentions` (the intention chips), `FocusPreset` (presets and the strictness rule), `LeafProgress.rungFraction` (the dial's leaf fill) and `collection.currentRun(at:)` (the header streak).
+- **Launch modes** (`LaunchMode`): live (files, `live` events credit), demo (memory, the preview blocker), and the DEBUG sandbox (`-MapleDemoSandbox YES`: its own container under `Sandbox/`, where preview sessions credit).
+````
+
+- [ ] **Step 2: Update the Home, Reminders and Shipped features sections**
+
+In `docs/core-api.md`:
+- in `## Home: \`NowState\``, replace the bullet that begins `- \`state.refreshesEverySecond\`` with `- \`state.refreshesEverySecond\` is true while a session runs (in every phase, night included): its time shows calm minutes ("18m"), with seconds only in the last minute.`, and replace the sentence `the day shows the countdown to wind-down until focus ships.` with `once focus ships the day shows saved today ("1h 20m" · "saved today · 41h in all"), the lifetime total before the day's first session, and the wind-down countdown without Screen Time (with "Turn on blocking"); a morning with no sleep data shows what was saved yesterday. \`focus\` is a \`FocusStatus\` built from \`FocusSessionStore.displayCredit(at:)\` and the last-used preset's \`FocusStart\`.`;
+- in `## Reminders (local notifications)`, replace the first sentence with `Maple sends at most three kinds of notification: **"Time to wind down"** · "Bed at 23:00." at each night's wind-down start; **"Session done"** · "Study, 50 minutes" at a running session's planned end (scheduled with an absolute trigger, exempt from the night rule); and the opt-in **"Ready to study?"** once a day in the Day phase, skipped on a day a session started. There is no morning notification (rewards.md; focus spec §8).`, and change `\`ReminderPlan(.init(nights:settings:windDownOpenedAt:now:calendar:locale:))\`` to `\`ReminderPlan(.init(nights:settings:windDownOpenedAt:now:calendar:locale:schedule:runningSession:lastSessionStart:))\`` and `\`App/Features/Notifications/ReminderUpkeep.swift\` keeps it scheduled` to `\`App/Features/Notifications/ReminderUpkeep.swift\` keeps them scheduled through \`ReminderInputs\` (MapleServices)`;
+- in `## Shipped features and permissions`, after the first paragraph, add: `\`collection.context.blocking\` (\`BlockingCapability\`) says what the build can block with: \`.unavailableInBuild\` on free builds (and paid ones until F1-paid), \`.preview\` in DEBUG demo and sandbox launches.`
+
+- [ ] **Step 3: Add the DEBUG arguments**
+
+In `docs/debug-launch-arguments.md`, add two rows to the table after `-MapleDemoDay`:
+```markdown
+| `-MapleDemoSandbox` | `YES` | Core (`MapleStores`, F1 design §7.6) | Opens a complete parallel container under `Sandbox/` in the app's container: its own collection, schedule, ledger, presets and app sets, with the preview blocker, where preview sessions earn credit. Whole sessions can be run and relaunched end to end. Nothing touches the live files. |
+| `-MapleDemoSessionSeconds` | integer, e.g. `90` | Core (`FocusStores`) | With `-MapleDemoSandbox YES`: every session lasts that many seconds, in real time, whatever its preset. A session under 20 minutes never counts as finished. |
+```
+
+- [ ] **Step 4: Describe the new modules in architecture.md**
+
+In `docs/architecture.md`, under `## 1. Architecture`, add before `**Key data flows**`:
+```markdown
+- **MapleFocusCore** (F1) is pure, `Sendable` and nonisolated, with no resources, so the Screen Time extensions can link it alone: focus events and plans, time sources (the wall clock, the continuous clock and a hashed boot id), the ledger's merge and placement, `SessionRecord`, and the shield reconciler. MapleCore re-exports it.
+- **MapleStorage** (F1) is nonisolated: the App Group container, JSON-lines files and the ledger stores (`FileLedgerStore`, one file per writer per month; `MemoryLedgerStore`). MapleServices re-exports it.
+```
+
+- [ ] **Step 5: Run the whole suite one last time**
+
+Run: `SIMULATOR="iPhone 17" Scripts/test.sh > "$WS/test.log" 2>&1; tail -3 "$WS/test.log"; grep -c "warning:" "$WS/test.log"`
+Expected: `** TEST SUCCEEDED **` and `0`.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add docs/core-api.md docs/debug-launch-arguments.md docs/architecture.md
+git commit -m "Docs: Focus in core-api, the sandbox arguments, and the new modules
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+```
