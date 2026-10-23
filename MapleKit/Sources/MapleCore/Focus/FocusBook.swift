@@ -2,7 +2,8 @@ import Foundation
 import MapleFocusCore
 
 /// Decodes to nil rather than throwing, so one damaged element of an array or dictionary doesn't take the rest with it.
-private struct Lossy<Value: Decodable>: Decodable {
+/// Shared with `CollectionSnapshot`'s decoder.
+struct Lossy<Value: Decodable>: Decodable {
     let value: Value?
 
     init(from decoder: any Decoder) throws {

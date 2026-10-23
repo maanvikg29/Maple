@@ -35,12 +35,15 @@ extension CollectionSnapshot {
             book.bestRun = max(book.bestRun, Int(counters[.focusStreak] ?? 0))
             book.startedAt = now
         }
+        // The marks are taken before the freeze, which empties a day's sessions: a day first seen after its freeze
+        // moment (the app closed at its end and opened days later) still dates its leaves when its credit was proven.
+        let marks = FocusCounters.marks(book: book)
         book.freeze(at: now)
         book.bestRun = max(book.bestRun, FocusRuns(focusDays: book.focusDays, today: focusWindow(at: now, context: context).day).best)
         focus = book
 
         var added: [LeafUnlock] = []
-        for mark in FocusCounters.marks(book: book) where mark.instant <= now {
+        for mark in marks where mark.instant <= now {
             raise(.hoursSaved, to: mark.hours, at: mark.instant, calendar: calendar)
             raise(.sessionsFinished, to: Double(mark.sessions), at: mark.instant, calendar: calendar)
             added += runEngine(at: mark.instant, context: context, engine: engine)

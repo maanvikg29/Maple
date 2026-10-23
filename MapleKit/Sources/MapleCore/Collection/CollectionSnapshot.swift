@@ -57,6 +57,10 @@ public struct CollectionSnapshot: Sendable, Equatable, Codable {
     public var nights: NightLedger
     /// Every Maple day's focus credit (F1 design §3.5). The focus counters are its totals.
     public var focus: FocusBook
+    /// Set by the decoder when a field that was in the file couldn't be read and took its default, or an unlock was
+    /// dropped. Never saved: `CollectionStore` keeps a copy of such a file before it saves the repaired one. A field
+    /// that is simply missing (an older file) is not a loss.
+    public private(set) var decodedWithLosses = false
 
     public init(
         profileID: UUID, createdAt: Date, unlocks: [LeafUnlock] = [], revealedAt: [String: Date] = [:],
@@ -97,6 +101,8 @@ public struct CollectionSnapshot: Sendable, Equatable, Codable {
 
     // MARK: Codable (tolerant, field by field: a missing or damaged field takes its default)
 
+    // `decodedWithLosses` is deliberately not a key: it describes how the file read, not the collection.
+
     private enum CodingKeys: String, CodingKey {
         case version, profileID, createdAt, unlocks, revealedAt, counters, history, tendedDays, recentNights
         case pinnedSpeciesID, featuredSpeciesID, rarityConsent, revealsOpened, nights, focus
@@ -104,16 +110,36 @@ public struct CollectionSnapshot: Sendable, Equatable, Codable {
 
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        var losses = false
         func field<Value: Decodable>(_ key: CodingKeys, _ fallback: Value) -> Value {
-            (try? c.decodeIfPresent(Value.self, forKey: key)) ?? fallback
+            do {
+                return try c.decodeIfPresent(Value.self, forKey: key) ?? fallback
+            } catch {
+                losses = true
+                return fallback
+            }
         }
         // Only these two can't be defaulted: they are the member's maple.
         profileID = try c.decode(UUID.self, forKey: .profileID)
         createdAt = try c.decode(Date.self, forKey: .createdAt)
         version = field(.version, 1)
-        unlocks = field(.unlocks, [])
+        // Element by element: one unreadable unlock (say a colourway from a newer build) drops only itself.
+        var readUnlocks: [Lossy<LeafUnlock>] = []
+        do {
+            readUnlocks = try c.decodeIfPresent([Lossy<LeafUnlock>].self, forKey: .unlocks) ?? []
+        } catch {
+            losses = true
+        }
+        let keptUnlocks = readUnlocks.compactMap(\.value)
+        if keptUnlocks.count != readUnlocks.count { losses = true }
+        unlocks = keptUnlocks
         revealedAt = field(.revealedAt, [:])
-        counters = (try? CategoryCounterCoding.decode(c, forKey: .counters)) ?? [:]
+        do {
+            counters = try CategoryCounterCoding.decode(c, forKey: .counters)
+        } catch {
+            counters = [:]
+            losses = true
+        }
         history = field(.history, [])
         tendedDays = field(.tendedDays, [])
         recentNights = field(.recentNights, [])
@@ -123,6 +149,7 @@ public struct CollectionSnapshot: Sendable, Equatable, Codable {
         revealsOpened = field(.revealsOpened, 0)
         nights = field(.nights, NightLedger())
         focus = field(.focus, FocusBook())
+        decodedWithLosses = losses
     }
 
     public func encode(to encoder: any Encoder) throws {

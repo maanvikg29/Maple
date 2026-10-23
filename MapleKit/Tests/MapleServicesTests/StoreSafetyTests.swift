@@ -46,6 +46,124 @@ struct StoreSafetyTests {
         #expect(try Data(contentsOf: url) == before)
     }
 
+    /// The names of the copies set aside beside the collection.
+    private func copies(in folder: URL) -> [String] {
+        files(in: folder).filter { $0.hasPrefix("collection.damaged-") }
+    }
+
+    /// The saved collection's file with `edit` applied to its JSON object, as a damaged or newer file would look.
+    private func editedCollection(in folder: URL, _ edit: (inout [String: Any]) -> Void) throws -> (url: URL, bytes: Data) {
+        let url = folder.appendingPathComponent(MapleStores.collectionFile)
+        _ = savedCollection(in: folder)
+        var object = try #require(try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        edit(&object)
+        try JSONSerialization.data(withJSONObject: object).write(to: url)
+        return (url, try Data(contentsOf: url))
+    }
+
+    @Test("A partly damaged collection keeps what reads, a copy of the original is set aside, and the next change saves the repair")
+    func lossyCollection() throws {
+        let folder = try temporaryDirectory()
+        let (url, original) = try editedCollection(in: folder) { object in
+            let unlocks = object["unlocks"] as? [Any] ?? []
+            object["unlocks"] = ["garbage"] + unlocks
+        }
+
+        let store = CollectionStore(storage: JSONStorage(.file(url)), context: testContext, now: at(2026, 10, 9, 9))
+        #expect(store.isAvailable)
+        #expect(store.snapshot.decodedWithLosses)
+        #expect(store.hasPlantedMaple)
+        #expect(store.unlocks.map(\.speciesID) == ["saccharum"])
+        // Nothing has been saved yet, and the original is kept beside the file, byte for byte.
+        #expect(try Data(contentsOf: url) == original)
+        let kept = copies(in: folder)
+        let copy = folder.appendingPathComponent(try #require(kept.first))
+        #expect(kept.count == 1)
+        #expect(try Data(contentsOf: copy) == original)
+
+        store.record([.restedNights: 1], at: at(2026, 10, 9, 9))
+        let repaired = try JSONDecoder().decode(CollectionSnapshot.self, from: Data(contentsOf: url))
+        #expect(!repaired.decodedWithLosses)
+        #expect(repaired.unlocks.map(\.speciesID) == ["saccharum"])
+        #expect(repaired.counters[.restedNights] == 1)
+        #expect(try Data(contentsOf: copy) == original)
+        #expect(copies(in: folder) == kept)
+
+        // Reading the repaired file makes no further copy.
+        let again = CollectionStore(storage: JSONStorage(.file(url)), context: testContext, now: at(2026, 10, 9, 10))
+        #expect(!again.snapshot.decodedWithLosses)
+        #expect(copies(in: folder) == kept)
+    }
+
+    @Test("A collection that can't be read at launch is copied aside when it can be read and has losses")
+    func lossyAfterUnlock() throws {
+        let folder = try temporaryDirectory()
+        let (url, original) = try editedCollection(in: folder) { $0["history"] = "damaged" }
+        try lock(url)
+        defer { try? unlock(url) }
+        let store = CollectionStore(storage: JSONStorage(.file(url)), context: testContext, now: at(2026, 10, 9, 4))
+        #expect(!store.isAvailable)
+        #expect(copies(in: folder).isEmpty)
+
+        try unlock(url)
+        #expect(store.reloadIfUnavailable())
+        #expect(store.snapshot.decodedWithLosses)
+        let kept = copies(in: folder)
+        let copy = folder.appendingPathComponent(try #require(kept.first))
+        #expect(kept.count == 1)
+        #expect(try Data(contentsOf: copy) == original)
+        #expect(try Data(contentsOf: url) == original)
+    }
+
+    @Test("A clean collection, current or version 1, is read without a copy")
+    func cleanCollectionMakesNoCopy() throws {
+        let folder = try temporaryDirectory()
+        let url = folder.appendingPathComponent(MapleStores.collectionFile)
+        _ = savedCollection(in: folder)
+        let current = CollectionStore(storage: JSONStorage(.file(url)), context: testContext, now: at(2026, 10, 9, 9))
+        #expect(!current.snapshot.decodedWithLosses)
+        #expect(copies(in: folder).isEmpty)
+
+        var object = try #require(try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        object["version"] = 1
+        object["focus"] = nil
+        try JSONSerialization.data(withJSONObject: object).write(to: url)
+        let old = CollectionStore(storage: JSONStorage(.file(url)), context: testContext, now: at(2026, 10, 9, 9))
+        #expect(!old.snapshot.decodedWithLosses)
+        #expect(old.hasPlantedMaple)
+        #expect(copies(in: folder).isEmpty)
+    }
+
+    @Test("A newer build's collection is never written over, so it needs no copy")
+    func newerLossyCollection() throws {
+        let folder = try temporaryDirectory()
+        let (url, original) = try editedCollection(in: folder) { object in
+            object["version"] = CollectionSnapshot.currentVersion + 1
+            object["history"] = "damaged"
+        }
+        let store = CollectionStore(storage: JSONStorage(.file(url)), context: testContext, now: at(2026, 10, 9, 9))
+        #expect(store.snapshot.decodedWithLosses)
+        store.record([.restedNights: 1], at: at(2026, 10, 9, 9))
+        #expect(try Data(contentsOf: url) == original)
+        #expect(copies(in: folder).isEmpty)
+    }
+
+    @Test("Copying a file aside keeps the original in place; memory storage has nothing to copy")
+    func copyAside() throws {
+        let folder = try temporaryDirectory()
+        let url = folder.appendingPathComponent("collection.json")
+        try Data("{\"a\":1}".utf8).write(to: url)
+        JSONStorage<CollectionSnapshot>(.file(url)).copyAside()
+        #expect(try Data(contentsOf: url) == Data("{\"a\":1}".utf8))
+        let kept = copies(in: folder)
+        let copy = folder.appendingPathComponent(try #require(kept.first))
+        #expect(kept.count == 1)
+        #expect(try Data(contentsOf: copy) == Data("{\"a\":1}".utf8))
+
+        JSONStorage<CollectionSnapshot>(.memory).copyAside()
+        #expect(files(in: folder).count == 2)
+    }
+
     @Test("A collection that can't be read yet is kept, never replaced, and read once it can be")
     func unreadableCollection() throws {
         let folder = try temporaryDirectory()

@@ -37,6 +37,7 @@ public final class CollectionStore {
         case .value(let saved):
             snapshot = saved
             isAvailable = true
+            Self.keepOriginal(of: saved, in: storage)
         case .absent:
             snapshot = .empty(profileID: UUID(), createdAt: now)
             isAvailable = true
@@ -56,6 +57,7 @@ public final class CollectionStore {
         switch storage.read() {
         case .value(let saved):
             snapshot = saved
+            Self.keepOriginal(of: saved, in: storage)
         case .absent:
             snapshot = .empty(profileID: UUID(), createdAt: now)
             storage.save(snapshot)
@@ -304,6 +306,13 @@ public final class CollectionStore {
     }
 
     // MARK: - Private
+
+    /// A file that read with losses (an unreadable field took its default, or an unlock was dropped) is copied aside
+    /// before anything can be saved, so the next save never destroys the original. A newer build's file is never
+    /// saved over, so it needs no copy.
+    private static func keepOriginal(of saved: CollectionSnapshot, in storage: JSONStorage<CollectionSnapshot>) {
+        if saved.decodedWithLosses, !saved.isFromNewerBuild { storage.copyAside() }
+    }
 
     private func mutate<Result>(_ change: (inout CollectionSnapshot) -> Result) -> Result {
         // A change always lands on the member's real collection: read it first if launch couldn't.

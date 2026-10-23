@@ -49,6 +49,20 @@ struct FocusCountersTests {
         #expect(snapshot.focus.startedAt == at(2026, 10, 23, 21, 30))
     }
 
+    @Test("A day first seen after it froze still dates its leaf when its credit was proven")
+    func datedOnArrival() throws {
+        var snapshot = planted()
+        // Proven on 23 October, applied on the 27th: the day froze (3 days after its end) in the same call.
+        let proven = at(2026, 10, 23, 10, 0, 5)
+        let added = snapshot.applyFocus([credit(seconds: 3600, provenAt: proven)], at: at(2026, 10, 27, 12), context: context)
+        #expect(snapshot.focus.days.first?.frozen == true)
+        let hours = try #require(added.first { $0.speciesID == species(.hoursSaved, rung: 0) })
+        #expect(hours.date == proven)
+        #expect(snapshot.tendedDays.contains(LocalDay(year: 2026, month: 10, day: 23)))
+        #expect(snapshot.counters[.hoursSaved] == 1)
+        #expect(snapshot.counters[.sessionsFinished] == 1)
+    }
+
     @Test("Applying the same credit again changes nothing")
     func idempotent() {
         var snapshot = planted()
