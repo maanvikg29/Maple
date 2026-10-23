@@ -72,6 +72,17 @@ public struct SessionRecord: Sendable, Equatable, Identifiable {
                 break
             }
             guard end == nil, item.event.affectsCredit else { continue }
+            // Breaks are read even after proof is lost, so a session that keeps running still knows its break.
+            switch kind {
+            case .breakStarted(let seconds):
+                breaks.append(Break(start: item.placed, plannedEnd: item.placed.addingTimeInterval(TimeInterval(seconds)), end: nil))
+            case .breakEnded:
+                if let last = breaks.last, last.end == nil {
+                    breaks[breaks.count - 1] = Break(start: last.start, plannedEnd: last.plannedEnd, end: item.placed)
+                }
+            default:
+                break
+            }
             if lost != nil {
                 // Nothing after lost proof counts, but the session can still end.
                 if kind.isTerminal { end = item }
@@ -86,12 +97,6 @@ public struct SessionRecord: Sendable, Equatable, Identifiable {
             case .overrideEnded:
                 if let from = overrideStart { overrides.append(DateInterval(start: from, end: max(from, item.placed))) }
                 overrideStart = nil
-            case .breakStarted(let seconds):
-                breaks.append(Break(start: item.placed, plannedEnd: item.placed.addingTimeInterval(TimeInterval(seconds)), end: nil))
-            case .breakEnded:
-                if let last = breaks.last, last.end == nil {
-                    breaks[breaks.count - 1] = Break(start: last.start, plannedEnd: last.plannedEnd, end: item.placed)
-                }
             default:
                 break
             }

@@ -106,6 +106,34 @@ struct SessionRecordTests {
         #expect(script.record?.breakEnd(at: applied.addingTimeInterval(48 * 60 + 30)) == nil)
     }
 
+    @Test("A break that is ended after the block was lost still ends, and earns nothing")
+    func breakEndedAfterLoss() throws {
+        let script = confirmed()
+        script.after(10 * 60, .breakStarted(seconds: 300))
+        script.after(60, .shieldLost)
+        script.after(60, .breakEnded)
+        let record = try #require(script.record)
+        let applied = start.addingTimeInterval(5)
+        #expect(record.breakEnd(at: applied.addingTimeInterval(12 * 60 + 30)) == nil)
+        #expect(record.breaks.map(\.end) == [applied.addingTimeInterval(12 * 60)])
+        #expect(record.provenIntervals == [DateInterval(start: applied, duration: 600)])
+        #expect(record.lastCheckpoint == applied.addingTimeInterval(600))
+    }
+
+    @Test("A break taken after the block was lost still counts as the break, and earns nothing")
+    func breakStartedAfterLoss() throws {
+        let script = confirmed()
+        script.after(10 * 60, .shieldVerified)
+        script.after(60, .shieldLost)
+        script.after(60, .breakStarted(seconds: 300))
+        let record = try #require(script.record)
+        let applied = start.addingTimeInterval(5)
+        #expect(record.breakUsed)
+        #expect(record.breakEnd(at: applied.addingTimeInterval(12 * 60 + 30)) == applied.addingTimeInterval(17 * 60))
+        #expect(record.provenIntervals == [DateInterval(start: applied, duration: 600)])
+        #expect(record.lastCheckpoint == applied.addingTimeInterval(600))
+    }
+
     @Test("Only the first end counts")
     func secondTerminal() throws {
         let script = confirmed()
