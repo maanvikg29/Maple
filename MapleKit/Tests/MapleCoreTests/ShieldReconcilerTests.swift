@@ -24,7 +24,7 @@ struct ShieldReconcilerTests {
         #expect(ShieldReconciler.ops(running: session, store: .applied(session: session.id), now: start.addingTimeInterval(60)).isEmpty)
     }
 
-    @Test("Missing shields for a running session are applied again")
+    @Test("Missing shields for a running session are reported as missing")
     func reapply() throws {
         let session = try running()
         #expect(ShieldReconciler.ops(running: session, store: .empty, now: start.addingTimeInterval(60)) == [.apply(session: session.id)])
@@ -59,6 +59,48 @@ struct ShieldReconcilerTests {
                 #expect(ShieldReconciler.ops(running: session, store: after, now: now).isEmpty)
             }
         }
+    }
+
+    /// Confirmed at 14:00:05, then lost at 14:01:00 by `kind`; still running.
+    private func lost(by kind: FocusEventKind) throws -> SessionRecord {
+        let script = SessionScript(start: start)
+        script.after(5, .shieldApplied)
+        script.after(55, kind)
+        return try #require(script.record)
+    }
+
+    @Test("A session that lost proof keeps the shields it has")
+    func lostKeepsShields() throws {
+        let session = try lost(by: .shieldLost)
+        #expect(ShieldReconciler.ops(running: session, store: .applied(session: session.id), now: start.addingTimeInterval(120)).isEmpty)
+    }
+
+    @Test("A session that lost proof is not given missing shields again")
+    func lostNotReapplied() throws {
+        let session = try lost(by: .shieldLost)
+        #expect(ShieldReconciler.ops(running: session, store: .empty, now: start.addingTimeInterval(120)).isEmpty)
+    }
+
+    @Test("An unknown credit-affecting event keeps the shields a session has")
+    func unknownKeepsShields() throws {
+        let session = try lost(by: .unknown("futureKind"))
+        #expect(ShieldReconciler.ops(running: session, store: .applied(session: session.id), now: start.addingTimeInterval(120)).isEmpty)
+    }
+
+    @Test("An unknown credit-affecting event is not given missing shields again")
+    func unknownNotReapplied() throws {
+        let session = try lost(by: .unknown("futureKind"))
+        #expect(ShieldReconciler.ops(running: session, store: .empty, now: start.addingTimeInterval(120)).isEmpty)
+    }
+
+    @Test("An ended session's shields are cleared before its planned end")
+    func ended() throws {
+        let script = SessionScript(start: start)
+        script.after(5, .shieldApplied)
+        script.after(60, .sessionEnded(.completed, verified: true))
+        let session = try #require(script.record)
+        #expect(ShieldReconciler.ops(running: session, store: .applied(session: session.id), now: start.addingTimeInterval(120))
+            == [.clear(session: session.id)])
     }
 
     @Test("Capabilities and probes")

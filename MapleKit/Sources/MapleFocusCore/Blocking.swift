@@ -31,6 +31,8 @@ public enum BlockingProbe: String, Sendable, Codable, CaseIterable {
 
 /// One thing to do to the shields.
 public enum ShieldOp: Sendable, Hashable {
+    /// For a running session, `.apply` from the reconciler reports that its block is missing. F1 never performs it:
+    /// callers record `shieldLost` instead, since shields are never re-applied silently (F1 design §3.3).
     case apply(session: UUID)
     case verify(session: UUID)
     case clear(session: UUID)
@@ -47,20 +49,26 @@ public enum ShieldStoreState: Sendable, Hashable {
 
 /// What to do so the shields match the ledger (focus spec §9.4). Pure: it takes no action on an unknown state, and
 /// asking again after applying its answer gives nothing.
+///
+/// `running` is the ledger's running session, passed as-is (blocking or not, lost or not); `ops` decides. For a
+/// running session, `.apply` reports a missing block: F1 never performs it, and callers record `shieldLost` instead
+/// (F1 design §3.3). A lost session never gets `.apply`, but its applied shields stay until it ends.
 public enum ShieldReconciler {
     public static func ops(running: SessionRecord?, store: ShieldStoreState, now: Date) -> [ShieldOp] {
-        let wanted: UUID? = running.flatMap { session in
-            session.end == nil && session.plan.kind == .blocking && session.lostAt == nil && now < session.plannedEnd
-                ? session.id : nil
+        // The session whose block may stay up: running, blocking and before its planned end, lost or not.
+        let mayStay: UUID? = running.flatMap { session in
+            session.end == nil && session.plan.kind == .blocking && now < session.plannedEnd ? session.id : nil
         }
+        // The session that may be newly reported: lost proof means no new block.
+        let shouldApply: UUID? = running?.lostAt == nil ? mayStay : nil
         switch store {
         case .unknown:
             return []
         case .empty:
-            return wanted.map { [.apply(session: $0)] } ?? []
+            return shouldApply.map { [.apply(session: $0)] } ?? []
         case .applied(let session):
-            if session == wanted { return [] }
-            return [.clear(session: session)] + (wanted.map { [.apply(session: $0)] } ?? [])
+            if session == mayStay { return [] }
+            return [.clear(session: session)] + (shouldApply.map { [.apply(session: $0)] } ?? [])
         }
     }
 
