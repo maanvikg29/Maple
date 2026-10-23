@@ -58,6 +58,14 @@ public struct FocusLedger: Sendable, Equatable {
         return result
     }
 
+    /// Every session in the ledger, in start order (F1 design §3.3).
+    public func sessions() -> [SessionRecord] {
+        var grouped: [UUID: [PlacedEvent]] = [:]
+        for item in placed() { grouped[item.event.sessionID, default: []].append(item) }
+        return grouped.values.compactMap { SessionRecord(events: $0) }
+            .sorted { ($0.started.placed, $0.id.uuidString) < ($1.started.placed, $1.id.uuidString) }
+    }
+
     // MARK: Order
 
     struct BootKey: Hashable {
