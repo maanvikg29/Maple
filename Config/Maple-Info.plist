@@ -11,5 +11,7 @@
 	<string>$(MAPLE_APP_GROUP)</string>
 	<key>MapleHealthBackgroundDelivery</key>
 	<string>$(MAPLE_HEALTH_BACKGROUND_DELIVERY)</string>
+	<key>MapleTier</key>
+	<string>$(MAPLE_TIER)</string>
 </dict>
 </plist>
