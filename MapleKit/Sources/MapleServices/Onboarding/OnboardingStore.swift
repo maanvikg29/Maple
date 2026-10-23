@@ -1,5 +1,6 @@
 import Foundation
 import MapleCore
+import MapleStorage
 import Observation
 
 /// The first run's progress (`OnboardingProgress`): the screen the member is on, their answers, the schedule draft and

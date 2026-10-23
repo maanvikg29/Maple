@@ -1,5 +1,6 @@
 import Foundation
 import MapleCore
+import MapleStorage
 
 /// The app's stores, created once at launch and injected into the environment by `MapleApp`.
 ///

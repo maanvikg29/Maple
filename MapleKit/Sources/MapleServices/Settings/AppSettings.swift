@@ -1,5 +1,6 @@
 import Foundation
 import MapleCore
+import MapleStorage
 import Observation
 
 /// Where Maple's seasons come from: the device's region, or the member's choice in Settings (spec §8.7).

@@ -17,11 +17,26 @@ let package = Package(
         .library(name: "MapleDesign", targets: ["MapleDesign"]),
         .library(name: "MapleData", targets: ["MapleData"]),
         .library(name: "MapleServices", targets: ["MapleServices"]),
+        .library(name: "MapleFocusCore", targets: ["MapleFocusCore"]),
+        .library(name: "MapleStorage", targets: ["MapleStorage"]),
     ],
     targets: [
+        // The types the F1-paid extensions share (events, plans, time, the ledger and the reconciler). No
+        // resources, so the ~6 MB DeviceActivityMonitor extension can link it on its own. MapleCore re-exports it.
+        .target(
+            name: "MapleFocusCore",
+            swiftSettings: [.enableUpcomingFeature("MemberImportVisibility")]
+        ),
+        // The App Group container and the JSON-lines ledger files every Maple process writes. Nonisolated.
+        .target(
+            name: "MapleStorage",
+            dependencies: ["MapleFocusCore"],
+            swiftSettings: [.enableUpcomingFeature("MemberImportVisibility")]
+        ),
         // Pure Foundation. No SwiftUI/SwiftData: it must fit in the ~6 MB DeviceActivityMonitor extension.
         .target(
             name: "MapleCore",
+            dependencies: ["MapleFocusCore"],
             resources: [.copy("Resources/species.json"), .copy("Resources/rewards.json")],
             swiftSettings: [.enableUpcomingFeature("MemberImportVisibility")]
         ),
@@ -31,9 +46,9 @@ let package = Package(
             dependencies: ["MapleCore"],
             swiftSettings: [.enableUpcomingFeature("MemberImportVisibility")]
         ),
-        .target(name: "MapleServices", dependencies: ["MapleCore", "MapleData"], swiftSettings: mainActorByDefault),
-        .testTarget(name: "MapleCoreTests", dependencies: ["MapleCore"]),
+        .target(name: "MapleServices", dependencies: ["MapleCore", "MapleData", "MapleStorage"], swiftSettings: mainActorByDefault),
+        .testTarget(name: "MapleCoreTests", dependencies: ["MapleCore", "MapleFocusCore"]),
         .testTarget(name: "MapleDesignTests", dependencies: ["MapleDesign", "MapleCore"]),
-        .testTarget(name: "MapleServicesTests", dependencies: ["MapleServices", "MapleCore"]),
+        .testTarget(name: "MapleServicesTests", dependencies: ["MapleServices", "MapleCore", "MapleStorage", "MapleFocusCore"]),
     ]
 )

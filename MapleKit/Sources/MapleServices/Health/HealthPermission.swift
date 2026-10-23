@@ -1,6 +1,7 @@
 import Foundation
 import HealthKit
 import MapleCore
+import MapleStorage
 import Observation
 import os
 
