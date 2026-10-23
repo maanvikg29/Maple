@@ -87,4 +87,94 @@ struct FocusBookTests {
         let empty = try JSONDecoder().decode(FocusBook.self, from: Data("{}".utf8))
         #expect(empty == FocusBook())
     }
+
+    /// `book` as JSON with `edit` applied to its top-level object, as a damaged or older file would look.
+    private func damaged(_ book: FocusBook, _ edit: (inout [String: Any]) -> Void) throws -> Data {
+        var object = try #require(try JSONSerialization.jsonObject(with: JSONEncoder().encode(book)) as? [String: Any])
+        edit(&object)
+        return try JSONSerialization.data(withJSONObject: object)
+    }
+
+    /// Applies `edit` to the first day's object.
+    private func editingFirstDay(_ edit: @escaping (inout [String: Any]) -> Void) -> (inout [String: Any]) -> Void {
+        { object in
+            var days = object["days"] as? [[String: Any]] ?? []
+            edit(&days[0])
+            object["days"] = days
+        }
+    }
+
+    @Test("A day with an unreadable or missing field keeps its credit and takes defaults")
+    func damagedDayKeepsCredit() throws {
+        var book = FocusBook(baseline: FocusTotals(seconds: 36_000, finished: 12), startedAt: at(2026, 10, 1))
+        book.record([credit(UUID(), seconds: 1800, finished: true)])
+        let data = try damaged(book, editingFirstDay { day in
+            day["rulesVersion"] = "one"
+            day.removeValue(forKey: "frozen")
+        })
+        let decoded = try JSONDecoder().decode(FocusBook.self, from: data)
+        let day = try #require(decoded.days.first)
+        #expect(decoded.days.count == 1)
+        #expect(day.seconds == 1800)
+        #expect(day.finished == 1)
+        #expect(day.rulesVersion == FocusRules.version)
+        #expect(!day.frozen)
+        #expect(day.sessions == book.days[0].sessions)
+        #expect(decoded.totalSeconds == 37_800)
+        #expect(decoded.startedAt == at(2026, 10, 1))
+    }
+
+    @Test("A day whose credit is unreadable is skipped, but one with only its sessions damaged is not")
+    func damagedSessions() throws {
+        var book = FocusBook()
+        let a = UUID(), b = UUID()
+        book.record([credit(a, seconds: 1800, finished: true), credit(b, seconds: 600)])
+        let unreadable = try damaged(book, editingFirstDay { day in
+            var sessions = day["sessions"] as? [String: Any] ?? [:]
+            sessions[a.uuidString.lowercased()] = ["seconds": "lots"]
+            day["sessions"] = sessions
+        })
+        let decoded = try JSONDecoder().decode(FocusBook.self, from: unreadable)
+        let day = try #require(decoded.days.first)
+        #expect(day.seconds == 2400)
+        #expect(day.finished == 1)
+        #expect(day.sessions.count == 1)
+        #expect(day.sessions[b.uuidString.lowercased()] == book.days[0].sessions[b.uuidString.lowercased()])
+
+        let noSeconds = try damaged(book, editingFirstDay { $0.removeValue(forKey: "seconds") })
+        #expect(try JSONDecoder().decode(FocusBook.self, from: noSeconds).days.isEmpty)
+    }
+
+    @Test("A day without its times still freezes, at once")
+    func missingTimes() throws {
+        var book = FocusBook()
+        book.record([credit(UUID(), seconds: 1800, finished: true)])
+        let data = try damaged(book, editingFirstDay { day in
+            day.removeValue(forKey: "dayEnd")
+            day.removeValue(forKey: "firstCountedAt")
+        })
+        var decoded = try JSONDecoder().decode(FocusBook.self, from: data)
+        #expect(decoded.days.count == 1)
+        let froze = decoded.freeze(at: at(2026, 10, 23, 15))
+        #expect(froze)
+        #expect(decoded.totalSeconds == 1800)
+    }
+
+    @Test("An unreadable baseline is zeroed and the book starts over, so the counters can rebaseline it")
+    func damagedBaseline() throws {
+        var book = FocusBook(baseline: FocusTotals(seconds: 36_000, finished: 12), startedAt: at(2026, 10, 1))
+        book.record([credit(UUID(), seconds: 1800, finished: true)])
+        let data = try damaged(book) { object in
+            object["baseline"] = ["seconds": "many", "finished": 12]
+        }
+        let decoded = try JSONDecoder().decode(FocusBook.self, from: data)
+        #expect(decoded.baseline == .zero)
+        #expect(decoded.startedAt == nil)
+        #expect(decoded.days == book.days)
+
+        let missing = try damaged(book) { $0.removeValue(forKey: "baseline") }
+        let withoutBaseline = try JSONDecoder().decode(FocusBook.self, from: missing)
+        #expect(withoutBaseline.baseline == .zero)
+        #expect(withoutBaseline.startedAt == at(2026, 10, 1))
+    }
 }

@@ -1,6 +1,15 @@
 import Foundation
 import MapleFocusCore
 
+/// Decodes to nil rather than throwing, so one damaged element of an array or dictionary doesn't take the rest with it.
+private struct Lossy<Value: Decodable>: Decodable {
+    let value: Value?
+
+    init(from decoder: any Decoder) throws {
+        value = try? Value(from: decoder)
+    }
+}
+
 /// One session's credit as the book keeps it: high-water marks (F1 design §3.5).
 public struct SessionTally: Codable, Sendable, Equatable {
     public var seconds: Int
@@ -11,6 +20,19 @@ public struct SessionTally: Codable, Sendable, Equatable {
         self.seconds = seconds
         self.finished = finished
         self.provenAt = provenAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case seconds, finished, provenAt
+    }
+
+    /// Tolerant: `seconds` is required; a missing or unreadable `finished` is false and `provenAt` is `.distantPast`
+    /// (which `record` treats as older than any proof).
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        seconds = try c.decode(Int.self, forKey: .seconds)
+        finished = (try? c.decodeIfPresent(Bool.self, forKey: .finished)) ?? false
+        provenAt = (try? c.decodeIfPresent(Date.self, forKey: .provenAt)) ?? .distantPast
     }
 }
 
@@ -49,6 +71,29 @@ public struct DayCredit: Codable, Sendable, Equatable, Identifiable {
     /// 3 days after the later of the day's end and its first credit.
     public var freezesAt: Date { max(dayEnd, firstCountedAt).addingTimeInterval(FocusBook.recountDays * 86400) }
     public var isFocusDay: Bool { finished > 0 }
+
+    private enum CodingKeys: String, CodingKey {
+        case day, zone, sessions, seconds, finished, firstCountedAt, dayEnd, rulesVersion, frozen
+    }
+
+    /// Tolerant, field by field: the day, its zone and its totals are required (a day without them is skipped by
+    /// `FocusBook`'s decoder); anything else that is missing or unreadable takes a default so earned credit survives.
+    /// Missing `dayEnd` and `firstCountedAt` stand in for each other, and with neither the day counts as long past, so it
+    /// freezes at the next opportunity. Damaged session tallies are dropped one by one.
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        day = try c.decode(LocalDay.self, forKey: .day)
+        zone = try c.decode(String.self, forKey: .zone)
+        seconds = try c.decode(Int.self, forKey: .seconds)
+        finished = try c.decode(Int.self, forKey: .finished)
+        let first = (try? c.decodeIfPresent(Date.self, forKey: .firstCountedAt)) ?? nil
+        let end = (try? c.decodeIfPresent(Date.self, forKey: .dayEnd)) ?? nil
+        firstCountedAt = first ?? end ?? .distantPast
+        dayEnd = end ?? first ?? .distantPast
+        rulesVersion = (try? c.decodeIfPresent(Int.self, forKey: .rulesVersion)) ?? FocusRules.version
+        frozen = (try? c.decodeIfPresent(Bool.self, forKey: .frozen)) ?? false
+        sessions = ((try? c.decodeIfPresent([String: Lossy<SessionTally>].self, forKey: .sessions)) ?? nil)?.compactMapValues(\.value) ?? [:]
+    }
 }
 
 public struct FocusTotals: Codable, Sendable, Equatable {
@@ -58,6 +103,17 @@ public struct FocusTotals: Codable, Sendable, Equatable {
     public init(seconds: Int, finished: Int) {
         self.seconds = seconds
         self.finished = finished
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case seconds, finished
+    }
+
+    /// Both totals are required: half a baseline would be wrong rather than merely short, so `FocusBook` zeroes it.
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        seconds = try c.decode(Int.self, forKey: .seconds)
+        finished = try c.decode(Int.self, forKey: .finished)
     }
 
     public static let zero = FocusTotals(seconds: 0, finished: 0)
@@ -149,20 +205,20 @@ public struct FocusBook: Codable, Sendable, Equatable {
         case days, baseline, bestRun, startedAt
     }
 
-    private struct Lossy<Value: Decodable>: Decodable {
-        let value: Value?
-
-        init(from decoder: any Decoder) throws {
-            value = try? Value(from: decoder)
-        }
-    }
-
+    /// An unreadable baseline is zeroed and `startedAt` cleared with it, so the book takes a fresh baseline from the
+    /// counters instead of believing it already did. A missing baseline key leaves `startedAt` as it was.
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         days = ((try? c.decodeIfPresent([Lossy<DayCredit>].self, forKey: .days)) ?? []).compactMap(\.value)
-        baseline = (try? c.decodeIfPresent(FocusTotals.self, forKey: .baseline)) ?? .zero
+        var baselineDamaged = false
+        do {
+            baseline = try c.decodeIfPresent(FocusTotals.self, forKey: .baseline) ?? .zero
+        } catch {
+            baseline = .zero
+            baselineDamaged = true
+        }
         bestRun = (try? c.decodeIfPresent(Int.self, forKey: .bestRun)) ?? 0
-        startedAt = (try? c.decodeIfPresent(Date.self, forKey: .startedAt)) ?? nil
+        startedAt = baselineDamaged ? nil : (try? c.decodeIfPresent(Date.self, forKey: .startedAt)) ?? nil
     }
 
     public func encode(to encoder: any Encoder) throws {
