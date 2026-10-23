@@ -72,7 +72,7 @@ These inputs aren't fully exercised by the spec's own test list and are the like
 
 **MapleCore** (existing): `MapleKit/Sources/MapleCore/`
 - `Focus/FocusCoreExport.swift`: `@_exported import MapleFocusCore`.
-- `Focus/AwakeWindow+Schedule.swift`: the frozen window; `FocusPlan.day`; `LocalDay.init?(label:)`.
+- `Focus/AwakeWindow+Schedule.swift`: the frozen window and `FocusPlan.day`.
 - `Focus/HoursCredit.swift`: `CreditRule`, `CreditStretch`, `SessionCredit`, `HoursCredit`.
 - `Focus/FocusBook.swift`: `SessionTally`, `DayCredit`, `FocusTotals`, `FocusBook`.
 - `Focus/FocusRuns.swift`: the streak (current and best run).
@@ -80,6 +80,7 @@ These inputs aren't fully exercised by the spec's own test list and are the like
 - `Focus/CollectionSnapshot+Focus.swift`: `applyFocus`, `focusWindow`, `currentRun`.
 - `Focus/FocusPreset.swift`: presets and the strictness change rule.
 - `Focus/DialLayout.swift`, `Focus/FocusTimeText.swift`, `Focus/SessionForecast.swift`, `Focus/StartReadiness.swift`, `Focus/RecentIntentions.swift`.
+- `Focus/FocusActivityState.swift`: what the Live Activity shows.
 - **Edits:**
   - `Collection/CollectionSnapshot.swift`: version 2, the `focus` field, tolerant decoding.
   - `Collection/LeafEngine.swift`: `RevealSchedule`.
@@ -97,9 +98,9 @@ These inputs aren't fully exercised by the spec's own test list and are the like
 - `Focus/BlockingService.swift`: the protocol, `ShieldResult`, `MapleBuild` and `UnavailableBlockingService`.
 - `Focus/PreviewBlockingService.swift` (DEBUG).
 - `Focus/PresetStore.swift`, `Focus/AppSetStore.swift`, `Focus/SessionNotesStore.swift`.
-- `Focus/LiveActivityController.swift`: the protocol, the display value and `RecordingLiveActivityController`.
+- `Focus/LiveActivityController.swift`: the protocol, `NoLiveActivityController` and DEBUG `RecordingLiveActivityController`.
 - `Focus/FocusSessionStore.swift`.
-- `Demo/FocusDemoScenario.swift` (DEBUG).
+- `Focus/FocusStores.swift`: `LaunchMode` and each launch's Focus stores.
 - `Notifications/ReminderInputs.swift`: moved from `App/Features/Notifications/ReminderInputs.swift`.
 - **Edits:** `MapleStores.swift`, `Settings/AppSettings.swift`, `Notifications/NotificationScheduler.swift`, `Collection/CollectionStore.swift`, `Demo/DemoLaunchOptions.swift`, `Demo/DemoData.swift`, and the files that use `MapleContainer`.
 
@@ -2884,7 +2885,7 @@ struct HoursCreditTests {
         try #require(day.credits(now: now).first)
     }
 
-    @Test("A session proven to its planned end credits exactly its length")
+    @Test("A session proven to its planned end credits exactly its length, however long the phone slept in between")
     func exact() throws {
         let day = FocusDay(at(2026, 10, 23, 14))
         day.session(minutes: 50)
@@ -3108,6 +3109,39 @@ struct HoursCreditTests {
         let (kept, removed) = HoursCredit.subtract([piece], DateInterval(start: at(2026, 10, 23, 14, 10), duration: 600))
         #expect(kept.map(\.duration) == [600, 2400])
         #expect(removed.map(\.duration) == [600])
+    }
+
+    /// Golden ledgers, written as the app writes them (one JSON object per line), with their exact credit. A change
+    /// to the event format or the credit rules shows up here first.
+    @Test("Golden ledgers credit exactly what they always have", arguments: [
+        (#"""
+{"id":"A1-1","v":1,"type":"sessionStarted","session":"00000000-0000-4000-8000-0000000000A1","device":"00000000-0000-4000-8000-0000000000D1","writer":"app","seq":1,"source":"live","credit":true,"at":{"wall":1792764000,"cont":1000000000000,"boot":"b1","zone":"UTC"},"plan":{"presetID":"00000000-0000-4000-8000-00000000F001","presetName":"Study","verb":"study","plannedSeconds":3000,"breakSeconds":0,"strictness":"steady","kind":"blocking","selection":{"mode":"blockThese","apps":6,"sites":0,"categories":0},"startedFrom":"focusTab","mapleDay":"2026-10-23","window":{"start":814428000,"end":814489200,"windDown":814486500},"zone":"UTC","appBuild":"1","rulesVersion":1}}
+{"id":"A1-2","v":1,"type":"shieldApplied","session":"00000000-0000-4000-8000-0000000000A1","device":"00000000-0000-4000-8000-0000000000D1","writer":"app","seq":2,"source":"live","credit":true,"at":{"wall":1792764005,"cont":1005000000000,"boot":"b1","zone":"UTC"}}
+{"id":"A1-3","v":1,"type":"shieldVerified","session":"00000000-0000-4000-8000-0000000000A1","device":"00000000-0000-4000-8000-0000000000D1","writer":"app","seq":3,"source":"live","credit":true,"at":{"wall":1792765205,"cont":2205000000000,"boot":"b1","zone":"UTC"}}
+{"id":"A1-4","v":1,"type":"sessionEnded","session":"00000000-0000-4000-8000-0000000000A1","device":"00000000-0000-4000-8000-0000000000D1","writer":"app","seq":4,"source":"live","credit":true,"at":{"wall":1792767005,"cont":4005000000000,"boot":"b1","zone":"UTC"},"reason":"completed","verified":true}
+"""#, 3000, true),
+        (#"""
+{"id":"A2-1","v":1,"type":"sessionStarted","session":"00000000-0000-4000-8000-0000000000A2","device":"00000000-0000-4000-8000-0000000000D1","writer":"app","seq":1,"source":"live","credit":true,"at":{"wall":1792764000,"cont":1000000000000,"boot":"b1","zone":"UTC"},"plan":{"presetID":"00000000-0000-4000-8000-00000000F001","presetName":"Study","verb":"study","plannedSeconds":3000,"breakSeconds":0,"strictness":"steady","kind":"blocking","selection":{"mode":"blockThese","apps":6,"sites":0,"categories":0},"startedFrom":"focusTab","mapleDay":"2026-10-23","window":{"start":814428000,"end":814489200,"windDown":814486500},"zone":"UTC","appBuild":"1","rulesVersion":1}}
+{"id":"A2-2","v":1,"type":"shieldApplied","session":"00000000-0000-4000-8000-0000000000A2","device":"00000000-0000-4000-8000-0000000000D1","writer":"app","seq":2,"source":"live","credit":true,"at":{"wall":1792764005,"cont":1005000000000,"boot":"b1","zone":"UTC"}}
+{"id":"A2-3","v":1,"type":"shieldVerified","session":"00000000-0000-4000-8000-0000000000A2","device":"00000000-0000-4000-8000-0000000000D1","writer":"app","seq":3,"source":"live","credit":true,"at":{"wall":1792764605,"cont":1605000000000,"boot":"b1","zone":"UTC"}}
+{"id":"A2-4","v":1,"type":"shieldLost","session":"00000000-0000-4000-8000-0000000000A2","device":"00000000-0000-4000-8000-0000000000D1","writer":"app","seq":4,"source":"live","credit":true,"at":{"wall":1792765205,"cont":2205000000000,"boot":"b1","zone":"UTC"}}
+{"id":"A2-5","v":1,"type":"sessionEnded","session":"00000000-0000-4000-8000-0000000000A2","device":"00000000-0000-4000-8000-0000000000D1","writer":"app","seq":5,"source":"live","credit":true,"at":{"wall":1792767005,"cont":4005000000000,"boot":"b1","zone":"UTC"},"reason":"completed","verified":false}
+"""#, 600, false),
+        (#"""
+{"id":"A3-1","v":1,"type":"sessionStarted","session":"00000000-0000-4000-8000-0000000000A3","device":"00000000-0000-4000-8000-0000000000D1","writer":"app","seq":1,"source":"live","credit":true,"at":{"wall":1792764000,"cont":1000000000000,"boot":"b1","zone":"UTC"},"plan":{"presetID":"00000000-0000-4000-8000-00000000F001","presetName":"Study","verb":"study","plannedSeconds":3000,"breakSeconds":0,"strictness":"steady","kind":"blocking","selection":{"mode":"blockThese","apps":6,"sites":0,"categories":0},"startedFrom":"focusTab","mapleDay":"2026-10-23","window":{"start":814428000,"end":814489200,"windDown":814486500},"zone":"UTC","appBuild":"1","rulesVersion":1}}
+{"id":"A3-2","v":1,"type":"shieldApplied","session":"00000000-0000-4000-8000-0000000000A3","device":"00000000-0000-4000-8000-0000000000D1","writer":"app","seq":2,"source":"live","credit":true,"at":{"wall":1792764005,"cont":1005000000000,"boot":"b1","zone":"UTC"}}
+{"id":"A3-3","v":1,"type":"shieldVerified","session":"00000000-0000-4000-8000-0000000000A3","device":"00000000-0000-4000-8000-0000000000D1","writer":"app","seq":3,"source":"live","credit":true,"at":{"wall":1792764605,"cont":1605000000000,"boot":"b1","zone":"UTC"}}
+{"id":"A3-4","v":1,"type":"focusWarp","session":"00000000-0000-4000-8000-0000000000A3","device":"00000000-0000-4000-8000-0000000000D1","writer":"app","seq":4,"source":"live","credit":true,"at":{"wall":1792765205,"cont":2205000000000,"boot":"b1","zone":"UTC"},"warp":2}
+{"id":"A3-5","v":1,"type":"sessionEnded","session":"00000000-0000-4000-8000-0000000000A3","device":"00000000-0000-4000-8000-0000000000D1","writer":"app","seq":5,"source":"live","credit":true,"at":{"wall":1792767005,"cont":4005000000000,"boot":"b1","zone":"UTC"},"reason":"completed","verified":true}
+{"id":"torn-6","v":1,"type":"shieldVer
+"""#, 600, false),
+    ])
+    func golden(lines: String, seconds: Int, finished: Bool) throws {
+        let events = lines.split(separator: "\n").compactMap { try? JSONDecoder().decode(FocusEvent.self, from: Data($0.utf8)) }
+        let credit = try #require(HoursCredit.credit(FocusLedger(events).sessions(), crediting: [.live], now: at(2026, 10, 24)).first)
+        #expect(credit.seconds == seconds)
+        #expect(credit.finished == finished)
+        #expect(credit.day == LocalDay(year: 2026, month: 10, day: 23))
     }
 }
 ```
@@ -3885,6 +3919,8 @@ struct FocusCountersTests {
         let added = snapshot.applyFocus([credit(seconds: 3600, provenAt: at(2026, 10, 23, 10, 0, 5))], at: at(2026, 10, 23, 21, 30), context: context)
         let hours = try #require(added.first { $0.speciesID == species(.hoursSaved, rung: 0) })
         #expect(hours.date == at(2026, 10, 23, 10, 0, 5))
+        // Applied in the evening, earned in the day: it isn't held (F1-12).
+        #expect(snapshot.held(at: at(2026, 10, 23, 21, 30), context: context).isEmpty)
         #expect(snapshot.counters[.hoursSaved] == 1)
         #expect(snapshot.counters[.sessionsFinished] == 1)
         #expect(snapshot.focus.startedAt == at(2026, 10, 23, 21, 30))
@@ -4770,6 +4806,7 @@ struct DialLayoutTests {
         #expect(DialLayout(plannedMinutes: 90).markCount == 45)
         #expect(DialLayout(plannedMinutes: 65).markCount == 33)
         #expect(DialLayout(plannedMinutes: 180).markCount == 60)
+        #expect([20, 120, 125].map { DialLayout(plannedMinutes: $0).markCount } == [20, 60, 42])
         #expect((20...180).allSatisfy { DialLayout(plannedMinutes: $0).markCount <= 60 })
     }
 
