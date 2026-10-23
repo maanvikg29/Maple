@@ -50,6 +50,8 @@ public enum AppSetSaveResult: Sendable, Equatable {
     /// More than 50 app or 50 web tokens across every set: iOS would silently block nothing.
     case overTokenLimit
     case unknownSet
+    /// The saved sets still can't be read (before the first unlock after a restart): nothing was saved.
+    case unavailable
 }
 
 @Observable
@@ -63,17 +65,21 @@ public final class AppSetStore {
 
     public init(storage: JSONStorage<AppSetsFile>) {
         self.storage = storage
-        switch storage.read() {
-        case .value(let saved) where !saved.sets.isEmpty:
-            sets = saved.sets
-            isAvailable = true
-        case .value, .absent:
-            sets = AppSet.starters()
-            isAvailable = true
-        case .unavailable:
-            sets = AppSet.starters()
-            isAvailable = false
-        }
+        let loaded = Self.contents(of: storage.read())
+        sets = loaded ?? AppSet.starters()
+        isAvailable = loaded != nil
+    }
+
+    /// Reads the sets again if they couldn't be read at launch. Every change does this first, so it lands on the
+    /// member's real sets, and the empty-over-full and 50-token checks run against them.
+    /// - Returns: Whether the store now holds the member's real sets (or knows there are none).
+    @discardableResult
+    public func reloadIfUnavailable() -> Bool {
+        guard !isAvailable else { return false }
+        guard let loaded = Self.contents(of: storage.read()) else { return false }
+        sets = loaded
+        isAvailable = true
+        return true
     }
 
     public func set(id: UUID) -> AppSet? {
@@ -86,6 +92,7 @@ public final class AppSetStore {
     }
 
     public func save(selection: Data, summary: SelectionSummary, to id: UUID) -> AppSetSaveResult {
+        guard isAvailable || reloadIfUnavailable() else { return .unavailable }
         guard let index = sets.firstIndex(where: { $0.id == id }) else { return .unknownSet }
         if summary.isEmpty, !sets[index].summary.isEmpty { return .wouldEmpty }
         let others = sets.enumerated().filter { $0.offset != index }.map(\.element.summary)
@@ -100,9 +107,19 @@ public final class AppSetStore {
     }
 
     public func markExpired(_ id: UUID, _ expired: Bool) {
-        guard let index = sets.firstIndex(where: { $0.id == id }), sets[index].tokensExpired != expired else { return }
+        guard isAvailable || reloadIfUnavailable(),
+              let index = sets.firstIndex(where: { $0.id == id }), sets[index].tokensExpired != expired else { return }
         sets[index].tokensExpired = expired
         persist()
+    }
+
+    /// The saved sets, or the starters when there are none; nil while the file can't be read.
+    private static func contents(of read: StorageRead<AppSetsFile>) -> [AppSet]? {
+        switch read {
+        case .value(let saved) where !saved.sets.isEmpty: saved.sets
+        case .value, .absent: AppSet.starters()
+        case .unavailable: nil
+        }
     }
 
     private func persist() {

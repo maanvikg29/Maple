@@ -133,4 +133,113 @@ struct FocusStoresTests {
         store.eraseAll()
         #expect(SessionNotesStore(storage: JSONStorage(.file(file))).entries(reflections: [:]).isEmpty)
     }
+
+    // MARK: Files that can't be read until after launch (a launch before the first unlock)
+
+    /// Makes a file unreadable, as it is before the first unlock after a restart.
+    private func lock(_ file: URL) throws {
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: file.path)
+    }
+
+    private func unlock(_ file: URL) throws {
+        try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: file.path)
+    }
+
+    @Test("Presets that couldn't be read at launch are read again before an edit, which then lands on the real ones")
+    func presetsReload() throws {
+        let file = try url(PresetStore.file)
+        let first = PresetStore(storage: JSONStorage(.file(file)), defaultAppSetID: AppSet.distractionsID)
+        let essay = FocusPreset(name: "Essay", verb: .focus, minutes: 40, hasBreak: false, appSetID: nil)
+        #expect(first.add(essay))
+        first.markUsed(essay.id)
+        let before = try Data(contentsOf: file)
+
+        try lock(file)
+        defer { try? unlock(file) }
+        let store = PresetStore(storage: JSONStorage(.file(file)), defaultAppSetID: AppSet.distractionsID)
+        #expect(!store.isAvailable)
+        #expect(store.presets.map(\.name) == ["Study", "Quick", "Deep", "Read"])
+        // Still unreadable: nothing changes and nothing is written.
+        #expect(!store.add(FocusPreset(name: "Revision", verb: .study, minutes: 60, hasBreak: true, appSetID: nil)))
+        #expect(!store.delete(id: store.presets[0].id))
+        store.markUsed(store.presets[1].id)
+        store.update(FocusPreset(id: store.presets[0].id, name: "Renamed", verb: .study, minutes: 50, hasBreak: true, appSetID: nil))
+        #expect(store.presets.map(\.name) == ["Study", "Quick", "Deep", "Read"])
+        #expect(store.lastUsedID == nil)
+        #expect(!store.reloadIfUnavailable())
+        #expect(!store.isAvailable)
+
+        try unlock(file)
+        #expect(try Data(contentsOf: file) == before)
+        #expect(store.add(FocusPreset(name: "Revision", verb: .study, minutes: 60, hasBreak: true, appSetID: nil)))
+        #expect(store.isAvailable)
+        #expect(!store.reloadIfUnavailable())                                   // already holds the real presets
+        let reloaded = PresetStore(storage: JSONStorage(.file(file)), defaultAppSetID: nil)
+        #expect(reloaded.presets.map(\.name) == ["Study", "Quick", "Deep", "Read", "Essay", "Revision"])
+        #expect(reloaded.lastUsedID == essay.id)
+    }
+
+    @Test("App sets that couldn't be read at launch are never saved over, and the real ones are checked once readable")
+    func appSetsReload() throws {
+        let file = try url(AppSetStore.file)
+        let six = SelectionSummary(mode: .blockThese, apps: 6, sites: 1, categories: 0)
+        let first = AppSetStore(storage: JSONStorage(.file(file)))
+        #expect(first.save(selection: Data("six".utf8), summary: six, to: AppSet.distractionsID) == .saved)
+        let before = try Data(contentsOf: file)
+
+        try lock(file)
+        defer { try? unlock(file) }
+        let store = AppSetStore(storage: JSONStorage(.file(file)))
+        #expect(!store.isAvailable)
+        let three = SelectionSummary(mode: .blockThese, apps: 3, sites: 0, categories: 0)
+        #expect(store.save(selection: Data("three".utf8), summary: three, to: AppSet.studyAppsID) == .unavailable)
+        store.markExpired(AppSet.bedtimeID, true)
+        #expect(store.set(id: AppSet.studyAppsID)?.summary.isEmpty == true)
+        #expect(store.set(id: AppSet.bedtimeID)?.tokensExpired == false)
+        #expect(!store.reloadIfUnavailable())
+
+        try unlock(file)
+        #expect(try Data(contentsOf: file) == before)
+        // The real sets are in force: the empty-over-full and 50-token checks see the member's six apps.
+        let empty = SelectionSummary(mode: .blockThese, apps: 0, sites: 0, categories: 0)
+        #expect(store.save(selection: Data(), summary: empty, to: AppSet.distractionsID) == .wouldEmpty)
+        let big = SelectionSummary(mode: .blockThese, apps: 45, sites: 0, categories: 0)
+        #expect(store.save(selection: Data("big".utf8), summary: big, to: AppSet.studyAppsID) == .overTokenLimit)
+        #expect(store.save(selection: Data("three".utf8), summary: three, to: AppSet.studyAppsID) == .saved)
+        store.markExpired(AppSet.bedtimeID, true)
+        let reloaded = AppSetStore(storage: JSONStorage(.file(file)))
+        #expect(reloaded.set(id: AppSet.distractionsID)?.summary == six)
+        #expect(reloaded.set(id: AppSet.distractionsID)?.selection == Data("six".utf8))
+        #expect(reloaded.set(id: AppSet.studyAppsID)?.summary == three)
+        #expect(reloaded.set(id: AppSet.bedtimeID)?.tokensExpired == true)
+    }
+
+    @Test("Notes that couldn't be read at launch are read again before an edit or an erase, which then reaches the file")
+    func notesReload() throws {
+        let file = try url(SessionNotesStore.file)
+        let a = UUID(), b = UUID()
+        SessionNotesStore(storage: JSONStorage(.file(file))).setIntention("Chemistry ch. 4", for: a, at: at(2026, 10, 23, 14))
+        let before = try Data(contentsOf: file)
+
+        try lock(file)
+        defer { try? unlock(file) }
+        let store = SessionNotesStore(storage: JSONStorage(.file(file)))
+        #expect(!store.isAvailable)
+        #expect(!store.eraseAll())
+        store.setIntention("Essay", for: b, at: at(2026, 10, 23, 16))
+        #expect(store.intention(for: b) == nil)
+        #expect(!store.reloadIfUnavailable())
+
+        try unlock(file)
+        #expect(try Data(contentsOf: file) == before)
+        store.setIntention("Essay", for: b, at: at(2026, 10, 23, 16))
+        #expect(store.isAvailable)
+        let both = SessionNotesStore(storage: JSONStorage(.file(file)))
+        #expect(both.intention(for: a) == "Chemistry ch. 4")
+        #expect(both.intention(for: b) == "Essay")
+
+        #expect(store.eraseAll())
+        #expect(SessionNotesStore(storage: JSONStorage(.file(file))).entries(reflections: [:]).isEmpty)
+        #expect(try !String(contentsOf: file, encoding: .utf8).contains("Chemistry"))
+    }
 }
