@@ -43,9 +43,12 @@ public struct DialLayout: Sendable, Equatable {
         min(markCount - 1, max(0, Int(seconds / Double(60 * minutesPerMark))))
     }
 
-    /// Where `minute` of the session falls (the leaf dot).
+    /// Where `minute` of the session falls (the leaf dot). It uses the marks' own scale, a full turn being
+    /// `markCount × minutesPerMark` minutes, so the dot lands on a mark even when the length isn't a multiple of
+    /// `minutesPerMark` (65 minutes has 33 marks of 2 minutes: minute 64 sits on mark 32). That product is
+    /// `plannedMinutes` whenever the length is a multiple of `minutesPerMark`.
     public func angle(atMinute minute: Double) -> Double {
-        2 * .pi * minute / Double(plannedMinutes)
+        2 * .pi * minute / Double(markCount * minutesPerMark)
     }
 
     /// The length after turning the dial by `degrees` from `minutes`: whole 5-minute steps, 20 minutes to 3 hours.

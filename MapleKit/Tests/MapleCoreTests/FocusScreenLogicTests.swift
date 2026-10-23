@@ -30,6 +30,14 @@ struct DialLayoutTests {
         #expect(abs(dial.angle(atMinute: 35) - 2 * .pi * 35 / 50) < 1e-9)
     }
 
+    @Test("The leaf dot sits on the marks when the length isn't a multiple of minutes per mark")
+    func dotOnMarks() {
+        let sixtyFive = DialLayout(plannedMinutes: 65)
+        #expect(abs(sixtyFive.angle(atMinute: 64) - sixtyFive.angle(ofMark: 32)) < 1e-9)
+        let oneTwentyFive = DialLayout(plannedMinutes: 125)
+        #expect(abs(oneTwentyFive.angle(atMinute: 123) - oneTwentyFive.angle(ofMark: 41)) < 1e-9)
+    }
+
     @Test("A 30° turn is 5 minutes, between 20 minutes and 3 hours")
     func turning() {
         #expect(DialLayout.length(turning: 30, from: 50) == 55)
