@@ -6243,3 +6243,1527 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
+### Task 20: Presets, app sets and session notes
+
+Three small JSON stores beside the collection, each tolerant and never saving over a file it couldn't read (the `AppSettings` pattern).
+
+**Files:**
+- Create: `MapleKit/Sources/MapleServices/Focus/PresetStore.swift`
+- Create: `MapleKit/Sources/MapleServices/Focus/AppSetStore.swift`
+- Create: `MapleKit/Sources/MapleServices/Focus/SessionNotesStore.swift`
+- Test: `MapleKit/Tests/MapleServicesTests/FocusStoresTests.swift`
+
+**Interfaces:**
+- Consumes: `FocusPreset`, `RecentIntentions` (Task 16), `SelectionSummary` (Task 2), `JSONStorage`.
+- Produces:
+  - `PresetsFile(presets:lastUsedID:)`; `PresetStore(storage:defaultAppSetID:)`, with `presets`, `lastUsed`, `canAdd`, `preset(id:)`, `add(_:) -> Bool`, `update(_:)`, `delete(id:) -> Bool`, `markUsed(_:)`, `isAvailable`, `PresetStore.file` (`presets.json`);
+  - `AppSet(id:name:selection:summary:tokensExpired:)`, `AppSet.distractionsID`, `AppSet.starters()`; `AppSetsFile(sets:)`; `AppSetStore(storage:)`, with `sets`, `set(id:)`, `save(selection:summary:to:) -> AppSetSaveResult`, `markExpired(_:_:)`, `totalTokens`, `AppSetStore.file` (`app-sets.json`);
+  - `AppSetSaveResult` (`.saved`, `.wouldEmpty`, `.overTokenLimit`, `.unknownSet`);
+  - `SessionNote(text:at:)`, `SessionNotesFile(notes:)`; `SessionNotesStore(storage:)`, with `intention(for:)`, `setIntention(_:for:at:)`, `eraseAll()`, `entries(reflections:) -> [RecentIntentions.Entry]`, `SessionNotesStore.file` (`session-notes.json`), `SessionNotesStore.kept` (200).
+
+- [ ] **Step 1: Write the failing tests**
+
+`MapleKit/Tests/MapleServicesTests/FocusStoresTests.swift`:
+```swift
+import Foundation
+import Testing
+@testable import MapleCore
+@testable import MapleServices
+
+@Suite("Focus stores")
+@MainActor
+struct FocusStoresTests {
+    private func url(_ name: String) throws -> URL {
+        try temporaryDirectory().appendingPathComponent(name)
+    }
+
+    @Test("Presets start with the four defaults on Distractions, and changes are saved")
+    func presets() throws {
+        let file = try url(PresetStore.file)
+        let store = PresetStore(storage: JSONStorage(.file(file)), defaultAppSetID: AppSet.distractionsID)
+        #expect(store.presets.map(\.name) == ["Study", "Quick", "Deep", "Read"])
+        #expect(store.presets.allSatisfy { $0.appSetID == AppSet.distractionsID })
+        #expect(store.lastUsed?.name == "Study")
+        let deep = try #require(store.presets.first { $0.name == "Deep" })
+        store.markUsed(deep.id)
+        var renamed = deep
+        renamed.name = "   Deep work, the long kind of session   "
+        renamed.minutes = 999
+        store.update(renamed)
+        let reloaded = PresetStore(storage: JSONStorage(.file(file)), defaultAppSetID: nil)
+        #expect(reloaded.lastUsed?.id == deep.id)
+        #expect(reloaded.lastUsed?.name == "Deep work, the long kind")
+        #expect(reloaded.lastUsed?.minutes == 180)
+    }
+
+    @Test("At most 6 presets, and the last one can't be deleted")
+    func presetLimits() {
+        let store = PresetStore(storage: JSONStorage(.memory), defaultAppSetID: nil)
+        #expect(store.add(FocusPreset(name: "Essay", verb: .focus, minutes: 40, hasBreak: false, appSetID: nil)))
+        #expect(store.add(FocusPreset(name: "Revision", verb: .study, minutes: 60, hasBreak: true, appSetID: nil)))
+        #expect(!store.canAdd)
+        #expect(!store.add(FocusPreset(name: "Seventh", verb: .focus, minutes: 30, hasBreak: false, appSetID: nil)))
+        for preset in store.presets.dropLast() { #expect(store.delete(id: preset.id)) }
+        #expect(store.presets.count == 1)
+        #expect(!store.delete(id: store.presets[0].id))
+        #expect(store.lastUsed?.id == store.presets[0].id)
+    }
+
+    @Test("A damaged preset is skipped; an unreadable file is never written over")
+    func presetFiles() throws {
+        let file = try url(PresetStore.file)
+        let good = FocusPreset(name: "Read", verb: .reading, minutes: 30, hasBreak: false, appSetID: nil)
+        let json = #"{"presets":[{"name":"broken"},"# + String(decoding: try JSONEncoder().encode(good), as: UTF8.self) + "]}"
+        try Data(json.utf8).write(to: file)
+        #expect(PresetStore(storage: JSONStorage(.file(file)), defaultAppSetID: nil).presets.map(\.name) == ["Read"])
+
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: file.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: file.path) }
+        let locked = PresetStore(storage: JSONStorage(.file(file)), defaultAppSetID: nil)
+        #expect(!locked.isAvailable)
+        locked.markUsed(locked.presets[0].id)
+        try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: file.path)
+        #expect(try String(contentsOf: file, encoding: .utf8) == json)
+    }
+
+    @Test("App sets: three starters; an empty selection never replaces a full one; 50 tokens across every set")
+    func appSets() throws {
+        let store = AppSetStore(storage: JSONStorage(.memory))
+        #expect(store.sets.map(\.name) == ["Distractions", "Study apps", "Bedtime"])
+        #expect(store.set(id: AppSet.distractionsID)?.summary.isEmpty == true)
+        let six = SelectionSummary(mode: .blockThese, apps: 6, sites: 1, categories: 0)
+        #expect(store.save(selection: Data("six".utf8), summary: six, to: AppSet.distractionsID) == .saved)
+        #expect(store.set(id: AppSet.distractionsID)?.summary == six)
+        let empty = SelectionSummary(mode: .blockThese, apps: 0, sites: 0, categories: 0)
+        #expect(store.save(selection: Data(), summary: empty, to: AppSet.distractionsID) == .wouldEmpty)
+        #expect(store.set(id: AppSet.distractionsID)?.summary == six)
+        let study = try #require(store.sets.first { $0.name == "Study apps" })
+        let big = SelectionSummary(mode: .blockThese, apps: 45, sites: 0, categories: 0)
+        #expect(store.save(selection: Data("big".utf8), summary: big, to: study.id) == .overTokenLimit)
+        #expect(store.totalTokens == 6)                                         // 6 apps; 1 site counts separately
+        #expect(store.save(selection: Data("x".utf8), summary: six, to: UUID()) == .unknownSet)
+        store.markExpired(AppSet.distractionsID, true)
+        #expect(store.set(id: AppSet.distractionsID)?.tokensExpired == true)
+        #expect(store.save(selection: Data("six".utf8), summary: six, to: AppSet.distractionsID) == .saved)
+        #expect(store.set(id: AppSet.distractionsID)?.tokensExpired == false)
+    }
+
+    @Test("Session notes: one intention per session, cleared by an empty field, erased on request, newest 200 kept")
+    func notes() throws {
+        let file = try url(SessionNotesStore.file)
+        let store = SessionNotesStore(storage: JSONStorage(.file(file)))
+        let a = UUID(), b = UUID()
+        store.setIntention("  Chemistry ch. 4 ", for: a, at: at(2026, 10, 23, 14))
+        store.setIntention("Essay", for: b, at: at(2026, 10, 23, 16))
+        #expect(SessionNotesStore(storage: JSONStorage(.file(file))).intention(for: a) == "Chemistry ch. 4")
+        store.setIntention("   ", for: b, at: at(2026, 10, 23, 16, 5))
+        #expect(store.intention(for: b) == nil)
+        #expect(store.entries(reflections: [a: .partly]) == [RecentIntentions.Entry(text: "Chemistry ch. 4", reflection: .partly, at: at(2026, 10, 23, 14))])
+        for index in 0..<210 { store.setIntention("Note \(index)", for: UUID(), at: at(2026, 10, 1).addingTimeInterval(Double(index))) }
+        #expect(store.entries(reflections: [:]).count == SessionNotesStore.kept)
+        #expect(store.intention(for: a) == "Chemistry ch. 4")
+        store.eraseAll()
+        #expect(SessionNotesStore(storage: JSONStorage(.file(file))).entries(reflections: [:]).isEmpty)
+    }
+}
+```
+
+- [ ] **Step 2: Run them to verify they fail**
+
+Run: `SIMULATOR="iPhone 17" Scripts/test.sh -only-testing:MapleServicesTests/FocusStoresTests > "$WS/test.log" 2>&1; grep -E "error:" "$WS/test.log" | head -5`
+Expected: `error: cannot find 'PresetStore' in scope`
+
+- [ ] **Step 3: Write the preset store**
+
+`MapleKit/Sources/MapleServices/Focus/PresetStore.swift`:
+```swift
+import Foundation
+import MapleCore
+import Observation
+
+/// What `presets.json` holds. Decoding is tolerant: a damaged preset is skipped.
+nonisolated public struct PresetsFile: Codable, Sendable, Equatable {
+    public var presets: [FocusPreset]
+    public var lastUsedID: UUID?
+
+    public init(presets: [FocusPreset], lastUsedID: UUID? = nil) {
+        self.presets = presets
+        self.lastUsedID = lastUsedID
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case presets, lastUsedID
+    }
+
+    private struct Lossy: Decodable {
+        let preset: FocusPreset?
+
+        init(from decoder: any Decoder) throws {
+            preset = try? FocusPreset(from: decoder)
+        }
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        presets = ((try? c.decodeIfPresent([Lossy].self, forKey: .presets)) ?? []).compactMap(\.preset)
+        lastUsedID = try? c.decodeIfPresent(UUID.self, forKey: .lastUsedID)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(presets, forKey: .presets)
+        try c.encodeIfPresent(lastUsedID, forKey: .lastUsedID)
+    }
+}
+
+/// The member's Focus presets (F1 design §5.13): up to 6, never none. Home's Start uses the last-used one.
+@Observable
+public final class PresetStore {
+    nonisolated public static let file = "presets.json"
+
+    public private(set) var presets: [FocusPreset]
+    public private(set) var lastUsedID: UUID?
+    /// False while the file exists but can't be read yet: the defaults are shown and nothing is saved.
+    public private(set) var isAvailable: Bool
+
+    @ObservationIgnored private let storage: JSONStorage<PresetsFile>
+    @ObservationIgnored private let defaultAppSetID: UUID?
+
+    /// - Parameter defaultAppSetID: The app set new and default presets block (Distractions).
+    public init(storage: JSONStorage<PresetsFile>, defaultAppSetID: UUID?) {
+        self.storage = storage
+        self.defaultAppSetID = defaultAppSetID
+        switch storage.read() {
+        case .value(let saved) where !saved.presets.isEmpty:
+            presets = Array(saved.presets.prefix(FocusPreset.maximumCount))
+            lastUsedID = saved.lastUsedID
+            isAvailable = true
+        case .value, .absent:
+            presets = FocusPreset.defaults(appSetID: defaultAppSetID)
+            isAvailable = true
+        case .unavailable:
+            presets = FocusPreset.defaults(appSetID: defaultAppSetID)
+            isAvailable = false
+        }
+    }
+
+    /// The preset Start begins: the last used, else the first.
+    public var lastUsed: FocusPreset? {
+        lastUsedID.flatMap(preset(id:)) ?? presets.first
+    }
+
+    public var canAdd: Bool { presets.count < FocusPreset.maximumCount }
+
+    public func preset(id: UUID) -> FocusPreset? {
+        presets.first { $0.id == id }
+    }
+
+    /// - Returns: False at 6 presets.
+    @discardableResult
+    public func add(_ preset: FocusPreset) -> Bool {
+        guard canAdd else { return false }
+        change { $0.append(Self.cleaned(preset)) }
+        return true
+    }
+
+    /// Replaces the preset with the same id; the name is trimmed to 24 characters and the length kept in range.
+    public func update(_ preset: FocusPreset) {
+        guard let index = presets.firstIndex(where: { $0.id == preset.id }) else { return }
+        change { $0[index] = Self.cleaned(preset) }
+    }
+
+    /// - Returns: False for the last preset, which can't be deleted.
+    @discardableResult
+    public func delete(id: UUID) -> Bool {
+        guard presets.count > 1, let index = presets.firstIndex(where: { $0.id == id }) else { return false }
+        change { $0.remove(at: index) }
+        if lastUsedID == id { setLastUsed(nil) }
+        return true
+    }
+
+    public func markUsed(_ id: UUID) {
+        guard preset(id: id) != nil else { return }
+        setLastUsed(id)
+    }
+
+    // MARK: Private
+
+    private static func cleaned(_ preset: FocusPreset) -> FocusPreset {
+        var copy = preset
+        copy.name = FocusPreset.normalizedName(preset.name) ?? preset.verb.rawValue.capitalized
+        copy.minutes = DialLayout.stepped(preset.minutes, by: 0)
+        return copy
+    }
+
+    private func change(_ edit: (inout [FocusPreset]) -> Void) {
+        var copy = presets
+        edit(&copy)
+        guard copy != presets else { return }
+        presets = copy
+        save()
+    }
+
+    private func setLastUsed(_ id: UUID?) {
+        guard id != lastUsedID else { return }
+        lastUsedID = id
+        save()
+    }
+
+    private func save() {
+        guard isAvailable else { return }
+        storage.save(PresetsFile(presets: presets, lastUsedID: lastUsedID))
+    }
+}
+```
+`DialLayout.stepped(_:by: 0)` clamps to 20–180 without moving a valid length.
+
+- [ ] **Step 4: Write the app set store**
+
+`MapleKit/Sources/MapleServices/Focus/AppSetStore.swift`:
+```swift
+import Foundation
+import MapleCore
+import Observation
+
+/// A named selection of apps, sites and categories (F1 design §5.14). The selection itself is opaque: the blocking
+/// service encodes it (Apple's `FamilyActivitySelection` in F1-paid, the DEBUG fake picker's choices in F1).
+nonisolated public struct AppSet: Codable, Sendable, Equatable, Identifiable {
+    public static let distractionsID = UUID(uuidString: "6D61706C-6500-4153-4554-000000000001")!
+    public static let studyAppsID = UUID(uuidString: "6D61706C-6500-4153-4554-000000000002")!
+    public static let bedtimeID = UUID(uuidString: "6D61706C-6500-4153-4554-000000000003")!
+
+    public var id: UUID
+    public var name: String
+    public var selection: Data
+    public var summary: SelectionSummary
+    /// iOS no longer recognises some of its tokens: "Some apps need choosing again".
+    public var tokensExpired: Bool
+
+    public init(id: UUID, name: String, selection: Data = Data(), summary: SelectionSummary, tokensExpired: Bool = false) {
+        self.id = id
+        self.name = name
+        self.selection = selection
+        self.summary = summary
+        self.tokensExpired = tokensExpired
+    }
+
+    /// Distractions, Study apps and Bedtime, empty.
+    public static func starters() -> [AppSet] {
+        let empty = SelectionSummary(mode: .blockThese, apps: 0, sites: 0, categories: 0)
+        return [
+            AppSet(id: distractionsID, name: "Distractions", summary: empty),
+            AppSet(id: studyAppsID, name: "Study apps", summary: empty),
+            AppSet(id: bedtimeID, name: "Bedtime", summary: empty),
+        ]
+    }
+}
+
+nonisolated public struct AppSetsFile: Codable, Sendable, Equatable {
+    public var sets: [AppSet]
+
+    public init(sets: [AppSet]) {
+        self.sets = sets
+    }
+}
+
+public enum AppSetSaveResult: Sendable, Equatable {
+    case saved
+    /// An empty selection is never saved over a non-empty one.
+    case wouldEmpty
+    /// More than 50 app or 50 web tokens across every set: iOS would silently block nothing.
+    case overTokenLimit
+    case unknownSet
+}
+
+@Observable
+public final class AppSetStore {
+    nonisolated public static let file = "app-sets.json"
+
+    public private(set) var sets: [AppSet]
+    public private(set) var isAvailable: Bool
+
+    @ObservationIgnored private let storage: JSONStorage<AppSetsFile>
+
+    public init(storage: JSONStorage<AppSetsFile>) {
+        self.storage = storage
+        switch storage.read() {
+        case .value(let saved) where !saved.sets.isEmpty:
+            sets = saved.sets
+            isAvailable = true
+        case .value, .absent:
+            sets = AppSet.starters()
+            isAvailable = true
+        case .unavailable:
+            sets = AppSet.starters()
+            isAvailable = false
+        }
+    }
+
+    public func set(id: UUID) -> AppSet? {
+        sets.first { $0.id == id }
+    }
+
+    /// App and web tokens across every set (the larger of the two counts against the 50-token cap).
+    public var totalTokens: Int {
+        max(sets.reduce(0) { $0 + $1.summary.apps }, sets.reduce(0) { $0 + $1.summary.sites })
+    }
+
+    public func save(selection: Data, summary: SelectionSummary, to id: UUID) -> AppSetSaveResult {
+        guard let index = sets.firstIndex(where: { $0.id == id }) else { return .unknownSet }
+        if summary.isEmpty, !sets[index].summary.isEmpty { return .wouldEmpty }
+        let others = sets.enumerated().filter { $0.offset != index }.map(\.element.summary)
+        let apps = others.reduce(summary.apps) { $0 + $1.apps }
+        let sites = others.reduce(summary.sites) { $0 + $1.sites }
+        guard apps <= SelectionSummary.tokenLimit, sites <= SelectionSummary.tokenLimit else { return .overTokenLimit }
+        sets[index].selection = selection
+        sets[index].summary = summary
+        sets[index].tokensExpired = false
+        persist()
+        return .saved
+    }
+
+    public func markExpired(_ id: UUID, _ expired: Bool) {
+        guard let index = sets.firstIndex(where: { $0.id == id }), sets[index].tokensExpired != expired else { return }
+        sets[index].tokensExpired = expired
+        persist()
+    }
+
+    private func persist() {
+        guard isAvailable else { return }
+        storage.save(AppSetsFile(sets: sets))
+    }
+}
+```
+
+- [ ] **Step 5: Write the session notes store**
+
+`MapleKit/Sources/MapleServices/Focus/SessionNotesStore.swift`:
+```swift
+import Foundation
+import MapleCore
+import Observation
+
+/// One session's intention. Free text never goes into the ledger (F1-19).
+nonisolated public struct SessionNote: Codable, Sendable, Equatable {
+    public var text: String
+    public var at: Date
+
+    public init(text: String, at: Date) {
+        self.text = text
+        self.at = at
+    }
+}
+
+nonisolated public struct SessionNotesFile: Codable, Sendable, Equatable {
+    /// Keyed by the lowercased session id.
+    public var notes: [String: SessionNote]
+
+    public init(notes: [String: SessionNote] = [:]) {
+        self.notes = notes
+    }
+}
+
+/// Intentions by session (`session-notes.json`, F1 design §5.16): the member can edit and erase them, and only the
+/// newest 200 are kept.
+@Observable
+public final class SessionNotesStore {
+    nonisolated public static let file = "session-notes.json"
+    nonisolated public static let kept = 200
+
+    public private(set) var notes: [String: SessionNote]
+    public private(set) var isAvailable: Bool
+
+    @ObservationIgnored private let storage: JSONStorage<SessionNotesFile>
+
+    public init(storage: JSONStorage<SessionNotesFile>) {
+        self.storage = storage
+        switch storage.read() {
+        case .value(let saved):
+            notes = saved.notes
+            isAvailable = true
+        case .absent:
+            notes = [:]
+            isAvailable = true
+        case .unavailable:
+            notes = [:]
+            isAvailable = false
+        }
+    }
+
+    public func intention(for session: UUID) -> String? {
+        notes[session.uuidString.lowercased()]?.text
+    }
+
+    /// Sets a session's intention (trimmed, at most 60 characters); an empty one removes it.
+    public func setIntention(_ text: String?, for session: UUID, at date: Date) {
+        let key = session.uuidString.lowercased()
+        if let text = text.flatMap(RecentIntentions.normalized) {
+            notes[key] = SessionNote(text: text, at: notes[key]?.at ?? date)
+        } else {
+            notes[key] = nil
+        }
+        if notes.count > Self.kept {
+            let oldest = notes.sorted { $0.value.at < $1.value.at }.prefix(notes.count - Self.kept).map(\.key)
+            for key in oldest { notes[key] = nil }
+        }
+        persist()
+    }
+
+    public func eraseAll() {
+        notes = [:]
+        persist()
+    }
+
+    /// Every intention with the session's reflection, for `RecentIntentions.chips`.
+    public func entries(reflections: [UUID: Reflection]) -> [RecentIntentions.Entry] {
+        let byKey = Dictionary(uniqueKeysWithValues: reflections.map { ($0.key.uuidString.lowercased(), $0.value) })
+        return notes.map { RecentIntentions.Entry(text: $0.value.text, reflection: byKey[$0.key], at: $0.value.at) }
+            .sorted { $0.at < $1.at }
+    }
+
+    private func persist() {
+        guard isAvailable else { return }
+        storage.save(SessionNotesFile(notes: notes))
+    }
+}
+```
+
+- [ ] **Step 6: Run the tests to verify they pass**
+
+Run: `SIMULATOR="iPhone 17" Scripts/test.sh -only-testing:MapleServicesTests/FocusStoresTests > "$WS/test.log" 2>&1; tail -3 "$WS/test.log"`
+Expected: `** TEST SUCCEEDED **`
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add MapleKit/Sources/MapleServices/Focus MapleKit/Tests/MapleServicesTests/FocusStoresTests.swift
+git commit -m "Focus stores: presets (up to 6, never none), app sets (never empty over full, 50 tokens), session notes
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+```
+
+---
+### Task 21: The blocking boundary, the build's tier and the preview blocker
+
+**Files:**
+- Create: `MapleKit/Sources/MapleServices/Focus/BlockingService.swift`
+- Create: `MapleKit/Sources/MapleServices/Focus/PreviewBlockingService.swift` (DEBUG)
+- Modify: `Config/Maple-Info.plist` (the `MapleTier` key)
+- Test: `MapleKit/Tests/MapleServicesTests/BlockingServiceTests.swift`
+
+**Interfaces:**
+- Consumes: `MapleTier`, `BlockingCapability`, `BlockingProbe`, `ShieldOp`, `ShieldStoreState`, `ShieldReconciler`, `FocusSource` (Tasks 3, 7).
+- Produces:
+  - `ShieldFailure` (`.notAllowed`, `.applyFailed`, `.readBack`, `.expiredTokens`) and `ShieldResult(store:failure:)`, with `isVerified`;
+  - `protocol BlockingService: AnyObject` (MainActor): `capability`, `source`, `probe()`, `requestAuthorization()`, `readStore()`, `perform(_:selection:)`, `releaseAll()`, all `async`;
+  - `MapleBuild.tier(infoValue:)`, `MapleBuild.tier` (from the bundle), `MapleBuild.capability(tier:usesPreview:)`;
+  - `UnavailableBlockingService()`;
+  - DEBUG: `PreviewBlockingService(authorization:failures:)`, with `PreviewBlockingService.Failure` (`.tokenOverflow`, `.revoked`, `.applyFails`, `.expiredTokens`), `failures`, `authorization`, `store`, `operations`, and `revoke()`.
+
+**Rulings this task carries:**
+- An ordinary DEBUG launch behaves like its tier (§7.6), so it can't block on a free account; only demo and sandbox launches use the preview blocker (`usesPreview`, decided in Task 23).
+- Until F1-paid adds `ScreenTimeBlockingService`, a paid build can't block either. `capability(tier:usesPreview:)` keeps the paid case separate so F1-paid changes one line.
+- A failed ledger write is not a blocker failure: it is `MemoryLedgerStore.failsWrites` (Task 8), exercised in Task 22.
+
+- [ ] **Step 1: Write the failing tests**
+
+`MapleKit/Tests/MapleServicesTests/BlockingServiceTests.swift`:
+```swift
+import Foundation
+import Testing
+@testable import MapleCore
+@testable import MapleServices
+
+@Suite("Blocking service")
+@MainActor
+struct BlockingServiceTests {
+    private let session = UUID()
+
+    @Test("The tier comes from Info.plist; anything unexpanded or missing is free")
+    func tier() {
+        #expect(MapleBuild.tier(infoValue: "paid") == .paid)
+        #expect(MapleBuild.tier(infoValue: "free") == .free)
+        #expect(MapleBuild.tier(infoValue: nil) == .free)
+        #expect(MapleBuild.tier(infoValue: "$(MAPLE_TIER)") == .free)
+        #expect(MapleBuild.capability(tier: .free, usesPreview: true) == .preview)
+        #expect(MapleBuild.capability(tier: .free, usesPreview: false) == .unavailableInBuild)
+        #expect(MapleBuild.capability(tier: .paid, usesPreview: false) == .unavailableInBuild)
+    }
+
+    @Test("A build that can't block says so and never claims a shield")
+    func unavailable() async {
+        let service = UnavailableBlockingService()
+        #expect(service.capability == .unavailableInBuild)
+        #expect(await service.probe() == .unavailable)
+        #expect(await service.requestAuthorization() == .unavailable)
+        let result = await service.perform(.apply(session: session), selection: Data("x".utf8))
+        #expect(!result.isVerified)
+        #expect(result.failure == .notAllowed)
+        #expect(await service.readStore() == .empty)
+    }
+
+    @Test("The preview blocker applies, verifies and clears, reading back each time")
+    func preview() async {
+        let service = PreviewBlockingService(authorization: .notDetermined)
+        #expect(service.source == .preview)
+        #expect(await service.probe() == .notDetermined)
+        #expect(await service.requestAuthorization() == .allowed)
+        #expect(await service.perform(.apply(session: session), selection: Data("x".utf8)) == ShieldResult(store: .applied(session: session)))
+        #expect(await service.perform(.verify(session: session), selection: nil).isVerified)
+        #expect(await service.perform(.clear(session: session), selection: nil) == ShieldResult(store: .empty))
+        #expect(service.operations == [.apply(session: session), .verify(session: session), .clear(session: session)])
+        #expect(await service.releaseAll().isVerified)
+    }
+
+    @Test("Each real failure mode reads back as a failure")
+    func failures() async {
+        let overflow = PreviewBlockingService(failures: [.tokenOverflow])
+        let full = await overflow.perform(.apply(session: session), selection: Data("x".utf8))
+        #expect(full == ShieldResult(store: .empty, failure: .readBack))
+
+        let failing = PreviewBlockingService(failures: [.applyFails])
+        #expect(await failing.perform(.apply(session: session), selection: Data("x".utf8)).failure == .applyFailed)
+
+        let expired = PreviewBlockingService(failures: [.expiredTokens])
+        #expect(await expired.perform(.apply(session: session), selection: Data("x".utf8)).failure == .expiredTokens)
+
+        let declined = PreviewBlockingService(authorization: .declined)
+        #expect(await declined.perform(.apply(session: session), selection: Data("x".utf8)).failure == .notAllowed)
+
+        // Revoked mid-session: the status still says allowed, but the shields are gone on the next read-back.
+        let revoked = PreviewBlockingService()
+        _ = await revoked.perform(.apply(session: session), selection: Data("x".utf8))
+        revoked.revoke()
+        #expect(await revoked.probe() == .allowed)
+        #expect(await revoked.perform(.verify(session: session), selection: nil) == ShieldResult(store: .empty, failure: .readBack))
+        #expect(await revoked.readStore() == .empty)
+    }
+}
+```
+
+- [ ] **Step 2: Run them to verify they fail**
+
+Run: `SIMULATOR="iPhone 17" Scripts/test.sh -only-testing:MapleServicesTests/BlockingServiceTests > "$WS/test.log" 2>&1; grep -E "error:" "$WS/test.log" | head -5`
+Expected: `error: cannot find 'MapleBuild' in scope`
+
+- [ ] **Step 3: Write the boundary**
+
+`MapleKit/Sources/MapleServices/Focus/BlockingService.swift`:
+```swift
+import Foundation
+import MapleCore
+
+/// Why a shield operation didn't verify.
+public enum ShieldFailure: Sendable, Equatable {
+    /// Screen Time isn't allowed for Maple (or this build can't block).
+    case notAllowed
+    case applyFailed
+    /// The store read back differently from what was written: iOS blocks nothing (over 50 tokens), or the shields
+    /// were removed (Screen Time was turned off for Maple).
+    case readBack
+    /// Some of the selection's apps need choosing again.
+    case expiredTokens
+}
+
+/// What a shield operation left in the store, read back, and whether it did what was asked.
+public struct ShieldResult: Sendable, Equatable {
+    public var store: ShieldStoreState
+    public var failure: ShieldFailure?
+
+    public init(store: ShieldStoreState, failure: ShieldFailure? = nil) {
+        self.store = store
+        self.failure = failure
+    }
+
+    public var isVerified: Bool { failure == nil }
+}
+
+/// Maple's only door to blocking (F1 design §7.4). No FamilyControls or ManagedSettings types cross it: a selection
+/// is opaque `Data` plus a `SelectionSummary`. Every operation reads the store back.
+public protocol BlockingService: AnyObject {
+    var capability: BlockingCapability { get }
+    /// The source this service's sessions are written with: `preview` for the DEBUG blocker, which only the sandbox
+    /// credits.
+    var source: FocusSource { get }
+    func probe() async -> BlockingProbe
+    /// Asks iOS (or the preview) once; returns the state after.
+    func requestAuthorization() async -> BlockingProbe
+    func readStore() async -> ShieldStoreState
+    /// Performs `op` and reads the store back. `selection` is the app set's data, for `.apply`.
+    func perform(_ op: ShieldOp, selection: Data?) async -> ShieldResult
+    /// Clears every store Maple has written to (Settings › Release all apps).
+    func releaseAll() async -> ShieldResult
+}
+
+/// What this build is (F1 design §7.4): its tier, from the `MapleTier` Info.plist key, and what it can block with.
+public enum MapleBuild {
+    /// The tier this build was signed for; free when the key is missing or unexpanded.
+    public static var tier: MapleTier {
+        tier(infoValue: Bundle.main.object(forInfoDictionaryKey: "MapleTier") as? String)
+    }
+
+    public static func tier(infoValue: String?) -> MapleTier {
+        infoValue.flatMap(MapleTier.init(rawValue:)) ?? .free
+    }
+
+    /// - Parameter usesPreview: A DEBUG demo or sandbox launch, which blocks with the preview blocker. An ordinary
+    ///   launch behaves like its tier.
+    public static func capability(tier: MapleTier, usesPreview: Bool) -> BlockingCapability {
+        if usesPreview { return .preview }
+        switch tier {
+        case .free: return .unavailableInBuild
+        // `ScreenTimeBlockingService` arrives with F1-paid; until then a paid build can't block either.
+        case .paid: return .unavailableInBuild
+        }
+    }
+}
+
+/// A build that can't block: free Release builds (F1-17). The timer still runs, as a plain timer.
+public final class UnavailableBlockingService: BlockingService {
+    public init() {}
+
+    public var capability: BlockingCapability { .unavailableInBuild }
+    public var source: FocusSource { .live }
+    public func probe() async -> BlockingProbe { .unavailable }
+    public func requestAuthorization() async -> BlockingProbe { .unavailable }
+    public func readStore() async -> ShieldStoreState { .empty }
+
+    public func perform(_ op: ShieldOp, selection: Data?) async -> ShieldResult {
+        switch op {
+        case .apply, .verify: ShieldResult(store: .empty, failure: .notAllowed)
+        case .clear, .clearAll: ShieldResult(store: .empty)
+        }
+    }
+
+    public func releaseAll() async -> ShieldResult { ShieldResult(store: .empty) }
+}
+```
+
+`MapleKit/Sources/MapleServices/Focus/PreviewBlockingService.swift`:
+```swift
+#if DEBUG
+import Foundation
+import MapleCore
+
+/// DEBUG only: a blocker with its "store" in memory, for demo and sandbox launches and tests (F1 design §7.4). Its
+/// sessions carry `source: preview`, which only the sandbox credits. It can inject the real failure modes.
+public final class PreviewBlockingService: BlockingService {
+    public enum Failure: Sendable, Hashable {
+        /// Over 50 tokens: iOS accepts the write and blocks nothing, so the read-back is empty.
+        case tokenOverflow
+        /// Screen Time turned off for Maple: the status stays "allowed" (stale) and the shields vanish.
+        case revoked
+        case applyFails
+        case expiredTokens
+    }
+
+    public var authorization: BlockingProbe
+    public var failures: Set<Failure>
+    public private(set) var store: ShieldStoreState = .empty
+    /// Every operation asked for, in order.
+    public private(set) var operations: [ShieldOp] = []
+
+    public init(authorization: BlockingProbe = .allowed, failures: Set<Failure> = []) {
+        self.authorization = authorization
+        self.failures = failures
+    }
+
+    public var capability: BlockingCapability { .preview }
+    public var source: FocusSource { .preview }
+
+    /// Turns Screen Time off for Maple mid-session, as Settings would.
+    public func revoke() {
+        failures.insert(.revoked)
+        store = .empty
+    }
+
+    public func probe() async -> BlockingProbe {
+        failures.contains(.revoked) ? .allowed : authorization
+    }
+
+    public func requestAuthorization() async -> BlockingProbe {
+        if authorization == .notDetermined { authorization = .allowed }
+        return authorization
+    }
+
+    public func readStore() async -> ShieldStoreState { store }
+
+    public func perform(_ op: ShieldOp, selection: Data?) async -> ShieldResult {
+        operations.append(op)
+        switch op {
+        case .apply(let session):
+            guard authorization.isAllowed, !failures.contains(.revoked) else { return ShieldResult(store: store, failure: .notAllowed) }
+            if failures.contains(.applyFails) { return ShieldResult(store: store, failure: .applyFailed) }
+            if failures.contains(.expiredTokens) { return ShieldResult(store: store, failure: .expiredTokens) }
+            if failures.contains(.tokenOverflow) {
+                store = .empty
+                return ShieldResult(store: store, failure: .readBack)
+            }
+            store = .applied(session: session)
+            return ShieldResult(store: store)
+        case .verify(let session):
+            return ShieldResult(store: store, failure: store == .applied(session: session) ? nil : .readBack)
+        case .clear, .clearAll:
+            store = ShieldReconciler.applying([op], to: store)
+            return ShieldResult(store: store)
+        }
+    }
+
+    public func releaseAll() async -> ShieldResult {
+        store = .empty
+        return ShieldResult(store: store)
+    }
+}
+#endif
+```
+
+- [ ] **Step 4: Put the tier in Info.plist**
+
+In `Config/Maple-Info.plist`, add after the `MapleHealthBackgroundDelivery` string:
+```xml
+	<key>MapleTier</key>
+	<string>$(MAPLE_TIER)</string>
+```
+
+- [ ] **Step 5: Run the tests and the build**
+
+Run: `SIMULATOR="iPhone 17" Scripts/test.sh > "$WS/test.log" 2>&1; tail -3 "$WS/test.log"; grep -c "warning:" "$WS/test.log"`
+Expected: `** TEST SUCCEEDED **` and `0`.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add MapleKit/Sources/MapleServices/Focus MapleKit/Tests/MapleServicesTests/BlockingServiceTests.swift Config/Maple-Info.plist
+git commit -m "Blocking boundary: verified shield results, the build's tier, an unavailable service and the DEBUG preview blocker
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+```
+
+---
+### Task 22: The session store
+
+`FocusSessionStore` turns commands into ledger events and verified shield operations, one at a time, replays the ledger after every change, and hands credit to the collection.
+
+**Files:**
+- Create: `MapleKit/Sources/MapleCore/Focus/FocusActivityState.swift`
+- Create: `MapleKit/Sources/MapleServices/Focus/LiveActivityController.swift`
+- Create: `MapleKit/Sources/MapleServices/Focus/FocusSessionStore.swift`
+- Test: `MapleKit/Tests/MapleServicesTests/FocusSessionStoreTests.swift`
+
+**Interfaces:**
+- Consumes: `FocusLedgerStore`, `MemoryLedgerStore`, `LedgerWriter` (Task 8); `FocusLedger.sessions()`, `SessionRecord` (Task 6); `ShieldReconciler` (Task 7); `HoursCredit` (Task 10); `CollectionStore.applyFocus`, `CollectionSnapshot.focusWindow` (Tasks 9, 13); `BlockingService`, `PreviewBlockingService`, `ShieldResult` (Task 21); `FocusPreset`, `DialLayout` (Task 16); `AppSet` (Task 20); `ReminderPlan.RunningSession` (Task 18).
+- Produces:
+  - `FocusActivityState(session:now:)` (MapleCore): `sessionID`, `presetName`, `start`, `plannedEnd`, `isPlainTimer`, `breakEnd`;
+  - `protocol LiveActivityController: AnyObject` with `reconcile(running:) async`; `NoLiveActivityController`; DEBUG `RecordingLiveActivityController` (`current`, `shownSessions`);
+  - `FocusSessionStore(ledger:writer:blocking:collection:credited:liveActivity:appBuild:)`, with:
+    - state: `isLedgerReadable`, `isStarting`, `running`, `lastEnded`, `sessions`, `probe`, `blocking`, `now`, `reflections`, `reminderSession`, `lastSessionStart`;
+    - commands (all `async`, run one at a time): `refresh()`, `start(_:) -> StartOutcome`, `end(_:)`, `releaseAll()`, `startBreak() -> Bool`, `endBreak()`, `reflect(_:on:)`, `requestAuthorization() -> BlockingProbe`;
+    - `displayCredit(at:) -> DisplayCredit` (`today`, `yesterday`, `total`);
+    - `StartRequest(preset:minutes:appSet:plainTimer:from:)` and `StartOutcome` (`.started(UUID)`, `.alreadyRunning`, `.ledgerUnavailable`, `.blockingFailed(ShieldFailure)`, `.notRecorded`);
+    - `checkpointInterval` (60 s).
+
+**Rulings this task carries:**
+- **Order at start:** apply and read back first, then write `sessionStarted` and `shieldApplied` (§7.9: `shieldApplied` only after a read-back). A kill between the two leaves orphan shields, which the next refresh clears (Review Focus 3). A write that fails clears the shields at once.
+- **Shields found missing** for a running session write `shieldLost`; they are never silently re-applied, so the session carries on as a plain timer and credit stops at the last checkpoint (§3.3).
+- **Overrides** ("Need it?" unlocks) come from the F1-paid shield action extension, so the store has no override command yet. The ledger, credit and tests already handle override events.
+- **Checkpoints** are written at most once a minute, on refresh, while the read-back still shows the block. F1b's screens call `refresh()` from their timeline.
+- **"Release all apps"** clears every store first, then ends a running session as `releaseAll`, unverified, which ends its credit (R4).
+
+- [ ] **Step 1: Write the failing tests**
+
+`MapleKit/Tests/MapleServicesTests/FocusSessionStoreTests.swift`:
+```swift
+import Foundation
+import MapleStorage
+import Testing
+@testable import MapleCore
+@testable import MapleServices
+
+/// A session store on a manual clock, an in-memory ledger and the preview blocker, over a planted collection.
+@MainActor
+private final class Harness {
+    let time = ManualFocusTime(wall: at(2026, 10, 23, 14))
+    let ledger = MemoryLedgerStore()
+    let blocking: PreviewBlockingService
+    let collection: CollectionStore
+    let activity = RecordingLiveActivityController()
+    let store: FocusSessionStore
+
+    let six = AppSet(id: AppSet.distractionsID, name: "Distractions", selection: Data("six".utf8),
+                     summary: SelectionSummary(mode: .blockThese, apps: 6, sites: 0, categories: 0))
+
+    init(authorization: BlockingProbe = .allowed) {
+        blocking = PreviewBlockingService(authorization: authorization)
+        collection = CollectionStore(storage: JSONStorage(.memory), context: testContext, now: at(2026, 10, 1, 9))
+        collection.raise(.firstLeaf, to: 1, at: at(2026, 10, 1, 9))
+        collection.openReveals(at: at(2026, 10, 1, 9, 5))
+        let writer = LedgerWriter(store: ledger, time: time, deviceID: UUID(), writer: .app, source: blocking.source)
+        store = FocusSessionStore(ledger: ledger, writer: writer, blocking: blocking, collection: collection,
+                                  credited: [.live, .preview], liveActivity: activity, appBuild: "test")
+    }
+
+    func preset(_ index: Int = 0) -> FocusPreset {
+        FocusPreset.defaults(appSetID: AppSet.distractionsID)[index]
+    }
+
+    func request(minutes: Int = 50, preset index: Int = 0, plain: Bool = false) -> FocusSessionStore.StartRequest {
+        FocusSessionStore.StartRequest(preset: preset(index), minutes: minutes, appSet: six, plainTimer: plain, from: .focusTab)
+    }
+
+    func advance(minutes: Double) {
+        time.advance(minutes * 60)
+    }
+
+    var kinds: [String] { ledger.events.map(\.kind.type) }
+}
+
+@Suite("Focus session store")
+@MainActor
+struct FocusSessionStoreTests {
+    @Test("A session starts with the block confirmed, completes at its planned end, and its credit reaches the collection")
+    func wholeSession() async throws {
+        let h = Harness()
+        await h.store.refresh()
+        let outcome = await h.store.start(h.request())
+        guard case .started(let id) = outcome else { Issue.record("\(outcome)"); return }
+        #expect(h.kinds == ["sessionStarted", "shieldApplied"])
+        #expect(h.blocking.store == .applied(session: id))
+        #expect(h.store.running?.id == id)
+        #expect(h.activity.current?.sessionID == id)
+        #expect(h.store.reminderSession?.plannedEnd == at(2026, 10, 23, 14, 50))
+
+        h.advance(minutes: 50)
+        await h.store.refresh()
+        #expect(h.store.running == nil)
+        #expect(h.store.lastEnded?.id == id)
+        #expect(h.store.lastEnded?.endReason == .completed)
+        #expect(h.store.lastEnded?.endVerified == true)
+        #expect(h.blocking.store == .empty)
+        #expect(h.kinds.suffix(2) == ["sessionEnded", "shieldCleared"])
+        #expect(h.collection.focus.totalSeconds == 3000)
+        #expect(h.collection.snapshot.counters[.sessionsFinished] == 1)
+        #expect(h.activity.current == nil)
+    }
+
+    @Test("Review Focus 5: a second Start while one is starting or running is refused")
+    func doubleStart() async {
+        let h = Harness()
+        async let first = h.store.start(h.request())
+        async let second = h.store.start(h.request())
+        let outcomes = await [first, second]
+        #expect(outcomes.filter { if case .started = $0 { true } else { false } }.count == 1)
+        #expect(outcomes.contains(.alreadyRunning))
+        #expect(h.kinds.filter { $0 == "sessionStarted" }.count == 1)
+        #expect(await h.store.start(h.request()) == .alreadyRunning)
+    }
+
+    @Test("Review Focus 3: shields applied before the app was killed, with no session written, are cleared")
+    func orphanShields() async {
+        let h = Harness()
+        let orphan = UUID()
+        _ = await h.blocking.perform(.apply(session: orphan), selection: Data("six".utf8))
+        await h.store.refresh()
+        #expect(h.blocking.store == .empty)
+        #expect(h.ledger.events.contains { $0.sessionID == orphan && $0.kind == .shieldCleared(.orphaned) })
+        #expect(h.store.running == nil)
+    }
+
+    @Test("Review Focus 4: editing the schedule mid-session keeps the session's frozen window")
+    func scheduleEdit() async {
+        let h = Harness()
+        _ = await h.store.start(h.request())
+        h.collection.schedule = .everyNight(SleepSchedule(bedtime: ClockTime(hour: 14, minute: 30), wake: ClockTime(hour: 6), windDownMinutes: 30))
+        h.advance(minutes: 50)
+        await h.store.refresh()
+        #expect(h.collection.focus.totalSeconds == 3000)
+    }
+
+    @Test("A ledger that can't be read leaves everything alone: no writes, no clears, no start")
+    func unreadable() async {
+        let h = Harness()
+        let orphan = UUID()
+        _ = await h.blocking.perform(.apply(session: orphan), selection: Data())
+        h.ledger.unreadable = true
+        await h.store.refresh()
+        #expect(!h.store.isLedgerReadable)
+        #expect(h.blocking.store == .applied(session: orphan))
+        #expect(await h.store.start(h.request()) == .ledgerUnavailable)
+        #expect(h.ledger.events.isEmpty)
+    }
+
+    @Test("A block that doesn't verify starts nothing; a session that can't be written lifts its block at once")
+    func startFailures() async {
+        let failing = Harness()
+        failing.blocking.failures = [.applyFails]
+        #expect(await failing.store.start(failing.request()) == .blockingFailed(.applyFailed))
+        #expect(failing.ledger.events.isEmpty)
+
+        let overflow = Harness()
+        overflow.blocking.failures = [.tokenOverflow]
+        #expect(await overflow.store.start(overflow.request()) == .blockingFailed(.readBack))
+
+        let unwritable = Harness()
+        unwritable.ledger.failsWrites = true
+        #expect(await unwritable.store.start(unwritable.request()) == .notRecorded)
+        #expect(unwritable.blocking.store == .empty)
+        #expect(unwritable.store.running == nil)
+    }
+
+    @Test("A plain timer touches no shields and counts nothing")
+    func plainTimer() async throws {
+        let h = Harness()
+        _ = await h.store.start(h.request(plain: true))
+        #expect(h.kinds == ["sessionStarted"])
+        #expect(h.store.running?.plan.kind == .plainTimer)
+        h.advance(minutes: 50)
+        await h.store.refresh()
+        #expect(h.blocking.operations.isEmpty)
+        #expect(h.store.lastEnded?.endReason == .completed)
+        #expect(h.collection.focus.totalSeconds == 0)
+    }
+
+    @Test("Checkpoints prove time once a minute; revoked access stops credit at the last one")
+    func revoked() async {
+        let h = Harness()
+        _ = await h.store.start(h.request())
+        h.advance(minutes: 5)
+        await h.store.refresh()
+        #expect(h.kinds.last == "shieldVerified")
+        await h.store.refresh()
+        #expect(h.kinds.filter { $0 == "shieldVerified" }.count == 1)
+        h.advance(minutes: 5)
+        h.blocking.revoke()
+        await h.store.refresh()
+        #expect(h.kinds.last == "shieldLost")
+        #expect(h.store.running?.lostAt != nil)
+        h.advance(minutes: 40)
+        await h.store.refresh()
+        #expect(h.store.lastEnded?.endVerified == false)
+        #expect(h.collection.focus.totalSeconds == 300)
+    }
+
+    @Test("Ending early keeps the counted minutes but never finishes")
+    func endEarly() async {
+        let h = Harness()
+        _ = await h.store.start(h.request())
+        h.advance(minutes: 20)
+        await h.store.end(.endedEarly)
+        #expect(h.store.lastEnded?.endReason == .endedEarly)
+        #expect(h.blocking.store == .empty)
+        #expect(h.collection.focus.totalSeconds == 1200)
+        #expect((h.collection.snapshot.counters[.sessionsFinished] ?? 0) == 0)
+        #expect(h.activity.current == nil)
+    }
+
+    @Test("Release all apps clears every store and ends the session's credit")
+    func releaseAll() async {
+        let h = Harness()
+        _ = await h.store.start(h.request())
+        h.advance(minutes: 10)
+        await h.store.releaseAll()
+        #expect(h.blocking.store == .empty)
+        #expect(h.store.lastEnded?.endReason == .releaseAll)
+        #expect(h.store.lastEnded?.endVerified == false)
+        #expect(h.ledger.events.contains { $0.kind == .shieldCleared(.releaseAll) })
+    }
+
+    @Test("One locked break, inside the planned length")
+    func breaks() async {
+        let h = Harness()
+        _ = await h.store.start(h.request())
+        h.advance(minutes: 10)
+        #expect(await h.store.startBreak())
+        #expect(h.ledger.events.last?.kind == .breakStarted(seconds: 300))
+        #expect(!(await h.store.startBreak()))
+        h.advance(minutes: 2)
+        await h.store.endBreak()
+        #expect(h.ledger.events.last?.kind == .breakEnded)
+
+        let quick = Harness()
+        _ = await quick.store.start(quick.request(minutes: 25, preset: 1))
+        #expect(!(await quick.store.startBreak()))
+    }
+
+    @Test("Display credit adds the running session's provisional time to what the book has counted")
+    func displayCredit() async {
+        let h = Harness()
+        _ = await h.store.start(h.request())
+        h.advance(minutes: 20)
+        await h.store.refresh()
+        h.advance(minutes: 5)
+        let display = h.store.displayCredit(at: h.store.now)
+        #expect(display.today == 1500)
+        #expect(display.total == 1500)
+        #expect(display.yesterday == 0)
+        #expect(h.collection.focus.totalSeconds == 1200)
+    }
+
+    @Test("Screen Time shows as granted in the collection only while blocking is available and allowed")
+    func permissionBridge() async {
+        let allowed = Harness()
+        await allowed.store.refresh()
+        #expect(allowed.collection.context.permissions.contains(.screenTime))
+        #expect(allowed.collection.context.blocking == .preview)
+
+        let asking = Harness(authorization: .notDetermined)
+        await asking.store.refresh()
+        #expect(!asking.collection.context.permissions.contains(.screenTime))
+        #expect(await asking.store.requestAuthorization() == .allowed)
+        #expect(asking.collection.context.permissions.contains(.screenTime))
+    }
+
+    @Test("Reflections are written to the ledger and read back by session")
+    func reflections() async throws {
+        let h = Harness()
+        guard case .started(let id) = await h.store.start(h.request()) else { Issue.record("not started"); return }
+        h.advance(minutes: 50)
+        await h.store.refresh()
+        await h.store.reflect(.partly, on: id)
+        #expect(h.store.reflections[id] == .partly)
+        #expect(h.store.lastSessionStart == at(2026, 10, 23, 14))
+    }
+}
+```
+
+- [ ] **Step 2: Run them to verify they fail**
+
+Run: `SIMULATOR="iPhone 17" Scripts/test.sh -only-testing:MapleServicesTests/FocusSessionStoreTests > "$WS/test.log" 2>&1; grep -E "error:" "$WS/test.log" | head -5`
+Expected: `error: cannot find 'RecordingLiveActivityController' in scope`
+
+- [ ] **Step 3: Write the Live Activity boundary**
+
+`MapleKit/Sources/MapleCore/Focus/FocusActivityState.swift`:
+```swift
+import Foundation
+import MapleFocusCore
+
+/// What the Live Activity shows for a running session (F1 design §5.11): display only, no buttons. The preset name,
+/// never the intention, appears on the Lock Screen.
+public struct FocusActivityState: Sendable, Hashable {
+    public var sessionID: UUID
+    public var presetName: String
+    public var start: Date
+    public var plannedEnd: Date
+    public var isPlainTimer: Bool
+    /// When a running break ends ("Break · back at 14:28"); nil outside a break.
+    public var breakEnd: Date?
+
+    public init(session: SessionRecord, now: Date) {
+        sessionID = session.id
+        presetName = session.plan.presetName
+        start = session.countdownStart
+        plannedEnd = session.plannedEnd
+        isPlainTimer = session.plan.kind == .plainTimer
+        breakEnd = session.breakEnd(at: now)
+    }
+}
+```
+
+`MapleKit/Sources/MapleServices/Focus/LiveActivityController.swift`:
+```swift
+import Foundation
+import MapleCore
+
+/// The running session's Live Activity, behind a protocol so the store never imports ActivityKit. F1b adds the
+/// ActivityKit controller.
+public protocol LiveActivityController: AnyObject {
+    /// Shows `state`, or ends every Maple activity when it is nil, reconnecting to one already running. Called
+    /// after every change; calling it again with the same state changes nothing.
+    func reconcile(running state: FocusActivityState?) async
+}
+
+/// No Live Activity: tests, and builds before F1b.
+public final class NoLiveActivityController: LiveActivityController {
+    public init() {}
+    public func reconcile(running state: FocusActivityState?) async {}
+}
+
+#if DEBUG
+/// DEBUG only: remembers what it was asked to show.
+public final class RecordingLiveActivityController: LiveActivityController {
+    public private(set) var current: FocusActivityState?
+    /// Each session it began showing, in order.
+    public private(set) var shownSessions: [UUID] = []
+
+    public init() {}
+
+    public func reconcile(running state: FocusActivityState?) async {
+        if let state, state.sessionID != current?.sessionID { shownSessions.append(state.sessionID) }
+        current = state
+    }
+}
+#endif
+```
+
+- [ ] **Step 4: Write the store**
+
+`MapleKit/Sources/MapleServices/Focus/FocusSessionStore.swift`:
+```swift
+import Foundation
+import MapleCore
+import MapleStorage
+import Observation
+
+/// Focus sessions (F1 design §7.4). Turns the member's commands into ledger events and verified shield operations,
+/// replays the ledger after every change, and hands each replay's credit to `CollectionStore.applyFocus`.
+///
+/// - Commands run one at a time, in order.
+/// - The block is applied and read back before `sessionStarted` is written; a session that can't be written lifts its
+///   block at once. Final clears (a session's end, "Release all apps") always run, written or not.
+/// - While the ledger can't be read the store is in an unknown state: it neither writes nor clears.
+/// - A running session whose shields go missing is marked `shieldLost` and carries on as a plain timer.
+@Observable
+public final class FocusSessionStore {
+    public struct StartRequest: Sendable {
+        public var preset: FocusPreset
+        /// This session's length (the dial can differ from the preset's); kept to 20 minutes–3 hours.
+        public var minutes: Int
+        /// The app set to block; nil starts a plain timer.
+        public var appSet: AppSet?
+        /// The member chose "Use a plain timer".
+        public var plainTimer: Bool
+        public var from: StartSource
+
+        public init(preset: FocusPreset, minutes: Int, appSet: AppSet?, plainTimer: Bool = false, from: StartSource) {
+            self.preset = preset
+            self.minutes = minutes
+            self.appSet = appSet
+            self.plainTimer = plainTimer
+            self.from = from
+        }
+    }
+
+    public enum StartOutcome: Sendable, Equatable {
+        case started(UUID)
+        /// A session is starting or running: a second tap does nothing.
+        case alreadyRunning
+        case ledgerUnavailable
+        /// "Couldn't lock your apps · Start as a plain timer?"
+        case blockingFailed(ShieldFailure)
+        /// The ledger couldn't be written; the block was lifted.
+        case notRecorded
+    }
+
+    /// Seconds saved, counted plus the running session's provisional time: what the dial and Home show.
+    public struct DisplayCredit: Sendable, Equatable {
+        public var today: Int
+        public var yesterday: Int
+        public var total: Int
+    }
+
+    /// The shortest gap between two written checkpoints.
+    public static let checkpointInterval: TimeInterval = 60
+
+    public private(set) var isLedgerReadable = false
+    public private(set) var isStarting = false
+    public private(set) var sessions: [SessionRecord] = []
+    public private(set) var running: SessionRecord?
+    /// The session that ended last while this store watched: the receipt's.
+    public private(set) var lastEnded: SessionRecord?
+    public private(set) var probe: BlockingProbe = .notDetermined
+
+    @ObservationIgnored public let blocking: any BlockingService
+    @ObservationIgnored private let ledger: any FocusLedgerStore
+    @ObservationIgnored private let writer: LedgerWriter
+    @ObservationIgnored private let collection: CollectionStore
+    @ObservationIgnored private let credited: Set<FocusSource>
+    @ObservationIgnored private let liveActivity: any LiveActivityController
+    @ObservationIgnored private let appBuild: String
+    @ObservationIgnored private var queue: Task<Void, Never>?
+
+    /// - Parameters:
+    ///   - writer: The app's writer, whose time source is the store's clock (a shifted one in demos).
+    ///   - credited: The sources whose events earn credit: `live`, plus `preview` in the sandbox (§7.6).
+    public init(
+        ledger: any FocusLedgerStore, writer: LedgerWriter, blocking: any BlockingService, collection: CollectionStore,
+        credited: Set<FocusSource>, liveActivity: any LiveActivityController, appBuild: String
+    ) {
+        self.ledger = ledger
+        self.writer = writer
+        self.blocking = blocking
+        self.collection = collection
+        self.credited = credited
+        self.liveActivity = liveActivity
+        self.appBuild = appBuild
+    }
+
+    /// The store's "now", from the writer's time source.
+    public var now: Date { writer.time.stamp().wall }
+
+    /// Each session's reflection, for the intention chips.
+    public var reflections: [UUID: Reflection] {
+        Dictionary(sessions.compactMap { session in session.reflection.map { (session.id, $0) } }, uniquingKeysWith: { $1 })
+    }
+
+    /// The running session, for its end reminder.
+    public var reminderSession: ReminderPlan.RunningSession? {
+        running.map {
+            ReminderPlan.RunningSession(id: $0.id, plannedEnd: $0.plannedEnd, presetName: $0.plan.presetName,
+                                        plannedMinutes: $0.plan.plannedMinutes, isPlainTimer: $0.plan.kind == .plainTimer)
+        }
+    }
+
+    /// When the latest session started, so the study reminder skips that day.
+    public var lastSessionStart: Date? { sessions.last?.started.placed }
+
+    // MARK: Commands
+
+    /// Replays the ledger, ends a session whose planned end has passed, writes a checkpoint, matches the shields to the
+    /// ledger, applies credit and updates the Live Activity. Call it on launch, on every return to the foreground and
+    /// from a running session's timeline.
+    public func refresh() async {
+        await serially { [self] in
+            guard replay() else { return }
+            let now = self.now
+            probe = await blocking.probe()
+            syncPermission()
+            if let session = running {
+                if now >= session.plannedEnd {
+                    await finish(session, reason: .completed)
+                } else if session.plan.kind == .blocking, session.lostAt == nil {
+                    await checkpoint(session, now: now)
+                }
+            }
+            await reconcileShields(now: now)
+            await settle(now: now)
+        }
+    }
+
+    public func start(_ request: StartRequest) async -> StartOutcome {
+        // Checked before any await, so a second tap during the first start is refused.
+        guard !isStarting, running == nil else { return .alreadyRunning }
+        isStarting = true
+        defer { isStarting = false }
+        return await serially { [self] in await performStart(request) }
+    }
+
+    /// Ends the running session now: `.completed` at its end, `.endedEarly` or `.emergencyRelease` before it.
+    public func end(_ reason: EndReason) async {
+        await serially { [self] in
+            guard replay(), let session = running else { return }
+            await finish(session, reason: reason)
+            await settle(now: now)
+        }
+    }
+
+    /// Settings › Release all apps: clears every store, then ends a running session's credit (R4).
+    public func releaseAll() async {
+        await serially { [self] in
+            _ = await blocking.releaseAll()
+            guard replay() else { return }
+            if let session = running {
+                _ = try? writer.write(.sessionEnded(.releaseAll, verified: false), session: session.id)
+                _ = try? writer.write(.shieldCleared(.releaseAll), session: session.id)
+                replay()
+                lastEnded = sessions.first { $0.id == session.id }
+            }
+            await settle(now: now)
+        }
+    }
+
+    /// Starts the preset's one locked break, cut short at the planned end (F1-11).
+    /// - Returns: False when there is no break to take.
+    public func startBreak() async -> Bool {
+        await serially { [self] in
+            guard replay(), let session = running, session.plan.breakSeconds > 0, !session.breakUsed else { return false }
+            let seconds = min(session.plan.breakSeconds, Int(session.plannedEnd.timeIntervalSince(now)))
+            guard seconds > 0, (try? writer.write(.breakStarted(seconds: seconds), session: session.id)) != nil else { return false }
+            await settle(now: now)
+            return true
+        }
+    }
+
+    /// "Back to studying" before the break runs out.
+    public func endBreak() async {
+        await serially { [self] in
+            guard replay(), let session = running, session.breakEnd(at: now) != nil else { return }
+            _ = try? writer.write(.breakEnded, session: session.id)
+            await settle(now: now)
+        }
+    }
+
+    /// The receipt's "How did it go?".
+    public func reflect(_ reflection: Reflection, on session: UUID) async {
+        await serially { [self] in
+            guard replay() else { return }
+            _ = try? writer.write(.reflected(reflection), session: session)
+            replay()
+        }
+    }
+
+    /// Asks for Screen Time once (Needs Screen Time's "Turn on Screen Time").
+    public func requestAuthorization() async -> BlockingProbe {
+        await serially { [self] in
+            probe = await blocking.requestAuthorization()
+            syncPermission()
+            return probe
+        }
+    }
+
+    // MARK: Reading
+
+    public func displayCredit(at date: Date) -> DisplayCredit {
+        let today = collection.snapshot.focusWindow(at: date, context: collection.context).day
+        let yesterday = today.adding(days: -1, calendar: collection.context.calendar)
+        let book = collection.focus
+        var provisional = 0
+        if let running, running.plan.day == today {
+            provisional = HoursCredit.provisionalSeconds(for: running, now: date, roomLeftToday: HoursCredit.dailyCap - book.seconds(on: today))
+        }
+        return DisplayCredit(today: book.seconds(on: today) + provisional, yesterday: book.seconds(on: yesterday),
+                             total: book.totalSeconds + provisional)
+    }
+
+    // MARK: Private
+
+    private func serially<Result: Sendable>(_ body: @escaping @MainActor @Sendable () async -> Result) async -> Result {
+        let previous = queue
+        let task = Task { @MainActor in
+            await previous?.value
+            return await body()
+        }
+        queue = Task { _ = await task.value }
+        return await task.value
+    }
+
+    /// Reads the open ledger and rebuilds the sessions. False, with nothing changed, when it can't be read.
+    @discardableResult
+    private func replay() -> Bool {
+        guard let events = ledger.readOpen(now: now) else {
+            isLedgerReadable = false
+            return false
+        }
+        isLedgerReadable = true
+        sessions = FocusLedger(events).sessions()
+        running = sessions.last { !$0.isEnded && !$0.isHidden }
+        return true
+    }
+
+    private func performStart(_ request: StartRequest) async -> StartOutcome {
+        guard replay() else { return .ledgerUnavailable }
+        guard running == nil else { return .alreadyRunning }
+        let now = self.now
+        let context = collection.context
+        let frozen = collection.snapshot.focusWindow(at: now, context: context)
+        let blocks = !request.plainTimer && blocking.capability.canBlock && request.appSet != nil
+        let minutes = DialLayout.stepped(request.minutes, by: 0)
+        let plan = FocusPlan(
+            presetID: request.preset.id, presetName: request.preset.name, verb: request.preset.verb, plannedSeconds: minutes * 60,
+            breakSeconds: request.preset.hasBreak ? FocusPreset.breakSeconds : 0, strictness: request.preset.strictness(on: frozen.day),
+            kind: blocks ? .blocking : .plainTimer, appSetID: blocks ? request.appSet?.id : nil,
+            selection: blocks ? request.appSet?.summary : nil, startedFrom: request.from, mapleDay: frozen.day.description,
+            window: frozen.window, zone: context.calendar.timeZone.identifier, appBuild: appBuild, rulesVersion: FocusRules.version
+        )
+        let id = UUID()
+        if blocks, let appSet = request.appSet {
+            let result = await blocking.perform(.apply(session: id), selection: appSet.selection)
+            guard result.isVerified else {
+                if result.store == .applied(session: id) { _ = await blocking.perform(.clear(session: id), selection: nil) }
+                return .blockingFailed(result.failure ?? .applyFailed)
+            }
+        }
+        do {
+            try writer.write(.sessionStarted(plan), session: id)
+            if blocks { try writer.write(.shieldApplied, session: id) }
+        } catch {
+            if blocks { _ = await blocking.perform(.clear(session: id), selection: nil) }
+            replay()
+            return .notRecorded
+        }
+        await settle(now: now)
+        return .started(id)
+    }
+
+    /// Ends `session`: a last read-back, the end event, then the final clear, which always runs.
+    private func finish(_ session: SessionRecord, reason: EndReason) async {
+        let blocks = session.plan.kind == .blocking
+        var verified = false
+        if blocks, session.lostAt == nil {
+            verified = await blocking.perform(.verify(session: session.id), selection: nil).isVerified
+        }
+        _ = try? writer.write(.sessionEnded(reason, verified: verified), session: session.id)
+        if blocks {
+            _ = await blocking.perform(.clear(session: session.id), selection: nil)
+            _ = try? writer.write(.shieldCleared(.sessionEnded), session: session.id)
+        }
+        replay()
+        lastEnded = sessions.first { $0.id == session.id }
+    }
+
+    /// Proves the block is still there (at most once a minute), or marks it lost.
+    private func checkpoint(_ session: SessionRecord, now: Date) async {
+        let result = await blocking.perform(.verify(session: session.id), selection: nil)
+        if result.isVerified {
+            let last = session.lastCheckpoint ?? session.countdownStart
+            if now.timeIntervalSince(last) >= Self.checkpointInterval {
+                _ = try? writer.write(.shieldVerified, session: session.id)
+            }
+        } else {
+            _ = try? writer.write(.shieldLost, session: session.id)
+        }
+        replay()
+    }
+
+    /// Clears shields the ledger doesn't explain (orphans); marks a running session's missing shields as lost.
+    private func reconcileShields(now: Date) async {
+        let store = await blocking.readStore()
+        let wanted = running.flatMap { $0.plan.kind == .blocking && $0.lostAt == nil ? $0 : nil }
+        for op in ShieldReconciler.ops(running: wanted, store: store, now: now) {
+            switch op {
+            case .clear(let session):
+                _ = await blocking.perform(op, selection: nil)
+                _ = try? writer.write(.shieldCleared(.orphaned), session: session)
+            case .apply(let session):
+                // Never re-applied silently: proof stops at the last checkpoint (§3.3).
+                _ = try? writer.write(.shieldLost, session: session)
+            case .verify, .clearAll:
+                break
+            }
+        }
+        replay()
+    }
+
+    /// Credit to the collection, then the Live Activity.
+    private func settle(now: Date) async {
+        replay()
+        collection.applyFocus(HoursCredit.credit(sessions, crediting: credited, now: now), at: now)
+        await liveActivity.reconcile(running: running.map { FocusActivityState(session: $0, now: now) })
+    }
+
+    /// Grants `.screenTime` in the collection while blocking is available and allowed, as `HealthPermission` does
+    /// for Apple Health, and tells it what this build can do.
+    private func syncPermission() {
+        var context = collection.context
+        context.blocking = blocking.capability
+        if blocking.capability.canBlock, probe.isAllowed {
+            context.permissions.insert(.screenTime)
+        } else {
+            context.permissions.remove(.screenTime)
+        }
+        if context != collection.context { collection.context = context }
+    }
+}
+```
+
+`FocusRules` is in MapleFocusCore, which MapleCore re-exports. If the compiler asks for it under `MemberImportVisibility`, add `import MapleFocusCore` beside the other imports.
+
+- [ ] **Step 5: Run the tests to verify they pass**
+
+Run: `SIMULATOR="iPhone 17" Scripts/test.sh -only-testing:MapleServicesTests/FocusSessionStoreTests > "$WS/test.log" 2>&1; tail -3 "$WS/test.log"`
+Expected: `** TEST SUCCEEDED **`. If the double-start test is flaky, the guard in `start(_:)` is running after an `await`; it must stay the first statement.
+
+- [ ] **Step 6: Run everything**
+
+Run: `SIMULATOR="iPhone 17" Scripts/test.sh > "$WS/test.log" 2>&1; tail -3 "$WS/test.log"; grep -c "warning:" "$WS/test.log"`
+Expected: `** TEST SUCCEEDED **` and `0`.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add MapleKit/Sources/MapleCore/Focus/FocusActivityState.swift MapleKit/Sources/MapleServices/Focus MapleKit/Tests/MapleServicesTests/FocusSessionStoreTests.swift
+git commit -m "Focus session store: verified starts, serial commands, checkpoints, orphan clears, credit and display credit
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+```
+
+---
