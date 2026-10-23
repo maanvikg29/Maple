@@ -112,6 +112,28 @@ struct CollectionStoreTests {
         store.record([.restedNights: 1], at: at(2026, 10, 2, 7))
         #expect(store.progress(for: "saccharinum", at: now)?.current == 1)
     }
+
+    @Test("Streak progress follows the Maple day, which turns at bedtime, so cached rows never serve a run that ended")
+    func streakFollowsMapleDay() {
+        var context = testContext
+        context.features = .all
+        let store = CollectionStore(storage: JSONStorage(.memory), context: context, now: at(2026, 10, 1, 9))
+        store.raise(.firstLeaf, to: 1, at: at(2026, 10, 1, 9))
+        let focusDay = LocalDay(year: 2026, month: 10, day: 19)
+        store.applyFocus([SessionCredit(id: UUID(), day: focusDay, zone: "UTC", seconds: 1800, awakeSeconds: 1800, finished: true,
+                                        provenAt: at(2026, 10, 19, 12), endedAt: at(2026, 10, 19, 12), dayEnd: at(2026, 10, 19, 23),
+                                        stretches: [])], at: at(2026, 10, 19, 13))
+        func shown(_ date: Date) -> Double? {
+            store.progress(at: date).first { $0.category == .focusStreak && $0.threshold == 7 }?.current
+        }
+        // The 20th and 21st are rest days, and the 22nd stays pending until its bedtime (23:00), so the run holds.
+        #expect(shown(at(2026, 10, 22, 22, 30)) == 1)
+        // The same calendar day and nothing changed in the collection, but the Maple day has turned: three misses.
+        #expect(shown(at(2026, 10, 22, 23, 30)) == 0)
+        #expect(store.currentRun(at: at(2026, 10, 22, 23, 30)) == 0)
+        // Reading back across bedtime (a clock moved back) follows the Maple day too.
+        #expect(shown(at(2026, 10, 22, 22, 30)) == 1)
+    }
 }
 
 @Suite("Schedule store")

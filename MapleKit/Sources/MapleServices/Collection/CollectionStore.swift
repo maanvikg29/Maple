@@ -25,7 +25,9 @@ public final class CollectionStore {
     @ObservationIgnored private let storage: JSONStorage<CollectionSnapshot>
     @ObservationIgnored private let engine = LeafEngine()
     @ObservationIgnored private var revision = 0
-    @ObservationIgnored private var cache: (revision: Int, day: LocalDay, rows: [LeafProgress], byID: [String: LeafProgress], picker: NextLeafPicker)?
+    @ObservationIgnored private var cache: (
+        revision: Int, day: LocalDay, mapleDay: LocalDay, rows: [LeafProgress], byID: [String: LeafProgress], picker: NextLeafPicker
+    )?
 
     /// Loads the saved collection, or on a first run creates (and saves) an empty one with a new profile id and tree
     /// seed. A file that is there but unreadable is never replaced: see `isAvailable`.
@@ -331,15 +333,17 @@ public final class CollectionStore {
 
     private func derived(at date: Date) -> (rows: [LeafProgress], byID: [String: LeafProgress], picker: NextLeafPicker) {
         let day = LocalDay(date, calendar: context.calendar)
+        // The Maple day turns at bedtime, not at midnight, and the Focus streak's current run follows it.
+        let mapleDay = snapshot.focusWindow(at: date, context: context).day
         // Reading the snapshot registers the observation even when the cache answers.
         _ = snapshot.counters
-        if let cache, cache.revision == revision, cache.day == day {
+        if let cache, cache.revision == revision, cache.day == day, cache.mapleDay == mapleDay {
             return (cache.rows, cache.byID, cache.picker)
         }
         let rows = snapshot.progress(at: date, context: context)
         let byID = Dictionary(uniqueKeysWithValues: rows.map { ($0.speciesID, $0) })
         let picker = NextLeafPicker(progress: rows)
-        cache = (revision, day, rows, byID, picker)
+        cache = (revision, day, mapleDay, rows, byID, picker)
         return (rows, byID, picker)
     }
 }
