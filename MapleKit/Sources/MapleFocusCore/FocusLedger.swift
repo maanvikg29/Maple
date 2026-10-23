@@ -81,7 +81,8 @@ public struct FocusLedger: Sendable, Equatable {
         var firstWall: [BootKey: Date] = [:]
         for event in events {
             let key = BootKey(device: event.deviceID, boot: event.stamp.boot)
-            if event.writer == .app { firstAppSeq[key] = min(firstAppSeq[key] ?? .max, event.seq) }
+            // Real sequence numbers start at 1; a 0 is a line whose seq didn't read, so it says nothing about order.
+            if event.writer == .app, event.seq > 0 { firstAppSeq[key] = min(firstAppSeq[key] ?? .max, event.seq) }
             firstWall[key] = min(firstWall[key] ?? .distantFuture, event.stamp.wall)
         }
         let keys = firstWall.keys.sorted { a, b in

@@ -95,6 +95,18 @@ struct FocusLedgerTests {
         #expect(ledger.placed().last?.placed == base.addingTimeInterval(10))
     }
 
+    @Test("A line whose sequence number didn't read (0) doesn't move its boot ahead of earlier boots")
+    func unreadSeqKeepsBootOrder() {
+        // Boot b2 came second. One of its lines has seq 0 (a bad seq decodes as 0), and its clock reads a day earlier.
+        let a = FocusFixtures.event(.sessionStarted(FocusFixtures.plan()), at: FocusFixtures.stamp(base, cont: 1_000_000_000, boot: "b1"), seq: 1)
+        let b = FocusFixtures.event(.shieldApplied, at: FocusFixtures.stamp(base.addingTimeInterval(10), cont: 11_000_000_000, boot: "b1"), seq: 2)
+        let c = FocusFixtures.event(.shieldVerified, at: FocusFixtures.stamp(base.addingTimeInterval(-86400), cont: 5_000_000_000, boot: "b2"), seq: 0)
+        let d = FocusFixtures.event(.shieldVerified, at: FocusFixtures.stamp(base.addingTimeInterval(-86400 + 4), cont: 9_000_000_000, boot: "b2"), seq: 4)
+        let ledger = FocusLedger([d, c, b, a])
+        #expect(ledger.events.map(\.seq) == [1, 2, 0, 4])
+        #expect(ledger.placed().map(\.placed) == [base, base.addingTimeInterval(10), base.addingTimeInterval(10), base.addingTimeInterval(14)])
+    }
+
     @Test("Within one boot and instant, the writer and sequence break ties")
     func ties() {
         let stamp = FocusFixtures.stamp(base, cont: 7)
