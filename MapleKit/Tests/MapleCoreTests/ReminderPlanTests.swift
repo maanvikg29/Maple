@@ -164,9 +164,9 @@ struct ReminderPlanTests {
         }
     }
 
-    @Test("Wind-down is the only reminder: nothing in the morning, ever")
+    @Test("Without a session or a study time, wind-down is the only reminder: nothing in the morning, ever")
     func onlyWindDown() {
-        #expect(ReminderKind.allCases == [.windDown])
+        #expect(ReminderKind.allCases == [.windDown, .sessionEnd, .studyReminder])
         for hour in stride(from: 0, to: 24, by: 2) {
             let result = plan(now: at(2026, 10, 12, hour))
             #expect(result.requests.allSatisfy { $0.kind == .windDown })
@@ -278,5 +278,59 @@ struct ReminderPlanTests {
             #expect(line.unicodeScalars.allSatisfy { !$0.properties.isEmojiPresentation })
             #expect(line.first?.isUppercase == true || line.first?.isNumber == true)
         }
+    }
+}
+
+@Suite("Session and study reminders")
+struct FocusReminderTests {
+    private func plan(
+        now: Date, settings: ReminderSettings = .allOn, running: ReminderPlan.RunningSession? = nil, lastStart: Date? = nil
+    ) -> ReminderPlan {
+        ReminderPlan(.init(
+            nights: UpcomingNight.nights(for: .standard, around: now, calendar: utc), settings: settings, now: now,
+            calendar: utc, locale: enGB, schedule: .standard, runningSession: running, lastSessionStart: lastStart
+        ))
+    }
+
+    private func session(endingAt end: Date, plain: Bool = false) -> ReminderPlan.RunningSession {
+        ReminderPlan.RunningSession(id: FocusFixtures.session, plannedEnd: end, presetName: "Study", plannedMinutes: 50, isPlainTimer: plain)
+    }
+
+    @Test("A running session's end is one absolute request, even after bedtime")
+    func sessionEnd() throws {
+        let result = plan(now: at(2026, 10, 12, 22, 50), running: session(endingAt: at(2026, 10, 12, 23, 40)))
+        let end = try #require(result.of(.sessionEnd).first)
+        #expect(result.of(.sessionEnd).count == 1)
+        #expect(end.fireDate == at(2026, 10, 12, 23, 40))
+        #expect(end.isAbsolute)
+        #expect(end.id == "maple.reminder.sessionEnd.\(FocusFixtures.session.uuidString.lowercased())")
+        #expect(end.title == "Session done")
+        #expect(end.body == "Study, 50 minutes")
+        let timer = try #require(plan(now: at(2026, 10, 12, 14), running: session(endingAt: at(2026, 10, 12, 14, 50), plain: true)).of(.sessionEnd).first)
+        #expect(timer.title == "Timer done")
+        #expect(timer.body == "50 minutes")
+    }
+
+    @Test("No end reminder when it's switched off or the end has passed")
+    func noSessionEnd() {
+        let running = session(endingAt: at(2026, 10, 12, 14, 50))
+        #expect(plan(now: at(2026, 10, 12, 14), settings: ReminderSettings(sessionEnd: false), running: running).of(.sessionEnd).isEmpty)
+        #expect(plan(now: at(2026, 10, 12, 14, 51), running: running).of(.sessionEnd).isEmpty)
+    }
+
+    @Test("The study reminder comes once a day in the Day phase, skipping days a session has started")
+    func study() {
+        let settings = ReminderSettings(studyReminder: ClockTime(hour: 16))
+        let week = plan(now: at(2026, 10, 12, 9), settings: settings).of(.studyReminder)
+        #expect(week.count == 7)
+        #expect(week.first?.fireDate == at(2026, 10, 12, 16))
+        #expect(week.first?.title == "Ready to study?")
+        #expect(week.first?.body == "Your apps can rest for a while.")
+        #expect(!(week.first?.isAbsolute ?? true))
+        let started = plan(now: at(2026, 10, 12, 9), settings: settings, lastStart: at(2026, 10, 12, 8, 30)).of(.studyReminder)
+        #expect(started.first?.fireDate == at(2026, 10, 13, 16))
+        #expect(plan(now: at(2026, 10, 12, 9), settings: ReminderSettings(studyReminder: ClockTime(hour: 21))).of(.studyReminder).isEmpty)
+        #expect(plan(now: at(2026, 10, 12, 9), settings: ReminderSettings(studyReminder: ClockTime(hour: 8))).of(.studyReminder).isEmpty)
+        #expect(plan(now: at(2026, 10, 12, 9)).of(.studyReminder).isEmpty)
     }
 }

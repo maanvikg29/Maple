@@ -27,7 +27,7 @@ nonisolated public enum ReminderAuthorization: Sendable, Equatable {
 nonisolated public enum ReminderTrigger: Sendable, Hashable {
     /// At a local wall-clock time (`ReminderRequest.fireComponents`).
     case date(DateComponents)
-    /// After a number of seconds (DEBUG demos).
+    /// After a number of seconds: a session's end (`ReminderRequest.isAbsolute`) and DEBUG demos.
     case after(TimeInterval)
 }
 
@@ -92,8 +92,8 @@ public final class UserNotificationCenter: NotificationCentering {
     }
 }
 
-/// Maple's local notification: "Time to wind down", nothing else (focus spec §8). One instance for the app,
-/// created by `MapleApp` and injected with `.environment(_:)`.
+/// Maple's local notifications: wind-down, a session's end and the opt-in study reminder, nothing else (focus spec
+/// §8). One instance for the app, created by `MapleApp` and injected with `.environment(_:)`.
 ///
 /// ```swift
 /// @Environment(NotificationScheduler.self) private var reminders
@@ -210,7 +210,9 @@ public final class NotificationScheduler {
         var added: [ReminderRequest] = []
         for request in wanted {
             do {
-                try await center.add(request, trigger: .date(request.fireComponents))
+                let trigger: ReminderTrigger = request.isAbsolute
+                    ? .after(request.fireDate.timeIntervalSince(now)) : .date(request.fireComponents)
+                try await center.add(request, trigger: trigger)
                 added.append(request)
             } catch {
                 Self.logger.error("Couldn't schedule \(request.id, privacy: .public): \(String(describing: error), privacy: .public)")

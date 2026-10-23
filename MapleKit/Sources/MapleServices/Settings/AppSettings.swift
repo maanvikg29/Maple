@@ -40,22 +40,29 @@ nonisolated public struct SettingsSnapshot: Codable, Sendable, Equatable {
     public var revealSound: Bool
     /// "Time to wind down" at the start of wind-down. On by default; sent only once iOS allows notifications.
     public var windDownReminder: Bool
+    /// "Session done" at a session's planned end. On by default (F1-23).
+    public var sessionEndReminder: Bool
+    /// The daily study reminder's time; nil while it is off (the default, F1-4).
+    public var studyReminder: ClockTime?
 
     public init(
         hemisphere: HemisphereChoice = .automatic, sleepGoalMinutes: Int = AppSettings.defaultSleepGoalMinutes,
-        revealSound: Bool = false, windDownReminder: Bool = true
+        revealSound: Bool = false, windDownReminder: Bool = true, sessionEndReminder: Bool = true,
+        studyReminder: ClockTime? = nil
     ) {
         version = Self.currentVersion
         self.hemisphere = hemisphere
         self.sleepGoalMinutes = AppSettings.validSleepGoal(sleepGoalMinutes)
         self.revealSound = revealSound
         self.windDownReminder = windDownReminder
+        self.sessionEndReminder = sessionEndReminder
+        self.studyReminder = studyReminder
     }
 
     // MARK: Codable (tolerant: missing or unknown values take their defaults)
 
     private enum CodingKeys: String, CodingKey {
-        case version, hemisphere, sleepGoalMinutes, revealSound, windDownReminder
+        case version, hemisphere, sleepGoalMinutes, revealSound, windDownReminder, sessionEndReminder, studyReminder
     }
 
     public init(from decoder: any Decoder) throws {
@@ -68,6 +75,8 @@ nonisolated public struct SettingsSnapshot: Codable, Sendable, Equatable {
         )
         revealSound = (try? c.decodeIfPresent(Bool.self, forKey: .revealSound)) ?? false
         windDownReminder = (try? c.decodeIfPresent(Bool.self, forKey: .windDownReminder)) ?? true
+        sessionEndReminder = (try? c.decodeIfPresent(Bool.self, forKey: .sessionEndReminder)) ?? true
+        studyReminder = try? c.decodeIfPresent(ClockTime.self, forKey: .studyReminder)
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -77,6 +86,8 @@ nonisolated public struct SettingsSnapshot: Codable, Sendable, Equatable {
         try c.encode(sleepGoalMinutes, forKey: .sleepGoalMinutes)
         try c.encode(revealSound, forKey: .revealSound)
         try c.encode(windDownReminder, forKey: .windDownReminder)
+        try c.encode(sessionEndReminder, forKey: .sessionEndReminder)
+        try c.encodeIfPresent(studyReminder, forKey: .studyReminder)
     }
 }
 
@@ -166,9 +177,21 @@ public final class AppSettings {
         set { change { $0.windDownReminder = newValue } }
     }
 
-    /// The reminder switch, as `ReminderPlan` reads it.
+    /// "Session done" at a session's planned end. On by default (F1-23).
+    public var sessionEndReminder: Bool {
+        get { snapshot.sessionEndReminder }
+        set { change { $0.sessionEndReminder = newValue } }
+    }
+
+    /// The daily study reminder's time; nil while it is off (the default, F1-4).
+    public var studyReminderTime: ClockTime? {
+        get { snapshot.studyReminder }
+        set { change { $0.studyReminder = newValue } }
+    }
+
+    /// The reminder switches, as `ReminderPlan` reads them.
     public var reminders: ReminderSettings {
-        ReminderSettings(windDown: windDownReminder)
+        ReminderSettings(windDown: windDownReminder, sessionEnd: sessionEndReminder, studyReminder: studyReminderTime)
     }
 
     public var canIncreaseSleepGoal: Bool { sleepGoalMinutes < Self.sleepGoalRange.upperBound }
