@@ -48,8 +48,10 @@ struct RewardCatalogTests {
         #expect(at(.hoursSaved, 720) == "japonicum")
         #expect(at(.sessionsFinished, 1) == "buergerianum")
         #expect(at(.restedNights, 3) == "saccharinum")
-        #expect(RewardCatalog.shared.rungs(in: .hoursSaved).first { $0.threshold == 24 }?.unlockText == "Save 24 hours · A day back")
-        #expect(RewardCatalog.shared.rungs(in: .hoursSaved).last?.unlockText == "Save 2,000 hours · A working year back")
+        // Landmark rungs keep their famous maples but carry no figurative line (F1 design §3.6).
+        #expect(RewardCatalog.shared.rungs(in: .hoursSaved).first { $0.threshold == 24 }?.unlockText == "Save 24 hours")
+        #expect(RewardCatalog.shared.rungs(in: .hoursSaved).last?.unlockText == "Save 2,000 hours")
+        #expect(RewardCatalog.shared.assignments.allSatisfy { !$0.unlockText.contains(" · ") })
     }
 
     @Test("The hardest rungs hold the most threatened maples")
@@ -180,6 +182,12 @@ struct FocusCategoryTests {
         #expect(RewardCategoryInfo(.focusStreak).shortRule(7) == "7-day streak")
         #expect(RewardCategoryInfo(.restedNights).earnedLine(3) == "For 3 rested nights")
         #expect(RewardCategoryInfo(.firstLeaf).earnedLine(1) == "For planting your maple")
+        #expect(RewardCategoryInfo(.sessionsFinished).definition
+            == "A session you started that ran to its planned end, with at least 20 minutes locked while you were awake. Up to 3 count a day.")
+        #expect(RewardCategoryInfo(.focusStreak).definition
+            == "Days in a row with a finished session. Up to 2 rest days in any 7 can bridge a gap.")
+        #expect(RewardCatalog.shared.category(.sessionsFinished)?.metric.contains("At most 3 a day") == true)
+        #expect(RewardCatalog.shared.category(.focusStreak)?.metric.contains("calendar week") == false)
     }
 
     @Test("Focus and Screen Time ship with F1, sounds with F2; this build ships neither")

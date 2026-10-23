@@ -21,7 +21,6 @@ HOURS = [1, 2, 3, 5, 7, 10, 13, 16, 20, 24, 28, 32, 36, 40, 45, 50, 55, 60, 65, 
          825, 850, 875, 900, 925, 950, 975, 1000, 1025, 1050, 1075, 1100, 1125, 1150, 1175, 1200, 1225, 1250, 1275,
          1300, 1325, 1350, 1375, 1400, 1425, 1450, 1475, 1500, 1530, 1560, 1590, 1620, 1650, 1680, 1710, 1740, 1770,
          1800, 1840, 1880, 1920, 1960, 2000]
-LANDMARKS = {24: "A day back", 168: "A week back", 720: "A month back", 2000: "A working year back"}
 
 # id, name, metric, unit, data source, release, ladder, design pace (units per day; RewardCategoryInfo.designPace)
 CATEGORIES = [
@@ -34,10 +33,12 @@ CATEGORIES = [
      "started on their own. Focus spec §3.",
      "hours", "Maple's session ledger (its own shield events), never Screen Time usage", "F1", HOURS, 1.9),
     ("sessions_finished", "Sessions finished",
-     "Sessions the member started, planned at 20 minutes or more, that reached their planned end. At most 4 a day.",
+     "Sessions the member started that ran to their planned end, with at least 20 locked awake minutes making up at "
+     "least 3/4 of the planned length. At most 3 a day, in the order they ended. F1 design §3.4.",
      "sessions", "Maple's session ledger", "F1", [1, 10, 25, 50, 100, 250, 500, 1000], 1.0),
     ("focus_streak", "Focus streak",
-     "The best run of days with a finished session. Any 2 rest days per calendar week are built in; Away pauses it.",
+     "The best run of Maple days with a finished session. Missed days between finished days are rest days, at most 2 "
+     "in any 7 days in a row; a one-day gap across a time-zone change is neutral. F1 design §3.4.",
      "days", "Maple's session ledger", "F1", [3, 7, 14, 30, 50, 75, 100, 150, 250, 365], 0.8),
     ("phone_free_mornings", "Phone-free mornings",
      "Mornings whose Morning block ran to its end with no override, early end or phone break.",
@@ -58,9 +59,9 @@ SECONDARY = ("sessions_finished", "focus_streak", "phone_free_mornings", "bedtim
 PINS = {
     ("first_leaf", 1): "saccharum",       # Sugar maple, Maple's emblem (D12)
     ("hours_saved", 1): "rubrum",         # Red maple
-    ("hours_saved", 24): "palmatum",      # Japanese maple: "A day back"
-    ("hours_saved", 168): "griseum",      # Paperbark maple: "A week back"
-    ("hours_saved", 720): "japonicum",    # Fullmoon maple: "A month back"
+    ("hours_saved", 24): "palmatum",      # Japanese maple, 24 h
+    ("hours_saved", 168): "griseum",      # Paperbark maple, 168 h
+    ("hours_saved", 720): "japonicum",    # Fullmoon maple, 720 h
     ("sessions_finished", 1): "buergerianum",  # Trident maple
     ("rested_nights", 3): "saccharinum",  # Silver maple
 }
@@ -100,8 +101,7 @@ def unlock_text(category, n):
     if category == "first_leaf":
         return "Plant your maple"
     if category == "hours_saved":
-        text = "Save 1 hour" if n == 1 else f"Save {n:,} hours"
-        return f"{text} · {LANDMARKS[n]}" if n in LANDMARKS else text
+        return "Save 1 hour" if n == 1 else f"Save {n:,} hours"
     if category == "sessions_finished":
         return "Finish your first session" if n == 1 else f"Finish {n:,} sessions"
     if category == "focus_streak":

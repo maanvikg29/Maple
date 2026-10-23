@@ -71,13 +71,13 @@ public struct RewardCategoryInfo: Sendable {
             return
         case .sessionsFinished:
             self.init(id, order: 2, requirement: .screenTime, action: .startFocus, release: .f1, designPace: 1,
-                      definition: "A session you started, 20 minutes or longer, that ran to its planned end.",
+                      definition: "A session you started that ran to its planned end, with at least 20 minutes locked while you were awake. Up to 3 count a day.",
                       short: { "\($0) \(plural($0, "session"))" },
                       earned: { $0 == 1 ? "For your first finished session" : "For \($0) finished sessions" })
             return
         case .focusStreak:
             self.init(id, order: 3, requirement: .screenTime, action: .startFocus, release: .f1, designPace: 0.8,
-                      definition: "Days in a row with a finished session. Two rest days a week are built in.",
+                      definition: "Days in a row with a finished session. Up to 2 rest days in any 7 can bridge a gap.",
                       short: { "\($0)-day streak" }, earned: { "For a \($0)-day focus streak" })
             return
         case .bedtimeKept:
