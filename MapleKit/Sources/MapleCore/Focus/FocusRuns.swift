@@ -3,7 +3,7 @@ import Foundation
 /// The Focus streak (F1 design §3.4). A run starts and ends on a focus day (a Maple day with a finished session), and
 /// every day between is a rest day, with at most 2 rest days in any 7 days in a row. Rest days only bridge: misses
 /// after the last focus day neither count nor break the run while the allowance still covers them. A one-day gap
-/// across a time-zone change is neutral. Pure, with day arithmetic on `LocalDay.ordinal`.
+/// between days spent in different zones is neutral. Pure, with day arithmetic on `LocalDay.ordinal`.
 public struct FocusRuns: Sendable, Equatable {
     public static let restDays = 2
     public static let restWindow = 7
@@ -18,24 +18,24 @@ public struct FocusRuns: Sendable, Equatable {
     ///   - today: The Maple day now. It stays pending until it ends.
     public init(focusDays: [(day: LocalDay, zone: String)], today: LocalDay) {
         let todayOrdinal = today.ordinal
-        var seen = Set<Int>()
-        let days = focusDays
-            .map { (ordinal: $0.day.ordinal, zone: $0.zone) }
-            .filter { $0.ordinal <= todayOrdinal }
-            .sorted { $0.ordinal < $1.ordinal }
-            .filter { seen.insert($0.ordinal).inserted }
+        // One entry per day, holding every zone it was spent in, so the order the zones were logged in never matters.
+        var zonesByDay: [Int: Set<String>] = [:]
+        for entry in focusDays where entry.day.ordinal <= todayOrdinal {
+            zonesByDay[entry.day.ordinal, default: []].insert(entry.zone)
+        }
+        let days = zonesByDay.keys.sorted().map { (ordinal: $0, zones: zonesByDay[$0] ?? []) }
 
         var best = 0
         var length = 0
         var rests: [Int] = []
-        var last: (ordinal: Int, zone: String)?
+        var last: (ordinal: Int, zones: Set<String>)?
         for entry in days {
             if let previous = last {
                 let misses = entry.ordinal - previous.ordinal - 1
                 let gap = misses > 0 ? Array((previous.ordinal + 1)..<entry.ordinal) : []
                 if misses == 0 {
                     length += 1
-                } else if misses == 1, previous.zone != entry.zone {
+                } else if misses == 1, previous.zones.isDisjoint(with: entry.zones) {
                     length += 1
                 } else if misses <= Self.restDays, Self.fits(rests + gap) {
                     length += misses + 1

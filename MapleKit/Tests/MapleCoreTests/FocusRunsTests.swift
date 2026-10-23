@@ -57,8 +57,35 @@ struct FocusRunsTests {
 
     @Test("A day spent in two zones counts once")
     func twoZones() {
-        let result = FocusRuns(focusDays: [(day(0), "UTC"), (day(0), "Asia/Tokyo"), (day(1), "UTC")], today: day(1))
-        #expect(result.current == 2)
+        // Day 2 is spent in UTC and Tokyo. It shares Tokyo with day 4, so the gap on day 3 is a rest day: one run of 5 days.
+        let forward: [(day: LocalDay, zone: String)] = [(day(0), "UTC"), (day(2), "UTC"), (day(2), "Asia/Tokyo"), (day(4), "Asia/Tokyo")]
+        let reversed: [(day: LocalDay, zone: String)] = [(day(0), "UTC"), (day(2), "Asia/Tokyo"), (day(2), "UTC"), (day(4), "Asia/Tokyo")]
+        for days in [forward, reversed] {
+            let result = FocusRuns(focusDays: days, today: day(4))
+            #expect(result.current == 5)
+            #expect(result.best == 5)
+        }
+    }
+
+    @Test("A gap between days that share a zone is a rest day, whichever order the zones come in")
+    func sharedZone() {
+        let forward = FocusRuns(focusDays: [(day(0), "Europe/London"), (day(0), "America/Los_Angeles"), (day(2), "America/Los_Angeles")], today: day(2))
+        let reversed = FocusRuns(focusDays: [(day(0), "America/Los_Angeles"), (day(0), "Europe/London"), (day(2), "America/Los_Angeles")], today: day(2))
+        #expect(forward.current == 3)
+        #expect(forward == reversed)
+    }
+
+    @Test("A gap into a day that adds a zone is a rest day, whichever order the zones come in")
+    func addedZone() {
+        let forward = FocusRuns(focusDays: [(day(0), "UTC"), (day(2), "UTC"), (day(2), "Asia/Tokyo")], today: day(2))
+        let reversed = FocusRuns(focusDays: [(day(0), "UTC"), (day(2), "Asia/Tokyo"), (day(2), "UTC")], today: day(2))
+        #expect(forward.current == 3)
+        #expect(forward == reversed)
+    }
+
+    @Test("A one-day gap from Los Angeles to London is neutral")
+    func reverseTravel() {
+        #expect(runs([0, 2], today: 2, zones: [0: "America/Los_Angeles", 2: "Europe/London"]).current == 2)
     }
 
     @Test("At most 2 rest days in any 7 days in a row")
