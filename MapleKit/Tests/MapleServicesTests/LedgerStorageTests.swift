@@ -58,20 +58,39 @@ struct LedgerStorageTests {
         #expect(store.readAll()?.count == 3)
     }
 
-    @Test("Reading the open ledger takes this month and last, skips old files, and finds a recent file under an old name")
+    @Test("Reading the open ledger takes this month and last, any file changed lately, and each writer's newest file")
     func openFiles() throws {
         let folder = try temporaryDirectory()
         let store = FileLedgerStore(directory: folder)
-        try store.append(event(1, wall: at(2026, 6, 10)))       // an old month, written long ago
-        try store.append(event(2, wall: at(2026, 9, 20)))       // last month
-        try store.append(event(3, wall: at(2026, 10, 22)))      // this month
-        // 100 days before the `now` read below (not before the real now, so the test doesn't change with the date it runs).
-        try FileManager.default.setAttributes([.modificationDate: at(2026, 10, 23).addingTimeInterval(-100 * 86400)],
-                                              ofItemAtPath: folder.appending(path: "ledger-app-2026-06.jsonl").path)
-        // The clock was set back to August before this append: it lands in August's file.
-        try store.append(event(4, wall: at(2026, 8, 3)))
+        let now = at(2026, 10, 23)
+        func setModified(_ name: String, to date: Date) throws {
+            try FileManager.default.setAttributes([.modificationDate: date], ofItemAtPath: folder.appending(path: name).path)
+        }
+        try store.append(event(1, wall: at(2026, 6, 10)))                    // an old month, written long ago
+        try store.append(event(2, wall: at(2026, 7, 14)))                    // an old month, but the file was changed lately
+        try store.append(event(3, wall: at(2026, 9, 20)))                    // last month
+        try store.append(event(4, wall: at(2026, 10, 22)))                   // this month
+        // The clock was set back to August while only the monitor ran, so its newest file is old-named, and the same
+        // set-back clock stamped the file's modification date. Restoring the clock must not hide it.
+        try store.append(event(5, wall: at(2026, 8, 3), writer: .monitor))
+        try setModified("ledger-app-2026-06.jsonl", to: now.addingTimeInterval(-100 * 86400))
+        try setModified("ledger-app-2026-07.jsonl", to: now.addingTimeInterval(-3 * 86400))
+        try setModified("ledger-monitor-2026-08.jsonl", to: at(2026, 8, 3))
+        let open = try #require(store.readOpen(now: now))
+        #expect(Set(open.map(\.seq)) == [2, 3, 4, 5])
+    }
+
+    @Test("A clock set back appends to the writer's newest file, so the open read still finds the event")
+    func clockSetBack() throws {
+        let folder = try temporaryDirectory()
+        let store = FileLedgerStore(directory: folder)
+        try store.append(event(1, wall: at(2026, 10, 20)))
+        try store.append(event(2, wall: at(2026, 8, 3)))                     // the clock was set back to August
+        #expect(files(in: folder) == ["ledger-app-2026-10.jsonl"])
+        try store.append(event(3, wall: at(2026, 8, 3), writer: .monitor))   // another writer's own files are its own
+        #expect(Set(files(in: folder)) == ["ledger-app-2026-10.jsonl", "ledger-monitor-2026-08.jsonl"])
         let open = try #require(store.readOpen(now: at(2026, 10, 23)))
-        #expect(Set(open.map(\.seq)) == [2, 3, 4])
+        #expect(Set(open.map(\.seq)) == [1, 2, 3])
     }
 
     @Test("The next sequence number carries on after the highest across every month")
@@ -99,6 +118,35 @@ struct LedgerStorageTests {
         store.failsWrites = false
         #expect(try writer.write(.shieldVerified, session: device).seq == 11)
         #expect(store.events.map(\.seq) == [9, 10, 11])
+    }
+
+    @Test("A writer made while the ledger is unreadable records nothing, then carries on after the highest seq once it can read")
+    func writerOverUnreadableStore() throws {
+        let store = MemoryLedgerStore([event(9, wall: at(2026, 10, 23, 9))])
+        store.unreadable = true
+        let time = ManualFocusTime(wall: at(2026, 10, 23, 14))
+        let writer = LedgerWriter(store: store, time: time, deviceID: device, writer: .app, source: .live)
+        #expect(throws: LedgerWriter.SequenceUnknown.self) { try writer.write(.shieldVerified, session: device) }
+        #expect(throws: LedgerWriter.SequenceUnknown.self) { try writer.write(.shieldVerified, session: device) }
+        #expect(store.events.map(\.seq) == [9])
+        store.unreadable = false
+        #expect(try writer.write(.shieldVerified, session: device).seq == 10)
+        #expect(try writer.write(.shieldVerified, session: device).seq == 11)
+        #expect(store.events.map(\.seq) == [9, 10, 11])
+    }
+
+    @Test("The last sequence number is unknown, not zero, while one of the writer's files can't be read")
+    func lastSeqUnreadable() throws {
+        let folder = try temporaryDirectory()
+        let store = FileLedgerStore(directory: folder)
+        try store.append(event(41, wall: at(2026, 9, 2)))
+        try store.append(event(42, wall: at(2026, 10, 2)))
+        let locked = folder.appending(path: "ledger-app-2026-09.jsonl").path
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: locked)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: locked) }
+        #expect(store.lastSeq(of: .app) == nil)
+        #expect(store.readAll() == nil)
+        #expect(store.lastSeq(of: .monitor) == 0)
     }
 
     @Test("An unreadable memory store reads as nil")
