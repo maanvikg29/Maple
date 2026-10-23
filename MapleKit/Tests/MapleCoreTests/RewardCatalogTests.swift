@@ -183,7 +183,7 @@ struct FocusCategoryTests {
         #expect(RewardCategoryInfo(.restedNights).earnedLine(3) == "For 3 rested nights")
         #expect(RewardCategoryInfo(.firstLeaf).earnedLine(1) == "For planting your maple")
         #expect(RewardCategoryInfo(.sessionsFinished).definition
-            == "A session you started that ran to its planned end, with at least 20 minutes locked while you were awake. Up to 3 count a day.")
+            == "A session you started that ran to its planned end, with at least 20 minutes and three quarters of it locked while you were awake. Up to 3 count a day.")
         #expect(RewardCategoryInfo(.focusStreak).definition
             == "Days in a row with a finished session. Up to 2 rest days in any 7 can bridge a gap.")
         #expect(RewardCatalog.shared.category(.sessionsFinished)?.metric.contains("At most 3 a day") == true)

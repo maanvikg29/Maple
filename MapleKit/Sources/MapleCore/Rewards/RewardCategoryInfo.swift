@@ -71,7 +71,7 @@ public struct RewardCategoryInfo: Sendable {
             return
         case .sessionsFinished:
             self.init(id, order: 2, requirement: .screenTime, action: .startFocus, release: .f1, designPace: 1,
-                      definition: "A session you started that ran to its planned end, with at least 20 minutes locked while you were awake. Up to 3 count a day.",
+                      definition: "A session you started that ran to its planned end, with at least 20 minutes and three quarters of it locked while you were awake. Up to 3 count a day.",
                       short: { "\($0) \(plural($0, "session"))" },
                       earned: { $0 == 1 ? "For your first finished session" : "For \($0) finished sessions" })
             return
