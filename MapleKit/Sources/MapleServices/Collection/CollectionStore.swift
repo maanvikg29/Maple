@@ -295,14 +295,14 @@ public final class CollectionStore {
     public func treeInputs(at date: Date) -> TreeInputs { snapshot.treeInputs(at: date, context: context) }
 
     /// Home's NowBlock and CTA. Apple Health's last night, the Goodnight tap (the phone-down time the morning shows
-    /// without Apple Health, spec §3.4; it earns nothing) and focus are passed in once they exist.
+    /// without Apple Health, spec §3.4; it earns nothing) and the focus status (display credit) are passed in.
     public func nowState(
         at date: Date, locale: Locale = .current, lastNight: LastNightSleep? = nil, goodnightAt: Date? = nil,
         focus: FocusStatus? = nil, windDownActive: Bool = false
     ) -> NowState {
         NowState.resolve(
             date: date, weekly: context.schedule, calendar: context.calendar, locale: locale,
-            pending: pending(at: date).count, counters: snapshot.counters, features: context.features,
+            pending: pending(at: date).count, features: context.features,
             lastNight: lastNight, goodnightAt: goodnightAt, focus: focus, windDownActive: windDownActive
         )
     }

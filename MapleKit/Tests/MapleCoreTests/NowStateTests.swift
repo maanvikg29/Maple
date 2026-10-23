@@ -70,13 +70,13 @@ struct NowPhaseTests {
 struct NowStateTests {
     private func state(
         _ hour: Int, _ minute: Int = 0, locale: Locale = enGB, pending: Int = 0,
-        counters: [RewardCategoryID: Double] = [:], features: ShippedFeatures = .current,
+        features: ShippedFeatures = .current,
         lastNight: LastNightSleep? = nil, goodnightAt: Date? = nil, focus: FocusStatus? = nil,
         windDownActive: Bool = false
     ) -> NowState {
         NowState.resolve(
             date: at(2026, 10, 10, hour, minute), schedule: .standard, calendar: utc, locale: locale,
-            pending: pending, counters: counters, features: features, lastNight: lastNight, goodnightAt: goodnightAt,
+            pending: pending, features: features, lastNight: lastNight, goodnightAt: goodnightAt,
             focus: focus, windDownActive: windDownActive
         )
     }
@@ -140,33 +140,77 @@ struct NowStateTests {
         #expect(!now.actionIsDimmed)
     }
 
-    @Test("Day once focus ships: focus today and Start focus")
-    func dayFocus() {
-        let now = state(13, 40, counters: [.sessionsFinished: 3, .hoursSaved: 4], features: .all,
-                        focus: FocusStatus(todayMinutes: 85, weekMinutes: 250))
-        #expect(now.content == .focusToday)
-        #expect(now.numeral.text == "1h 25m")
-        #expect(now.caption == "focused today · 4h 10m this week")
-        #expect(now.action == .startFocus(minutes: 25, firstTime: false))
-        #expect(now.action?.title == "Start focus · 25m")
+    private let study = FocusStart(presetID: FocusFixtures.session, verb: .study, minutes: 50, strictness: .steady,
+                                   readiness: .ready(needsHold: false))
 
-        let first = state(13, 40, features: .all)
-        #expect(first.numeral.text == "0m")
-        #expect(first.action == .startFocus(minutes: 25, firstTime: true))
-        #expect(first.action?.title == "Start a 25-minute focus")
+    @Test("Day once focus ships: saved today and in all, and Start with the last-used preset")
+    func dayFocus() {
+        let now = state(13, 40, features: .all,
+                        focus: FocusStatus(savedTodaySeconds: 80 * 60 + 30, savedTotalSeconds: 41 * 3600 + 600, start: study))
+        #expect(now.content == .savedToday)
+        #expect(now.numeral.text == "1h 20m")
+        #expect(now.caption == "saved today · 41h in all")
+        #expect(now.spoken.contains("saved today"))
+        #expect(now.action == .startFocus(study))
+        #expect(now.action?.title == "Start study · 50m")
+        var locked = study
+        locked.strictness = .locked
+        #expect(NowState.Action.startFocus(locked).title == "Hold to start · Locked 50m")
     }
 
-    @Test("Focus running: remaining mm:ss in any phase but night")
+    @Test("Before the day's first session: the lifetime total; with nothing ever saved, the countdown")
+    func dayBeforeFirstSession() {
+        let total = state(13, 40, features: .all, focus: FocusStatus(savedTodaySeconds: 20, savedTotalSeconds: 41 * 3600, start: study))
+        #expect(total.content == .savedInAll)
+        #expect(total.numeral.text == "41h")
+        #expect(total.caption == "saved in all · none yet today")
+        let small = state(13, 40, features: .all, focus: FocusStatus(savedTotalSeconds: 35 * 60, start: study))
+        #expect(small.numeral.text == "35m")
+        let none = state(13, 40, features: .all, focus: FocusStatus(start: study))
+        #expect(none.content == .untilWindDown)
+        #expect(none.action == .startFocus(study))
+    }
+
+    @Test("Without Screen Time the day keeps its countdown and offers Turn on blocking; a free build offers nothing")
+    func dayWithoutBlocking() {
+        let needs = state(13, 40, features: .all, focus: FocusStatus(savedTotalSeconds: 3600, start: study, blocking: .needsPermission))
+        #expect(needs.content == .untilWindDown)
+        #expect(needs.action == .turnOnBlocking)
+        #expect(needs.action?.title == "Turn on blocking")
+        let free = state(13, 40, features: .all, focus: FocusStatus(start: study, blocking: .notInThisBuild))
+        #expect(free.content == .untilWindDown)
+        #expect(free.action == nil)
+    }
+
+    @Test("A running session shows calm minutes in every phase, night included")
     func focusRunning() {
-        let running = FocusStatus(todayMinutes: 10, weekMinutes: 10, remaining: 18 * 60 + 42)
+        let running = FocusStatus(savedTodaySeconds: 600, remaining: 18 * 60 + 42)
         let now = state(20, 55, features: .all, focus: running)
         #expect(now.content == .focusRunning)
-        #expect(now.numeral.parts == [.value("18:42")])
-        #expect(now.caption == "left in this focus")
-        #expect(now.action == .returnToFocus)
+        #expect(now.numeral.text == "19m")
+        #expect(now.caption == "left in this session")
+        #expect(now.spoken == "19 minutes left in this session.")
+        #expect(now.action == .returnToSession)
+        #expect(now.action?.title == "Return to session")
         #expect(now.refreshesEverySecond)
-        #expect(state(23, 30, features: .all, focus: running).content == .wake)
-        #expect(state(20, 55, features: .all, focus: running).action?.title == "Return to focus")
+        #expect(state(23, 30, features: .all, focus: running).content == .focusRunning)
+        #expect(state(23, 30, features: .all, focus: running).action == .returnToSession)
+        let last = state(13, 40, features: .all, focus: FocusStatus(remaining: 42))
+        #expect(last.numeral.parts == [.value("0:42")])
+        // Before focus ships nothing runs.
+        #expect(state(20, 55, focus: running).content == .untilWindDown)
+    }
+
+    @Test("Morning with no sleep data: saved yesterday, when something was")
+    func morningSavedYesterday() {
+        let now = state(7, 40, features: .all, focus: FocusStatus(savedYesterdaySeconds: 110 * 60, savedTotalSeconds: 41 * 3600))
+        #expect(now.content == .savedYesterday)
+        #expect(now.numeral.text == "1h 50m")
+        #expect(now.caption == "saved yesterday · 41h in all")
+        #expect(now.action == nil)
+        #expect(state(7, 40, features: .all, focus: FocusStatus(savedTotalSeconds: 41 * 3600)).content == .windDownTonight)
+        #expect(state(7, 40, features: .all, goodnightAt: at(2026, 10, 9, 23, 4),
+                      focus: FocusStatus(savedYesterdaySeconds: 3600)).content == .goodnight)
     }
 
     @Test("Morning with Apple Health: last night's sleep")
@@ -249,8 +293,8 @@ struct NowStateTests {
             #expect(quiet.action != .openReveals(count: 3))
         }
         // A running focus keeps its own action.
-        let focusing = state(13, 40, pending: 1, features: .all, focus: FocusStatus(todayMinutes: 0, weekMinutes: 0, remaining: 60))
-        #expect(focusing.action == .returnToFocus)
+        let focusing = state(13, 40, pending: 1, features: .all, focus: FocusStatus(remaining: 60))
+        #expect(focusing.action == .returnToSession)
         #expect(focusing.waitingCount == 1)
     }
 
@@ -263,8 +307,10 @@ struct NowStateTests {
                 state(7, 40, locale: locale, goodnightAt: at(2026, 10, 9, 23, 4)),
                 state(7, 40, locale: locale),
                 state(13, 40, locale: locale),
-                state(13, 40, locale: locale, features: .all, focus: FocusStatus(todayMinutes: 85, weekMinutes: 250)),
-                state(13, 40, locale: locale, features: .all, focus: FocusStatus(todayMinutes: 5, weekMinutes: 5, remaining: 300)),
+                state(13, 40, locale: locale, features: .all, focus: FocusStatus(savedTodaySeconds: 85 * 60, savedTotalSeconds: 41 * 3600)),
+                state(13, 40, locale: locale, features: .all, focus: FocusStatus(savedTotalSeconds: 41 * 3600)),
+                state(7, 40, locale: locale, features: .all, focus: FocusStatus(savedYesterdaySeconds: 3600, savedTotalSeconds: 41 * 3600)),
+                state(13, 40, locale: locale, features: .all, focus: FocusStatus(remaining: 300)),
                 state(20, 55, locale: locale),
                 state(22, 22, locale: locale),
                 state(23, 30, locale: locale),
