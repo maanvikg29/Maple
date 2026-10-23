@@ -90,6 +90,12 @@ nonisolated public enum DemoData {
             if value > 0 { counters[category.id] = min(value, next - 1) }
         }
         snapshot.counters = counters
+        // The focus book carries the focus counters as its baseline, as a real collection's would after an update.
+        snapshot.focus = FocusBook(
+            baseline: FocusTotals(seconds: Int(((counters[.hoursSaved] ?? 0) * 3600).rounded()),
+                                  finished: Int(counters[.sessionsFinished] ?? 0)),
+            bestRun: Int(counters[.focusStreak] ?? 0), startedAt: noon(of: start, calendar: calendar)
+        )
 
         // History: a baseline 14 days ago and today's closing counters, so the pace matches the span.
         let fraction = 1 - Double(LeafPace.window) / Double(span)

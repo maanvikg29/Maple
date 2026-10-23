@@ -193,6 +193,15 @@ public final class CollectionStore {
         mutate { $0.recordSleep(nights, at: date, context: context, engine: engine) }
     }
 
+    /// The one call `FocusSessionStore` makes: replayed sessions' credit (`HoursCredit`). Records it in the focus book
+    /// and raises the focus counters to its totals, each leaf dated when its credit was proven. Passing the same
+    /// credit again changes nothing, so the session store sends every open day's sessions on each replay.
+    /// - Returns: Leaves unlocked.
+    @discardableResult
+    public func applyFocus(_ credits: [SessionCredit], at date: Date) -> [LeafUnlock] {
+        mutate { $0.applyFocus(credits, at: date, context: context, engine: engine) }
+    }
+
     /// The member saved a schedule (`ScheduleStore.save`). Nights already under way keep being judged by the one
     /// they began with (`replacing`, nil for the first schedule ever); then the new one applies everywhere.
     public func scheduleSaved(_ schedule: WeeklySleepSchedule, replacing old: WeeklySleepSchedule?, at date: Date) {
@@ -233,6 +242,10 @@ public final class CollectionStore {
     /// The tree's vitality on the day of `date`, from the week of nights before it (spec §4.8).
     public func vitality(at date: Date) -> Vitality { snapshot.vitality(at: date, calendar: context.calendar) }
     public var totals: ProfileTotals { snapshot.totals(context: context) }
+    /// Every Maple day's focus credit.
+    public var focus: FocusBook { snapshot.focus }
+    /// The Focus streak's current run at `date`.
+    public func currentRun(at date: Date) -> Int { snapshot.currentRun(at: date, context: context) }
 
     public func unlock(for speciesID: String) -> LeafUnlock? { snapshot.unlock(for: speciesID) }
     public func isUnseen(_ speciesID: String) -> Bool { snapshot.isUnseen(speciesID) }
@@ -300,8 +313,9 @@ public final class CollectionStore {
         if copy != snapshot {
             snapshot = copy
             revision += 1
-            // The placeholder is never written over a file that couldn't be read.
-            if isAvailable { storage.save(copy) }
+            // The placeholder is never written over a file that couldn't be read, and a newer build's file is never
+            // written over at all (F1 design §3.5): changes then last until the app quits.
+            if isAvailable, !copy.isFromNewerBuild { storage.save(copy) }
         }
         return result
     }

@@ -28,7 +28,7 @@ public struct NightRecord: Codable, Sendable, Hashable {
 /// Everything Maple remembers about the member's collection, saved as one JSON file.
 /// The domain rules that change it live in `CollectionSnapshot+Rules.swift`; `CollectionStore` persists it.
 public struct CollectionSnapshot: Sendable, Equatable, Codable {
-    public static let currentVersion = 1
+    public static let currentVersion = 2
 
     public var version: Int
     /// Created on first launch; seeds the tree, so the member's silhouette is personal and stable (spec §4.2).
@@ -55,13 +55,15 @@ public struct CollectionSnapshot: Sendable, Equatable, Codable {
     public var revealsOpened: Int
     /// Apple Health's nights, pending and settled: the source of the sleep categories (spec §5.1, D9).
     public var nights: NightLedger
+    /// Every Maple day's focus credit (F1 design §3.5). The focus counters are its totals.
+    public var focus: FocusBook
 
     public init(
         profileID: UUID, createdAt: Date, unlocks: [LeafUnlock] = [], revealedAt: [String: Date] = [:],
         counters: [RewardCategoryID: Double] = [:], history: [DailyCounters] = [], tendedDays: [LocalDay] = [],
         recentNights: [NightRecord] = [], pinnedSpeciesID: String? = nil, featuredSpeciesID: String? = nil,
         rarityConsent: RarityConsent = .notAsked, revealsOpened: Int = 0,
-        nights: NightLedger = NightLedger()
+        nights: NightLedger = NightLedger(), focus: FocusBook = FocusBook()
     ) {
         self.version = Self.currentVersion
         self.profileID = profileID
@@ -77,6 +79,7 @@ public struct CollectionSnapshot: Sendable, Equatable, Codable {
         self.rarityConsent = rarityConsent
         self.revealsOpened = revealsOpened
         self.nights = nights
+        self.focus = focus
     }
 
     /// A first-run collection: nothing earned yet.
@@ -89,34 +92,42 @@ public struct CollectionSnapshot: Sendable, Equatable, Codable {
         SplitMix64.seed(for: profileID)
     }
 
-    // MARK: Codable (tolerant: missing fields take their defaults)
+    /// Saved by a newer build: read what this build knows, but never save over it.
+    public var isFromNewerBuild: Bool { version > Self.currentVersion }
+
+    // MARK: Codable (tolerant, field by field: a missing or damaged field takes its default)
 
     private enum CodingKeys: String, CodingKey {
         case version, profileID, createdAt, unlocks, revealedAt, counters, history, tendedDays, recentNights
-        case pinnedSpeciesID, featuredSpeciesID, rarityConsent, revealsOpened, nights
+        case pinnedSpeciesID, featuredSpeciesID, rarityConsent, revealsOpened, nights, focus
     }
 
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        version = try c.decodeIfPresent(Int.self, forKey: .version) ?? Self.currentVersion
+        func field<Value: Decodable>(_ key: CodingKeys, _ fallback: Value) -> Value {
+            (try? c.decodeIfPresent(Value.self, forKey: key)) ?? fallback
+        }
+        // Only these two can't be defaulted: they are the member's maple.
         profileID = try c.decode(UUID.self, forKey: .profileID)
         createdAt = try c.decode(Date.self, forKey: .createdAt)
-        unlocks = try c.decodeIfPresent([LeafUnlock].self, forKey: .unlocks) ?? []
-        revealedAt = try c.decodeIfPresent([String: Date].self, forKey: .revealedAt) ?? [:]
-        counters = try CategoryCounterCoding.decode(c, forKey: .counters)
-        history = try c.decodeIfPresent([DailyCounters].self, forKey: .history) ?? []
-        tendedDays = try c.decodeIfPresent([LocalDay].self, forKey: .tendedDays) ?? []
-        recentNights = try c.decodeIfPresent([NightRecord].self, forKey: .recentNights) ?? []
-        pinnedSpeciesID = try c.decodeIfPresent(String.self, forKey: .pinnedSpeciesID)
-        featuredSpeciesID = try c.decodeIfPresent(String.self, forKey: .featuredSpeciesID)
-        rarityConsent = try c.decodeIfPresent(RarityConsent.self, forKey: .rarityConsent) ?? .notAsked
-        revealsOpened = try c.decodeIfPresent(Int.self, forKey: .revealsOpened) ?? 0
-        nights = try c.decodeIfPresent(NightLedger.self, forKey: .nights) ?? NightLedger()
+        version = field(.version, 1)
+        unlocks = field(.unlocks, [])
+        revealedAt = field(.revealedAt, [:])
+        counters = (try? CategoryCounterCoding.decode(c, forKey: .counters)) ?? [:]
+        history = field(.history, [])
+        tendedDays = field(.tendedDays, [])
+        recentNights = field(.recentNights, [])
+        pinnedSpeciesID = field(.pinnedSpeciesID, String?.none)
+        featuredSpeciesID = field(.featuredSpeciesID, String?.none)
+        rarityConsent = field(.rarityConsent, RarityConsent.notAsked)
+        revealsOpened = field(.revealsOpened, 0)
+        nights = field(.nights, NightLedger())
+        focus = field(.focus, FocusBook())
     }
 
     public func encode(to encoder: any Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
-        try c.encode(version, forKey: .version)
+        try c.encode(max(version, Self.currentVersion), forKey: .version)
         try c.encode(profileID, forKey: .profileID)
         try c.encode(createdAt, forKey: .createdAt)
         try c.encode(unlocks, forKey: .unlocks)
@@ -130,5 +141,6 @@ public struct CollectionSnapshot: Sendable, Equatable, Codable {
         try c.encode(rarityConsent, forKey: .rarityConsent)
         try c.encode(revealsOpened, forKey: .revealsOpened)
         try c.encode(nights, forKey: .nights)
+        try c.encode(focus, forKey: .focus)
     }
 }

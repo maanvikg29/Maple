@@ -8,3 +8,53 @@ extension CollectionSnapshot {
         AwakeWindow.frozen(at: start, schedule: { nights.schedule(for: $0, current: context.schedule) }, calendar: context.calendar)
     }
 }
+
+extension CollectionSnapshot {
+    /// Records replayed sessions' credit in the book and raises the focus counters to its totals (F1 design §3.5,
+    /// §7.2). Each session's credit is applied at the moment it was proven, so leaves are dated then; then the final
+    /// totals and the best run are raised at `now`. Counters never fall. Applying the same credit again changes
+    /// nothing. Ignored before the maple is planted.
+    ///
+    /// When the book has no start (a first run, or an older build dropped it) it takes as its baseline whatever the
+    /// counters hold beyond what this replay recounts.
+    /// - Returns: Leaves unlocked, each dated by the credit that earned it.
+    @discardableResult
+    public mutating func applyFocus(
+        _ credits: [SessionCredit], at now: Date, context: CollectionContext, engine: LeafEngine = LeafEngine()
+    ) -> [LeafUnlock] {
+        guard hasPlantedMaple else { return [] }
+        let calendar = context.calendar
+        var book = focus
+        book.record(credits)
+        if book.startedAt == nil {
+            let recounted = FocusBook(days: book.days)
+            book.baseline = FocusTotals(
+                seconds: max(0, Int(((counters[.hoursSaved] ?? 0) * 3600).rounded()) - recounted.totalSeconds),
+                finished: max(0, Int(counters[.sessionsFinished] ?? 0) - recounted.totalFinished)
+            )
+            book.bestRun = max(book.bestRun, Int(counters[.focusStreak] ?? 0))
+            book.startedAt = now
+        }
+        book.freeze(at: now)
+        book.bestRun = max(book.bestRun, FocusRuns(focusDays: book.focusDays, today: focusWindow(at: now, context: context).day).best)
+        focus = book
+
+        var added: [LeafUnlock] = []
+        for mark in FocusCounters.marks(book: book) where mark.instant <= now {
+            raise(.hoursSaved, to: mark.hours, at: mark.instant, calendar: calendar)
+            raise(.sessionsFinished, to: Double(mark.sessions), at: mark.instant, calendar: calendar)
+            added += runEngine(at: mark.instant, context: context, engine: engine)
+        }
+        raise(.hoursSaved, to: Double(book.totalSeconds) / 3600, at: now, calendar: calendar)
+        raise(.sessionsFinished, to: Double(book.totalFinished), at: now, calendar: calendar)
+        raise(.focusStreak, to: Double(book.bestRun), at: now, calendar: calendar)
+        added += runEngine(at: now, context: context, engine: engine)
+        return added
+    }
+
+    /// The current Focus streak run at `date` (§3.4): today is the Maple day whose awake window holds `date`, or the
+    /// next one in a sleep window, and stays pending.
+    public func currentRun(at date: Date, context: CollectionContext) -> Int {
+        FocusRuns(focusDays: focus.focusDays, today: focusWindow(at: date, context: context).day).current
+    }
+}

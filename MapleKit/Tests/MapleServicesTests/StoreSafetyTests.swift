@@ -28,6 +28,24 @@ struct StoreSafetyTests {
         return store.snapshot
     }
 
+    @Test("A collection saved by a newer build is read but never written over")
+    func newerCollection() throws {
+        let folder = try temporaryDirectory()
+        let url = folder.appendingPathComponent(MapleStores.collectionFile)
+        _ = savedCollection(in: folder)
+        var object = try #require(try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        object["version"] = CollectionSnapshot.currentVersion + 1
+        try JSONSerialization.data(withJSONObject: object).write(to: url)
+        let before = try Data(contentsOf: url)
+
+        let store = CollectionStore(storage: JSONStorage(.file(url)), context: testContext, now: at(2026, 10, 9, 9))
+        #expect(store.isAvailable)
+        #expect(store.hasPlantedMaple)
+        store.record([.restedNights: 1], at: at(2026, 10, 9, 9))
+        #expect(store.snapshot.counters[.restedNights] == 1)
+        #expect(try Data(contentsOf: url) == before)
+    }
+
     @Test("A collection that can't be read yet is kept, never replaced, and read once it can be")
     func unreadableCollection() throws {
         let folder = try temporaryDirectory()
