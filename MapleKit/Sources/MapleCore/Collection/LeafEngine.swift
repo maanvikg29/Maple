@@ -38,19 +38,20 @@ public struct LeafEngine: Sendable {
     }
 }
 
-/// When an earned leaf may be opened (spec §3.3, §5.8, D8, D12).
+/// When an earned leaf may be opened (spec §3.3, §5.8, D8, D12; F1 design F1-12).
 ///
-/// Leaves unlocked from the start of Evening until the next Morning start are *held* and become *pending* at Morning
-/// start; all others are pending at once. Pending leaves open only in Morning, Day and Evening, never in Wind-down
-/// or Night. The first leaf is the exception: it opens at the end of onboarding, at any hour.
+/// A leaf carries the moment its credit was earned. Leaves unlocked from the start of Wind-down until the next Morning
+/// start are *held* and become *pending* at Morning start; all others, Evening's included, are pending at once.
+/// Pending leaves open only in Morning, Day and Evening, never in Wind-down or Night. The first leaf is the exception:
+/// it opens at the end of onboarding, at any hour.
 public enum RevealSchedule {
     /// The moment `unlock` stops being held.
     public static func releaseDate(for unlock: LeafUnlock, schedule: WeeklySleepSchedule, calendar: Calendar) -> Date {
         if isFirstLeaf(unlock.speciesID) { return unlock.date }
         switch NowPhase.resolve(date: unlock.date, weekly: schedule, calendar: calendar) {
-        case .morning, .day:
+        case .morning, .day, .evening:
             return unlock.date
-        case .evening, .windDown, .night:
+        case .windDown, .night:
             return PhaseWindows(weekly: schedule).nextStart(of: .morning, after: unlock.date, calendar: calendar)
         }
     }

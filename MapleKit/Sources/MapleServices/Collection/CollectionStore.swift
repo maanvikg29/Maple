@@ -189,7 +189,7 @@ public final class CollectionStore {
     /// by then settle as untracked. Late data upgrades a settled night for 72 hours and never downgrades it; passing
     /// the same nights again changes nothing, so the importer can send the last few nights on every run. Nothing is
     /// recorded before the maple is planted.
-    /// - Returns: Leaves unlocked, stamped `date`: pending at once in the morning and day, held from Evening on.
+    /// - Returns: Leaves unlocked, stamped `date`: pending at once until Wind-down, held from Wind-down until morning.
     @discardableResult
     public func recordSleep(_ nights: [SleepNightObservation], at date: Date) -> [LeafUnlock] {
         mutate { $0.recordSleep(nights, at: date, context: context, engine: engine) }
@@ -265,7 +265,7 @@ public final class CollectionStore {
 
     /// Leaves no longer held.
     public func pending(at date: Date) -> [LeafUnlock] { snapshot.pending(at: date, context: context) }
-    /// Leaves earned from Evening on, held until Morning.
+    /// Leaves earned in Wind-down or at night, held until Morning.
     public func held(at date: Date) -> [LeafUnlock] { snapshot.held(at: date, context: context) }
     /// What a reveal can open now. Home's waiting bud, row and CTA show exactly these.
     public func revealable(at date: Date) -> [LeafUnlock] { snapshot.revealable(at: date, context: context) }

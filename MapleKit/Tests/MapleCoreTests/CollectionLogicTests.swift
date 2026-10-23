@@ -148,15 +148,16 @@ struct CollectionRevealTests {
         snapshot.openReveals(nil, at: at(2026, 10, 1, 21, 5), context: context)
         snapshot.record([.hoursSaved: 1], at: at(2026, 10, 2, 14), calendar: utc)
         snapshot.runEngine(at: at(2026, 10, 2, 14), context: context)               // pending at once
-        snapshot.record([.sessionsFinished: 1], at: at(2026, 10, 2, 21), calendar: utc)
-        snapshot.runEngine(at: at(2026, 10, 2, 21), context: context)               // evening: held
+        snapshot.record([.sessionsFinished: 1], at: at(2026, 10, 2, 22, 20), calendar: utc)
+        snapshot.runEngine(at: at(2026, 10, 2, 22, 20), context: context)           // wind-down: held
 
         let evening = at(2026, 10, 2, 21, 30)
+        let windDown = at(2026, 10, 2, 22, 30)
         #expect(snapshot.waiting.map(\.speciesID) == ["rubrum", "buergerianum"])
-        #expect(snapshot.pending(at: evening, context: context).map(\.speciesID) == ["rubrum"])
-        #expect(snapshot.held(at: evening, context: context).map(\.speciesID) == ["buergerianum"])
+        #expect(snapshot.pending(at: windDown, context: context).map(\.speciesID) == ["rubrum"])
+        #expect(snapshot.held(at: windDown, context: context).map(\.speciesID) == ["buergerianum"])
         #expect(snapshot.revealable(at: evening, context: context).map(\.speciesID) == ["rubrum"])
-        #expect(snapshot.revealable(at: at(2026, 10, 2, 22, 30), context: context).isEmpty)  // wind-down
+        #expect(snapshot.revealable(at: windDown, context: context).isEmpty)
         #expect(snapshot.revealable(at: at(2026, 10, 3, 2), context: context).isEmpty)       // night
         #expect(snapshot.openReveals(nil, at: at(2026, 10, 3, 2), context: context).isEmpty)
 
@@ -169,6 +170,16 @@ struct CollectionRevealTests {
         #expect(rest.map(\.speciesID) == ["rubrum"])
         #expect(snapshot.revealsOpened == 3)
         #expect(snapshot.earned.map(\.speciesID) == ["saccharum", "rubrum", "buergerianum"])
+    }
+
+    @Test("A leaf earned in Evening can be opened that evening")
+    func eveningLeaf() {
+        var snapshot = planted()
+        snapshot.openReveals(nil, at: at(2026, 10, 1, 21, 5), context: context)
+        snapshot.record([.hoursSaved: 1], at: at(2026, 10, 2, 21), calendar: utc)
+        snapshot.runEngine(at: at(2026, 10, 2, 21), context: context)
+        #expect(snapshot.held(at: at(2026, 10, 2, 21, 30), context: context).isEmpty)
+        #expect(snapshot.revealable(at: at(2026, 10, 2, 21, 30), context: context).map(\.speciesID) == ["rubrum"])
     }
 
     @Test("Seen, pinned and featured leaves")
@@ -256,7 +267,7 @@ struct CollectionTreeTests {
     @Test("Tree inputs list every earned leaf in unlock order, held ones too, so no place on the crown shifts")
     func unlockOrder() {
         var snapshot = grown()
-        let evening = at(2026, 10, 4, 21)
+        let evening = at(2026, 10, 4, 22, 30)                    // wind-down: held
         snapshot.record([.restedNights: 100], at: evening, calendar: utc)
         let held = snapshot.runEngine(at: evening, context: context)
         #expect(!held.isEmpty)

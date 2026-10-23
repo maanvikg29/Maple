@@ -265,7 +265,7 @@ Stage height = `min(410, max(320, availableHeight × 0.47))`. At larger text siz
 | Wind-down | D → B |
 | Night | B → W − 60m |
 
-- **Held vs pending.** Unlocks with a timestamp from the start of Evening until the next Morning start are *held* and become *pending* at Morning start. All other unlocks are pending at once.
+- **Held vs pending.** Unlocks with a timestamp from the start of Wind-down until the next Morning start are *held* (F1 design F1-12, which overrides the earlier Evening hold) and become *pending* at Morning start. All other unlocks are pending at once.
 - **Pending overlay.** Pending reveals change Home only in Morning, Day and Evening. They never surface in Wind-down or Night.
 - **Phase changes.** The NowBlock and CTA crossfade over `gentle`; the sky interpolates over `drift` (3.2s). Under Reduce Motion both change instantly.
 
@@ -852,7 +852,7 @@ It ends with a `TextLink` "Privacy settings". The member count is rounded down t
   - the waiting bud;
   - a waiting tile;
   - the focus-session summary ("A new leaf opened" with a `GlassCapsule` "Open", in Morning and Day only).
-- Leaves earned from Evening onward are held. The focus summary then says "A new leaf will be waiting in the morning."
+- Leaves earned from Wind-down onward are held. The focus summary then says "A new leaf will be waiting in the morning."
 - Never presented in Wind-down or Night. The only exception is the First-steps leaf at the end of onboarding (D12).
 
 **Cover**

@@ -235,12 +235,15 @@ struct WeeklyScheduleRulesTests {
         #expect(state(10, 11, 9, goodnightAt: at(2026, 10, 11, 0, 40)).caption == "in bed · bedtime 00:30")
     }
 
-    @Test("Leaves earned on a Friday evening are held until the weekend morning")
+    @Test("Leaves earned in a Friday wind-down are held until the weekend morning")
     func heldUntilTheWeekendMorning() {
-        let leaf = LeafUnlock(speciesID: "rubrum", date: at(2026, 10, 9, 22), season: .autumn, colourway: .autumn)
+        // Friday's evening already runs to the weekend bedtime (00:30), so wind-down starts at 23:30.
+        let leaf = LeafUnlock(speciesID: "rubrum", date: at(2026, 10, 9, 23, 45), season: .autumn, colourway: .autumn)
         #expect(RevealSchedule.releaseDate(for: leaf, schedule: week, calendar: utc) == at(2026, 10, 10, 8))
         #expect(RevealSchedule.isHeld(leaf, at: at(2026, 10, 10, 7, 59), schedule: week, calendar: utc))
         #expect(!RevealSchedule.isHeld(leaf, at: at(2026, 10, 10, 8), schedule: week, calendar: utc))
+        let evening = LeafUnlock(speciesID: "rubrum", date: at(2026, 10, 9, 22), season: .autumn, colourway: .autumn)
+        #expect(RevealSchedule.releaseDate(for: evening, schedule: week, calendar: utc) == at(2026, 10, 9, 22))
     }
 
     /// The schedule saved (and the Sugar maple opened) at `date`.

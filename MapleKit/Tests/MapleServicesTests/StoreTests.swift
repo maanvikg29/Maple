@@ -70,12 +70,12 @@ struct CollectionStoreTests {
         let store = CollectionStore(storage: JSONStorage(.memory), context: testContext, now: at(2026, 10, 1, 9))
         store.raise(.firstLeaf, to: 1, at: at(2026, 10, 1, 9))
         store.openReveals(at: at(2026, 10, 1, 9, 5))
-        store.record([.hoursSaved: 1], at: at(2026, 10, 2, 21))         // evening: held until morning
-        #expect(store.revealable(at: at(2026, 10, 2, 21, 30)).isEmpty)
-        #expect(store.held(at: at(2026, 10, 2, 21, 30)).map(\.speciesID) == ["rubrum"])
-        // Moving bedtime later makes 21:00 part of the day, so the leaf is pending at once.
+        store.record([.hoursSaved: 1], at: at(2026, 10, 2, 22, 20))     // wind-down: held until morning
+        #expect(store.revealable(at: at(2026, 10, 2, 22, 30)).isEmpty)
+        #expect(store.held(at: at(2026, 10, 2, 22, 30)).map(\.speciesID) == ["rubrum"])
+        // Moving bedtime later makes 22:20 part of the evening, so the leaf is pending at once.
         store.schedule = .everyNight(SleepSchedule(bedtime: ClockTime(hour: 1), wake: ClockTime(hour: 9), windDownMinutes: 60))
-        #expect(store.revealable(at: at(2026, 10, 2, 21, 30)).map(\.speciesID) == ["rubrum"])
+        #expect(store.revealable(at: at(2026, 10, 2, 22, 30)).map(\.speciesID) == ["rubrum"])
 
         let now = at(2026, 10, 2, 21, 30)
         #expect(store.progress(at: now).count == 155)
