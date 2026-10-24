@@ -1,6 +1,8 @@
 #!/bin/zsh
 # Builds Maple in Release for the iPhone simulator and fails if any DEBUG-only demo or preview type made it into the
 # binary (F1 design §8.4). Run from anywhere: Scripts/check-release.sh
+# Exit 0: clean. Exit 1: DEBUG-only code found. Exit 2: the check could not run (no binary, a tool failed), which never
+# counts as a pass.
 set -euo pipefail
 cd "${0:A:h}/.."
 SIMULATOR="${SIMULATOR:-iPhone 17}"
@@ -10,8 +12,18 @@ xcodebuild build \
   -destination "platform=iOS Simulator,name=$SIMULATOR" \
   -derivedDataPath "$DERIVED_DATA" CODE_SIGNING_ALLOWED=NO -quiet
 BINARY="$DERIVED_DATA/Build/Products/Release-iphonesimulator/Maple.app/Maple"
-FORBIDDEN='PreviewBlockingService|RecordingLiveActivityController|DemoLaunchOptions|DemoData|PreviewLeafShareProvider|HealthSleepSeeder|FocusDemo'
-FOUND=$( { nm "$BINARY" | xcrun swift-demangle; strings - "$BINARY"; } | grep -Eo "$FORBIDDEN" | sort -u || true)
+# Bare `Demo` covers DemoLaunchOptions, DemoData, DemoPresenter, RevealDemoOptions, HealthDemoSeeding, HerbariumDemo,
+# ReminderDemo, RestDemo and FocusDemo. A bare `Preview` would also hit SharePreview and similar real names, so the
+# preview types are named.
+FORBIDDEN='PreviewBlockingService|PreviewLeafShareProvider|RecordingLiveActivityController|HealthSleepSeeder|Demo|DesignSystemView'
+[[ -f "$BINARY" ]] || { echo "No binary at $BINARY" >&2; exit 2; }
+SYMS=$(nm "$BINARY" | xcrun swift-demangle) || { echo "Could not read symbols from $BINARY" >&2; exit 2; }
+STR=$(strings - "$BINARY") || { echo "Could not read strings from $BINARY" >&2; exit 2; }
+[[ -n "$SYMS" && -n "$STR" ]] || { echo "Read no symbols or strings from $BINARY" >&2; exit 2; }
+# grep exits 1 when nothing matches (the pass); any other failure, such as a broken pattern, is an error.
+STATUS=0
+FOUND=$(print -r -- "$SYMS"$'\n'"$STR" | grep -Eo "$FORBIDDEN" | sort -u) || STATUS=$?
+(( STATUS <= 1 )) || { echo "Searching $BINARY failed (exit $STATUS)" >&2; exit 2; }
 if [[ -n "$FOUND" ]]; then
   echo "Release build contains DEBUG-only code:"
   echo "$FOUND"

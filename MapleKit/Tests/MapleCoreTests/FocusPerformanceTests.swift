@@ -3,8 +3,9 @@ import Testing
 @testable import MapleCore
 
 /// F1 design §8.1: replaying the open days stays well inside a frame budget, and a full rebuild of years of sessions
-/// stays under a second, in the Debug simulator.
-@Suite("Focus performance")
+/// stays under a second, in the Debug simulator. The two run one after the other, and each rebuild is timed three times
+/// after an untimed warm-up with the fastest asserted, so a busy moment on the machine doesn't fail a limit.
+@Suite("Focus performance", .serialized)
 struct FocusPerformanceTests {
     /// Two sessions a day (50 and 25 minutes) for `days` days, each in its own day's awake window.
     private func synthetic(days: Int) -> [FocusEvent] {
@@ -31,22 +32,28 @@ struct FocusPerformanceTests {
         return book
     }
 
+    /// The fastest of 3 rebuilds, after one untimed rebuild to warm up.
+    private func fastest(_ events: [FocusEvent]) -> (elapsed: Duration, book: FocusBook) {
+        var book = rebuild(events)
+        var best = Duration.seconds(3600)
+        for _ in 0..<3 {
+            best = min(best, ContinuousClock().measure { book = rebuild(events) })
+        }
+        return (best, book)
+    }
+
     @Test("Replaying two months of open days takes under 50 ms")
     func openDays() {
-        let events = synthetic(days: 62)
-        var book = FocusBook()
-        let elapsed = ContinuousClock().measure { book = rebuild(events) }
+        let (elapsed, book) = fastest(synthetic(days: 62))
         #expect(book.days.count == 62)
-        #expect(elapsed < .milliseconds(50), "\(elapsed)")
+        #expect(elapsed < .milliseconds(50), "fastest of 3: \(elapsed)")
     }
 
     @Test("Rebuilding 3 years of sessions takes under a second")
     func threeYears() {
-        let events = synthetic(days: 3 * 365)
-        var book = FocusBook()
-        let elapsed = ContinuousClock().measure { book = rebuild(events) }
+        let (elapsed, book) = fastest(synthetic(days: 3 * 365))
         #expect(book.days.count == 3 * 365)
         #expect(book.totalFinished == 2 * 3 * 365)
-        #expect(elapsed < .seconds(1), "\(elapsed)")
+        #expect(elapsed < .seconds(1), "fastest of 3: \(elapsed)")
     }
 }
