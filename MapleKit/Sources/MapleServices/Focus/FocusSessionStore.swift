@@ -12,9 +12,10 @@ import Observation
 ///   block at once. Final clears (a session's end, "Release all apps") always run, written or not.
 /// - While the ledger can't be read the store is in an unknown state: it neither writes nor clears.
 /// - A running session whose shields go missing is marked `shieldLost` and carries on as a plain timer.
-/// - Each command replays the open ledger, or the whole of it when the open read shows a sign of a missing start (a
-///   session's events without its `sessionStarted`, or applied shields whose session it doesn't show running): a clock
-///   set far forward can push a running session's start out of the open read's files.
+/// - Each command replays the open ledger. When the open read shows a sign of a missing start (an unended session's
+///   events without its `sessionStarted`, or applied shields whose session it doesn't show running), it also reads the
+///   whole ledger and adds the events of every session it holds unended, and nothing else of the history: a clock set
+///   far forward can push a running session's start out of the open read's files.
 @Observable
 public final class FocusSessionStore {
     public struct StartRequest: Sendable {
@@ -84,12 +85,13 @@ public final class FocusSessionStore {
     @ObservationIgnored private var known: Set<String> = []
     /// Events the running command wrote that `replayed` doesn't hold yet.
     @ObservationIgnored private var written: [FocusEvent] = []
-    /// `replayed` comes from a full read: an open read showed a sign of a missing start.
-    @ObservationIgnored private var replayedAll = false
-    /// Sessions in `replayed` without their `sessionStarted`.
+    /// Since `replayed` was last rebuilt, a full read added every session the ledger holds unended.
+    @ObservationIgnored private var widened = false
+    /// Sessions in `replayed` without their `sessionStarted` that may still be running: none of their events ends them
+    /// or clears their shields as orphaned.
     @ObservationIgnored private var missingStarts: Set<UUID> = []
-    /// Sessions a full read found with no `sessionStarted` anywhere (an orphan clear, a damaged line): no sign of a
-    /// missing start, so they don't widen later replays.
+    /// Sessions a full read found with no `sessionStarted` anywhere (a damaged line): no sign of a missing start, so they
+    /// don't widen later replays.
     @ObservationIgnored private var startless: Set<UUID> = []
 
     /// - Parameters:
@@ -263,10 +265,10 @@ public final class FocusSessionStore {
     }
 
     /// Reads the open ledger, the command's one read. A read that holds only what the replay already has (what this store
-    /// wrote) keeps it; anything else rebuilds it from the read. The whole ledger is read instead when the open read
-    /// shows a sign of a missing start: events of a session without its `sessionStarted`, or `shields` (a read-back)
-    /// applied for a session it doesn't show running. False when what it must read can't be read: the command then
-    /// does nothing (the unknown state).
+    /// wrote) keeps it; anything else rebuilds it from the read. The replay is widened (`widen()`) when it shows a sign
+    /// of a missing start: an unended session's events without its `sessionStarted`, or `shields` (a read-back) applied
+    /// for a session it doesn't show running. An ended session's missing start doesn't matter: it can't be running.
+    /// False when what it must read can't be read: the command then does nothing (the unknown state).
     @discardableResult
     private func replay(shields: ShieldStoreState? = nil) -> Bool {
         guard let events = ledger.readOpen(now: now) else {
@@ -279,26 +281,45 @@ public final class FocusSessionStore {
             lastRead = events
             if !events.allSatisfy({ known.contains($0.id) }) {
                 rebuild(events)
-                replayedAll = false
+                widened = false
             }
         }
-        guard !replayedAll else { return true }
+        guard !widened else { return true }
         var orphaned = false
         if case .applied(let id) = shields { orphaned = running?.id != id }
         guard orphaned || !missingStarts.isSubset(of: startless) else { return true }
-        return replayAll()
+        return widen()
     }
 
-    /// Rebuilds the replay from the whole ledger. False when it can't be read.
-    private func replayAll() -> Bool {
-        guard let events = ledger.readAll() else {
+    /// Reads the whole ledger and adds to the replay the events of every session it holds unended (started, with no
+    /// `sessionEnded`), so a running session's start is found wherever it is. Nothing else of the history is kept, so
+    /// later commands cost what the open read costs. False when the ledger can't be read.
+    private func widen() -> Bool {
+        guard let all = ledger.readAll() else {
             isLedgerReadable = false
             return false
         }
-        rebuild(events)
-        replayedAll = true
+        var started = Set<UUID>()
+        var ended = Set<UUID>()
+        for event in all {
+            if case .sessionStarted = event.kind { started.insert(event.sessionID) }
+            if Self.ends(event) { ended.insert(event.sessionID) }
+        }
+        let unended = started.subtracting(ended)
+        let found = all.filter { unended.contains($0.sessionID) && !known.contains($0.id) }
+        if !found.isEmpty {
+            replayed.merge(found)
+            for event in found { known.insert(event.id) }
+            derive()
+        }
+        widened = true
         startless = missingStarts
         return true
+    }
+
+    /// Whether `event` ends its session, as `SessionRecord` reads a terminal event.
+    private static func ends(_ event: FocusEvent) -> Bool {
+        event.kind.isTerminal && event.affectsCredit
     }
 
     private func rebuild(_ events: [FocusEvent]) {
@@ -325,9 +346,15 @@ public final class FocusSessionStore {
         anchor = placed.last { $0.event.deviceID == device && $0.event.stamp.boot == boot }
         sessions = FocusLedger.sessions(placed: placed)
         running = sessions.last { !$0.isEnded && !$0.isHidden }
+        // A session ended, or whose shields were cleared as orphaned (only ever after a full read found nothing to run), is
+        // no sign of a missing start.
         var ids = Set<UUID>()
-        for event in replayed.events { ids.insert(event.sessionID) }
-        missingStarts = ids.subtracting(sessions.map(\.id))
+        var closed = Set<UUID>()
+        for event in replayed.events {
+            ids.insert(event.sessionID)
+            if Self.ends(event) || event.kind == .shieldCleared(.orphaned) { closed.insert(event.sessionID) }
+        }
+        missingStarts = ids.subtracting(sessions.map(\.id)).subtracting(closed)
     }
 
     /// Writes an event for `absorb()` to merge.
@@ -428,9 +455,9 @@ public final class FocusSessionStore {
     private func reconcileShields(now: Date) async {
         let store = await blocking.readStore()
         var now = now
-        if case .applied(let id) = store, id != running?.id, !replayedAll {
+        if case .applied(let id) = store, id != running?.id, !widened {
             // Shields the replay doesn't explain: read the whole ledger before calling them orphaned.
-            guard replayAll() else { return }
+            guard widen() else { return }
             now = self.now
         }
         for op in ShieldReconciler.ops(running: running, store: store, now: now) {
@@ -441,8 +468,6 @@ public final class FocusSessionStore {
                 if orphaned, sessions.contains(where: { $0.id == session && !$0.isEnded }) { continue }
                 _ = await blocking.perform(op, selection: nil)
                 _ = try? write(.shieldCleared(orphaned ? .orphaned : .expired), session: session)
-                // The full read found no start for an orphan, and none will come: its clear widens nothing later.
-                if orphaned, !sessions.contains(where: { $0.id == session }) { startless.insert(session) }
             case .apply(let session):
                 // Never re-applied silently: proof stops at the last checkpoint (§3.3).
                 _ = try? write(.shieldLost, session: session)

@@ -150,7 +150,7 @@ The focus spec's R1 to R14 stand, with the changes below made in place there. F1
 - **Ids.** Events the app writes get a random UUID. Events that two processes might both derive (an end at the planned time, a clear) get a deterministic id built from the session id and the kind, so writing one twice is harmless. A second terminal event for a session is ignored.
 
 ### 3.2 Order and placement
-- **Order.** Events sort by device, then boot, then continuous time, then writer, then `seq`, then id. Boots on a device are ordered by when they first appear in the app writer's own `seq`, or else by their first event's wall time.
+- **Order.** Events sort by boot, then continuous time, then writer, then `seq`, then id. Boots are ordered by when they first appear in the app writer's own `seq`, which carries on across device ids on one install, or else by their first event's wall time; the device id only breaks ties.
 - **Placement (trusted time).** Within one boot, every event is placed at the boot's anchor plus the continuous time elapsed since it. The anchor is the boot's first event's wall time. So changing the clock inside a boot moves nothing.
 - **Across boots,** a boot's anchor is never earlier than the last placed event of the boot before it. So setting the clock back can't move a session onto an earlier day.
 
@@ -644,7 +644,7 @@ The types the F1-paid extensions need, kept apart so the monitor (about 6 MB of 
   - reading tolerates damage: bad lines are skipped and counted, and the file is never set aside;
   - files use `.completeUntilFirstUserAuthentication` protection.
 - **`FocusLedgerStore`,** a protocol with two implementations:
-  - `FileLedgerStore`: one file per writer per month (`ledger-app-2026-10.jsonl`), so files stay small and a replay of the open days reads only the last two months;
+  - `FileLedgerStore`: one file per writer per month (`ledger-app-2026-10.jsonl`), so files stay small and a replay of the open days reads only the recent months' files, decoding only what was appended since its last read;
   - `MemoryLedgerStore`: for demos and tests.
 
 ### 7.4 MapleServices/Focus (MainActor)

@@ -57,6 +57,15 @@ private final class Harness {
     }
 
     var kinds: [String] { ledger.events.map(\.kind.type) }
+
+    /// A new store over `ledger` (this harness's in-memory ledger, or a wrapper around it), with the same clock, device,
+    /// collection and, unless given another, blocker: the next process's store.
+    func relaunch(over ledger: any FocusLedgerStore, blocking: (any BlockingService)? = nil) -> FocusSessionStore {
+        let blocker = blocking ?? self.blocking
+        let writer = LedgerWriter(store: ledger, time: time, deviceID: device, writer: .app, source: blocker.source)
+        return FocusSessionStore(ledger: ledger, writer: writer, blocking: blocker, collection: collection, credited: [.live, .preview],
+                                 liveActivity: RecordingLiveActivityController(), appBuild: "test")
+    }
 }
 
 /// An in-memory ledger that refuses exactly one append (counting from 1) and accepts every other: a start written
@@ -161,6 +170,54 @@ private final class CountingReads: FocusLedgerStore {
     func lastSeq(of writer: FocusWriter) -> Int? { base.lastSeq(of: writer) }
 }
 
+/// An in-memory ledger whose open read leaves out some sessions' starts, as when a session ran across the 1st and its start's
+/// month file has left the open read. It counts full reads.
+private final class HiddenStarts: FocusLedgerStore {
+    let base: MemoryLedgerStore
+    let hidden: Set<UUID>
+    private let count = Mutex(0)
+
+    init(_ base: MemoryLedgerStore, hiding hidden: Set<UUID>) {
+        self.base = base
+        self.hidden = hidden
+    }
+
+    var fullReads: Int { count.withLock { $0 } }
+
+    func append(_ event: FocusEvent) throws { try base.append(event) }
+    func readOpen(now: Date) -> [FocusEvent]? {
+        base.readOpen(now: now)?.filter { !(hidden.contains($0.sessionID) && $0.kind.type == "sessionStarted") }
+    }
+    func readAll() -> [FocusEvent]? {
+        count.withLock { $0 += 1 }
+        return base.readAll()
+    }
+    func lastSeq(of writer: FocusWriter) -> Int? { base.lastSeq(of: writer) }
+}
+
+/// The preview blocker, except that the first read-back of its store finds it empty: shields that appear between a
+/// command's first read-back and its reconcile (another process applying them).
+@MainActor
+private final class LateShields: BlockingService {
+    let base: PreviewBlockingService
+    private var reads = 0
+
+    init(_ base: PreviewBlockingService) {
+        self.base = base
+    }
+
+    var capability: BlockingCapability { base.capability }
+    var source: FocusSource { base.source }
+    func probe() async -> BlockingProbe { await base.probe() }
+    func requestAuthorization() async -> BlockingProbe { await base.requestAuthorization() }
+    func readStore() async -> ShieldStoreState {
+        reads += 1
+        return reads == 1 ? .empty : await base.readStore()
+    }
+    func perform(_ op: ShieldOp, selection: Data?) async -> ShieldResult { await base.perform(op, selection: selection) }
+    func releaseAll() async -> ShieldResult { await base.releaseAll() }
+}
+
 /// An in-memory ledger whose open read can be made to miss everything, as a clock set far forward can.
 private final class BlindOpenRead: FocusLedgerStore {
     let base: MemoryLedgerStore
@@ -215,27 +272,77 @@ struct FocusSessionStoreTests {
         #expect(!h.events.contains { $0.kind == .shieldCleared(.orphaned) })
     }
 
-    @Test("Shields the open read can't explain are never cleared as orphaned until the full read confirms no session runs")
+    @Test("Applied shields the open read can't explain send a relaunched store to the full read: it finds the session running and keeps none of the ended history")
     func orphanNeedsFullRead() async throws {
-        let h = Harness(wrap: { BlindOpenRead($0) })
-        let ledger = try #require(h.events as? BlindOpenRead)
+        let h = Harness()
+        // An earlier session that ended, then the running one.
+        guard case .started(let ended) = await h.store.start(h.request()) else { Issue.record("not started"); return }
+        h.advance(minutes: 50)
+        await h.store.refresh()
+        #expect(h.store.lastEnded?.id == ended)
+        h.advance(minutes: 10)
         guard case .started(let id) = await h.store.start(h.request()) else { Issue.record("not started"); return }
         h.advance(minutes: 5)
-        ledger.isBlind = true
-        await h.store.refresh()
+        let blind = BlindOpenRead(h.ledger)
+        blind.isBlind = true
+        func verified() -> Int { h.ledger.events.filter { $0.sessionID == id && $0.kind == .shieldVerified }.count }
+
+        // A relaunch whose open read misses everything; its first command is a Start.
+        let first = h.relaunch(over: blind)
+        #expect(await first.start(h.request()) == .alreadyRunning)
+        #expect(first.running?.id == id)
+        #expect(first.sessions.map(\.id) == [id], "the full read keeps only the unended session, not the history")
         #expect(h.blocking.store == .applied(session: id))
-        #expect(h.store.running?.id == id)
+
+        // A relaunch whose first command is a refresh: the session is found before the checkpoint, which proves it.
+        let second = h.relaunch(over: blind)
+        await second.refresh()
+        #expect(second.running?.id == id)
+        #expect(verified() == 1)
+        #expect(second.sessions.map(\.id) == [id])
+        #expect(h.blocking.store == .applied(session: id))
+
+        // Shields that read back only by the time the shields are matched: the reconcile reads the whole ledger itself.
+        let third = h.relaunch(over: blind, blocking: LateShields(h.blocking))
+        await third.refresh()
+        #expect(third.running?.id == id)
+        #expect(h.blocking.store == .applied(session: id))
         #expect(!h.ledger.events.contains { $0.kind == .shieldCleared(.orphaned) })
-        #expect(await h.store.start(h.request()) == .alreadyRunning)
 
         // A real orphan (applied, nothing written) is still cleared once the full read confirms it.
-        await h.store.end(.endedEarly)
-        #expect(h.store.lastEnded?.id == id)
+        await second.end(.endedEarly)
+        #expect(second.lastEnded?.id == id)
         let orphan = UUID()
         _ = await h.blocking.perform(.apply(session: orphan), selection: Data("six".utf8))
-        await h.store.refresh()
+        await second.refresh()
         #expect(h.blocking.store == .empty)
         #expect(h.ledger.events.contains { $0.sessionID == orphan && $0.kind == .shieldCleared(.orphaned) })
+    }
+
+    @Test("A missing start widens the read only while its session may be running: an ended session or an orphan clear never does")
+    func endedAndOrphanDontWiden() async throws {
+        // A session that ran across the 1st: the next launch's open read holds its end but not its start.
+        let crossed = Harness()
+        guard case .started(let ended) = await crossed.store.start(crossed.request()) else { Issue.record("not started"); return }
+        crossed.advance(minutes: 50)
+        await crossed.store.refresh()
+        #expect(crossed.store.lastEnded?.id == ended)
+        let withoutStart = HiddenStarts(crossed.ledger, hiding: [ended])
+        let relaunched = crossed.relaunch(over: withoutStart)
+        await relaunched.refresh()
+        #expect(withoutStart.fullReads == 0)
+        #expect(relaunched.running == nil)
+
+        // Shields cleared as orphaned: their session never had a start.
+        let orphaned = Harness()
+        _ = await orphaned.blocking.perform(.apply(session: UUID()), selection: Data("six".utf8))
+        await orphaned.store.refresh()
+        #expect(orphaned.ledger.events.contains { $0.kind == .shieldCleared(.orphaned) })
+        let counting = HiddenStarts(orphaned.ledger, hiding: [])
+        let next = orphaned.relaunch(over: counting)
+        await next.refresh()
+        #expect(counting.fullReads == 0)
+        #expect(next.running == nil)
     }
 
     @Test("Each command reads the ledger once: what it writes is merged in memory, not read back")
