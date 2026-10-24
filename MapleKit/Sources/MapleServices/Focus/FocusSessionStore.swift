@@ -87,8 +87,8 @@ public final class FocusSessionStore {
     @ObservationIgnored private var written: [FocusEvent] = []
     /// Since `replayed` was last rebuilt, a full read added every session the ledger holds unended.
     @ObservationIgnored private var widened = false
-    /// Sessions in `replayed` without their `sessionStarted` that may still be running: none of their events ends them
-    /// or clears their shields as orphaned.
+    /// Sessions in `replayed` without their `sessionStarted` that may still be running: one of their events can change
+    /// credit, and none ends them or clears their shields as orphaned.
     @ObservationIgnored private var missingStarts: Set<UUID> = []
     /// Sessions a full read found with no `sessionStarted` anywhere (a damaged line): no sign of a missing start, so they
     /// don't widen later replays.
@@ -347,11 +347,12 @@ public final class FocusSessionStore {
         sessions = FocusLedger.sessions(placed: placed)
         running = sessions.last { !$0.isEnded && !$0.isHidden }
         // A session ended, or whose shields were cleared as orphaned (only ever after a full read found nothing to run), is
-        // no sign of a missing start.
+        // no sign of a missing start; nor is an event that can't change credit (a reflection, F2's hiding): a running
+        // session out of sight still shows itself through its checkpoints.
         var ids = Set<UUID>()
         var closed = Set<UUID>()
         for event in replayed.events {
-            ids.insert(event.sessionID)
+            if event.affectsCredit { ids.insert(event.sessionID) }
             if Self.ends(event) || event.kind == .shieldCleared(.orphaned) { closed.insert(event.sessionID) }
         }
         missingStarts = ids.subtracting(sessions.map(\.id)).subtracting(closed)

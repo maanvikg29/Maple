@@ -170,14 +170,14 @@ private final class CountingReads: FocusLedgerStore {
     func lastSeq(of writer: FocusWriter) -> Int? { base.lastSeq(of: writer) }
 }
 
-/// An in-memory ledger whose open read leaves out some sessions' starts, as when a session ran across the 1st and its start's
-/// month file has left the open read. It counts full reads.
-private final class HiddenStarts: FocusLedgerStore {
+/// An in-memory ledger whose open read leaves out some events, as when a session's earlier events are in a month file that
+/// has left the open read. It counts full reads.
+private final class PartialOpenRead: FocusLedgerStore {
     let base: MemoryLedgerStore
-    let hidden: Set<UUID>
+    let hidden: @Sendable (FocusEvent) -> Bool
     private let count = Mutex(0)
 
-    init(_ base: MemoryLedgerStore, hiding hidden: Set<UUID>) {
+    init(_ base: MemoryLedgerStore, hiding hidden: @escaping @Sendable (FocusEvent) -> Bool = { _ in false }) {
         self.base = base
         self.hidden = hidden
     }
@@ -186,7 +186,7 @@ private final class HiddenStarts: FocusLedgerStore {
 
     func append(_ event: FocusEvent) throws { try base.append(event) }
     func readOpen(now: Date) -> [FocusEvent]? {
-        base.readOpen(now: now)?.filter { !(hidden.contains($0.sessionID) && $0.kind.type == "sessionStarted") }
+        base.readOpen(now: now)?.filter { !hidden($0) }
     }
     func readAll() -> [FocusEvent]? {
         count.withLock { $0 += 1 }
@@ -319,7 +319,7 @@ struct FocusSessionStoreTests {
         #expect(h.ledger.events.contains { $0.sessionID == orphan && $0.kind == .shieldCleared(.orphaned) })
     }
 
-    @Test("A missing start widens the read only while its session may be running: an ended session or an orphan clear never does")
+    @Test("A missing start widens the read only while its session may be running: an ended session, an orphan clear or a lone reflection never does")
     func endedAndOrphanDontWiden() async throws {
         // A session that ran across the 1st: the next launch's open read holds its end but not its start.
         let crossed = Harness()
@@ -327,7 +327,7 @@ struct FocusSessionStoreTests {
         crossed.advance(minutes: 50)
         await crossed.store.refresh()
         #expect(crossed.store.lastEnded?.id == ended)
-        let withoutStart = HiddenStarts(crossed.ledger, hiding: [ended])
+        let withoutStart = PartialOpenRead(crossed.ledger, hiding: { $0.sessionID == ended && $0.kind.type == "sessionStarted" })
         let relaunched = crossed.relaunch(over: withoutStart)
         await relaunched.refresh()
         #expect(withoutStart.fullReads == 0)
@@ -338,11 +338,26 @@ struct FocusSessionStoreTests {
         _ = await orphaned.blocking.perform(.apply(session: UUID()), selection: Data("six".utf8))
         await orphaned.store.refresh()
         #expect(orphaned.ledger.events.contains { $0.kind == .shieldCleared(.orphaned) })
-        let counting = HiddenStarts(orphaned.ledger, hiding: [])
+        let counting = PartialOpenRead(orphaned.ledger)
         let next = orphaned.relaunch(over: counting)
         await next.refresh()
         #expect(counting.fullReads == 0)
         #expect(next.running == nil)
+
+        // A session that ended before the 1st, reflected on after it: the open read holds only the reflection, which can't
+        // change credit (a running session out of sight still shows itself through its checkpoints).
+        let reflected = Harness()
+        guard case .started(let done) = await reflected.store.start(reflected.request()) else { Issue.record("not started"); return }
+        reflected.advance(minutes: 50)
+        await reflected.store.refresh()
+        #expect(reflected.store.lastEnded?.id == done)
+        reflected.advance(minutes: 10)
+        await reflected.store.reflect(.allDone, on: done)
+        let onlyReflection = PartialOpenRead(reflected.ledger, hiding: { $0.sessionID == done && $0.kind.type != "reflected" })
+        let afterReflection = reflected.relaunch(over: onlyReflection)
+        await afterReflection.refresh()
+        #expect(onlyReflection.fullReads == 0)
+        #expect(afterReflection.running == nil)
     }
 
     @Test("Each command reads the ledger once: what it writes is merged in memory, not read back")

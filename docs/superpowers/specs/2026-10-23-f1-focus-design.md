@@ -152,7 +152,7 @@ The focus spec's R1 to R14 stand, with the changes below made in place there. F1
 ### 3.2 Order and placement
 - **Order.** Events sort by boot, then continuous time, then writer, then `seq`, then id. Boots are ordered by when they first appear in the app writer's own `seq`, which carries on across device ids on one install, or else by their first event's wall time; the device id only breaks ties.
 - **Placement (trusted time).** Within one boot, every event is placed at the boot's anchor plus the continuous time elapsed since it. The anchor is the boot's first event's wall time. So changing the clock inside a boot moves nothing.
-- **Across boots,** a boot's anchor is never earlier than the last placed event of the boot before it. So setting the clock back can't move a session onto an earlier day.
+- **Across boots,** a boot's anchor is never earlier than the last placed event of the boot before it on the same device. So setting the clock back can't move a session onto an earlier day.
 
 ### 3.3 One session's credit
 1. **Start.** Credit starts at `shieldApplied`, which is only ever written after a read-back of a qualifying selection (R2, R3). The countdown also runs from `shieldApplied`, not from the tap.
