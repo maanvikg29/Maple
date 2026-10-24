@@ -15,18 +15,30 @@ private final class Harness {
     let collection: CollectionStore
     let activity = RecordingLiveActivityController()
     let store: FocusSessionStore
+    /// What the store reads and writes through: the in-memory ledger, or a wrapper around it.
+    let events: any FocusLedgerStore
 
     let six = AppSet(id: AppSet.distractionsID, name: "Distractions", selection: Data("six".utf8),
                      summary: SelectionSummary(mode: .blockThese, apps: 6, sites: 0, categories: 0))
 
-    /// - Parameter failingAppend: The one append (counting from 1) the ledger refuses, if any.
-    init(authorization: BlockingProbe = .allowed, failingAppend: Int? = nil) {
+    /// - Parameters:
+    ///   - failingAppend: The one append (counting from 1) the ledger refuses, if any.
+    ///   - wrap: Wraps the in-memory ledger (to count or hide reads).
+    init(authorization: BlockingProbe = .allowed, failingAppend: Int? = nil, wrap: ((MemoryLedgerStore) -> any FocusLedgerStore)? = nil) {
         blocking = PreviewBlockingService(authorization: authorization)
         collection = CollectionStore(storage: JSONStorage(.memory), context: testContext, now: at(2026, 10, 1, 9))
         collection.raise(.firstLeaf, to: 1, at: at(2026, 10, 1, 9))
         collection.openReveals(at: at(2026, 10, 1, 9, 5))
         let memory = ledger
-        let events: any FocusLedgerStore = failingAppend.map { RefusingOneAppend(memory, refusing: $0) } ?? memory
+        let events: any FocusLedgerStore
+        if let wrap {
+            events = wrap(memory)
+        } else if let failingAppend {
+            events = RefusingOneAppend(memory, refusing: failingAppend)
+        } else {
+            events = memory
+        }
+        self.events = events
         let writer = LedgerWriter(store: events, time: time, deviceID: device, writer: .app, source: blocking.source)
         store = FocusSessionStore(ledger: events, writer: writer, blocking: blocking, collection: collection,
                                   credited: [.live, .preview], liveActivity: activity, appBuild: "test")
@@ -124,6 +136,31 @@ private final class FileHarness {
     }
 }
 
+/// An in-memory ledger that counts its reads.
+private final class CountingReads: FocusLedgerStore {
+    let base: MemoryLedgerStore
+    private let count = Mutex(0)
+
+    init(_ base: MemoryLedgerStore) {
+        self.base = base
+    }
+
+    /// Reads (open or full) since the last `reset()`.
+    var reads: Int { count.withLock { $0 } }
+    func reset() { count.withLock { $0 = 0 } }
+
+    func append(_ event: FocusEvent) throws { try base.append(event) }
+    func readOpen(now: Date) -> [FocusEvent]? {
+        count.withLock { $0 += 1 }
+        return base.readOpen(now: now)
+    }
+    func readAll() -> [FocusEvent]? {
+        count.withLock { $0 += 1 }
+        return base.readAll()
+    }
+    func lastSeq(of writer: FocusWriter) -> Int? { base.lastSeq(of: writer) }
+}
+
 /// An in-memory ledger whose open read can be made to miss everything, as a clock set far forward can.
 private final class BlindOpenRead: FocusLedgerStore {
     let base: MemoryLedgerStore
@@ -180,34 +217,52 @@ struct FocusSessionStoreTests {
 
     @Test("Shields the open read can't explain are never cleared as orphaned until the full read confirms no session runs")
     func orphanNeedsFullRead() async throws {
-        let memory = MemoryLedgerStore()
-        let ledger = BlindOpenRead(memory)
-        let time = ManualFocusTime(wall: at(2026, 10, 24, 14))
-        let blocking = PreviewBlockingService()
-        let collection = CollectionStore(storage: JSONStorage(.memory), context: testContext, now: at(2026, 10, 1, 9))
-        let writer = LedgerWriter(store: ledger, time: time, deviceID: UUID(), writer: .app, source: blocking.source)
-        let store = FocusSessionStore(ledger: ledger, writer: writer, blocking: blocking, collection: collection,
-                                      credited: [.live, .preview], liveActivity: RecordingLiveActivityController(), appBuild: "test")
-        let six = AppSet(id: AppSet.distractionsID, name: "Distractions", selection: Data("six".utf8),
-                         summary: SelectionSummary(mode: .blockThese, apps: 6, sites: 0, categories: 0))
-        let request = FocusSessionStore.StartRequest(preset: FocusPreset.defaults(appSetID: AppSet.distractionsID)[0], minutes: 50,
-                                                     appSet: six, from: .focusTab)
-        guard case .started(let id) = await store.start(request) else { Issue.record("not started"); return }
-        time.advance(5 * 60)
+        let h = Harness(wrap: { BlindOpenRead($0) })
+        let ledger = try #require(h.events as? BlindOpenRead)
+        guard case .started(let id) = await h.store.start(h.request()) else { Issue.record("not started"); return }
+        h.advance(minutes: 5)
         ledger.isBlind = true
-        await store.refresh()
-        #expect(blocking.store == .applied(session: id))
-        #expect(store.running?.id == id)
-        #expect(!memory.events.contains { $0.kind == .shieldCleared(.orphaned) })
-        #expect(await store.start(request) == .alreadyRunning)
+        await h.store.refresh()
+        #expect(h.blocking.store == .applied(session: id))
+        #expect(h.store.running?.id == id)
+        #expect(!h.ledger.events.contains { $0.kind == .shieldCleared(.orphaned) })
+        #expect(await h.store.start(h.request()) == .alreadyRunning)
 
         // A real orphan (applied, nothing written) is still cleared once the full read confirms it.
-        await store.end(.endedEarly)
+        await h.store.end(.endedEarly)
+        #expect(h.store.lastEnded?.id == id)
         let orphan = UUID()
-        _ = await blocking.perform(.apply(session: orphan), selection: Data("six".utf8))
-        await store.refresh()
-        #expect(blocking.store == .empty)
-        #expect(memory.events.contains { $0.sessionID == orphan && $0.kind == .shieldCleared(.orphaned) })
+        _ = await h.blocking.perform(.apply(session: orphan), selection: Data("six".utf8))
+        await h.store.refresh()
+        #expect(h.blocking.store == .empty)
+        #expect(h.ledger.events.contains { $0.sessionID == orphan && $0.kind == .shieldCleared(.orphaned) })
+    }
+
+    @Test("Each command reads the ledger once: what it writes is merged in memory, not read back")
+    func oneReadPerCommand() async throws {
+        let h = Harness(wrap: { CountingReads($0) })
+        let reads = try #require(h.events as? CountingReads)
+        guard case .started(let id) = await h.store.start(h.request()) else { Issue.record("not started"); return }
+        #expect(reads.reads == 1)
+
+        reads.reset()
+        h.advance(minutes: 5)
+        await h.store.refresh()
+        #expect(h.kinds.last == "shieldVerified")
+        #expect(h.store.running?.lastCheckpoint == at(2026, 10, 23, 14, 5))
+        #expect(reads.reads == 1)
+
+        reads.reset()
+        await h.store.refresh()
+        #expect(reads.reads == 1)
+
+        reads.reset()
+        h.advance(minutes: 45)
+        await h.store.refresh()
+        #expect(h.store.lastEnded?.id == id)
+        #expect(h.store.lastEnded?.endReason == .completed)
+        #expect(h.collection.focus.totalSeconds == 3000)
+        #expect(reads.reads == 1)
     }
 
     @Test("A session starts with the block confirmed, completes at its planned end, and its credit reaches the collection")

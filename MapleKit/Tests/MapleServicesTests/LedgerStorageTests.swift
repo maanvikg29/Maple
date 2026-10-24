@@ -135,18 +135,78 @@ struct LedgerStorageTests {
         #expect(store.events.map(\.seq) == [9, 10, 11])
     }
 
-    @Test("The last sequence number is unknown, not zero, while one of the writer's files can't be read")
+    @Test("The last sequence number is unknown, not zero, while the writer's newest file can't be read")
     func lastSeqUnreadable() throws {
         let folder = try temporaryDirectory()
         let store = FileLedgerStore(directory: folder)
         try store.append(event(41, wall: at(2026, 9, 2)))
         try store.append(event(42, wall: at(2026, 10, 2)))
-        let locked = folder.appending(path: "ledger-app-2026-09.jsonl").path
+        let locked = folder.appending(path: "ledger-app-2026-10.jsonl").path
         try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: locked)
         defer { try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: locked) }
         #expect(store.lastSeq(of: .app) == nil)
         #expect(store.readAll() == nil)
         #expect(store.lastSeq(of: .monitor) == 0)
+    }
+
+    @Test("The last sequence number reads only the writer's newest file, or the one before when it has no readable line")
+    func lastSeqNewestFile() throws {
+        let folder = try temporaryDirectory()
+        let store = FileLedgerStore(directory: folder)
+        try store.append(event(41, wall: at(2026, 9, 2)))
+        try store.append(event(42, wall: at(2026, 10, 2)))
+        try store.append(event(7, wall: at(2026, 10, 2), writer: .monitor))
+        // Appends never go to a file named before the writer's newest, so an older file can't hold a higher number and is
+        // never opened.
+        let september = folder.appending(path: "ledger-app-2026-09.jsonl").path
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: september)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: september) }
+        #expect(store.lastSeq(of: .app) == 42)
+        try Data("{\"id\":\"half\n".utf8).write(to: folder.appending(path: "ledger-monitor-2026-11.jsonl"))
+        #expect(store.lastSeq(of: .monitor) == 7)
+    }
+
+    @Test("A store reads what was appended since its last read, a torn tail only once it is whole, and a changed file in full")
+    func incrementalRead() throws {
+        let folder = try temporaryDirectory()
+        let store = FileLedgerStore(directory: folder)
+        let url = folder.appending(path: "ledger-app-2026-10.jsonl")
+        try store.append(event(1, wall: at(2026, 10, 20)))
+        try store.append(event(2, wall: at(2026, 10, 21)))
+        #expect(store.readAll()?.map(\.seq) == [1, 2])
+        #expect(store.readOpen(now: at(2026, 10, 23))?.map(\.seq) == [1, 2])
+
+        // Another process appends a line, then is killed halfway through the next.
+        try FileLedgerStore(directory: folder).append(event(3, wall: at(2026, 10, 22)))
+        let fourth = try line(event(4, wall: at(2026, 10, 22)))
+        let handle = try FileHandle(forWritingTo: url)
+        try handle.seekToEnd()
+        try handle.write(contentsOf: fourth.prefix(30))
+        #expect(store.readAll()?.map(\.seq) == [1, 2, 3])
+        try handle.write(contentsOf: fourth.dropFirst(30))
+        try handle.close()
+        #expect(store.readAll()?.map(\.seq) == [1, 2, 3, 4])
+        #expect(store.readOpen(now: at(2026, 10, 23))?.map(\.seq) == [1, 2, 3, 4])
+        #expect(store.lastSeq(of: .app) == 4)
+
+        // The file is cut short in place, then replaced by another (a restore): each is read again in full.
+        let cut = try FileHandle(forWritingTo: url)
+        try cut.truncate(atOffset: UInt64(try line(event(1, wall: at(2026, 10, 20))).count))
+        try cut.close()
+        #expect(store.readAll()?.map(\.seq) == [1])
+        try (line(event(9, wall: at(2026, 10, 20))) + line(event(10, wall: at(2026, 10, 20))) + line(event(11, wall: at(2026, 10, 20))))
+            .write(to: url, options: .atomic)
+        #expect(store.readAll()?.map(\.seq) == [9, 10, 11])
+        #expect(store.lastSeq(of: .app) == 11)
+        try FileManager.default.removeItem(at: url)
+        #expect(store.readAll()?.isEmpty == true)
+    }
+
+    /// One encoded ledger line, as `JSONLinesFile` writes it.
+    private func line(_ event: FocusEvent) throws -> Data {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        return try encoder.encode(event) + Data([0x0A])
     }
 
     @Test("An unreadable memory store reads as nil")

@@ -2,9 +2,10 @@ import Foundation
 import Testing
 @testable import MapleCore
 
-/// F1 design §8.1: replaying the open days stays well inside a frame budget, and a full rebuild of years of sessions
-/// stays under a second, in the Debug simulator. The two run one after the other, and each rebuild is timed three times
-/// after an untimed warm-up with the fastest asserted, so a busy moment on the machine doesn't fail a limit.
+/// F1 design §8.1: a full rebuild of years of sessions stays under a second, in the Debug simulator. The rebuild is timed
+/// three times after an untimed warm-up with the fastest asserted, so a busy moment on the machine doesn't fail the limit.
+/// The open days' limit is timed on the real workload, through the files and the session store
+/// (MapleServicesTests' `FocusStorePerformanceTests`).
 @Suite("Focus performance", .serialized)
 struct FocusPerformanceTests {
     /// Two sessions a day (50 and 25 minutes) for `days` days, each in its own day's awake window.
@@ -40,13 +41,6 @@ struct FocusPerformanceTests {
             best = min(best, ContinuousClock().measure { book = rebuild(events) })
         }
         return (best, book)
-    }
-
-    @Test("Replaying two months of open days takes under 50 ms")
-    func openDays() {
-        let (elapsed, book) = fastest(synthetic(days: 62))
-        #expect(book.days.count == 62)
-        #expect(elapsed < .milliseconds(50), "fastest of 3: \(elapsed)")
     }
 
     @Test("Rebuilding 3 years of sessions takes under a second")
