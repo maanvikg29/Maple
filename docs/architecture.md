@@ -93,7 +93,7 @@ Maple/
 │  ├─ MapleMonitor/  MapleReport/  MapleShield/  MapleShieldAction/
 │  └─ MapleWidgets/          (M8: widgets + Live Activities)
 ├─ Watch/                    (M8)
-├─ MapleKit/                 local Swift package: MapleCore · MapleDesign · MapleData · MapleServices + Tests/
+├─ MapleKit/                 local Swift package: MapleFocusCore · MapleStorage · MapleCore · MapleDesign · MapleData · MapleServices + Tests/
 ├─ docs/                     architecture.md (this plan), leaves.md, entitlements.md, decisions.md
 └─ Scripts/                  build.sh, test.sh
 ```
@@ -109,7 +109,7 @@ Each milestone ends with: unit tests pass, a clean build for the iPhone simulato
 
 1. **Reward re-cut and parked M1 merge (done).** `rewards.json` and the category code re-cut to the 7 focus categories; `m1-schedule-onboarding`, `m1-health-import` and `m1-notifications` merged, with Rested nights from Apple Health and no morning notification.
 2. **F1 Focus core** (`docs/superpowers/specs/2026-10-23-f1-focus-design.md`), in three plans:
-   - **F1a, logic:** MapleStorage, the MapleCore ledger, credit, `FocusBook`, counters and reconciler, and the stores with preview blocking. Ladders: `first_leaf`, `hours_saved`, `sessions_finished` and `focus_streak`.
+   - **F1a, logic:** MapleFocusCore (events, the ledger's order and placement, `SessionRecord` and the reconciler), MapleStorage (the container and the ledger files), credit, `FocusBook` and counters in MapleCore, and the stores with preview blocking. Ladders: `first_leaf`, `hours_saved`, `sessions_finished` and `focus_streak`.
    - **F1b, screens:**
      - the Focus tab, built around the minute-marks dial;
      - Home changes, the Live Activity and the notifications.
