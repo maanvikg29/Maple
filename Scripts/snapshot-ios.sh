@@ -75,8 +75,14 @@ struct SnapshotMain {
 HARNESS
 
 TARGET=arm64-apple-ios27.0-simulator
+# MapleCore imports and re-exports MapleFocusCore, so build that first: its own nonisolated module, with no resources.
+xcrun --sdk iphonesimulator swiftc -parse-as-library -Onone -swift-version 6 \
+  -target $TARGET -module-name MapleFocusCore \
+  -emit-library -static -emit-module -emit-module-path "$WORK/MapleFocusCore.swiftmodule" \
+  -o "$WORK/libMapleFocusCore.a" "$ROOT"/MapleKit/Sources/MapleFocusCore/*.swift
 xcrun --sdk iphonesimulator swiftc -parse-as-library -Onone -swift-version 6 \
   -target $TARGET -module-name MapleCore \
+  -I "$WORK" -L "$WORK" -lMapleFocusCore \
   -emit-library -static -emit-module -emit-module-path "$WORK/MapleCore.swiftmodule" \
   -o "$WORK/libMapleCore.a" "$WORK"/core/*.swift
 for f in "$ROOT"/MapleKit/Sources/MapleDesign/**/*.swift "${SCENES:A}" "$WORK/Harness.swift"; do
@@ -85,6 +91,6 @@ done
 xcrun --sdk iphonesimulator swiftc -parse-as-library -Onone -swift-version 6 \
   -default-isolation MainActor \
   -target $TARGET -module-name MapleSnapshot \
-  -I "$WORK" -L "$WORK" -lMapleCore \
+  -I "$WORK" -L "$WORK" -lMapleCore -lMapleFocusCore \
   -o "$WORK/snapshot" "$WORK"/src/*.swift
 xcrun simctl spawn "$UDID" "$WORK/snapshot" "$OUT" "$FILTER"
