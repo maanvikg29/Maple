@@ -22,10 +22,11 @@ public protocol FocusLedgerStore: Sendable {
 /// The ledger as files in the container: one per writer per month ("ledger-app-2026-10.jsonl"), so each process
 /// appends only to its own files and files stay small.
 ///
-/// Reads are incremental: for each file the store keeps the events it decoded and how many bytes that took, and the
-/// next read decodes only what was appended since. A torn tail (no final newline yet) is left until it is whole. A
-/// file that shrank or was replaced (another inode or creation date) is read again in full. A read that finds
-/// nothing changed hands back the very same array, so a caller can tell cheaply.
+/// Reads are incremental: for each file the open read takes, the store keeps the events it decoded and how many bytes
+/// that took, and the next read decodes only what was appended since. A torn tail (no final newline yet) is left until
+/// it is whole. A file that shrank or was replaced (another inode or creation date) is read again in full. An open read
+/// that finds nothing changed hands back the very same array, so a caller can tell cheaply. A full read (rare) decodes
+/// the older files without keeping them.
 public final class FileLedgerStore: FocusLedgerStore {
     public let directory: URL
     private let cache = Mutex(Cache())
@@ -103,8 +104,10 @@ public final class FileLedgerStore: FocusLedgerStore {
 
     private struct Cache {
         var files: [String: CachedFile] = [:]
-        /// The last open and full reads and the file states they came from, so an unchanged read is the same array.
-        var reads: [ReadKind: (states: [FileState], events: [FocusEvent])] = [:]
+        /// The last open read's file names.
+        var open: Set<String> = []
+        /// The last open read and the file states it came from, so an unchanged read is the same array.
+        var lastOpen: (states: [FileState], events: [FocusEvent])?
     }
 
     private static let utc: Calendar = {
@@ -148,18 +151,23 @@ public final class FileLedgerStore: FocusLedgerStore {
 
     private func read(_ urls: [URL], as kind: ReadKind) -> [FocusEvent]? {
         cache.withLock { cache in
+            if kind == .open { cache.open = Set(urls.map(\.lastPathComponent)) }
             var states: [FileState] = []
             var parts: [[FocusEvent]] = []
             for url in urls {
-                guard let file = Self.read(url, cache: &cache.files) else { return nil }
+                // Only the open read's files are kept; a full read's older files are decoded and let go.
+                var scratch: [String: CachedFile] = [:]
+                let kept = cache.open.contains(url.lastPathComponent)
+                guard let file = kept ? Self.read(url, cache: &cache.files) : Self.read(url, cache: &scratch) else { return nil }
                 if let state = file.state {
                     states.append(state)
                     parts.append(file.events)
                 }
             }
-            if let last = cache.reads[kind], last.states == states { return last.events }
+            guard kind == .open else { return Array(parts.joined()) }
+            if let last = cache.lastOpen, last.states == states { return last.events }
             let events = Array(parts.joined())
-            cache.reads[kind] = (states, events)
+            cache.lastOpen = (states, events)
             return events
         }
     }
