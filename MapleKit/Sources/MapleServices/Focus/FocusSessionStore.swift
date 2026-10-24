@@ -11,6 +11,9 @@ import Observation
 ///   block at once. Final clears (a session's end, "Release all apps") always run, written or not.
 /// - While the ledger can't be read the store is in an unknown state: it neither writes nor clears.
 /// - A running session whose shields go missing is marked `shieldLost` and carries on as a plain timer.
+/// - Each command replays the open ledger, or the whole of it when the open read shows a sign of a missing start (a
+///   session's events without its `sessionStarted`, or applied shields whose session it doesn't show running): a clock
+///   set far forward can push a running session's start out of the open read's files.
 @Observable
 public final class FocusSessionStore {
     public struct StartRequest: Sendable {
@@ -72,6 +75,11 @@ public final class FocusSessionStore {
     @ObservationIgnored private var queue: Task<Void, Never>?
     /// This device's newest event in the boot that was current at the last replay: trusted time runs on from it.
     @ObservationIgnored private var anchor: PlacedEvent?
+    /// The running command replays the whole ledger: its open read showed a sign of a missing start.
+    @ObservationIgnored private var widened = false
+    /// Sessions a full read found with no `sessionStarted` anywhere (an orphan clear, a damaged line): no sign of a
+    /// missing start, so they don't widen later replays.
+    @ObservationIgnored private var startless: Set<UUID> = []
 
     /// - Parameters:
     ///   - writer: The app's writer, whose time source is the store's clock (a shifted one in demos).
@@ -124,7 +132,7 @@ public final class FocusSessionStore {
     /// from a running session's timeline.
     public func refresh() async {
         await serially { [self] in
-            guard replay() else { return }
+            guard await replay(shields: blocking.readStore()) else { return }
             let now = self.now
             probe = await blocking.probe()
             syncPermission()
@@ -151,7 +159,7 @@ public final class FocusSessionStore {
     /// Ends the running session now: `.completed` at its end, `.endedEarly` or `.emergencyRelease` before it.
     public func end(_ reason: EndReason) async {
         await serially { [self] in
-            guard replay(), let session = running else { return }
+            guard await replay(shields: blocking.readStore()), let session = running else { return }
             await finish(session, reason: reason)
             await settle(now: now)
         }
@@ -160,8 +168,9 @@ public final class FocusSessionStore {
     /// Settings › Release all apps: clears every store, then ends a running session's credit (R4).
     public func releaseAll() async {
         await serially { [self] in
+            let shields = await blocking.readStore()
             _ = await blocking.releaseAll()
-            guard replay() else { return }
+            guard replay(shields: shields) else { return }
             if let session = running {
                 _ = try? writer.write(.sessionEnded(.releaseAll, verified: false), session: session.id)
                 _ = try? writer.write(.shieldCleared(.releaseAll), session: session.id)
@@ -176,7 +185,8 @@ public final class FocusSessionStore {
     /// - Returns: False when there is no break to take, or it couldn't be recorded.
     public func startBreak() async -> Bool {
         await serially { [self] in
-            guard replay(), let session = running, session.plan.breakSeconds > 0, !session.breakUsed else { return false }
+            guard await replay(shields: blocking.readStore()), let session = running, session.plan.breakSeconds > 0, !session.breakUsed
+            else { return false }
             let seconds = min(session.plan.breakSeconds, Int(session.plannedEnd.timeIntervalSince(now)))
             guard seconds > 0, await readBackBeforeBreak(session) else { return false }
             let written = (try? writer.write(.breakStarted(seconds: seconds), session: session.id)) != nil
@@ -188,7 +198,9 @@ public final class FocusSessionStore {
     /// "Back to studying" before the break runs out. The block is read back first.
     public func endBreak() async {
         await serially { [self] in
-            guard replay(), let session = running, session.breakEnd(at: now) != nil, await readBackBeforeBreak(session) else { return }
+            guard await replay(shields: blocking.readStore()), let session = running, session.breakEnd(at: now) != nil,
+                  await readBackBeforeBreak(session)
+            else { return }
             _ = try? writer.write(.breakEnded, session: session.id)
             await settle(now: now)
         }
@@ -230,22 +242,42 @@ public final class FocusSessionStore {
 
     private func serially<Result: Sendable>(_ body: @escaping @MainActor @Sendable () async -> Result) async -> Result {
         let previous = queue
-        let task = Task { @MainActor in
+        let task = Task { @MainActor [self] in
             await previous?.value
+            // Each command starts from the open read.
+            widened = false
             return await body()
         }
         queue = Task { _ = await task.value }
         return await task.value
     }
 
-    /// Reads the open ledger and rebuilds the sessions. False, with nothing changed, when it can't be read.
+    /// Reads the open ledger and rebuilds the sessions; reads the whole ledger instead, for the rest of the command,
+    /// when the open read shows a sign of a missing start: events of a session without its `sessionStarted`, or
+    /// `shields` (a read-back) applied for a session it doesn't show running. False when what it must read can't be
+    /// read: the command then does nothing (the unknown state).
     @discardableResult
-    private func replay() -> Bool {
-        guard let events = ledger.readOpen(now: now) else {
+    private func replay(shields: ShieldStoreState? = nil) -> Bool {
+        guard let events = widened ? ledger.readAll() : ledger.readOpen(now: now) else {
             isLedgerReadable = false
             return false
         }
         isLedgerReadable = true
+        let startless = rebuild(events)
+        guard !widened else {
+            self.startless = startless
+            return true
+        }
+        var orphaned = false
+        if case .applied(let id) = shields { orphaned = running?.id != id }
+        guard orphaned || !startless.isSubset(of: self.startless) else { return true }
+        widened = true
+        return replay()
+    }
+
+    /// Rebuilds the sessions, the running session and the anchor from `events`.
+    /// - Returns: The sessions in `events` that have no `sessionStarted` there.
+    private func rebuild(_ events: [FocusEvent]) -> Set<UUID> {
         let replayed = FocusLedger(events)
         // Within one boot of one device the ledger runs in continuous-time order, so the last is the newest.
         let boot = writer.time.stamp().boot
@@ -253,11 +285,13 @@ public final class FocusSessionStore {
         anchor = replayed.placed().last { $0.event.deviceID == device && $0.event.stamp.boot == boot }
         sessions = replayed.sessions()
         running = sessions.last { !$0.isEnded && !$0.isHidden }
-        return true
+        var all = Set<UUID>()
+        for event in events { all.insert(event.sessionID) }
+        return all.subtracting(sessions.map(\.id))
     }
 
     private func performStart(_ request: StartRequest) async -> StartOutcome {
-        guard replay() else { return .ledgerUnavailable }
+        guard await replay(shields: blocking.readStore()) else { return .ledgerUnavailable }
         guard running == nil else { return .alreadyRunning }
         let now = self.now
         let context = collection.context
@@ -345,9 +379,17 @@ public final class FocusSessionStore {
     /// keeps its shields until its planned end.
     private func reconcileShields(now: Date) async {
         let store = await blocking.readStore()
+        var now = now
+        if case .applied(let id) = store, id != running?.id, !widened {
+            // Shields the open read doesn't explain: read the whole ledger before calling them orphaned.
+            guard replay(shields: store) else { return }
+            now = self.now
+        }
         for op in ShieldReconciler.ops(running: running, store: store, now: now) {
             switch op {
             case .clear(let session):
+                // A session the whole ledger still holds unended keeps its shields, even when another is running.
+                if session != running?.id, sessions.contains(where: { $0.id == session && !$0.isEnded }) { continue }
                 _ = await blocking.perform(op, selection: nil)
                 _ = try? writer.write(.shieldCleared(session == running?.id ? .expired : .orphaned), session: session)
             case .apply(let session):

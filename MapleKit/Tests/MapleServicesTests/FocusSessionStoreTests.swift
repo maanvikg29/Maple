@@ -75,9 +75,141 @@ private final class RefusingOneAppend: FocusLedgerStore {
     func lastSeq(of writer: FocusWriter) -> Int? { base.lastSeq(of: writer) }
 }
 
+/// A session store over real ledger files in a temporary folder, so the open read's file window is the real one.
+/// `relaunch()` builds a new store over the same folder, clock, blocker and collection, as the next process would.
+@MainActor
+private final class FileHarness {
+    let folder: URL
+    let time = ManualFocusTime(wall: at(2026, 10, 24, 14))
+    let device = UUID()
+    let blocking = PreviewBlockingService()
+    let collection: CollectionStore
+    private(set) var store: FocusSessionStore
+
+    let six = AppSet(id: AppSet.distractionsID, name: "Distractions", selection: Data("six".utf8),
+                     summary: SelectionSummary(mode: .blockThese, apps: 6, sites: 0, categories: 0))
+
+    init() throws {
+        folder = try temporaryDirectory()
+        collection = CollectionStore(storage: JSONStorage(.memory), context: testContext, now: at(2026, 10, 1, 9))
+        collection.raise(.firstLeaf, to: 1, at: at(2026, 10, 1, 9))
+        collection.openReveals(at: at(2026, 10, 1, 9, 5))
+        store = Self.makeStore(folder: folder, time: time, device: device, blocking: blocking, collection: collection)
+    }
+
+    private static func makeStore(
+        folder: URL, time: ManualFocusTime, device: UUID, blocking: PreviewBlockingService, collection: CollectionStore
+    ) -> FocusSessionStore {
+        let ledger = FileLedgerStore(directory: folder)
+        let writer = LedgerWriter(store: ledger, time: time, deviceID: device, writer: .app, source: blocking.source)
+        return FocusSessionStore(ledger: ledger, writer: writer, blocking: blocking, collection: collection,
+                                 credited: [.live, .preview], liveActivity: RecordingLiveActivityController(), appBuild: "test")
+    }
+
+    func relaunch() {
+        store = Self.makeStore(folder: folder, time: time, device: device, blocking: blocking, collection: collection)
+    }
+
+    func request(_ strictness: Strictness = .steady, minutes: Int = 50) -> FocusSessionStore.StartRequest {
+        var preset = FocusPreset.defaults(appSetID: AppSet.distractionsID)[0]
+        preset.strictness = strictness
+        return FocusSessionStore.StartRequest(preset: preset, minutes: minutes, appSet: six, from: .focusTab)
+    }
+
+    var files: [String] { MapleServicesTests.files(in: folder).sorted() }
+    var events: [FocusEvent] { FileLedgerStore(directory: folder).readAll() ?? [] }
+
+    func setModified(_ name: String, to date: Date) throws {
+        try FileManager.default.setAttributes([.modificationDate: date], ofItemAtPath: folder.appending(path: name).path)
+    }
+}
+
+/// An in-memory ledger whose open read can be made to miss everything, as a clock set far forward can.
+private final class BlindOpenRead: FocusLedgerStore {
+    let base: MemoryLedgerStore
+    private let blind = Mutex(false)
+
+    init(_ base: MemoryLedgerStore) {
+        self.base = base
+    }
+
+    var isBlind: Bool {
+        get { blind.withLock { $0 } }
+        set { blind.withLock { $0 = newValue } }
+    }
+
+    func append(_ event: FocusEvent) throws { try base.append(event) }
+    func readOpen(now: Date) -> [FocusEvent]? { isBlind ? [] : base.readOpen(now: now) }
+    func readAll() -> [FocusEvent]? { base.readAll() }
+    func lastSeq(of writer: FocusWriter) -> Int? { base.lastSeq(of: writer) }
+}
+
 @Suite("Focus session store")
 @MainActor
 struct FocusSessionStoreTests {
+    @Test("A Locked session survives a clock set 45 days forward and a relaunch")
+    func lockedSurvivesClockForwardRelaunch() async throws {
+        let h = try FileHarness()
+        guard case .started(let id) = await h.store.start(h.request(.locked)) else { Issue.record("not started"); return }
+        #expect(h.store.running?.plan.strictness == .locked)
+        // Five minutes on, the member sets the date 45 days forward and opens Maple: a checkpoint goes to December's file,
+        // now the writer's newest. October's file was last changed on the real October 24.
+        h.time.advance(5 * 60)
+        h.time.setWall(at(2026, 12, 8, 14, 5))
+        await h.store.refresh()
+        #expect(h.files == ["ledger-app-2026-10.jsonl", "ledger-app-2026-12.jsonl"])
+        try h.setModified("ledger-app-2026-10.jsonl", to: at(2026, 10, 24, 14, 1))
+
+        // Maple is killed and opened again: the first replay reads on the wall clock, December 8.
+        h.relaunch()
+        await h.store.refresh()
+        #expect(h.blocking.store == .applied(session: id))
+        #expect(h.store.running?.id == id)
+        #expect(!h.events.contains { $0.kind == .shieldCleared(.orphaned) })
+
+        // Continuous time runs past the planned end.
+        h.time.advance(46 * 60)
+        await h.store.refresh()
+        #expect(h.store.running == nil)
+        #expect(h.store.lastEnded?.id == id)
+        #expect(h.store.lastEnded?.endReason == .completed)
+        #expect(h.blocking.store == .empty)
+        #expect(h.events.contains { $0.sessionID == id && $0.kind == .shieldCleared(.sessionEnded) })
+        #expect(!h.events.contains { $0.kind == .shieldCleared(.orphaned) })
+    }
+
+    @Test("Shields the open read can't explain are never cleared as orphaned until the full read confirms no session runs")
+    func orphanNeedsFullRead() async throws {
+        let memory = MemoryLedgerStore()
+        let ledger = BlindOpenRead(memory)
+        let time = ManualFocusTime(wall: at(2026, 10, 24, 14))
+        let blocking = PreviewBlockingService()
+        let collection = CollectionStore(storage: JSONStorage(.memory), context: testContext, now: at(2026, 10, 1, 9))
+        let writer = LedgerWriter(store: ledger, time: time, deviceID: UUID(), writer: .app, source: blocking.source)
+        let store = FocusSessionStore(ledger: ledger, writer: writer, blocking: blocking, collection: collection,
+                                      credited: [.live, .preview], liveActivity: RecordingLiveActivityController(), appBuild: "test")
+        let six = AppSet(id: AppSet.distractionsID, name: "Distractions", selection: Data("six".utf8),
+                         summary: SelectionSummary(mode: .blockThese, apps: 6, sites: 0, categories: 0))
+        let request = FocusSessionStore.StartRequest(preset: FocusPreset.defaults(appSetID: AppSet.distractionsID)[0], minutes: 50,
+                                                     appSet: six, from: .focusTab)
+        guard case .started(let id) = await store.start(request) else { Issue.record("not started"); return }
+        time.advance(5 * 60)
+        ledger.isBlind = true
+        await store.refresh()
+        #expect(blocking.store == .applied(session: id))
+        #expect(store.running?.id == id)
+        #expect(!memory.events.contains { $0.kind == .shieldCleared(.orphaned) })
+        #expect(await store.start(request) == .alreadyRunning)
+
+        // A real orphan (applied, nothing written) is still cleared once the full read confirms it.
+        await store.end(.endedEarly)
+        let orphan = UUID()
+        _ = await blocking.perform(.apply(session: orphan), selection: Data("six".utf8))
+        await store.refresh()
+        #expect(blocking.store == .empty)
+        #expect(memory.events.contains { $0.sessionID == orphan && $0.kind == .shieldCleared(.orphaned) })
+    }
+
     @Test("A session starts with the block confirmed, completes at its planned end, and its credit reaches the collection")
     func wholeSession() async throws {
         let h = Harness()
