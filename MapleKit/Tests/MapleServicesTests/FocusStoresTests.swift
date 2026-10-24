@@ -29,6 +29,32 @@ struct FocusStoresTests {
         #expect(reloaded.lastUsed?.minutes == 180)
     }
 
+    @Test("A writer whose device id can't be read writes nothing; once it can, events carry the kept id")
+    func deviceIDUnreadable() async throws {
+        let folder = try temporaryDirectory()
+        let kept = try #require(DeviceIdentity.load(in: folder))
+        let idFile = folder.appending(path: DeviceIdentity.file).path
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: idFile)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: idFile) }
+        // A launch before the first unlock: the device id's file is there but can't be read.
+        let collection = CollectionStore(storage: JSONStorage(.memory), context: testContext, now: at(2026, 10, 23, 9))
+        let stores = FocusStores.live(directory: folder, collection: collection)
+        let preset = try #require(stores.presets.lastUsed)
+        let request = FocusSessionStore.StartRequest(preset: preset, minutes: 25, appSet: nil, from: .focusTab)
+        let ledger = FileLedgerStore(directory: folder.appending(path: FocusStores.ledgerFolder))
+        #expect(await stores.sessions.start(request) == .notRecorded)
+        #expect(ledger.readAll()?.isEmpty == true)
+
+        // The same process after the unlock.
+        try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: idFile)
+        guard case .started = await stores.sessions.start(request) else { Issue.record("not started"); return }
+        let events = try #require(ledger.readAll())
+        #expect(!events.isEmpty)
+        #expect(events.allSatisfy { $0.deviceID == kept })
+        #expect(events.allSatisfy { $0.stamp.boot == LiveFocusTime(deviceID: kept).stamp().boot })
+        #expect(DeviceIdentity.load(in: folder) == kept)
+    }
+
     @Test("At most 6 presets, and the last one can't be deleted")
     func presetLimits() {
         let store = PresetStore(storage: JSONStorage(.memory), defaultAppSetID: nil)

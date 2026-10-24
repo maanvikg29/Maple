@@ -57,11 +57,11 @@ public struct FocusStores {
     private static func files(
         directory: URL, collection: CollectionStore, mode: LaunchMode, blocking: any BlockingService, sessionSeconds: Int?
     ) -> FocusStores {
-        // A device id that can't be read yet (before the first unlock) gets a random one for this launch: its events
-        // stay valid and simply carry a different device id.
-        let deviceID = DeviceIdentity.load(in: directory) ?? UUID()
+        // The device id is read when first needed, like the writer's sequence number: before the first unlock its file
+        // can't be read, and nothing is written until it can (never under a stand-in id).
+        let device = DeviceIDSource { DeviceIdentity.load(in: directory) }
         let ledger = FileLedgerStore(directory: directory.appending(path: ledgerFolder, directoryHint: .isDirectory))
-        let writer = LedgerWriter(store: ledger, time: LiveFocusTime(deviceID: deviceID), deviceID: deviceID, writer: .app,
+        let writer = LedgerWriter(store: ledger, time: LiveFocusTime(device: device), device: device, writer: .app,
                                   source: blocking.source)
         return FocusStores(
             sessions: FocusSessionStore(ledger: ledger, writer: writer, blocking: blocking, collection: collection, credited: mode.credited,

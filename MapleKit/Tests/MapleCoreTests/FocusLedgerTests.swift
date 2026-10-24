@@ -107,6 +107,36 @@ struct FocusLedgerTests {
         #expect(ledger.placed().map(\.placed) == [base, base.addingTimeInterval(10), base.addingTimeInterval(10), base.addingTimeInterval(14)])
     }
 
+    @Test("A session started under one device id and ended under another still ends and keeps its proof, whichever id sorts first")
+    func deviceIDChangedMidSession() throws {
+        let low = UUID(uuidString: "00000000-0000-4000-8000-000000000001")!
+        let high = UUID(uuidString: "FFFFFFFF-FFFF-4FFF-BFFF-FFFFFFFFFFFF")!
+        for (first, second) in [(low, high), (high, low)] {
+            // device-id.txt was damaged and replaced mid-session: the app's own seq carries on, and the same boot hashes to a
+            // new boot id under the new device id.
+            func event(_ kind: FocusEventKind, minute: Double, seq: Int, device: UUID) -> FocusEvent {
+                FocusEvent(id: "e\(seq)", kind: kind, sessionID: FocusFixtures.session, deviceID: device, writer: .app, seq: seq, source: .live,
+                           stamp: FocusFixtures.stamp(base.addingTimeInterval(minute * 60), cont: UInt64(minute * 60 * 1e9) + 1_000_000_000,
+                                                      boot: LiveFocusTime.hashedBoot("boot", deviceID: device)))
+            }
+            let events = [
+                event(.sessionStarted(FocusFixtures.plan()), minute: 0, seq: 1, device: first),
+                event(.shieldApplied, minute: 0.5, seq: 2, device: first),
+                event(.shieldVerified, minute: 20, seq: 3, device: first),
+                event(.shieldVerified, minute: 30, seq: 4, device: second),
+                event(.shieldVerified, minute: 40, seq: 5, device: second),
+                event(.sessionEnded(.completed, verified: true), minute: 50.5, seq: 6, device: second),
+            ]
+            let record = try #require(FocusLedger(events).sessions().first)
+            let proven = record.provenIntervals.reduce(0) { $0 + $1.duration }
+            #expect(record.isEnded, "first \(first == low ? "low" : "high")")
+            #expect(record.endReason == .completed)
+            #expect(record.events.count == 6)
+            // 0.5 → 20 under the first id, then 30 → 50.5 under the second.
+            #expect(abs(proven - (19.5 + 20.5) * 60) < 0.001, "proven \(proven)")
+        }
+    }
+
     @Test("Within one boot and instant, the writer and sequence break ties")
     func ties() {
         let stamp = FocusFixtures.stamp(base, cont: 7)

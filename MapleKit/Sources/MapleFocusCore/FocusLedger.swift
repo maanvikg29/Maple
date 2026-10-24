@@ -82,8 +82,10 @@ public struct FocusLedger: Sendable, Equatable {
         return a.kind.type < b.kind.type
     }
 
-    /// Each device's boots in order: by the app writer's first sequence number in the boot (its true append order),
-    /// then by the boot's first wall time. Boots only extensions saw sort after the app's (F1-paid revisits this).
+    /// Every boot in order: by the app writer's first sequence number in the boot, then by the boot's first wall time,
+    /// with the device id only breaking ties. The app's sequence numbers run on across device ids (they are read from
+    /// the app's own files), so a session carried on under a replaced device id still sorts after its start, whichever
+    /// id sorts first. Boots only extensions saw sort after the app's (F1-paid revisits this).
     static func bootRanks(_ events: [FocusEvent]) -> [BootKey: Int] {
         var firstAppSeq: [BootKey: Int] = [:]
         var firstWall: [BootKey: Date] = [:]
@@ -98,15 +100,17 @@ public struct FocusLedger: Sendable, Equatable {
             if sa != sb { return sa < sb }
             let wa = firstWall[a] ?? .distantFuture, wb = firstWall[b] ?? .distantFuture
             if wa != wb { return wa < wb }
+            if a.device != b.device { return a.device.uuidString < b.device.uuidString }
             return a.boot < b.boot
         }
         return Dictionary(uniqueKeysWithValues: keys.enumerated().map { ($0.element, $0.offset) })
     }
 
+    /// By boot (`bootRanks`), then continuous time, writer, sequence and id. Each boot's events stay together, and one
+    /// device's boots keep their order.
     static func ordered(_ events: [FocusEvent]) -> [FocusEvent] {
         let ranks = bootRanks(events)
         return events.sorted { a, b in
-            if a.deviceID != b.deviceID { return a.deviceID.uuidString < b.deviceID.uuidString }
             let ra = ranks[BootKey(device: a.deviceID, boot: a.stamp.boot)] ?? 0
             let rb = ranks[BootKey(device: b.deviceID, boot: b.stamp.boot)] ?? 0
             if ra != rb { return ra < rb }

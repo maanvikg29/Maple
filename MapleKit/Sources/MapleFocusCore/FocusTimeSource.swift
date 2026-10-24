@@ -6,20 +6,63 @@ public protocol FocusTimeSource: Sendable {
     func stamp() -> EventStamp
 }
 
+/// This install's device id, read when it is first needed, as a writer's sequence number is (F1 design §7.8). Before the
+/// first unlock after a restart the file that keeps it can't be read, and nothing may be written under a stand-in: its
+/// events would sort apart from the session they belong to.
+public final class DeviceIDSource: Sendable {
+    private let load: @Sendable () -> UUID?
+    private let known: Mutex<UUID?>
+
+    /// An id known up front: demos and tests.
+    public convenience init(_ id: UUID) {
+        self.init(load: { id })
+    }
+
+    /// - Parameter load: Reads the kept id, or returns nil while it can't; it is tried now and again at each use until
+    ///   it answers.
+    public init(load: @escaping @Sendable () -> UUID?) {
+        self.load = load
+        known = Mutex(load())
+    }
+
+    /// The id, or nil while it still can't be read.
+    public var id: UUID? {
+        known.withLock { known in
+            if known == nil { known = load() }
+            return known
+        }
+    }
+}
+
 /// The real clocks: the wall clock, the continuous clock and this boot.
 public struct LiveFocusTime: FocusTimeSource {
-    /// This boot, hashed with the device id.
-    public let boot: String
+    /// The boot of a stamp taken while the device id can't be read. Nothing is written then (the writer waits for the
+    /// id too), so it never matches a written event's boot.
+    public static let unknownBoot = "unknown"
+
+    private let bootSession: String
+    private let device: DeviceIDSource
 
     /// - Parameter bootSession: `kern.bootsessionuuid`. When it can't be read, a random id stands in, so this launch's
     ///   credit can never be joined to another's.
     public init(deviceID: UUID, bootSession: String? = LiveFocusTime.bootSessionID()) {
-        boot = Self.hashedBoot(bootSession ?? "unread-" + UUID().uuidString, deviceID: deviceID)
+        self.init(device: DeviceIDSource(deviceID), bootSession: bootSession)
+    }
+
+    /// - Parameter device: The writer's own device id source, so a stamp's boot is hashed with the id its event carries.
+    public init(device: DeviceIDSource, bootSession: String? = LiveFocusTime.bootSessionID()) {
+        self.bootSession = bootSession ?? "unread-" + UUID().uuidString
+        self.device = device
+    }
+
+    /// This boot, hashed with the device id; nil while the device id can't be read.
+    public var boot: String? {
+        device.id.map { Self.hashedBoot(bootSession, deviceID: $0) }
     }
 
     public func stamp() -> EventStamp {
         // CLOCK_MONOTONIC keeps counting while the phone sleeps (it is ContinuousClock's clock) and restarts at boot.
-        EventStamp(wall: Date(), continuous: clock_gettime_nsec_np(CLOCK_MONOTONIC), boot: boot,
+        EventStamp(wall: Date(), continuous: clock_gettime_nsec_np(CLOCK_MONOTONIC), boot: boot ?? Self.unknownBoot,
                    zone: TimeZone.current.identifier)
     }
 

@@ -249,7 +249,8 @@ public final class FocusSessionStore {
         let replayed = FocusLedger(events)
         // Within one boot of one device the ledger runs in continuous-time order, so the last is the newest.
         let boot = writer.time.stamp().boot
-        anchor = replayed.placed().last { $0.event.deviceID == writer.deviceID && $0.event.stamp.boot == boot }
+        let device = writer.deviceID
+        anchor = replayed.placed().last { $0.event.deviceID == device && $0.event.stamp.boot == boot }
         sessions = replayed.sessions()
         running = sessions.last { !$0.isEnded && !$0.isHidden }
         return true
