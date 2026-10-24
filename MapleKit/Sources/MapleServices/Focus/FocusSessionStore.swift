@@ -274,11 +274,15 @@ public final class FocusSessionStore {
                 return .blockingFailed(result.failure ?? .applyFailed)
             }
         }
+        var startWritten = false
         do {
             try writer.write(.sessionStarted(plan), session: id)
+            startWritten = true
             if blocks { try writer.write(.shieldApplied, session: id) }
         } catch {
             if blocks { _ = await blocking.perform(.clear(session: id), selection: nil) }
+            // A start written only halfway is ended at once, so nothing runs from a start reported as not recorded.
+            if startWritten { _ = try? writer.write(.sessionEnded(.endedEarly, verified: false), session: id) }
             replay()
             return .notRecorded
         }
@@ -302,12 +306,16 @@ public final class FocusSessionStore {
         lastEnded = sessions.first { $0.id == session.id }
     }
 
-    /// Proves the block is still there (at most once a minute), or marks it lost.
+    /// Proves the block is still there (at most once a minute, and at once in a boot with no event yet), or marks it
+    /// lost.
     private func checkpoint(_ session: SessionRecord, now: Date) async {
         let result = await blocking.perform(.verify(session: session.id), selection: nil)
         if result.isVerified {
             let last = session.lastCheckpoint ?? session.countdownStart
-            if now.timeIntervalSince(last) >= Self.checkpointInterval {
+            // After a restart proof starts again at the first read-back (§3.3 step 3), which also anchors trusted
+            // time: `now` is still the wall clock, which a clock set back puts before `last`.
+            let firstInBoot = anchor?.event.stamp.boot != writer.time.stamp().boot
+            if firstInBoot || now.timeIntervalSince(last) >= Self.checkpointInterval {
                 _ = try? writer.write(.shieldVerified, session: session.id)
             }
         } else {

@@ -1,5 +1,6 @@
 import Foundation
 import MapleStorage
+import Synchronization
 import Testing
 @testable import MapleCore
 @testable import MapleServices
@@ -18,13 +19,16 @@ private final class Harness {
     let six = AppSet(id: AppSet.distractionsID, name: "Distractions", selection: Data("six".utf8),
                      summary: SelectionSummary(mode: .blockThese, apps: 6, sites: 0, categories: 0))
 
-    init(authorization: BlockingProbe = .allowed) {
+    /// - Parameter failingAppend: The one append (counting from 1) the ledger refuses, if any.
+    init(authorization: BlockingProbe = .allowed, failingAppend: Int? = nil) {
         blocking = PreviewBlockingService(authorization: authorization)
         collection = CollectionStore(storage: JSONStorage(.memory), context: testContext, now: at(2026, 10, 1, 9))
         collection.raise(.firstLeaf, to: 1, at: at(2026, 10, 1, 9))
         collection.openReveals(at: at(2026, 10, 1, 9, 5))
-        let writer = LedgerWriter(store: ledger, time: time, deviceID: device, writer: .app, source: blocking.source)
-        store = FocusSessionStore(ledger: ledger, writer: writer, blocking: blocking, collection: collection,
+        let memory = ledger
+        let events: any FocusLedgerStore = failingAppend.map { RefusingOneAppend(memory, refusing: $0) } ?? memory
+        let writer = LedgerWriter(store: events, time: time, deviceID: device, writer: .app, source: blocking.source)
+        store = FocusSessionStore(ledger: events, writer: writer, blocking: blocking, collection: collection,
                                   credited: [.live, .preview], liveActivity: activity, appBuild: "test")
     }
 
@@ -41,6 +45,34 @@ private final class Harness {
     }
 
     var kinds: [String] { ledger.events.map(\.kind.type) }
+}
+
+/// An in-memory ledger that refuses exactly one append (counting from 1) and accepts every other: a start written
+/// only halfway.
+private final class RefusingOneAppend: FocusLedgerStore {
+    struct Refused: Error {}
+
+    private let base: MemoryLedgerStore
+    private let refusing: Int
+    private let appends = Mutex(0)
+
+    init(_ base: MemoryLedgerStore, refusing: Int) {
+        self.base = base
+        self.refusing = refusing
+    }
+
+    func append(_ event: FocusEvent) throws {
+        let count = appends.withLock { count in
+            count += 1
+            return count
+        }
+        if count == refusing { throw Refused() }
+        try base.append(event)
+    }
+
+    func readOpen(now: Date) -> [FocusEvent]? { base.readOpen(now: now) }
+    func readAll() -> [FocusEvent]? { base.readAll() }
+    func lastSeq(of writer: FocusWriter) -> Int? { base.lastSeq(of: writer) }
 }
 
 @Suite("Focus session store")
@@ -299,5 +331,36 @@ struct FocusSessionStoreTests {
         #expect(h.blocking.store == .applied(session: id))
         #expect(!h.blocking.operations.contains(.clear(session: id)))
         #expect(!h.kinds.contains("shieldCleared"))
+    }
+
+    @Test("After a restart with the clock set back, the first read-back is a checkpoint and the session ends on time")
+    func restartWithClockSetBack() async {
+        let h = Harness()
+        guard case .started(let id) = await h.store.start(h.request()) else { Issue.record("not started"); return }
+        h.advance(minutes: 20)
+        await h.store.refresh()
+        h.time.reboot("b2", wall: at(2026, 10, 23, 13))
+        await h.store.refresh()
+        let restarted = h.ledger.events.last { $0.stamp.boot == "b2" }
+        #expect(restarted?.kind == .shieldVerified)
+        #expect(h.store.now == at(2026, 10, 23, 14, 20))
+
+        h.advance(minutes: 30)
+        await h.store.refresh()
+        #expect(h.store.running == nil)
+        #expect(h.store.lastEnded?.id == id)
+        #expect(h.store.lastEnded?.endReason == .completed)
+        #expect(h.store.lastEnded?.end?.placed == at(2026, 10, 23, 14, 50))
+        #expect(h.blocking.store == .empty)
+    }
+
+    @Test("A start written only halfway is ended at once: nothing runs from a start reported as not recorded")
+    func halfWrittenStart() async {
+        let h = Harness(failingAppend: 2)
+        #expect(await h.store.start(h.request()) == .notRecorded)
+        #expect(h.blocking.store == .empty)
+        #expect(h.store.running == nil)
+        #expect(h.kinds == ["sessionStarted", "sessionEnded"])
+        guard case .started = await h.store.start(h.request()) else { Issue.record("the next start was refused"); return }
     }
 }
