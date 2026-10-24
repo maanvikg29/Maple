@@ -58,7 +58,9 @@ public struct SessionForecast: Sendable, Equatable {
 
         if !canCount {
             countsLine = .hidden
-        } else if now >= window.end {
+        } else if now >= window.end || (!window.contains(now) && plannedEnd <= window.start) {
+            // A start in the sleep window freezes the next day's window (`AwakeWindow.frozen(at:)`): when the session
+            // ends before that window opens, nothing of it can count.
             countsLine = .afterBedtime
         } else if roomLeftToday <= 0 {
             countsLine = .capReached

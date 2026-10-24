@@ -124,6 +124,18 @@ struct SessionForecastTests {
         #expect(forecast(start: at(2026, 10, 23, 5, 30), toLeaf: 10 * 60).leafMinute == 40)
     }
 
+    @Test("A start after bedtime freezes tomorrow's window, as a real start does, and still reads After bedtime with no dot")
+    func afterBedtimeFrozen() {
+        let start = at(2026, 10, 23, 23, 10)
+        let frozen = AwakeWindow.frozen(at: start, schedule: { _ in .standard }, calendar: utc)
+        #expect(frozen.window.start == at(2026, 10, 24, 6))
+        let result = SessionForecast(start: start, plannedSeconds: 50 * 60, window: frozen.window, now: start, canCount: true,
+                                     secondsToLeaf: 35 * 60, leafName: "Field maple", roomLeftToday: 21_600, firstEver: false)
+        #expect(result.countsLine == .afterBedtime)
+        #expect(line(result) == "After bedtime · this won't count")
+        #expect(result.leafMinute == nil)
+    }
+
     @Test("Leaf lines")
     func leafLines() {
         #expect(SessionForecast.leafLine(leaf: "Field maple", secondsToGo: 17 * 60 - 20) == "Field maple · 17m to go")
