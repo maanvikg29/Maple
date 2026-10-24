@@ -12,6 +12,8 @@ Maple is an **iPhone-only** SwiftUI app (iOS 27 minimum, Swift 6 language mode, 
 - `App/`: the app target, with one folder per feature under `App/Features/`. Synchronized folders: adding a Swift file doesn't touch `project.pbxproj`.
 - `MapleKit/`: a local Swift package.
   - `MapleCore` is pure Foundation (no SwiftUI), `Sendable` and nonisolated; it must stay small enough for Screen Time extensions.
+  - `MapleFocusCore` is pure, `Sendable` and nonisolated, with no resources, so Screen Time extensions can link it alone: the focus ledger, events, time sources and `SessionRecord`. MapleCore re-exports it.
+  - `MapleStorage` is nonisolated, and holds the App Group container and the JSON-lines ledger files. MapleServices re-exports it.
   - `MapleDesign` holds the tokens in `Tokens.swift` plus components, leaves and the tree.
   - `MapleServices` holds the stores and system services.
   - `MapleDesign`, `MapleServices` and the app are MainActor by default.

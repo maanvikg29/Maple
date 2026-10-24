@@ -53,6 +53,8 @@ Greenfield build of **Maple**, an iPhone digital-wellbeing app. Users earn **map
     - `TemplateAI`: rule-based fallback.
     - All AI output carries a visible "AI-generated" label.
 - **App target**: feature folders (Onboarding, Today, Grove [tree + herbarium], Sleep, Sounds, Focus, Insights, Settings/Privacy). Each feature has one view-model and small views, with tab navigation.
+- **MapleFocusCore** (F1) is pure, `Sendable` and nonisolated, with no resources, so the Screen Time extensions can link it alone: focus events and plans, time sources (the wall clock, the continuous clock and a hashed boot id), the ledger's merge and placement, `SessionRecord`, and the shield reconciler. MapleCore re-exports it.
+- **MapleStorage** (F1) is nonisolated: the App Group container, JSON-lines files and the ledger stores (`FileLedgerStore`, one file per writer per month; `MemoryLedgerStore`). MapleServices re-exports it.
 
 **Key data flows**
 - **Leaf earning:**

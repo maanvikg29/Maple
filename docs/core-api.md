@@ -53,8 +53,8 @@ if let action = state.action {                         // nil: no capsule at all
 - `state.phase` drives the sky (`SkyBackdrop(phase:…)`) and the tree's `phase`.
 - `state.waitingCount > 0` (morning, day and evening only) switches the next-leaf row to its waiting variant; `state.waitingLine` is its text ("2 new leaves are waiting"), and the action becomes `.openReveals(count:)`.
 - `state.contentOpacity` is 0.8 at night; `state.showsBelowTheFold` is false at night; `state.secondaryAction` is `.sleepSounds` at night once sounds ship.
-- `state.refreshesEverySecond` is true while focus runs: switch the NowBlock's timeline to `.periodic(from:by: 1)`.
-- Inputs that don't exist yet are optional and default to the documented fallbacks: `nowState(at:lastNight:goodnightAt:focus:windDownActive:)`. Home passes `sleep.lastNightSleep(at: now)` as `lastNight` ("7h 12m" · "asleep 23:08 · up 06:20"; for iPhone's in-bed estimate the time in bed). A morning with neither last night's sleep nor a Goodnight shows tonight's wind-down start as a clock time ("22:15" · "wind-down tonight · bed 23:00"), never a countdown; the day shows the countdown to wind-down until focus ships.
+- `state.refreshesEverySecond` is true while a session runs (in every phase, night included): its time shows calm minutes ("18m"), with seconds only in the last minute.
+- Inputs that don't exist yet are optional and default to the documented fallbacks: `nowState(at:lastNight:goodnightAt:focus:windDownActive:)`. Home passes `sleep.lastNightSleep(at: now)` as `lastNight` ("7h 12m" · "asleep 23:08 · up 06:20"; for iPhone's in-bed estimate the time in bed). A morning with neither last night's sleep nor a Goodnight shows tonight's wind-down start as a clock time ("22:15" · "wind-down tonight · bed 23:00"), never a countdown; once focus ships the day shows saved today ("1h 20m" · "saved today · 41h in all"), the lifetime total before the day's first session, and the wind-down countdown without Screen Time (with "Turn on blocking"); a morning with no sleep data shows what was saved yesterday. `focus` is a `FocusStatus` built from `FocusSessionStore.displayCredit(at:)` and the last-used preset's `FocusStart`.
 - Lower level: `NowPhase.resolve(date:weekly:calendar:)` (or `schedule:` for one schedule every night), `PhaseWindows(weekly:)` (`day(containing:calendar:)` for a day's phase starts, `sampleDate(in:onDayOf:calendar:)` for previews), `HomeFormat` (durations "1h 20m", locale clock times).
 
 ## Leaves: progress, next leaf, buds, Almost there
@@ -69,7 +69,7 @@ if let next {
 ```
 
 - The 7 categories (`RewardCategoryID`, canonical order, rewards.md): `firstLeaf`, `hoursSaved`, `sessionsFinished`, `focusStreak`, `phoneFreeMornings`, `bedtimeKept`, `restedNights`. Before F1 only First leaf and Rested nights can be earned; the rest are dormant.
-- `collection.progress(at:)`: all 155 `LeafProgress` rows in canonical order (category, then rung). `progress(for:at:)` for one leaf. Each row has `state` (`.earned(unlock)`, `.waiting(unlock)`, `.locked`), `availability` (`.available`, `.needsAppleHealth`, `.needsScreenTime`, `.dormant`), `current` (clamped), `fraction`, `remaining` and `estimatedDays` (nil when earned, waiting or unavailable).
+- `collection.progress(at:)`: all 155 `LeafProgress` rows in canonical order (category, then rung). `progress(for:at:)` for one leaf. Each row has `state` (`.earned(unlock)`, `.waiting(unlock)`, `.locked`), `availability` (`.available`, `.needsAppleHealth`, `.needsScreenTime`, `.notInThisBuild` and `.dormant`), `current` (clamped), `fraction`, `floor`, `rungFraction`, `remaining` and `estimatedDays` (nil when earned, waiting or unavailable). `.notInThisBuild` reads "Not available in this build": a free build's Screen Time leaves, with no button; Home's pick treats it like `.dormant`. `floor` is the threshold of the rung below (0 for the first rung); `rungFraction` is progress within the rung, used only for the dial's leaf fill, and every other surface uses `fraction`.
 - `collection.buds(at:)`: the tree's 3 buds, Home's next leaf first.
 - `NextLeafPicker(progress:)` (MapleCore) holds the rule (focus spec §4.5): `next(pinned:)` is a pinned leaf while it is locked and available, otherwise the lowest hours-saved rung, otherwise the closest of `homeCandidates`; `buds(pinned:)` puts that leaf first; `homeCandidates` is every candidate, except that Rested nights is left out once any focus category has shipped; `permissionPrompt()` answers only when `homeCandidates` is empty. There is no phase preference.
 - `collection.almostThere(at:)`: up to 6 leaves within 60 days (hide the rail below 2).
@@ -181,7 +181,7 @@ for night in weekly.upcoming(from: now, days: 7, calendar: calendar) {
 
 ## Reminders (local notifications)
 
-Maple sends one notification and nothing else: **"Time to wind down"** · "Bed at 23:00." at each night's wind-down start. There is no morning notification (rewards.md; focus spec §8). `App/Features/Notifications/ReminderUpkeep.swift` keeps it scheduled; screens only read the scheduler.
+Maple sends at most three kinds of notification: **"Time to wind down"** · "Bed at 23:00." at each night's wind-down start; **"Session done"** · "Study, 50 minutes" at a running session's planned end (scheduled with an absolute trigger, exempt from the night rule); and the opt-in **"Ready to study?"** once a day in the Day phase, skipped on a day a session started. There is no morning notification (rewards.md; focus spec §8). `App/Features/Notifications/ReminderUpkeep.swift` keeps them scheduled through `ReminderInputs` (MapleServices); screens only read the scheduler.
 
 ```swift
 @Environment(NotificationScheduler.self) private var reminders   // MapleApp injects it
@@ -190,7 +190,7 @@ await reminders.requestAuthorization() // iOS's prompt: alerts and sounds, never
 settings.windDownReminder              // AppSettings switch, on by default; sent only once iOS allows
 ```
 
-- **The plan.** `ReminderPlan(.init(nights:settings:windDownOpenedAt:now:calendar:locale:))` (MapleCore, pure) gives `requests` (deterministic identifiers `maple.reminder.windDown.<night>`, fire dates as local wall-clock components, title, body, thread, interruption level) and `staleDelivered` (a delivered reminder that no longer holds, cleared from Notification Center). Nights are `UpcomingNight` values (wind-down start, bedtime, wake, morning start) from the member's weekly schedule: `UpcomingNight.nights(for: schedule.weekly, around:calendar:)`, so weekend nights wind down on the weekend schedule. Wind-down is skipped once wind-down mode has been opened that night (`BedsideLog`'s start). Nothing fires between bedtime and the morning start.
+- **The plan.** `ReminderPlan(.init(nights:settings:windDownOpenedAt:now:calendar:locale:schedule:runningSession:lastSessionStart:))` (MapleCore, pure) gives `requests` (deterministic identifiers `maple.reminder.windDown.<night>`, fire dates as local wall-clock components, title, body, thread, interruption level) and `staleDelivered` (a delivered reminder that no longer holds, cleared from Notification Center). Nights are `UpcomingNight` values (wind-down start, bedtime, wake, morning start) from the member's weekly schedule: `UpcomingNight.nights(for: schedule.weekly, around:calendar:)`, so weekend nights wind down on the weekend schedule. Wind-down is skipped once wind-down mode has been opened that night (`BedsideLog`'s start). Nothing fires between bedtime and the morning start.
 - **Scheduling.** `reminders.reschedule(plan:)` makes Maple's pending requests exactly the plan's (only `maple.reminder.` identifiers, so a morning reminder left by an earlier build is removed; at most the next 7 days; nothing while iOS doesn't allow it). `ReminderUpkeep` calls it on every foreground and whenever its inputs change: a schedule save, the switch, wind-down mode opening, iOS's answer, a time-zone or clock change. DEBUG demo launches never reschedule.
 - **In the foreground.** Maple sets no notification-center delegate, so iOS shows nothing while Maple is open; a tap just opens the app.
 - **Asking.** Settings shows the switch with a status line: "Allow reminders" opens `NotificationsPrimerSheet` (`NotificationsPrimerView` in MapleDesign: the member's featured leaf, "A gentle reminder", "Only when it's time to wind down. Nothing else.", "Allow reminders", "Not now") before iOS has been asked, and "Turn on in Settings" opens Maple's notification settings once the member has said no. In the first run, onboarding's notifications step (`OnboardingNotificationsStep`) shows `NotificationsPrimerStep(onContinue:)` full screen while iOS hasn't been asked, and continues at once once it has.
@@ -243,6 +243,32 @@ collection.recordNight(NightRecord(day: LocalDay(now, calendar: .current), onTim
 
 Counters never go down. Any rise marks the day tended (tree growth), except First leaf.
 
+## Focus (F1 design §3, §7)
+
+Credit is a pure pipeline: the session ledger (`FocusLedger`, JSON lines per writer per month) → `SessionRecord` (one session's proof, breaks, overrides and end) → `HoursCredit` (counted seconds per session, with labelled stretches for Saved today) → `FocusBook` in the collection (per-day high-water marks, frozen 3 days on) → the counters, applied as dated marks so each leaf is dated when its credit was proven. Screens never compute any of it.
+
+`MapleStores.focus` holds a launch's Focus stores (`FocusStores`): `sessions` (`FocusSessionStore`), `presets`, `appSets` and `notes`. F1b injects them; until then nothing reads them.
+
+```swift
+let store = stores.focus.sessions
+await store.refresh()                                   // on launch, every foreground, and from a running session's timeline
+let outcome = await store.start(.init(preset: preset, minutes: 50, appSet: appSet, from: .focusTab))
+// .started(id), .alreadyRunning, .ledgerUnavailable, .blockingFailed(failure) ("Couldn't lock your apps"), .notRecorded
+store.running                                           // the running session (SessionRecord), drawn from the ledger
+store.displayCredit(at: now)                            // today, yesterday and total seconds: counted plus provisional
+await store.end(.endedEarly)                            // or .emergencyRelease; .completed happens on refresh at the planned end
+await store.startBreak(); await store.endBreak()        // one locked break, inside the planned length
+await store.releaseAll()                                // Settings › Release all apps
+await store.reflect(.partly, on: id)                    // the receipt's "How did it go?"
+```
+
+- **Starting.** The block is applied and read back before anything is written; a second Start while one is starting is refused. Without an app set, or on a build that can't block, a session is a plain timer that counts nothing.
+- **Proof.** Each `refresh()` reads the block back and writes a checkpoint at most once a minute. If the block has gone, the session is marked lost and runs on as a plain timer; credit stops at the last checkpoint.
+- **Unknown state.** While the ledger can't be read (`isLedgerReadable` false) the store neither writes nor clears.
+- **Permissions.** The store grants `.screenTime` in `collection.context.permissions` while blocking is available and allowed, and sets `collection.context.blocking` to the build's capability. A free build's Screen Time leaves read "Not available in this build" (`LeafAvailability.notInThisBuild`), with no button.
+- **Pure helpers for the screens:** `DialLayout` (marks, angles, turning), `FocusTimeText` (calm minutes), `SessionForecast` (the leaf dot's minute and the counts line), `StartReadiness` (Home's Start and Again), `RecentIntentions` (the intention chips), `FocusPreset` (presets and the strictness rule), `LeafProgress.rungFraction` (the dial's leaf fill) and `collection.currentRun(at:)` (the header streak).
+- **Launch modes** (`LaunchMode`): live (files, `live` events credit), demo (memory, the preview blocker), and the DEBUG sandbox (`-MapleDemoSandbox YES`: its own container under `Sandbox/`, where preview sessions credit).
+
 ## Files, unlocks and time zones
 
 - `JSONStorage.read()` tells a missing file (`.absent`, a first run) from one that can't be read yet (`.unavailable`: a launch before the first unlock after a restart, or another I/O error). Only a file that reads but won't decode is set aside as `<name>.damaged-<time>.json`; an unreadable one is left alone and every save to it is refused until a read works. A missing file with a cleanly decoding set-aside copy beside it is restored; if a newer set-aside copy can't be read yet (a protection or permission error), the read is `.unavailable` rather than `.absent`, so no empty file is created in its place before the first unlock.
@@ -252,6 +278,8 @@ Counters never go down. Any rise marks the day tended (tree growth), except Firs
 ## Shipped features and permissions
 
 `collection.context.features` is `ShippedFeatures.current` (M1 only): `.focus`, `.sleepSounds`, `.screenTime` are false and their categories are dormant ("Not earnable yet"). A feature that hasn't shipped is absent from every screen.
+
+`collection.context.blocking` (`BlockingCapability`) says what the build can block with: `.unavailableInBuild` on free builds (and paid ones until F1-paid), `.preview` in DEBUG demo and sandbox launches.
 
 `collection.context.permissions` (`GrantedPermissions`) is real: empty until the member has been through Apple's Health prompt, then `.appleHealth`. `collection.availability(of:)` gives a category's state: Rested nights needs Apple Health (`.needsAppleHealth`), the focus categories need Screen Time (`.needsScreenTime`) once they ship, and First leaf needs nothing. Needs-permission leaves show "Needs Apple Health" (tiles, section headers with "Turn on", leaf detail with "Turn on Apple Health"), have no estimate, and are left out of the next leaf, buds, Almost there, pacing and Profile's totals (D9).
 
