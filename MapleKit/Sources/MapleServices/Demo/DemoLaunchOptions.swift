@@ -30,6 +30,10 @@ nonisolated public struct DemoLaunchOptions: Sendable, Equatable {
     /// `-MapleDemoDay friday` (a weekday name) or `2026-10-09`: the day `phase` freezes the clock on, so a weekend
     /// night's evening can be shown on any day.
     public var day: String?
+    /// -MapleDemoSandbox YES: the sandbox container (F1 design §7.6).
+    public var sandbox = false
+    /// -MapleDemoSessionSeconds <n>: sandbox sessions last n seconds, in real time.
+    public var sessionSeconds: Int?
 
     public init() {}
 
@@ -62,6 +66,8 @@ nonisolated public struct DemoLaunchOptions: Sendable, Equatable {
         schedule = value("MapleDemoSchedule").flatMap(Self.schedule(from:))
         weekendSchedule = value("MapleDemoWeekendSchedule").flatMap(Self.schedule(from:))
         day = value("MapleDemoDay")
+        sandbox = flag("MapleDemoSandbox")
+        sessionSeconds = count("MapleDemoSessionSeconds").flatMap { $0 > 0 ? $0 : nil }
     }
 
     /// The saved weekly schedule these arguments make from `saved` (the demo's own, or the member's): the

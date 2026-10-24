@@ -213,7 +213,8 @@ struct StoreSafetyTests {
         #expect(prewarmed.collection.snapshot.profileID == profile)
         #expect(prewarmed.schedule.hasSavedSchedule)
         #expect(prewarmed.schedule.firstRun == .finished)
-        #expect(Set(files(in: folder)) == [MapleStores.collectionFile, MapleStores.scheduleFile])
+        // Building the Focus stores at launch also keeps this install's device id in the container.
+        #expect(Set(files(in: folder)) == [MapleStores.collectionFile, MapleStores.scheduleFile, DeviceIdentity.file])
     }
 
     @Test("Schedule and settings files that can't be read are never overwritten with defaults")

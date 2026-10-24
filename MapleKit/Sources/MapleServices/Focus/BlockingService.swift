@@ -55,9 +55,11 @@ public enum MapleBuild {
     }
 
     /// - Parameter usesPreview: A DEBUG demo or sandbox launch, which blocks with the preview blocker. An ordinary
-    ///   launch behaves like its tier.
+    ///   launch behaves like its tier. Ignored in a Release build, which can never use the preview blocker.
     public static func capability(tier: MapleTier, usesPreview: Bool) -> BlockingCapability {
+        #if DEBUG
         if usesPreview { return .preview }
+        #endif
         switch tier {
         case .free: return .unavailableInBuild
         // `ScreenTimeBlockingService` arrives with F1-paid; until then a paid build can't block either.

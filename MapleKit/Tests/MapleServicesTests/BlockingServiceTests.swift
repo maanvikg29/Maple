@@ -14,7 +14,12 @@ struct BlockingServiceTests {
         #expect(MapleBuild.tier(infoValue: "free") == .free)
         #expect(MapleBuild.tier(infoValue: nil) == .free)
         #expect(MapleBuild.tier(infoValue: "$(MAPLE_TIER)") == .free)
+        #if DEBUG
         #expect(MapleBuild.capability(tier: .free, usesPreview: true) == .preview)
+        #else
+        // Only DEBUG launches may use the preview blocker.
+        #expect(MapleBuild.capability(tier: .free, usesPreview: true) == .unavailableInBuild)
+        #endif
         #expect(MapleBuild.capability(tier: .free, usesPreview: false) == .unavailableInBuild)
         #expect(MapleBuild.capability(tier: .paid, usesPreview: false) == .unavailableInBuild)
     }

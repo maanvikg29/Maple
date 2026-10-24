@@ -13,6 +13,8 @@ public struct MapleStores {
     /// Apple Health: the one permission this build can grant, and only once the member has been through Apple's
     /// prompt. DEBUG demos are granted what their launch arguments say.
     public let health: HealthPermission
+    /// This launch's Focus stores: sessions, presets, app sets and intentions (F1 design §7.6).
+    public let focus: FocusStores
     /// "Now" for every screen: live, or frozen inside a phase by `-MapleDemoPhase`.
     public let clock: MapleClock
     /// `-MapleDemoSeason`; nil uses the real season.
@@ -23,6 +25,10 @@ public struct MapleStores {
     public static let collectionFile = "collection.json"
     public static let scheduleFile = "schedule.json"
     public static let sharesFile = "leaf-shares.json"
+    #if DEBUG
+    /// The sandbox's own container folder (`-MapleDemoSandbox YES`).
+    public static let sandboxFolder = "Sandbox"
+    #endif
 
     /// What this launch should use: the live stores, or in DEBUG the demo the launch arguments ask for.
     public static func launch() -> MapleStores {
@@ -42,7 +48,7 @@ public struct MapleStores {
     /// calls `collection.systemTimeChanged()` on a time-zone change to refresh what screens already drew.
     public static func live(
         directory: URL = MapleContainer.directory(), calendar: Calendar = .autoupdatingCurrent, now: Date = .now,
-        healthAuthorizer: any HealthAuthorizing = HealthKitAuthorizer()
+        healthAuthorizer: any HealthAuthorizing = HealthKitAuthorizer(), focusMode: LaunchMode = .live, sessionSeconds: Int? = nil
     ) -> MapleStores {
         let health = HealthPermission.live(directory: directory, authorizer: healthAuthorizer)
         let context = CollectionContext(permissions: health.permissions, calendar: calendar, hemisphere: .current)
@@ -55,30 +61,43 @@ public struct MapleStores {
             provider: UnconfiguredLeafShareProvider(), storage: JSONStorage(.file(directory.appending(path: sharesFile))),
             features: context.features, clock: .live
         )
-        var stores = MapleStores(collection: collection, schedule: schedule, shares: shares, health: health, clock: .live,
+        let focus: FocusStores
+        #if DEBUG
+        focus = focusMode == .sandbox
+            ? .sandbox(directory: directory, collection: collection, sessionSeconds: sessionSeconds)
+            : .live(directory: directory, collection: collection)
+        #else
+        focus = .live(directory: directory, collection: collection)
+        #endif
+        var stores = MapleStores(collection: collection, schedule: schedule, shares: shares, health: health, focus: focus, clock: .live,
                                  seasonOverride: nil)
-        stores.isLive = true
+        // The sandbox is not the live store: nothing that treats the live one specially (the system calendar, Health's
+        // background delivery) runs against its files.
+        stores.isLive = focusMode == .live
         return stores
     }
 
     /// Whether the collection and schedule files could both be read (see `CollectionStore.isAvailable`).
     public var isAvailable: Bool { collection.isAvailable && schedule.isAvailable }
 
-    /// Reads the collection, schedule and Apple Health record again if launch couldn't (before the first unlock
-    /// after a restart).
-    /// - Returns: Whether the collection or schedule changed from its placeholder, so the first-run step must be
-    ///   decided again.
+    /// Reads the collection, schedule, Apple Health record and Focus files (presets, app sets, intentions) again if
+    /// launch couldn't (before the first unlock after a restart).
+    /// - Returns: Whether the collection, schedule or a Focus store changed from its placeholder, so the first-run
+    ///   step must be decided again.
     @discardableResult
     public func reloadIfUnavailable() -> Bool {
         let collectionReloaded = collection.reloadIfUnavailable()
         let scheduleReloaded = schedule.reloadIfUnavailable()
         let healthReloaded = health.reloadIfUnavailable()
+        let presetsReloaded = focus.presets.reloadIfUnavailable()
+        let appSetsReloaded = focus.appSets.reloadIfUnavailable()
+        let notesReloaded = focus.notes.reloadIfUnavailable()
         if collectionReloaded, !scheduleReloaded {
             // The collection's placeholder had the standard schedule; give it the member's again.
             collection.schedule = schedule.weekly
         }
         if collectionReloaded || healthReloaded { health.apply(to: collection) }
-        return collectionReloaded || scheduleReloaded
+        return collectionReloaded || scheduleReloaded || presetsReloaded || appSetsReloaded || notesReloaded
     }
 
     #if DEBUG
@@ -93,6 +112,10 @@ public struct MapleStores {
         _ options: DemoLaunchOptions, directory: URL = MapleContainer.directory(), calendar: Calendar = .current,
         now: Date = .now
     ) -> MapleStores {
+        if options.sandbox {
+            return live(directory: directory.appending(path: sandboxFolder, directoryHint: .isDirectory), calendar: calendar,
+                        now: now, focusMode: .sandbox, sessionSeconds: options.sessionSeconds)
+        }
         let usesDemo = options.usesDemoCollection
         let savedHealth = JSONStorage<HealthConnection>(.file(directory.appending(path: HealthPermission.file))).load()
         let permissions = options.permissions
@@ -138,8 +161,8 @@ public struct MapleStores {
         schedule.clock = clock
         let provider: any LeafShareProvider = options.rarity ? PreviewLeafShareProvider() : UnconfiguredLeafShareProvider()
         let shares = LeafShareStore(provider: provider, storage: JSONStorage(.memory), features: context.features, clock: clock)
-        return MapleStores(collection: collection, schedule: schedule, shares: shares, health: health, clock: clock,
-                           seasonOverride: options.season)
+        return MapleStores(collection: collection, schedule: schedule, shares: shares, health: health,
+                           focus: .demo(collection: collection, clock: clock), clock: clock, seasonOverride: options.season)
     }
     #endif
 }

@@ -68,6 +68,7 @@ public final class FocusSessionStore {
     @ObservationIgnored private let credited: Set<FocusSource>
     @ObservationIgnored private let liveActivity: any LiveActivityController
     @ObservationIgnored private let appBuild: String
+    @ObservationIgnored private let plannedSecondsOverride: Int?
     @ObservationIgnored private var queue: Task<Void, Never>?
     /// This device's newest event in the boot that was current at the last replay: trusted time runs on from it.
     @ObservationIgnored private var anchor: PlacedEvent?
@@ -75,9 +76,11 @@ public final class FocusSessionStore {
     /// - Parameters:
     ///   - writer: The app's writer, whose time source is the store's clock (a shifted one in demos).
     ///   - credited: The sources whose events earn credit: `live`, plus `preview` in the sandbox (§7.6).
+    ///   - plannedSecondsOverride: DEBUG sandbox only: every session lasts this long (`-MapleDemoSessionSeconds`).
     public init(
         ledger: any FocusLedgerStore, writer: LedgerWriter, blocking: any BlockingService, collection: CollectionStore,
-        credited: Set<FocusSource>, liveActivity: any LiveActivityController, appBuild: String
+        credited: Set<FocusSource>, liveActivity: any LiveActivityController, appBuild: String,
+        plannedSecondsOverride: Int? = nil
     ) {
         self.ledger = ledger
         self.writer = writer
@@ -86,6 +89,7 @@ public final class FocusSessionStore {
         self.credited = credited
         self.liveActivity = liveActivity
         self.appBuild = appBuild
+        self.plannedSecondsOverride = plannedSecondsOverride
     }
 
     /// The store's "now", on trusted time (F1 design §3.2): the placed time of this device's newest event in the
@@ -260,7 +264,7 @@ public final class FocusSessionStore {
         let blocks = !request.plainTimer && blocking.capability.canBlock && request.appSet != nil
         let minutes = DialLayout.stepped(request.minutes, by: 0)
         let plan = FocusPlan(
-            presetID: request.preset.id, presetName: request.preset.name, verb: request.preset.verb, plannedSeconds: minutes * 60,
+            presetID: request.preset.id, presetName: request.preset.name, verb: request.preset.verb, plannedSeconds: plannedSecondsOverride ?? minutes * 60,
             breakSeconds: request.preset.hasBreak ? FocusPreset.breakSeconds : 0, strictness: request.preset.strictness(on: frozen.day),
             kind: blocks ? .blocking : .plainTimer, appSetID: blocks ? request.appSet?.id : nil,
             selection: blocks ? request.appSet?.summary : nil, startedFrom: request.from, mapleDay: frozen.day.description,
