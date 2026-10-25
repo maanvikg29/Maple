@@ -85,8 +85,8 @@ struct FocusView: View {
             RunningSessionView(sessionID: id)
                 .id(id)
         case .receipt(let id):
-            // Task 13: ReceiptView.
-            FocusPlaceholder("Receipt", detail: session(id)?.plan.presetName)
+            ReceiptView(sessionID: id)
+                .id(id)
         }
     }
 
