@@ -102,6 +102,7 @@ public struct HoldButton: View {
                 .strokeBorder(theme.colors.primaryBorderBottom, lineWidth: theme.elevation.hairlineWidth)
         }
         .frame(maxWidth: .infinity, minHeight: 52)
+        .fixedSize(horizontal: false, vertical: true)
         .contentShape(Capsule(style: .continuous))
         .gesture(touchGesture, including: frozenProgress == nil ? .all : .subviews)
         .onChange(of: scenePhase) { _, phase in
