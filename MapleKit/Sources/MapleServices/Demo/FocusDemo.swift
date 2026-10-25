@@ -52,6 +52,9 @@ nonisolated public enum FocusDemo {
     /// `-MapleDemoReceipt`: how the session that just ended went (§5.8's endings and variants).
     nonisolated public enum Receipt: String, Sendable, CaseIterable {
         case clean, unlocked, early, plain, revoked, bedtime, capped, leaf, leafNight, notQualifying
+        /// Locked, released by the emergency hold 18 minutes in: §5.7's breath (`-MapleDemoFinishAt` freezes it), then
+        /// its ended state.
+        case emergency
     }
 
     /// `-MapleDemoSaved`: today's earlier sessions.
@@ -237,6 +240,8 @@ struct FocusDemoScenario {
         strictness = switch state {
         case .emergency: .locked
         case .endEarly: options.strictness == .gentle ? .gentle : .steady
+        // Only Locked has the emergency release.
+        case .ended, .endedAway: options.receipt == .emergency ? .locked : options.strictness ?? .steady
         default: options.strictness ?? .steady
         }
         focusAt = options.focusAt
@@ -353,10 +358,10 @@ struct FocusDemoScenario {
             }
             return script
         }
-        if receipt == .early {
+        if receipt == .early || receipt == .emergency {
             let at = TimeInterval(min(max(focusAt ?? 18, 1), minutes - 1) * 60)
             script.startedAgo = at + endedFor
-            script.end = .ended(.endedEarly, at: at)
+            script.end = .ended(receipt == .early ? .endedEarly : .emergencyRelease, at: at)
         } else {
             script.startedAgo = TimeInterval(minutes * 60) + endedFor
             script.end = .atRefresh

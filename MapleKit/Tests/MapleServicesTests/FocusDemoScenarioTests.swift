@@ -387,7 +387,8 @@ struct FocusDemoScenarioTests {
         #expect(sessions.running == nil)
         let subject = try #require(stores.session(FocusDemo.subjectID))
         let end = try #require(subject.end?.placed)
-        #expect((sessions.lastEnded?.id == subject.id) == (receipt != .early))
+        // A session the launch's refresh ends is the store's last ended; one seeded as already ended is not.
+        #expect((sessions.lastEnded?.id == subject.id) == ![.early, .emergency].contains(receipt))
         let credit = try #require(stores.credit(subject.id))
         let rules = Set(credit.stretches.compactMap(\.rule))
         let leaf = try twentyHoursLeaf()
@@ -434,6 +435,13 @@ struct FocusDemoScenarioTests {
             #expect(subject.plan.selection?.qualifies == false)
             #expect(credit.seconds == 0)
             #expect(rules == [.notQualifying])
+        case .emergency:
+            #expect(subject.plan.strictness == .locked)
+            #expect(subject.endReason == .emergencyRelease)
+            #expect(apart(end, subject.countdownStart, by: 18 * 60))
+            #expect(near(end, stores.now.addingTimeInterval(-5), within: 2))
+            #expect(credit.seconds == 18 * 60)
+            #expect(!credit.finished)
         }
         if receipt != .leaf, receipt != .leafNight { #expect(opened == nil) }
     }

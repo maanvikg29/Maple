@@ -46,6 +46,7 @@ struct FocusDemoArgumentTests {
         ])
         #expect(FocusDemo.Receipt.allCases.map(\.rawValue) == [
             "clean", "unlocked", "early", "plain", "revoked", "bedtime", "capped", "leaf", "leafNight", "notQualifying",
+            "emergency",
         ])
         #expect(FocusDemo.Saved.allCases.map(\.rawValue) == ["typical", "capped", "empty"])
         #expect(FocusDemo.LiveActivity.allCases.map(\.rawValue) == ["running", "break", "plain", "ended"])

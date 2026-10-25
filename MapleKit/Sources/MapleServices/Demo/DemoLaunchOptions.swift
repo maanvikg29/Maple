@@ -52,7 +52,7 @@ nonisolated public struct DemoLaunchOptions: Sendable, Equatable {
     public var strictness: Strictness?
     /// `-MapleDemoScreenTime approved|notDetermined|declined|restricted|noPasscode|unavailable|revoked|plain|failStart`.
     public var screenTime: FocusDemo.ScreenTime?
-    /// `-MapleDemoReceipt clean|unlocked|early|plain|revoked|bedtime|capped|leaf|leafNight|notQualifying`.
+    /// `-MapleDemoReceipt clean|unlocked|early|plain|revoked|bedtime|capped|leaf|leafNight|notQualifying|emergency`.
     public var receipt: FocusDemo.Receipt?
     /// `-MapleDemoSaved typical|capped|empty`: today's earlier sessions (`empty` also has no streak).
     public var saved: FocusDemo.Saved?
@@ -69,7 +69,7 @@ nonisolated public struct DemoLaunchOptions: Sendable, Equatable {
     public var holdAt: Double?
     /// `-MapleDemoEndCountdown <s>`: Steady's end countdown frozen at that many seconds, 0…15.
     public var endCountdown: Int?
-    /// `-MapleDemoFinishAt <s>`: the receipt's finish frozen that many seconds in.
+    /// `-MapleDemoFinishAt <s>`: the receipt's finish (or an emergency release's breath) frozen that many seconds in.
     public var finishAt: Double?
 
     public init() {}
