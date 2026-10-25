@@ -30,6 +30,9 @@ private struct DialTurningModifier: ViewModifier {
     @State private var tracker = DialTurnTracker()
     @State private var size = CGSize.zero
     @State private var steps = 0
+    /// True while a turn is under way. It resets when the drag ends and also when it is cancelled (the system takes
+    /// the touch, or `enabled` switches the gesture off mid-turn), which never reaches `onEnded`.
+    @GestureState private var isTurning = false
 
     /// One chain whichever way `enabled` is, so the dial keeps its identity (and its animations) when the start
     /// screen's stage flips it: the turn gesture is switched off in place, and the adjustable action is added to the
@@ -44,6 +47,10 @@ private struct DialTurningModifier: ViewModifier {
                 size = newSize
             }
             .gesture(turnGesture, isEnabled: enabled)
+            .onChange(of: isTurning) { _, turning in
+                // A turn that ended or was cancelled: the next one starts afresh, never from a stale angle.
+                if !turning { tracker.end() }
+            }
             .sensoryFeedback(.selection, trigger: steps)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(Text(FocusCopy.dialLengthLabel))
@@ -64,6 +71,7 @@ private struct DialTurningModifier: ViewModifier {
     /// Each 30° of turn around the dial's centre is a step, from wherever the touch lands outside the dead zone.
     private var turnGesture: some Gesture {
         DragGesture(minimumDistance: 2)
+            .updating($isTurning) { _, turning, _ in turning = true }
             .onChanged { value in
                 let centre = CGPoint(x: size.width / 2, y: size.height / 2)
                 let turned = tracker.move(
