@@ -66,6 +66,10 @@ struct FocusStatusComposerTests {
         let fixture = ComposerStores(started: false)
         await fixture.stores.sessions.refresh()
         #expect(fixture.status().start?.readiness == .needsStartScreen(.firstSession))
+        // Home's Start offers what the start screen opens on: Quick for the first session (P4, F1-20).
+        let quick = try #require(fixture.stores.presets.presets.first { $0.verb == .quick })
+        #expect(fixture.status().start?.presetID == quick.id)
+        #expect(fixture.status().start?.title == "Start a quick session · 25m")
         let study = try #require(fixture.stores.presets.lastUsed)
         let model = fixture.stores.startScreen(preset: study, minutes: 50, at: fixture.now, collection: fixture.collection,
                                                settings: fixture.settings, locale: Locale(identifier: "en_GB"))

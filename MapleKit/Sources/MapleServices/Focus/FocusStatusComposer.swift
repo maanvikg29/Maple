@@ -44,11 +44,14 @@ extension FocusStores {
     }
 
     /// Today's focus for Home (§5.10): display credit, a running session's time left (`plannedEnd − now`, so it stays
-    /// above 0 through a locked break and until the session ends), and Start for the last-used preset at its own
-    /// length, built from the start screen's model so its readiness is the start screen's.
+    /// above 0 through a locked break and until the session ends), and Start for the preset the start screen opens on
+    /// (the last used, or Quick for the first session, P4) at its own length, built from the start screen's model so
+    /// its preset and readiness are the start screen's.
     public func status(at now: Date, collection: CollectionStore, settings: AppSettings) -> FocusStatus {
         let credit = sessions.displayCredit(at: now)
-        let start = presets.lastUsed.map { preset in
+        let preset = FocusStartLines.preset(selected: nil, presets: presets.presets, lastUsedID: presets.lastUsedID,
+                                            isFirstSession: !settings.hasStartedFocus)
+        let start = preset.map { preset in
             FocusStart(model: startScreen(preset: preset, minutes: preset.minutes, at: now, collection: collection, settings: settings))
         }
         return FocusStatus(

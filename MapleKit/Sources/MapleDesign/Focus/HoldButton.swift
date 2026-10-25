@@ -42,6 +42,9 @@ public struct HoldButton: View {
     @State private var hold: HoldProgress
     @State private var now = Date()
     @State private var touches: Set<SpatialEventCollection.Event.ID> = []
+    /// The touches a gesture still held when its state reset, until a later main-actor turn shows whether its
+    /// `onEnded` came (a lift) or never will (the system cancelled it). The hold can't complete meanwhile.
+    @State private var endingTouches: Set<SpatialEventCollection.Event.ID>?
     @State private var ignoresTouches = false
     @State private var pressedAt: Date?
     @State private var ticker: Task<Void, Never>?
@@ -110,11 +113,23 @@ public struct HoldButton: View {
             if phase != .active { interrupt() }
         }
         .onChange(of: isTouching) { _, touching in
-            // A gesture the system cancels (a scroll view or a sheet taking the touch) never calls onEnded: treat it
-            // as an interruption, so the hold drains and never completes.
+            // `isTouching` resets as the gesture ends, and SwiftUI can run this before the gesture's own `onEnded`,
+            // which still has to see the lift (and a plain tap). So the touches still recorded are looked at again a
+            // main-actor turn later, once the update that ended the gesture has run its actions: a lift's `onEnded`
+            // has removed them by then. A gesture the system cancels (a scroll view or a sheet taking the touch)
+            // never calls `onEnded`, so they are still there: that is an interruption, and the hold drains and never
+            // completes.
             guard !touching, !touches.isEmpty else { return }
-            touches.removeAll()
-            interrupt()
+            let held = touches
+            endingTouches = held
+            Task {
+                // One more turn, in case the gesture's actions were themselves queued behind this task.
+                await Task.yield()
+                endingTouches = nil
+                guard !touches.isDisjoint(with: held) else { return }
+                touches.subtract(held)
+                interrupt()
+            }
         }
         .onChange(of: isFocused) { _, focused in
             if !focused, hold.isCountdown { interrupt() }
@@ -135,6 +150,7 @@ public struct HoldButton: View {
             // Leaving the screen (a tab switch, a cover) ends the hold: nothing carries over, so the first tap back
             // can't lift a press that began before and complete it.
             touches.removeAll()
+            endingTouches = nil
             ignoresTouches = false
             pressedAt = nil
             if !hold.isComplete {
@@ -276,7 +292,9 @@ public struct HoldButton: View {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(1.0 / 30))
                 let date = Date()
-                if completeIfFilled(at: date) { return }
+                // While a gesture's end is unresolved, only its lift (`touchesEnded`) may complete the hold: a
+                // gesture the system cancelled must never complete.
+                if endingTouches == nil, completeIfFilled(at: date) { return }
                 now = date
                 progress = hold.value(at: date)
                 if hold.phase(at: date) == .idle {

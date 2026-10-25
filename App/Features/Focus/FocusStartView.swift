@@ -144,13 +144,9 @@ struct FocusStartView: View {
                 } else {
                     blockingLine(model.blockingLine)
                 }
-                if let detail = lines.detailLine {
-                    detailLine(detail, marksLeaf: lines.marksLeaf)
-                        .transition(.opacity)
-                }
+                detailLine(lines)
             }
         }
-        .mapleAnimation(theme.motion.gentle, value: lines.detailLine)
     }
 
     /// §5.17: the centre numeral caps at xxLarge, so at accessibility sizes the time is repeated under the dial.
@@ -214,22 +210,51 @@ struct FocusStartView: View {
         return Text("\(Text(verbatim: parts.main).foregroundStyle(theme.colors.textPrimary))\(rest.foregroundStyle(theme.colors.textSecondary))")
     }
 
-    /// The counts line, the hint, a notice or the failed lock's prompt. A line naming the leaf has the dot's mark.
-    private func detailLine(_ text: String, marksLeaf: Bool) -> some View {
+    /// The one line under the Blocking line: the counts line, the hint, a notice or the failed lock's prompt.
+    ///
+    /// - When its words change, the new words cross-fade over the old ones, and only their opacity animates. Its height
+    ///   changes at once, so nothing on the page animates its layout (§4.6): hidden copies of the words size the line,
+    ///   and the words you see sit in an overlay, which takes no room.
+    /// - While the primary is a hold, the line keeps room for the plain-tap hint, which runs to two lines where the
+    ///   counts line takes one. So a tap showing the hint moves nothing, and the dial stays put (§5.2).
+    private func detailLine(_ lines: FocusStartLines) -> some View {
+        let words = lines.detailLine.map { DetailWords(text: $0, marksLeaf: lines.marksLeaf) }
+        let reservesHint = lines.primary == .holdToStart
+        return ZStack(alignment: .topLeading) {
+            if reservesHint {
+                detailRow(DetailWords(text: FocusCopy.holdHint, marksLeaf: false)).hidden()
+            }
+            if let words {
+                detailRow(words).hidden()
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .accessibilityHidden(true)
+        .overlay(alignment: .topLeading) {
+            if let words {
+                detailRow(words)
+                    .id(words)
+                    .transition(.opacity.animation(theme.motion.gentle))
+            }
+        }
+        .padding(.top, words != nil || reservesHint ? theme.spacing.xxs : 0)
+    }
+
+    /// The line's words, and the dot's mark before a line naming the leaf.
+    private func detailRow(_ words: DetailWords) -> some View {
         HStack(spacing: 7) {
-            if marksLeaf {
+            if words.marksLeaf {
                 Circle()
                     .fill(theme.colors.seasonTint(season))
                     .frame(width: 6, height: 6)
                     .accessibilityHidden(true)
             }
-            Text(text)
+            Text(words.text)
                 .font(MapleFont.footnote)
                 .foregroundStyle(theme.colors.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.top, theme.spacing.xxs)
     }
 
     // MARK: Primary
@@ -346,6 +371,13 @@ struct FocusStartView: View {
         guard !Task.isCancelled else { return }
         hintShownAt = nil
     }
+}
+
+/// The detail line's words, and whether they name the leaf (and so carry the dot's mark). A change of either
+/// cross-fades the line.
+private struct DetailWords: Hashable {
+    let text: String
+    let marksLeaf: Bool
 }
 
 /// A horizontal line through the middle of its frame: the intention line's dashed rule.
