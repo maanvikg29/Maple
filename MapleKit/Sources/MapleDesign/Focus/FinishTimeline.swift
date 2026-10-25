@@ -39,7 +39,8 @@ nonisolated public struct FinishFrame: Sendable, Equatable {
 ///   nothing sweeps every mark white.
 /// - An opened leaf grows into the centre over 0.8 s, with an ease-out and no overshoot.
 /// - The leaf's glow pulses once, and a ring ripples out from the marks (1.5 s from 0.15 s).
-/// - The numeral fades in at once, the leaf line at 0.4 s, and Done and Again at 0.6 s, each over 0.6 s.
+/// - The numeral starts fading in at once, the leaf line at 0.4 s, and Done and Again at 0.6 s, each over 0.6 s
+///   with `gentle`'s ease-in-out, rising into place as they fade.
 /// - A soft impact haptic plays at `hapticTime`.
 ///
 /// Under Reduce Motion there is no sweep, ripple, pulse or rise. The leaf is at its final size at once, and the
@@ -109,9 +110,9 @@ nonisolated public enum FinishTimeline {
             : glow(progress(time, from: glowStart, to: glowStart + glowDuration))
         let ripple = easeOut(progress(time, from: rippleStart, to: rippleStart + rippleDuration))
         let rippling = !reduceMotion && time >= rippleStart && time < rippleStart + rippleDuration
-        let numeral = easeOut(progress(time, from: 0, to: fadeDuration))
-        let line = easeOut(progress(time, from: lineStart, to: lineStart + fadeDuration))
-        let actions = easeOut(progress(time, from: actionsStart, to: actionsStart + fadeDuration))
+        let numeral = fadeIn(progress(time, from: 0, to: fadeDuration))
+        let line = fadeIn(progress(time, from: lineStart, to: lineStart + fadeDuration))
+        let actions = fadeIn(progress(time, from: actionsStart, to: actionsStart + fadeDuration))
         let rise = reduceMotion ? 0.0 : 1.0
         return FinishFrame(
             tone: tone, sweep: sweep, leafGrow: grow, glowScale: pulse.scale, glowOpacity: pulse.opacity,
@@ -127,6 +128,12 @@ nonisolated public enum FinishTimeline {
     /// The finish's ease-out, `cubic-bezier(0.2, 0.8, 0.2, 1)`: quick to start, settling gently, never past 1.
     static func easeOut(_ x: Double) -> Double {
         RevealEasing.cubicBezier(x, 0.2, 0.8, 0.2, 1)
+    }
+
+    /// The fade-ins' curve, and their rises': `easeInOut`, the shape of the 0.6 s `gentle` token, so each fade is
+    /// seen across its whole 0.6 s (spec §1, F1 design §4.6). The ease-out above is two-thirds in by 0.12 s.
+    static func fadeIn(_ x: Double) -> Double {
+        RevealEasing.easeInOut(x)
     }
 
     /// One mark's sweep `local` seconds after it starts: up to full in the first quarter, back to nothing by 0.9 s.

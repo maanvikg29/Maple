@@ -31,45 +31,48 @@ private struct DialTurningModifier: ViewModifier {
     @State private var size = CGSize.zero
     @State private var steps = 0
 
+    /// One chain whichever way `enabled` is, so the dial keeps its identity (and its animations) when the start
+    /// screen's stage flips it: the turn gesture is switched off in place, and the adjustable action is added to the
+    /// same accessibility attachment or left off it. Either way the dial is one element reading "Session length,
+    /// 50 minutes" (§4.9).
     func body(content: Content) -> some View {
-        if enabled {
-            content
-                .contentShape(Circle())
-                .onGeometryChange(for: CGSize.self) { proxy in
-                    proxy.size
-                } action: { newSize in
-                    size = newSize
+        let element = content
+            .contentShape(Circle())
+            .onGeometryChange(for: CGSize.self) { proxy in
+                proxy.size
+            } action: { newSize in
+                size = newSize
+            }
+            .gesture(turnGesture, isEnabled: enabled)
+            .sensoryFeedback(.selection, trigger: steps)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text(FocusCopy.dialLengthLabel))
+            .accessibilityValue(Text(FocusTimeText.spokenLength(minutes: minutes, locale: locale)))
+        // An accessibility modifier on an accessibility attachment returns the attachment's own type, so this picks
+        // between two values of one view type, not two branches: no `_ConditionalContent`, no new identity.
+        enabled
+            ? element.accessibilityAdjustableAction { direction in
+                switch direction {
+                case .increment: step(by: 1)
+                case .decrement: step(by: -1)
+                @unknown default: break
                 }
-                .gesture(
-                    DragGesture(minimumDistance: 2)
-                        .onChanged { value in
-                            let centre = CGPoint(x: size.width / 2, y: size.height / 2)
-                            let turned = tracker.move(
-                                to: value.location, from: value.startLocation, around: centre,
-                                deadZone: min(size.width, size.height) * DialTurnTracker.deadZoneFraction
-                            )
-                            if turned != 0 { step(by: turned) }
-                        }
-                        .onEnded { _ in tracker.end() }
+            }
+            : element
+    }
+
+    /// Each 30° of turn around the dial's centre is a step, from wherever the touch lands outside the dead zone.
+    private var turnGesture: some Gesture {
+        DragGesture(minimumDistance: 2)
+            .onChanged { value in
+                let centre = CGPoint(x: size.width / 2, y: size.height / 2)
+                let turned = tracker.move(
+                    to: value.location, from: value.startLocation, around: centre,
+                    deadZone: min(size.width, size.height) * DialTurnTracker.deadZoneFraction
                 )
-                .sensoryFeedback(.selection, trigger: steps)
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(Text(FocusCopy.dialLengthLabel))
-                .accessibilityValue(Text(FocusTimeText.spokenLength(minutes: minutes, locale: locale)))
-                .accessibilityAdjustableAction { direction in
-                    switch direction {
-                    case .increment: step(by: 1)
-                    case .decrement: step(by: -1)
-                    @unknown default: break
-                    }
-                }
-        } else {
-            // Not turnable (the start is locking): still one element reading "Session length, 50 minutes" (§4.9).
-            content
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(Text(FocusCopy.dialLengthLabel))
-                .accessibilityValue(Text(FocusTimeText.spokenLength(minutes: minutes, locale: locale)))
-        }
+                if turned != 0 { step(by: turned) }
+            }
+            .onEnded { _ in tracker.end() }
     }
 
     /// Moves the length by `count` steps from where it is. Clamped at 20 minutes and 3 hours; a step that changes

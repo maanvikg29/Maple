@@ -160,6 +160,21 @@ struct FinishTimelineTests {
         #expect(frame(0.7).lineRise > 0 && frame(1.0).lineRise == 0)
     }
 
+    @Test("The fade-ins ease in and out over their 0.6 s as `gentle` does, so none reads as instant, and the rises follow")
+    func fadeShape() {
+        let quarter = FinishTimeline.fadeDuration / 4, half = FinishTimeline.fadeDuration / 2
+        for reduceMotion in [false, true] {
+            let numeral = frame(quarter, reduceMotion: reduceMotion).numeralOpacity
+            let line = frame(FinishTimeline.lineStart + quarter, reduceMotion: reduceMotion).lineOpacity
+            let actions = frame(FinishTimeline.actionsStart + quarter, reduceMotion: reduceMotion).actionsOpacity
+            #expect(numeral < 0.25 && line < 0.25 && actions < 0.25, "a quarter in: \(numeral), \(line), \(actions)")
+            #expect(abs(frame(FinishTimeline.lineStart + half, reduceMotion: reduceMotion).lineOpacity - 0.5) < 0.01)
+        }
+        #expect(abs(frame(half).numeralRise - 4) < 0.1)
+        #expect(abs(frame(FinishTimeline.lineStart + half).lineRise - 5) < 0.1)
+        #expect(abs(frame(FinishTimeline.actionsStart + half).actionsRise - 5) < 0.1)
+    }
+
     @Test("Nothing moves after the settled time; times out of range give the first or the last frame")
     func settles() {
         let settled = FinishTimeline.settledTime(markCount: 50, reduceMotion: false)

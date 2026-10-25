@@ -7,8 +7,9 @@ import SwiftUI
 /// once, when it fills.
 ///
 /// - **Interruptions cancel and drain, and never complete:** the app leaving the foreground (a call, the Lock
-///   Screen), a second finger, or VoiceOver focus moving away from a running countdown. After a scene change or a
-///   second finger, touches are ignored until every finger lifts.
+///   Screen), a second finger, a touch the system takes (a scroll, a sheet), or VoiceOver focus moving away from a
+///   running countdown. After a scene change or a second finger, touches are ignored until every finger lifts. The
+///   button leaving the screen (a tab switch, a cover) resets an unfinished hold to empty.
 /// - **Accessibility (F1-22):** it reads as one button with `accessibilityName`. Its named action "Start countdown",
 ///   and VoiceOver's double-tap, fill it as a visible countdown of the same length ("Cancel · 8s", "8 seconds left").
 ///   The same action, a double-tap or a touch cancels it.
@@ -131,6 +132,15 @@ public struct HoldButton: View {
             if let value { progress = value }
         }
         .onDisappear {
+            // Leaving the screen (a tab switch, a cover) ends the hold: nothing carries over, so the first tap back
+            // can't lift a press that began before and complete it.
+            touches.removeAll()
+            ignoresTouches = false
+            pressedAt = nil
+            if !hold.isComplete {
+                hold.reset()
+                progress = 0
+            }
             ticker?.cancel()
             ticker = nil
         }
@@ -169,14 +179,20 @@ public struct HoldButton: View {
     }
 
     private func track(_ events: SpatialEventCollection) {
+        var cancelled = false
         for event in events {
             if event.phase == .active {
                 touches.insert(event.id)
             } else {
                 touches.remove(event.id)
+                if event.phase == .cancelled { cancelled = true }
             }
         }
-        if touches.count > 1 {
+        if cancelled {
+            // A touch the system took (a scroll starting on the button, a sheet) is an interruption, not a lift: the
+            // hold drains, never completes, and it is never a tap.
+            interrupt()
+        } else if touches.count > 1 {
             // A second finger lets go of the hold.
             interrupt()
         } else if touches.isEmpty {

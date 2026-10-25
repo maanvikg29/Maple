@@ -354,8 +354,8 @@ private func motionScenes() -> [SnapshotScene] {
             FinishPage(marks: lit, isGold: false, fill: DialFill(before: 0.42), time: 0.6, reduceMotion: false,
                        numeral: "50m")
         },
-        SnapshotScene("focus-finish-reduce-motion-0.5s") {
-            FinishPage(marks: lit, isGold: true, fill: opened, time: 0.5, reduceMotion: true, numeral: "50m")
+        SnapshotScene("focus-finish-reduce-motion-0.66s") {
+            FinishPage(marks: lit, isGold: true, fill: opened, time: 0.66, reduceMotion: true, numeral: "50m")
         },
         SnapshotScene("focus-hold-buttons", size: CGSize(width: 402, height: 700)) { HoldSheet() },
     ]
@@ -377,7 +377,7 @@ private struct FinishPage: View {
         let finish = FinishTimeline.frame(at: time, counted: dial.gold, leafOpened: fill.opened > 0, reduceMotion: reduceMotion)
         let leaf = LeafCatalog.shared.species(id: "campestre").map { DialLeaf(species: $0, fill: fill) }
         VStack(spacing: 28) {
-            Text("Finish at \(String(format: "%.1f", time)) s\(reduceMotion ? " · Reduce Motion" : "")")
+            Text("Finish at \(String(format: "%g", time)) s\(reduceMotion ? " · Reduce Motion" : "")")
                 .font(MapleFont.headline)
                 .foregroundStyle(theme.colors.textSecondary)
             MinuteDial(frame: dial, diameter: 300, theme: theme) {
