@@ -155,6 +155,7 @@ struct NowStateTests {
         #expect(now.action?.title == "Start study · 50m")
         var locked = study
         locked.strictness = .locked
+        locked.readiness = .ready(needsHold: true)
         #expect(NowState.Action.startFocus(locked).title == "Hold to start · Locked 50m")
     }
 

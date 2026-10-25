@@ -32,10 +32,14 @@ public struct FocusStart: Sendable, Hashable {
         self.readiness = readiness
     }
 
-    /// "Start study · 50m", or "Hold to start · Locked 50m".
+    /// Locked with nothing to warn about: Start is a 1.5-second hold, on Home as everywhere (§5.2).
+    public var needsHold: Bool { readiness == .ready(needsHold: true) }
+
+    /// "Start study · 50m", or "Hold to start · Locked 50m" when Start is a hold. A Locked preset whose start screen
+    /// has something to say reads like any other: a tap opens the Focus tab, and the hold happens there.
     public var title: String {
         let length = HomeFormat.duration(minutes: minutes)
-        return strictness == .locked ? "Hold to start · Locked \(length)" : "\(verb.startTitle) · \(length)"
+        return needsHold ? "Hold to start · Locked \(length)" : "\(verb.startTitle) · \(length)"
     }
 }
 
