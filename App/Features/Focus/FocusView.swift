@@ -104,7 +104,10 @@ struct FocusView: View {
     /// nothing minimised. (At launch the first replay finds the running session: a minimised state set for a DEBUG
     /// launch survives that.)
     private func sessionChanged(from old: UUID?, to new: UUID?) {
-        if old != nil { tab.isMinimised = false }
+        if old != nil {
+            tab.isMinimised = false
+            tab.releasesAll = false
+        }
         if new != nil {
             tab.shownReceipt = nil
             tab.plainTimer = nil
@@ -124,6 +127,14 @@ struct FocusView: View {
             tab.shownReceipt = id
         case .returnToSession:
             tab.isMinimised = false
+        case .releaseAll:
+            if sessions.running != nil {
+                tab.isMinimised = false
+                tab.releasesAll = true
+            } else {
+                // The session ended on the way here: nothing to go through.
+                Task { await sessions.releaseAll() }
+            }
         }
     }
 
@@ -158,6 +169,8 @@ final class FocusTabState {
     var sheet: FocusTabSheet?
     /// The last session this tab started, for the soft haptic as its block is confirmed (§5.1).
     var lastStarted: UUID?
+    /// Settings' "Release all apps" arrived during a session: the session screen opens its way out and clears this.
+    var releasesAll = false
 }
 
 /// Why the start screen starts a plain timer (§5.1, §5.3).

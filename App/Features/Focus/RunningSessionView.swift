@@ -15,6 +15,8 @@ import MapleServices
 /// - Each leaf opening is announced once, and so is the break running out (§4.9). A break that runs out in front of
 ///   the member also plays a soft haptic; one that ran out while Maple was away returns to the session quietly.
 /// - Magic Tap moves VoiceOver to the session's controls.
+/// - The way out (Task 12): End early's sheet (Gentle, Steady), or the emergency release in this screen's place
+///   (Locked). Settings' "Release all apps" arrives here during a session (`FocusTabState.releasesAll`).
 struct RunningSessionView: View {
     let sessionID: UUID
 
@@ -38,21 +40,70 @@ struct RunningSessionView: View {
     /// Bumped when the break runs out in front of the member: one soft haptic.
     @State private var breakRanOut = 0
     @AccessibilityFocusState private var controlsFocused: Bool
-    // The way out (Task 12 replaces this with End early and the emergency release).
-    @State private var showsEndPath = false
+    /// End early's sheet over the session (Gentle, Steady, §5.6).
+    @State private var showsEndEarly = false
+    /// Locked's emergency release, in this screen's place (§5.7).
+    @State private var showsEmergency = false
+    /// When the emergency hold completed, on trusted time: the breath starts at once, before the store has ended the
+    /// session and the receipt has taken over.
+    @State private var releasedAt: Date?
+    /// The sheet's countdown reached zero: the session ends once the sheet has gone.
+    @State private var endsWhenDismissed = false
+    /// Settings' "Release all apps" came this way: completing the way out also clears every store (§5.12).
+    @State private var releasesAll = false
 
     init(sessionID: UUID) {
         self.sessionID = sessionID
     }
 
     var body: some View {
-        sessionScreen
-            // Task 12 replaces this with End early and the emergency release.
-            .sheet(isPresented: $showsEndPath) {
-                FocusPlaceholder(endPath.title)
-                    .presentationDetents([.medium])
-                    .presentationBackground(theme.colors.surface2)
+        Group {
+            if showsEmergency, let session {
+                EmergencyReleaseView(
+                    session: session, stage: emergencyStage, frozenSeconds: frozenBreath,
+                    onKeepGoing: keepGoing, onRelease: release
+                )
+            } else {
+                sessionScreen
             }
+        }
+        .sheet(isPresented: $showsEndEarly, onDismiss: endEarlyDismissed) {
+            if let session {
+                EndEarlySheet(
+                    session: session, path: endPath,
+                    onKeepGoing: { showsEndEarly = false },
+                    onBreakInstead: breakInstead,
+                    onEnd: {
+                        endsWhenDismissed = true
+                        showsEndEarly = false
+                    }
+                )
+            }
+        }
+        .onChange(of: tab.releasesAll, initial: true) { _, asked in
+            // Settings' "Release all apps" during this session (`FocusReleaseRouter`).
+            guard asked else { return }
+            tab.releasesAll = false
+            releasesAll = true
+            takeEndPath()
+        }
+    }
+
+    /// The release's stage: the hold, or the breath from the moment the hold completed.
+    private var emergencyStage: EmergencyReleaseView.Stage {
+        if let frozenBreath { return .released(endedAt: sessions.now.addingTimeInterval(-frozenBreath)) }
+        return releasedAt.map { .released(endedAt: $0) } ?? .holding
+    }
+
+    /// DEBUG still frames: `-MapleDemoFinishAt <s>` with `-MapleDemoFocus emergency` freezes the release's breath that
+    /// many seconds in, while the demo's session keeps running behind it.
+    private var frozenBreath: Double? {
+        #if DEBUG
+        let options = DemoLaunchOptions.current
+        return options.focus == .emergency ? options.finishAt : nil
+        #else
+        return nil
+        #endif
     }
 
     // MARK: The screen
@@ -247,9 +298,60 @@ struct RunningSessionView: View {
         }
     }
 
+    /// "End early" or "Emergency release", by the session's strictness.
     private func takeEndPath() {
         wake()
-        showsEndPath = true
+        switch endPath {
+        case .emergency: showsEmergency = true
+        case .gentle, .steady: showsEndEarly = true
+        }
+    }
+
+    /// The sheet has gone: the session ends if its countdown reached zero; otherwise the member kept going.
+    private func endEarlyDismissed() {
+        wake()
+        guard endsWhenDismissed else {
+            releasesAll = false
+            return
+        }
+        endsWhenDismissed = false
+        let clearsAll = releasesAll
+        releasesAll = false
+        Task {
+            // Through Release all apps the store ends the session as `.releaseAll` while it clears every store (R4).
+            if clearsAll {
+                await sessions.releaseAll()
+            } else {
+                await sessions.end(.endedEarly)
+            }
+        }
+    }
+
+    /// "Take a 5-minute break instead": the sheet closes and the break starts, cut short at the planned end.
+    private func breakInstead() {
+        releasesAll = false
+        showsEndEarly = false
+        takeBreak()
+    }
+
+    /// The emergency release's "Keep going": back to the session, nothing changed.
+    private func keepGoing() {
+        releasesAll = false
+        showsEmergency = false
+        wake()
+    }
+
+    /// The 10-second hold completed: the release happens now, so the breath can't trap anyone (§5.7). Each use is
+    /// logged as `sessionEnded(emergencyRelease)`; through Release all apps every store is cleared after it.
+    private func release() {
+        guard releasedAt == nil else { return }
+        releasedAt = sessions.now
+        let clearsAll = releasesAll
+        releasesAll = false
+        Task {
+            await sessions.end(.emergencyRelease)
+            if clearsAll { await sessions.releaseAll() }
+        }
     }
 
     /// Each leaf opening, announced once as it happens (a milestone, §4.9), on the break too: "Field maple is yours. It
@@ -264,13 +366,20 @@ struct RunningSessionView: View {
     /// Applied once per launch, so a demo's state doesn't come back after the member changes it.
     private static var demoApplied = false
 
-    /// `-MapleDemoFocus dimmed`: the screen as it is 30 seconds after the last touch.
+    /// `-MapleDemoFocus dimmed`: the screen as it is 30 seconds after the last touch. `-MapleDemoFocus endEarly` and
+    /// `-MapleDemoEndCountdown <s>`: End early's sheet over it. `-MapleDemoFocus emergency`: the emergency release.
     private func applyDemo() {
         guard !Self.demoApplied else { return }
         Self.demoApplied = true
         let options = DemoLaunchOptions.current
         if options.focus == .dimmed {
             lastTouch = sessions.now.addingTimeInterval(-FocusDimming.delay)
+        }
+        if options.focus == .endEarly || options.endCountdown != nil {
+            showsEndEarly = true
+        }
+        if options.focus == .emergency {
+            showsEmergency = true
         }
     }
     #endif

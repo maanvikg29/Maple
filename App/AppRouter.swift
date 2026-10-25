@@ -13,6 +13,9 @@ enum FocusRequest: Hashable {
     case receipt(UUID)
     /// Home's "Return to session": the running session, no longer minimised.
     case returnToSession
+    /// Settings' "Release all apps" during a session (§5.12): the session's own way out, End early or the emergency
+    /// release (`FocusReleaseRouter`).
+    case releaseAll
 }
 
 /// Navigation requests that cross tabs, such as the Tree view's "See all leaves" (spec §8.4).
