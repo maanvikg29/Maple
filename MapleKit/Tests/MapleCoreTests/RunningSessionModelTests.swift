@@ -144,6 +144,19 @@ struct RunningSessionModelTests {
         #expect(!screen.leafOpened)
     }
 
+    @Test("Across a minute the leaf line's words change but not its fade key, leafOpened; only the opening changes that")
+    func leafLineFadeKey() throws {
+        let session = try record()
+        // 18:00 and 19:00 in, a minute more shown before the next checkpoint: "17m to go", then "16m to go".
+        let before = model(session, at: 18)
+        let after = model(session, at: 19, display: 19 * 60)
+        #expect(before.leafLine?.trail == "· 17m to go")
+        #expect(after.leafLine?.trail == "· 16m to go")
+        #expect(before.leafOpened == after.leafOpened)
+        let field = RunningSessionModel.Opened(speciesID: "campestre", name: "Field maple", minute: 35, heldUntilMorning: false)
+        #expect(model(session, at: 36, opened: [field]).leafOpened != after.leafOpened)
+    }
+
     @Test("The leaf line's spoken form names the minutes in words; the opened line reads as it is")
     func leafSpoken() throws {
         #expect(model(try record(), at: 18).leafSpoken == "Field maple, 17 minutes to go")

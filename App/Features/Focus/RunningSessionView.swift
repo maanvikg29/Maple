@@ -12,7 +12,7 @@ import MapleServices
 /// - After 30 seconds without a touch only the bloom and the marks dim, to 50% (§4.6), never under VoiceOver or
 ///   Increase Contrast. While dimmed, the first touch only wakes the screen. Auto-Lock is left alone.
 /// - ⌄ minimises the session, which keeps running (`FocusTabState.isMinimised`).
-/// - The leaf opening and the break running out are announced once each (§4.9). A break that runs out in front of
+/// - Each leaf opening is announced once, and so is the break running out (§4.9). A break that runs out in front of
 ///   the member also plays a soft haptic; one that ran out while Maple was away returns to the session quietly.
 /// - Magic Tap moves VoiceOver to the session's controls.
 struct RunningSessionView: View {
@@ -130,8 +130,9 @@ struct RunningSessionView: View {
                     .accessibilityHidden(true)
             }
             if let line = model.leafLine {
-                // Cross-fades by opacity alone, the opened line bringing in the amber bud as the leaf turns gold.
-                FadingLine(LeafLineWords(line: line, opened: model.leafOpened)) { words in
+                // Cross-fades by opacity alone only as the leaf opens, the opened line bringing in the amber bud as the leaf
+                // turns gold (§4.6); the minutes to go change at once, so the line never pulses.
+                FadingLine(LeafLineWords(line: line, opened: model.leafOpened), key: model.leafOpened) { words in
                     LeafLineRow(words: words)
                 }
                 .accessibilityElement(children: .ignore)

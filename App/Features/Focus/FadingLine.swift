@@ -1,9 +1,11 @@
 import SwiftUI
 
-/// A line under a session's dial whose words cross-fade by opacity alone (F1 design §4.6): the break's suggestion and
-/// the running screen's leaf line.
+/// A line under a session's dial whose words cross-fade by opacity alone when its `key` changes (F1 design §4.6): the
+/// break's suggestion, and the running screen's leaf line as the leaf opens.
 ///
-/// - **Layout:** the new words take the line's height at once, so nothing under the line moves during the fade, even
+/// - **What fades:** only a change of `key`. Words that change under the same key (the leaf line's "· 17m to go" becoming
+///   "· 16m to go") are drawn at once, so a calm screen doesn't pulse once a minute.
+/// - **Layout:** the new words take the line's height at once, so nothing under the line moves during a fade, even
 ///   where the new words wrap to another number of lines (accessibility sizes). The words fading out sit in an overlay,
 ///   which takes no room.
 /// - **The fade:** the new words fade in over the old ones fading out over `theme.motion.gentle`'s 0.6 s, stepped by
@@ -12,28 +14,31 @@ import SwiftUI
 ///   screen decided.
 ///
 /// ```swift
-/// FadingLine(model.suggestion) { Text($0) }
+/// FadingLine(model.suggestion) { Text($0) }                                   // every new suggestion fades
+/// FadingLine(words, key: model.leafOpened) { LeafLineRow(words: $0) }          // only the opening fades
 /// ```
-struct FadingLine<Value: Equatable & Sendable, Content: View>: View {
+struct FadingLine<Value: Equatable & Sendable, Key: Equatable & Sendable, Content: View>: View {
     private let value: Value
+    private let key: Key
     private let content: (Value) -> Content
 
-    /// The value the last fade went to, and the one it is fading out.
-    @State private var settled: Value
+    /// The key the last fade went to, and the words it is fading out.
+    @State private var settledKey: Key
     @State private var leaving: Value?
     /// 0…1 through the fade.
     @State private var progress = 1.0
     @State private var fade: Task<Void, Never>?
 
-    init(_ value: Value, @ViewBuilder content: @escaping (Value) -> Content) {
+    init(_ value: Value, key: Key, @ViewBuilder content: @escaping (Value) -> Content) {
         self.value = value
+        self.key = key
         self.content = content
-        _settled = State(initialValue: value)
+        _settledKey = State(initialValue: key)
     }
 
     var body: some View {
-        // Until `onChange` has started the fade to new words, they show as they are.
-        let fading = value == settled
+        // Until `onChange` has started the fade for a new key, the new words show as they are.
+        let fading = key == settledKey && leaving != nil
         let eased = progress * progress * (3 - 2 * progress)
         content(value)
             .frame(maxWidth: .infinity)
@@ -48,21 +53,25 @@ struct FadingLine<Value: Equatable & Sendable, Content: View>: View {
                         .accessibilityHidden(true)
                 }
             }
-            .onChange(of: value) { _, new in crossFade(to: new) }
+            // One change handler for both, so the words a fade starts from are the ones drawn just before the key moved.
+            .onChange(of: Shown(value: value, key: key)) { old, new in
+                guard old.key != new.key else { return }
+                crossFade(from: old.value, to: new.key)
+            }
             .onDisappear {
                 fade?.cancel()
                 fade = nil
                 leaving = nil
-                settled = value
+                settledKey = key
                 progress = 1
             }
     }
 
-    /// Fades from what is on screen to `new`, by stepping `progress` (no SwiftUI animation).
-    private func crossFade(to new: Value) {
+    /// Fades from `old` to the words for `key`, by stepping `progress` (no SwiftUI animation).
+    private func crossFade(from old: Value, to key: Key) {
         fade?.cancel()
-        leaving = settled == new ? nil : settled
-        settled = new
+        leaving = old
+        settledKey = key
         progress = 0
         fade = Task {
             let start = Date()
@@ -78,6 +87,19 @@ struct FadingLine<Value: Equatable & Sendable, Content: View>: View {
                 }
             }
         }
+    }
+
+    /// The words on screen and the key they were drawn under.
+    private struct Shown: Equatable {
+        let value: Value
+        let key: Key
+    }
+}
+
+extension FadingLine where Key == Value {
+    /// A line whose every change of words fades (the break's suggestion).
+    init(_ value: Value, @ViewBuilder content: @escaping (Value) -> Content) {
+        self.init(value, key: value, content: content)
     }
 }
 
