@@ -15,7 +15,7 @@ public struct StreakWeek: Sendable, Equatable {
 
     /// "12 days".
     public let title: String
-    /// "Best: 21 days", then "Up to 2 rest days in any 7 days" (F1-13; the design's "2 a week" predates it).
+    /// "Best: 21 days", then "2 rest days a week are built in" (§5.15's line; the allowance is F1-13's 2 in any 7 days).
     public let lines: [String]
     /// This week's 7 days, from the calendar's first weekday (P8).
     public let days: [LocalDay]
@@ -43,7 +43,7 @@ public struct StreakWeek: Sendable, Equatable {
         title = Self.dayCount(max(0, current))
         lines = [
             "Best: \(Self.dayCount(max(best, current, 0)))",
-            "Up to \(FocusRuns.restDays) rest days in any \(FocusRuns.restWindow) days",
+            "\(FocusRuns.restDays) rest days a week are built in",
         ]
         let count = dots.filter { $0 == .finished }.count
         switch count {

@@ -72,7 +72,8 @@ public struct ReceiptModel: Sendable, Equatable {
     public let ending: Ending
     /// The finish (§4.6) plays now: within 10 minutes of the end, never after an emergency release.
     public let playsFinish: Bool
-    /// Counted marks sweep gold: a session that reached its end and counted something (F1-18). Anything else is white.
+    /// Counted marks sweep gold: a session that reached its end with at least one lit mark (F1-18). Anything else is white,
+    /// including a session that counted less than one mark.
     public let isGold: Bool
     public let countedSeconds: Int
     /// Under the header's title: "Apps open again", or "Plain timer".
@@ -144,10 +145,6 @@ public struct ReceiptModel: Sendable, Equatable {
         case .endedAway(let plays): playsFinish = plays
         default: playsFinish = now.timeIntervalSince(endedAt) <= Self.finishWindow
         }
-        switch ending {
-        case .onTime, .endedAway: isGold = counted > 0
-        default: isGold = false
-        }
         countedSeconds = counted
         subtitle = plan.kind == .plainTimer ? "Plain timer" : "Apps open again"
         if ending == .endedEarly {
@@ -183,6 +180,11 @@ public struct ReceiptModel: Sendable, Equatable {
             marks = ReceiptMarks.marks(layout: layout, countdownStart: start, stretches: ran)
         } else {
             marks = ReceiptMarks.marks(layout: layout, countdownStart: start, stretches: credit?.stretches ?? [])
+        }
+        // Gold only over counted marks (F1-18): a session that counted less than one mark has none to sweep.
+        switch ending {
+        case .onTime, .endedAway: isGold = marks.contains(.lit)
+        default: isGold = false
         }
 
         let spokenShown = HomeFormat.spokenDuration(minutes: shown, locale: locale)

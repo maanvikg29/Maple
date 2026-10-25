@@ -349,6 +349,28 @@ struct ReceiptModelTests {
         #expect(capped.marks == Array(repeating: .lit, count: 10) + Array(repeating: .gap, count: 40))
     }
 
+    @Test("Gold only over counted marks: a session that counted under one mark finishes in white")
+    func goldNeedsALitMark() throws {
+        // Two sessions use all but 30 seconds of the day's 6h, so the third counts 30 seconds and then hits the cap.
+        let day = FocusDay(at(2026, 10, 23, 8))
+        day.session(minutes: 180)
+        day.at(at(2026, 10, 23, 11, 30))
+        day.session(minutes: 180, overrides: [(minute: 10, seconds: 30)])
+        day.at(at(2026, 10, 23, 15))
+        let third = day.session(minutes: 50)
+        let thirdSession = try #require(day.ledger.sessions().first { $0.id == third })
+        let thirdCredit = try #require(day.credits().first { $0.id == third })
+        #expect(thirdCredit.seconds == 30)
+        let model = receipt((session: thirdSession, credit: thirdCredit), today: HoursCredit.dailyCap)
+        #expect(model.ending == .onTime)
+        #expect(model.countedSeconds == 30)
+        #expect(model.numeral == "0m")
+        #expect(model.marks == Array(repeating: .gap, count: 50))
+        #expect(!model.isGold)
+        // An ordinary on-time session still finishes in gold.
+        #expect(receipt(try clean()).isGold)
+    }
+
     @Test("A selection that doesn't qualify: Not counted · add an app to count")
     func notQualifying() throws {
         let allowList = SelectionSummary(mode: .onlyThese, apps: 24, sites: 0, categories: 0)
@@ -521,7 +543,7 @@ struct StreakWeekTests {
     func lines() {
         let week = StreakWeek(focusDays: [], today: today, calendar: utc, current: 12, best: 21)
         #expect(week.title == "12 days")
-        #expect(week.lines == ["Best: 21 days", "Up to 2 rest days in any 7 days"])
+        #expect(week.lines == ["Best: 21 days", "2 rest days a week are built in"])
         let one = StreakWeek(focusDays: [], today: today, calendar: utc, current: 1, best: 1)
         #expect(one.title == "1 day")
         #expect(one.lines.first == "Best: 1 day")
