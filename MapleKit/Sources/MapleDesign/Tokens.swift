@@ -17,6 +17,8 @@ public struct Theme: Sendable {
     public var motion: Motion
     /// Surface levels and the caps on every content glow (spec §6.5).
     public var elevation = Elevation()
+    /// The minute-marks dial's colours (F1 design §4.2), in `Focus/DialTokens.swift`.
+    public var dial: Dial = .maple
 
     public init(colors: Colors, spacing: Spacing = Spacing(), radius: Radius = Radius(), motion: Motion = Motion()) {
         self.colors = colors
@@ -27,7 +29,11 @@ public struct Theme: Sendable {
 
     public static let maple = Theme(colors: .maple)
     /// Used when the system's Increase Contrast setting is on.
-    public static let mapleIncreasedContrast = Theme(colors: .mapleIncreasedContrast)
+    public static let mapleIncreasedContrast: Theme = {
+        var theme = Theme(colors: .mapleIncreasedContrast)
+        theme.dial = .mapleIncreasedContrast
+        return theme
+    }()
 }
 
 // MARK: - Colours
