@@ -39,11 +39,12 @@ struct BreakView: View {
                     .foregroundStyle(theme.colors.textPrimary)
                     .accessibilityHidden(true)
             }
-            Text(model.suggestion)
-                .font(MapleFont.callout)
-                .foregroundStyle(theme.colors.textPrimary)
-                .contentTransition(.opacity)
-                .mapleAnimation(theme.motion.gentle, value: model.suggestion)
+            // Cross-fades by opacity alone; a suggestion that wraps differently changes the line's height at once.
+            FadingLine(model.suggestion) { suggestion in
+                Text(suggestion)
+                    .font(MapleFont.callout)
+                    .foregroundStyle(theme.colors.textPrimary)
+            }
             Text(model.backLine)
                 .font(MapleFont.footnote)
                 .foregroundStyle(theme.colors.textSecondary)

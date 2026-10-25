@@ -33,8 +33,8 @@ struct RunningSessionView: View {
     @State private var lastTouch: Date?
     @State private var isTakingBreak = false
     @State private var isEndingBreak = false
-    /// The leaf whose opening was announced, so it is announced once.
-    @State private var announcedLeaf: String?
+    /// How many of this session's leaf openings have been announced, so each is announced once.
+    @State private var announcedLeaves = 0
     /// Bumped when the break runs out in front of the member: one soft haptic.
     @State private var breakRanOut = 0
     @AccessibilityFocusState private var controlsFocused: Bool
@@ -76,6 +76,8 @@ struct RunningSessionView: View {
                 Color.clear
             }
         }
+        // Any touch counts, on the break too (§4.6).
+        .simultaneousGesture(TapGesture().onEnded(wake))
         .onAppear(perform: appeared)
         .onChange(of: scenePhase) { _, phase in
             // Coming back to Maple counts as a touch.
@@ -88,23 +90,28 @@ struct RunningSessionView: View {
     @ViewBuilder
     private func screen(_ session: SessionRecord, now: Date) -> some View {
         let inBreak = session.isInBreak(at: now)
+        // Read during the break too, so a leaf that opens while it runs is announced as it opens.
+        let model = model(session, now: now)
         Group {
-            if inBreak, let model = BreakScreenModel(
+            if inBreak, let breakModel = BreakScreenModel(
                 session: session, now: now, intention: notes.intention(for: session.id), locale: locale,
                 calendar: collection.context.calendar
             ) {
                 BreakView(
-                    model: model, isEndingBreak: isEndingBreak, onMinimise: minimise, onBackToStudying: backToStudying,
+                    model: breakModel, isEndingBreak: isEndingBreak, onMinimise: minimise, onBackToStudying: backToStudying,
                     onEndPath: takeEndPath, controlsFocused: $controlsFocused
                 )
             } else {
-                running(model(session, now: now), session: session, now: now)
+                running(model, session: session, now: now)
             }
         }
         .onChange(of: inBreak) { wasInBreak, isInBreak in
             guard wasInBreak, !isInBreak, BreakScreenModel.ranOutJustNow(session, at: now) else { return }
             breakRanOut += 1
             AccessibilityNotification.Announcement(BreakScreenModel.endedAnnouncement).post()
+        }
+        .onChange(of: model.openedCount) { _, count in
+            announceLeaf(model.leafAnnouncement, count: count)
         }
     }
 
@@ -123,12 +130,12 @@ struct RunningSessionView: View {
                     .accessibilityHidden(true)
             }
             if let line = model.leafLine {
-                Text(leafText(line))
-                    .font(MapleFont.callout)
-                    .foregroundStyle(theme.colors.textPrimary)
-                    .contentTransition(.opacity)
-                    .mapleAnimation(theme.motion.gentle, value: model.leafOpened)
-                    .accessibilityLabel(Text(line.text))
+                // Cross-fades by opacity alone, the opened line bringing in the amber bud as the leaf turns gold.
+                FadingLine(LeafLineWords(line: line, opened: model.leafOpened)) { words in
+                    LeafLineRow(words: words)
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(Text(model.leafSpoken ?? line.text))
             }
             if let first = model.firstSessionLine {
                 Text(first)
@@ -156,10 +163,6 @@ struct RunningSessionView: View {
                     .accessibilityHidden(true)
             }
         }
-        .simultaneousGesture(TapGesture().onEnded(wake))
-        .onChange(of: model.leafAnnouncement) { _, text in
-            announceLeaf(text, leaf: model.centreLeaf)
-        }
     }
 
     /// The live dial: the passed minutes lit, the current mark tinted, the leaf dot, and in the centre the leaf, the
@@ -183,29 +186,22 @@ struct RunningSessionView: View {
         .accessibilityLabel(Text(model.spoken))
     }
 
-    /// "Field maple" in the primary colour, "· 17m to go" in the secondary.
-    private func leafText(_ line: RunningSessionModel.Line) -> AttributedString {
-        var text = AttributedString(line.lead)
-        if let trail = line.trail {
-            var rest = AttributedString(" \(trail)")
-            rest.foregroundColor = theme.colors.textSecondary
-            text.append(rest)
-        }
-        return text
-    }
-
     // MARK: The model
 
     private func model(_ session: SessionRecord, now: Date) -> RunningSessionModel {
         let schedule = collection.schedule
         let calendar = collection.context.calendar
-        let opened = RunningSessionModel.opened(sessions.sessionUnlocks, session: session) { unlock in
+        // The counters' hours already hold this session's counted seconds.
+        let counted = RunningSessionModel.CountedTime(
+            sessions.credit(for: session.id), hoursSaved: collection.snapshot.counters[.hoursSaved] ?? 0, session: session
+        )
+        let opened = RunningSessionModel.opened(sessions.sessionUnlocks, session: session, counted: counted) { unlock in
             RevealSchedule.isHeld(unlock, at: now, schedule: schedule, calendar: calendar)
         }
         return RunningSessionModel(
             session: session, now: now, intention: notes.intention(for: session.id),
             leaf: RunningSessionModel.Leaf(next: collection.progress(at: now)), opened: opened,
-            countedSeconds: sessions.credit(for: session.id)?.seconds ?? 0, displaySeconds: sessions.countedSoFar(session.id),
+            counted: counted, displaySeconds: sessions.countedSoFar(session.id),
             roomLeftToday: max(0, HoursCredit.dailyCap - sessions.displayCredit(at: now).today),
             isFirstSession: RunningSessionModel.isFirstSession(session, among: sessions.sessions, book: collection.focus),
             locale: locale
@@ -241,6 +237,7 @@ struct RunningSessionView: View {
     }
 
     private func backToStudying() {
+        wake()
         guard !isEndingBreak else { return }
         isEndingBreak = true
         Task {
@@ -254,10 +251,11 @@ struct RunningSessionView: View {
         showsEndPath = true
     }
 
-    /// The leaf's opening, announced once (a milestone, §4.9).
-    private func announceLeaf(_ text: String?, leaf: String?) {
-        guard let text, let leaf, announcedLeaf != leaf else { return }
-        announcedLeaf = leaf
+    /// Each leaf opening, announced once as it happens (a milestone, §4.9), on the break too: "Field maple is yours. It
+    /// opens after this session.", and "2 new leaves are yours." when a second opens. `count` is how many have opened.
+    private func announceLeaf(_ text: String?, count: Int) {
+        guard let text, count > announcedLeaves else { return }
+        announcedLeaves = count
         AccessibilityNotification.Announcement(text).post()
     }
 
@@ -275,4 +273,44 @@ struct RunningSessionView: View {
         }
     }
     #endif
+}
+
+/// The leaf line's words and whether they say the leaf has opened.
+nonisolated private struct LeafLineWords: Equatable, Sendable {
+    let line: RunningSessionModel.Line
+    let opened: Bool
+}
+
+/// The leaf line (§4.3, §5.4): "Field maple" in the primary colour, "· 17m to go" in the secondary; once the leaf has
+/// opened, "Field maple is yours · it opens after this session" after the amber bud, which marks an earned leaf.
+private struct LeafLineRow: View {
+    @Environment(\.theme) private var theme
+    /// The bud keeps to the line's text size.
+    @ScaledMetric(relativeTo: .subheadline) private var budSide: CGFloat = 18
+
+    let words: LeafLineWords
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: theme.spacing.xs) {
+            if words.opened {
+                BudGlyph(waiting: true, glow: .still)
+                    .frame(width: budSide, height: budSide)
+                    // Beside the first line, its base a little below the text's baseline, when the line wraps.
+                    .alignmentGuide(.firstTextBaseline) { $0.height * 0.78 }
+            }
+            Text(text)
+                .font(MapleFont.callout)
+                .foregroundStyle(theme.colors.textPrimary)
+        }
+    }
+
+    private var text: AttributedString {
+        var text = AttributedString(words.line.lead)
+        if let trail = words.line.trail {
+            var rest = AttributedString(" \(trail)")
+            rest.foregroundColor = theme.colors.textSecondary
+            text.append(rest)
+        }
+        return text
+    }
 }

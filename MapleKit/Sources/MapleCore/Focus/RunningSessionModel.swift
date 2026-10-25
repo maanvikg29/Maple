@@ -101,8 +101,53 @@ public struct RunningSessionModel: Sendable, Equatable {
             self.trail = trail
         }
 
-        /// The line as one string, for VoiceOver.
+        /// The line as one string.
         public var text: String { trail.map { "\(lead) \($0)" } ?? lead }
+    }
+
+    /// This session's counted time as the counters hold it (`FocusSessionStore.credit(for:)`), from which the leaf
+    /// dot's minute is found (§4.1): the one moment the counted time reaches the leaf's rung. So the dot doesn't creep
+    /// on while provisional time waits for a checkpoint, and doesn't move when a checkpoint opens the leaf.
+    public struct CountedTime: Sendable, Equatable {
+        /// Seconds the hours counters held before this session's counted time.
+        public var savedBefore: Int
+        /// This session's counted seconds (`SessionCredit.seconds`).
+        public var seconds: Int
+        /// Its counted stretches, in time order.
+        public var stretches: [DateInterval]
+        /// Its last checkpoint (`SessionCredit.provenAt`): counting carries on from here.
+        public var provenAt: Date
+
+        public init(savedBefore: Int, seconds: Int, stretches: [DateInterval], provenAt: Date) {
+            self.savedBefore = savedBefore
+            self.seconds = seconds
+            self.stretches = stretches
+            self.provenAt = provenAt
+        }
+
+        /// The running session's credit (nil when it has none), and the counters' hours saved, which already hold its
+        /// counted seconds.
+        public init(_ credit: SessionCredit?, hoursSaved: Double, session: SessionRecord) {
+            let seconds = credit?.seconds ?? 0
+            self.init(
+                savedBefore: Int((hoursSaved * 3600).rounded()) - seconds, seconds: seconds,
+                stretches: credit?.stretches.filter(\.counted).map(\.interval) ?? [],
+                provenAt: credit?.provenAt ?? session.lastCheckpoint ?? session.countdownStart
+            )
+        }
+
+        /// When the counters reach `threshold` hours: inside the counted stretches, or on from the last checkpoint
+        /// (from `windowStart` at the earliest) as if every second after it counts. Nil when they held it before this
+        /// session.
+        public func crossing(_ threshold: Double, windowStart: Date) -> Date? {
+            var needed = threshold * 3600 - Double(savedBefore)
+            guard needed > 0 else { return nil }
+            for stretch in stretches {
+                if needed <= stretch.duration { return stretch.start.addingTimeInterval(needed) }
+                needed -= stretch.duration
+            }
+            return max(provenAt, windowStart).addingTimeInterval(needed)
+        }
     }
 
     /// The preset's one break (§5.4).
@@ -135,9 +180,14 @@ public struct RunningSessionModel: Sendable, Equatable {
     /// "Field maple · 17m to go", or "Field maple is yours · it opens after this session"; nil when the session
     /// can't count.
     public let leafLine: Line?
+    /// The leaf line for VoiceOver, its time in words: "Field maple, 17 minutes to go"; the opened line as it is.
+    public let leafSpoken: String?
+    /// How many hours leaves this session has opened: each new one is announced (§4.9).
+    public let openedCount: Int
     /// "You can lock your phone. Maple keeps time." in the member's first session only.
     public let firstSessionLine: String?
-    /// "Take a break" while the preset's one break is unused and time is left.
+    /// "Take a break" while the preset's one break is unused, time is left, and apps are locked: a plain timer, or a
+    /// session whose block was lost, has no break, since the break is locked and counted (§5.5).
     public let breakTitle: String?
     public let endPath: SessionEndPath
     /// The dial for VoiceOver (§4.9): "32 minutes left of 50. Field maple at minute 35.", the length a plain minute
@@ -149,11 +199,11 @@ public struct RunningSessionModel: Sendable, Equatable {
     /// - Parameters:
     ///   - leaf: The next hours leaf (`Leaf(next:)`); nil when there is none.
     ///   - opened: Hours leaves this session opened (`opened(_:session:...)`), oldest first.
-    ///   - countedSeconds: This session's counted seconds (`FocusSessionStore.credit(for:)?.seconds`).
+    ///   - counted: This session's counted time (`CountedTime(_:hoursSaved:session:)`).
     ///   - displaySeconds: Counted plus provisional (`FocusSessionStore.countedSoFar(_:)`).
     ///   - roomLeftToday: Seconds of today's 6 hours still free, display credit included.
     public init(
-        session: SessionRecord, now: Date, intention: String?, leaf: Leaf?, opened: [Opened], countedSeconds: Int,
+        session: SessionRecord, now: Date, intention: String?, leaf: Leaf?, opened: [Opened], counted time: CountedTime,
         displaySeconds: Int, roomLeftToday: Int, isFirstSession: Bool, locale: Locale
     ) {
         let plan = session.plan
@@ -167,17 +217,18 @@ public struct RunningSessionModel: Sendable, Equatable {
         caption = "left of \(length)"
         timeLine = "\(remaining) left of \(length)"
         firstSessionLine = isFirstSession ? FocusCopy.firstSessionLine : nil
-        breakTitle = plan.breakSeconds > 0 && !session.breakUsed && left > 0 ? Self.takeBreakTitle : nil
+        breakTitle = plan.breakSeconds > 0 && !session.breakUsed && left > 0 && !isPlain ? Self.takeBreakTitle : nil
         endPath = SessionEndPath(plan.strictness)
 
         let canCount = plan.canCount && !isPlain
-        let counted = max(0, countedSeconds)
+        let counted = max(0, time.seconds)
         let provisional = max(0, displaySeconds - counted)
         var minute: Int?
         var before = 0.0
         var share = 0.0
         var centre: String?
         var line: Line?
+        var lineSpoken: String?
         var dotSentence: String?
         var announcement: String?
         if let first = opened.first {
@@ -188,6 +239,7 @@ public struct RunningSessionModel: Sendable, Equatable {
                 ? SessionForecast.openedLine(leaf: first.name, heldUntilMorning: first.heldUntilMorning)
                 : SessionForecast.openedLine(count: opened.count)
             line = Line(lead: text)
+            lineSpoken = text
             // The line's words in §4.9's sentences: "Field maple is yours. It opens after this session."
             announcement = text.components(separatedBy: " · ")
                 .map { String($0.prefix(1)).uppercased() + String($0.dropFirst()) }
@@ -196,18 +248,22 @@ public struct RunningSessionModel: Sendable, Equatable {
             centre = leaf.speciesID
             before = Self.rungFraction(leaf.current - Double(counted) / 3600, leaf)
             share = Self.rungFraction(leaf.current + Double(provisional) / 3600, leaf) - before
-            // Provisional time that covers the rest waits for a checkpoint: never "0m to go" for a leaf not yet open.
+            // Provisional time that covers the rest waits for a checkpoint: the line never reads "0m to go" for a
+            // leaf not yet open. Only the line is held at 1m; the dot stays where the counted time reaches the rung.
             let toGo = max(1, Int(((leaf.threshold - leaf.current) * 3600).rounded()) - provisional)
-            // The display credit counts whole seconds, so the forecast reads from the same whole second: a sample
-            // between two seconds never pushes the dot a minute on.
-            let elapsed = max(0, now.timeIntervalSince(session.countdownStart)).rounded(.down)
-            minute = SessionForecast(
-                start: session.countdownStart, plannedSeconds: plan.plannedSeconds, window: plan.window,
-                now: session.countdownStart.addingTimeInterval(elapsed),
-                canCount: true, secondsToLeaf: toGo, leafName: leaf.name, roomLeftToday: roomLeftToday, firstEver: false
-            ).leafMinute
+            if let crossing = time.crossing(leaf.threshold, windowStart: plan.window.start) {
+                // In reach: before the planned end and bedtime, with room left today for what the checkpoint hasn't
+                // proven yet.
+                let rest = max(0, crossing.timeIntervalSince(max(time.provenAt, plan.window.start)))
+                let room = Double(max(0, roomLeftToday) + provisional)
+                if crossing <= min(session.plannedEnd, plan.window.end), rest <= room {
+                    minute = Self.minute(of: crossing, in: session)
+                }
+            }
             let full = SessionForecast.leafLine(leaf: leaf.name, secondsToGo: toGo)
             line = Line(lead: leaf.name, trail: String(full.dropFirst(leaf.name.count + 1)))
+            let minutesToGo = Int((Double(toGo) / 60 - 1e-9).rounded(.up))
+            lineSpoken = "\(leaf.name), \(FocusTimeText.spokenLength(minutes: minutesToGo, locale: locale)) to go"
             if let minute { dotSentence = "\(leaf.name) at minute \(minute)." }
         }
         centreLeaf = centre
@@ -216,25 +272,29 @@ public struct RunningSessionModel: Sendable, Equatable {
         fillSession = max(0, share)
         leafOpened = !opened.isEmpty
         leafLine = line
+        leafSpoken = lineSpoken
+        openedCount = opened.count
         leafAnnouncement = announcement
 
         // §4.9: the length is a plain minute count ("of 90"); the leaf sentence only while the dot is ahead.
         spoken = "\(FocusTimeText.spokenRemaining(left, locale: locale)) of \(plan.plannedMinutes)." + (dotSentence.map { " \($0)" } ?? "")
     }
 
-    /// The hours leaves among `unlocks` (`FocusSessionStore.sessionUnlocks`), each at the session minute it opened
-    /// (rounded up, within the planned length), oldest first. `held` says whether a leaf is held until morning
-    /// (`RevealSchedule.isHeld`).
+    /// The hours leaves among `unlocks` (`FocusSessionStore.sessionUnlocks`), oldest first, each at the session minute
+    /// the counted time reached its rung (rounded up, within the planned length), where the dot stood before it opened:
+    /// never the later checkpoint that proved it. A leaf the counters held before this session's counted time keeps
+    /// the minute it was dated. `held` says whether a leaf is held until morning (`RevealSchedule.isHeld`).
     public static func opened(
-        _ unlocks: [LeafUnlock], session: SessionRecord, held: (LeafUnlock) -> Bool, catalog: RewardCatalog = .shared,
-        leaves: LeafCatalog = .shared
+        _ unlocks: [LeafUnlock], session: SessionRecord, counted: CountedTime, held: (LeafUnlock) -> Bool,
+        catalog: RewardCatalog = .shared, leaves: LeafCatalog = .shared
     ) -> [Opened] {
         unlocks
             .filter { catalog.reward(forSpecies: $0.speciesID)?.categoryID == .hoursSaved }
             .sorted { $0.date < $1.date }
             .map { unlock in
-                let seconds = unlock.date.timeIntervalSince(session.countdownStart)
-                let minute = min(session.plan.plannedMinutes, max(1, Int((seconds / 60 - 1e-9).rounded(.up))))
+                let reached = catalog.reward(forSpecies: unlock.speciesID)
+                    .flatMap { counted.crossing($0.threshold, windowStart: session.plan.window.start) }
+                let minute = min(session.plan.plannedMinutes, Self.minute(of: reached ?? unlock.date, in: session))
                 return Opened(speciesID: unlock.speciesID, name: leaves.species(id: unlock.speciesID)?.displayName ?? unlock.speciesID,
                               minute: minute, heldUntilMorning: held(unlock))
             }
@@ -246,6 +306,13 @@ public struct RunningSessionModel: Sendable, Equatable {
     public static func isFirstSession(_ session: SessionRecord, among sessions: [SessionRecord], book: FocusBook) -> Bool {
         guard sessions.allSatisfy({ $0.id == session.id || $0.isHidden }) else { return false }
         return book.baseline == .zero && book.days.allSatisfy { $0.day >= session.plan.day }
+    }
+
+    /// The session minute `date` falls in, from the countdown's start: rounded up, and at least 1. Read to the
+    /// millisecond, so a crossing on a whole minute stays on it.
+    static func minute(of date: Date, in session: SessionRecord) -> Int {
+        let seconds = (date.timeIntervalSince(session.countdownStart) * 1000).rounded() / 1000
+        return max(1, Int((seconds / 60 - 1e-9).rounded(.up)))
     }
 
     /// `hours` within the leaf's rung, 0...1, as `LeafProgress.rungFraction` reads it.

@@ -26,17 +26,34 @@ struct RunningSessionModelTests {
         return try #require(script.record)
     }
 
-    /// The screen `minute` minutes into the countdown: 17 minutes counted, 18 shown.
+    /// The screen `minute` minutes into the countdown: 17 minutes counted, 18 shown. Unless `time` says otherwise, the
+    /// counted seconds are one stretch from the countdown's start, proven to its end, on top of what `leaf`'s counters
+    /// held before.
     private func model(
         _ session: SessionRecord, at minute: Double, leaf: RunningSessionModel.Leaf? = RunningSessionModelTests.fieldMaple,
         opened: [RunningSessionModel.Opened] = [], counted: Int = 17 * 60, display: Int = 18 * 60, first: Bool = false,
-        intention: String? = "Chemistry ch. 4"
+        intention: String? = "Chemistry ch. 4", time: RunningSessionModel.CountedTime? = nil
     ) -> RunningSessionModel {
         RunningSessionModel(
             session: session, now: session.countdownStart.addingTimeInterval(minute * 60), intention: intention, leaf: leaf,
-            opened: opened, countedSeconds: counted, displaySeconds: display, roomLeftToday: HoursCredit.dailyCap - display,
-            isFirstSession: first, locale: enGB
+            opened: opened,
+            counted: time ?? Self.counted(counted, from: session.countdownStart, before: Self.saved(leaf, less: counted)),
+            displaySeconds: display, roomLeftToday: HoursCredit.dailyCap - display, isFirstSession: first, locale: enGB
         )
+    }
+
+    /// `seconds` counted in one stretch from `start`, proven to its end, after `before` seconds saved earlier.
+    private static func counted(_ seconds: Int, from start: Date, before: Int) -> RunningSessionModel.CountedTime {
+        RunningSessionModel.CountedTime(
+            savedBefore: before, seconds: seconds,
+            stretches: seconds > 0 ? [DateInterval(start: start, duration: TimeInterval(seconds))] : [],
+            provenAt: start.addingTimeInterval(TimeInterval(seconds))
+        )
+    }
+
+    /// What `leaf`'s counters held before this session's `counted` seconds.
+    private static func saved(_ leaf: RunningSessionModel.Leaf?, less counted: Int) -> Int {
+        Int(((leaf?.current ?? 0) * 3600).rounded()) - counted
     }
 
     @Test("Minute 18 of 50: the header, 32m left of 50m, and the leaf 17 minutes away at minute 35")
@@ -63,10 +80,96 @@ struct RunningSessionModelTests {
 
     @Test("A sample between two whole seconds keeps the dot at the minute the leaf line points to")
     func betweenSeconds() throws {
-        // 18 minutes and 0.7 seconds in: the display credit counts whole seconds, and so does the forecast.
+        // 18 minutes and 0.7 seconds in.
         let screen = model(try record(), at: 18 + 0.7 / 60)
         #expect(screen.leafLine?.trail == "· 17m to go")
         #expect(screen.leafMinute == 35)
+    }
+
+    @Test("The dot is the minute the counted time reaches the rung: mid-minute it rounds up, and it holds every second")
+    func crossingMidMinute() throws {
+        let session = try record()
+        // Counted to 17:00, with the rung reached 34:30 into the countdown.
+        let time = Self.counted(17 * 60, from: session.countdownStart, before: 3600 - (34 * 60 + 30))
+        let leaf = RunningSessionModel.Leaf(speciesID: "campestre", name: "Field maple", floor: 0, threshold: 1,
+                                            current: Double(3600 - (34 * 60 + 30) + 17 * 60) / 3600)
+        for second in 0..<6 {
+            let screen = model(session, at: 18 + Double(second) / 60, leaf: leaf, display: 18 * 60 + second, time: time)
+            #expect(screen.leafMinute == 35)
+        }
+    }
+
+    @Test("A crossing within a second of a minute's end never flickers between two minutes, sample to sample or across a checkpoint")
+    func crossingNearMinuteBoundary() throws {
+        let session = try record()
+        let start = session.countdownStart
+        // A 5-minute unlock from minute 10 didn't count, ending a fraction of a second off the whole second; 30 minutes of
+        // counted time reach the rung. So it is reached 34:59.6 in (minute 35), or 35:00.4 in (minute 36).
+        for (unlock, minute) in [(299.6, 35), (300.4, 36)] {
+            func time(provenTo proven: TimeInterval) -> RunningSessionModel.CountedTime {
+                let stretches = [DateInterval(start: start, duration: 600),
+                                 DateInterval(start: start.addingTimeInterval(600 + unlock), end: start.addingTimeInterval(proven))]
+                return RunningSessionModel.CountedTime(
+                    savedBefore: 1800, seconds: Int(stretches.reduce(0) { $0 + $1.duration }.rounded()), stretches: stretches,
+                    provenAt: start.addingTimeInterval(proven)
+                )
+            }
+            func leaf(_ time: RunningSessionModel.CountedTime) -> RunningSessionModel.Leaf {
+                RunningSessionModel.Leaf(speciesID: "campestre", name: "Field maple", floor: 0, threshold: 1,
+                                         current: Double(1800 + time.seconds) / 3600)
+            }
+            let proven = time(provenTo: 22 * 60)
+            for second in 0..<8 {
+                let screen = model(session, at: 22 + Double(second) / 60, leaf: leaf(proven),
+                                   display: proven.seconds + second, time: proven)
+                #expect(screen.leafMinute == minute, "unlock \(unlock) s, sample \(second)")
+            }
+            // The next checkpoint proves another minute: the same crossing, the same minute.
+            let later = time(provenTo: 23 * 60)
+            #expect(model(session, at: 23, leaf: leaf(later), display: later.seconds, time: later).leafMinute == minute)
+        }
+    }
+
+    @Test("Waiting for a checkpoint, the line holds at 1m to go and the dot stays at the crossing")
+    func noDriftWhileWaiting() throws {
+        let session = try record()
+        // 35:10 in, proven to 34:40; the rung is reached at 35:00, and provisional time already covers it.
+        let proven = 34 * 60 + 40
+        let time = Self.counted(proven, from: session.countdownStart, before: 3600 - 35 * 60)
+        let leaf = RunningSessionModel.Leaf(speciesID: "campestre", name: "Field maple", floor: 0, threshold: 1,
+                                            current: Double(3600 - 35 * 60 + proven) / 3600)
+        let screen = model(session, at: 35 + 10.0 / 60, leaf: leaf, display: 35 * 60 + 10, time: time)
+        #expect(screen.leafLine?.trail == "· 1m to go")
+        #expect(screen.leafMinute == 35)
+        #expect(!screen.leafOpened)
+    }
+
+    @Test("The leaf line's spoken form names the minutes in words; the opened line reads as it is")
+    func leafSpoken() throws {
+        #expect(model(try record(), at: 18).leafSpoken == "Field maple, 17 minutes to go")
+        let field = RunningSessionModel.Opened(speciesID: "campestre", name: "Field maple", minute: 35, heldUntilMorning: false)
+        #expect(model(try record(), at: 36, opened: [field]).leafSpoken == "Field maple is yours · it opens after this session")
+        #expect(model(try record(kind: .plainTimer), at: 18, counted: 0, display: 0).leafSpoken == nil)
+    }
+
+    @Test("Each opening counts: a second leaf in one session is announced as two new leaves")
+    func openedCount() throws {
+        let session = try record()
+        #expect(model(session, at: 18).openedCount == 0)
+        let field = RunningSessionModel.Opened(speciesID: "campestre", name: "Field maple", minute: 35, heldUntilMorning: false)
+        let silver = RunningSessionModel.Opened(speciesID: "saccharinum", name: "Silver maple", minute: 44, heldUntilMorning: false)
+        #expect(model(session, at: 36, opened: [field]).openedCount == 1)
+        let two = model(session, at: 45, opened: [field, silver])
+        #expect(two.openedCount == 2)
+        #expect(two.leafAnnouncement == "2 new leaves are yours.")
+    }
+
+    @Test("No break is offered when apps aren't locked: a plain timer, or a block lost mid-session")
+    func noBreakWithoutLock() throws {
+        #expect(model(try record(breakMinutes: 5), at: 18).breakTitle == "Take a break")
+        #expect(model(try record(breakMinutes: 5, kind: .plainTimer), at: 18, counted: 0, display: 0).breakTitle == nil)
+        let lost = try record(breakMinutes: 5) { $0.after(10 * 60, .shieldLost) }
+        #expect(model(lost, at: 18, counted: 10 * 60, display: 10 * 60).breakTitle == nil)
     }
 
     @Test("The centre leaf fills softer for the time saved before this session, brighter for this session's share")
@@ -140,11 +243,47 @@ struct RunningSessionModelTests {
             LeafUnlock(speciesID: hours, date: session.countdownStart.addingTimeInterval(34 * 60 + 30), season: .autumn,
                        colourway: .autumn),
         ]
-        let opened = RunningSessionModel.opened(unlocks, session: session, held: { _ in false })
+        // Counted to 40:00; the 1-hour rung is reached 34:30 in.
+        let time = Self.counted(40 * 60, from: session.countdownStart, before: 3600 - (34 * 60 + 30))
+        let opened = RunningSessionModel.opened(unlocks, session: session, counted: time, held: { _ in false })
         #expect(opened.map(\.speciesID) == [hours])
         #expect(opened.first?.minute == 35)
         #expect(opened.first?.name == LeafCatalog.shared.species(id: hours)?.displayName)
-        #expect(RunningSessionModel.opened(unlocks, session: session, held: { _ in true }).first?.heldUntilMorning == true)
+        #expect(RunningSessionModel.opened(unlocks, session: session, counted: time, held: { _ in true }).first?.heldUntilMorning == true)
+    }
+
+    @Test("A leaf proven by a checkpoint minutes after the crossing keeps the dot at the crossing's minute")
+    func openedAtCrossing() throws {
+        let session = try record()
+        let hours = species(.hoursSaved, rung: 0)
+        // The rung is reached at 35:00, but the read-back that proved it came at 39:40.
+        let unlock = LeafUnlock(speciesID: hours, date: session.countdownStart.addingTimeInterval(39 * 60 + 40), season: .autumn,
+                                colourway: .autumn)
+        let time = Self.counted(39 * 60 + 40, from: session.countdownStart, before: 3600 - 35 * 60)
+        #expect(RunningSessionModel.opened([unlock], session: session, counted: time, held: { _ in false }).first?.minute == 35)
+        // Before it opened, the forecast put the dot at the same minute.
+        let leaf = RunningSessionModel.Leaf(speciesID: hours, name: "Red maple", floor: 0, threshold: 1,
+                                            current: Double(3600 - 35 * 60 + 17 * 60) / 3600)
+        #expect(model(session, at: 18, leaf: leaf).leafMinute == 35)
+    }
+
+    @Test("From the session's own credit: read-backs each minute to 17:40, then provisional time, put the dot at the crossing")
+    func fromCredit() throws {
+        let session = try record { script in
+            for _ in 0..<17 { script.after(60, .shieldVerified) }
+            script.after(40, .shieldVerified)
+        }
+        let now = session.countdownStart.addingTimeInterval(18 * 60)
+        let credit = try #require(HoursCredit.credit([session], crediting: [.live], now: now).first)
+        #expect(credit.seconds == 17 * 60 + 40)
+        // The counters held 25 minutes of the 1-hour rung before this session, and hold its counted time now.
+        let hours = Double(25 * 60 + credit.seconds) / 3600
+        let time = RunningSessionModel.CountedTime(credit, hoursSaved: hours, session: session)
+        #expect(time.savedBefore == 25 * 60)
+        #expect(time.provenAt == session.countdownStart.addingTimeInterval(17 * 60 + 40))
+        // The rung needs 35 minutes of this session's counted time: 35:00 in.
+        let leaf = RunningSessionModel.Leaf(speciesID: "campestre", name: "Field maple", floor: 0, threshold: 1, current: hours)
+        #expect(model(session, at: 18, leaf: leaf, display: 18 * 60, time: time).leafMinute == 35)
     }
 
     @Test("The next leaf is the lowest locked hours rung")
