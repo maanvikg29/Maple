@@ -32,12 +32,13 @@ public struct MapleStores {
     #endif
 
     /// What this launch should use: the live stores, or in DEBUG the demo the launch arguments ask for.
-    public static func launch() -> MapleStores {
+    /// - Parameter liveActivity: Shows the running session on the Lock Screen: the app's ActivityKit controller.
+    public static func launch(liveActivity: any LiveActivityController = NoLiveActivityController()) -> MapleStores {
         #if DEBUG
         let options = DemoLaunchOptions.current
-        if options.isActive { return make(options) }
+        if options.isActive { return make(options, liveActivity: liveActivity) }
         #endif
-        return live()
+        return live(liveActivity: liveActivity)
     }
 
     /// The member's own collection, schedule, rarity cache and Apple Health record, saved in `directory`.
@@ -49,7 +50,8 @@ public struct MapleStores {
     /// calls `collection.systemTimeChanged()` on a time-zone change to refresh what screens already drew.
     public static func live(
         directory: URL = MapleContainer.directory(), calendar: Calendar = .autoupdatingCurrent, now: Date = .now,
-        healthAuthorizer: any HealthAuthorizing = HealthKitAuthorizer(), focusMode: LaunchMode = .live, sessionSeconds: Int? = nil
+        healthAuthorizer: any HealthAuthorizing = HealthKitAuthorizer(), focusMode: LaunchMode = .live, sessionSeconds: Int? = nil,
+        liveActivity: any LiveActivityController = NoLiveActivityController()
     ) -> MapleStores {
         let health = HealthPermission.live(directory: directory, authorizer: healthAuthorizer)
         let context = CollectionContext(permissions: health.permissions, calendar: calendar, hemisphere: .current)
@@ -65,10 +67,10 @@ public struct MapleStores {
         let focus: FocusStores
         #if DEBUG
         focus = focusMode == .sandbox
-            ? .sandbox(directory: directory, collection: collection, sessionSeconds: sessionSeconds)
-            : .live(directory: directory, collection: collection)
+            ? .sandbox(directory: directory, collection: collection, sessionSeconds: sessionSeconds, liveActivity: liveActivity)
+            : .live(directory: directory, collection: collection, liveActivity: liveActivity)
         #else
-        focus = .live(directory: directory, collection: collection)
+        focus = .live(directory: directory, collection: collection, liveActivity: liveActivity)
         #endif
         var stores = MapleStores(collection: collection, schedule: schedule, shares: shares, health: health, focus: focus, clock: .live,
                                  seasonOverride: nil)
@@ -116,11 +118,11 @@ public struct MapleStores {
     /// at the scenario's moment (or the asked-for phase) and keeps ticking, and the Focus stores are seeded with it.
     public static func make(
         _ options: DemoLaunchOptions, directory: URL = MapleContainer.directory(), calendar: Calendar = .current,
-        now: Date = .now
+        now: Date = .now, liveActivity: any LiveActivityController = NoLiveActivityController()
     ) -> MapleStores {
         if options.sandbox {
             return live(directory: directory.appending(path: sandboxFolder, directoryHint: .isDirectory), calendar: calendar,
-                        now: now, focusMode: .sandbox, sessionSeconds: options.sessionSeconds)
+                        now: now, focusMode: .sandbox, sessionSeconds: options.sessionSeconds, liveActivity: liveActivity)
         }
         let usesDemo = options.usesDemoCollection
         let scenario: FocusDemoScenario? = options.hasFocusArguments && !options.fresh ? FocusDemoScenario(options) : nil
@@ -178,7 +180,9 @@ public struct MapleStores {
         let provider: any LeafShareProvider = options.rarity ? PreviewLeafShareProvider() : UnconfiguredLeafShareProvider()
         let shares = LeafShareStore(provider: provider, storage: JSONStorage(.memory), features: context.features, clock: clock)
         return MapleStores(collection: collection, schedule: schedule, shares: shares, health: health,
-                           focus: .demo(collection: collection, clock: clock, options: options), clock: clock,
+                           focus: .demo(collection: collection, clock: clock, options: options,
+                                        liveActivity: NoLiveActivityController()),
+                           clock: clock,
                            seasonOverride: options.season)
     }
     #endif

@@ -483,4 +483,10 @@ struct FocusDemoScenario {
                     blocking: blocking)
     }
 }
+
+extension FocusDemoScenario {
+    /// Whether this scenario's member has started a session before (P4, `AppSettings.hasStartedFocus`): everyone
+    /// but a first session.
+    var hasStartedFocus: Bool { state != .first }
+}
 #endif

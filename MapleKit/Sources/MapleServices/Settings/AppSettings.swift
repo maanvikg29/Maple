@@ -44,11 +44,16 @@ nonisolated public struct SettingsSnapshot: Codable, Sendable, Equatable {
     public var sessionEndReminder: Bool
     /// The daily study reminder's time; nil while it is off (the default, F1-4).
     public var studyReminder: ClockTime?
+    /// A Focus session has started at least once (P4). Until then the start screen preselects Quick and shows the
+    /// first-session lines, and the first start asks for notifications (F1-23).
+    public var hasStartedFocus: Bool
+    /// The last session whose receipt was shown, so a receipt shows once (P5, `ReceiptPicker`).
+    public var lastReceiptSeen: UUID?
 
     public init(
         hemisphere: HemisphereChoice = .automatic, sleepGoalMinutes: Int = AppSettings.defaultSleepGoalMinutes,
         revealSound: Bool = false, windDownReminder: Bool = true, sessionEndReminder: Bool = true,
-        studyReminder: ClockTime? = nil
+        studyReminder: ClockTime? = nil, hasStartedFocus: Bool = false, lastReceiptSeen: UUID? = nil
     ) {
         version = Self.currentVersion
         self.hemisphere = hemisphere
@@ -57,12 +62,15 @@ nonisolated public struct SettingsSnapshot: Codable, Sendable, Equatable {
         self.windDownReminder = windDownReminder
         self.sessionEndReminder = sessionEndReminder
         self.studyReminder = studyReminder
+        self.hasStartedFocus = hasStartedFocus
+        self.lastReceiptSeen = lastReceiptSeen
     }
 
     // MARK: Codable (tolerant: missing or unknown values take their defaults)
 
     private enum CodingKeys: String, CodingKey {
         case version, hemisphere, sleepGoalMinutes, revealSound, windDownReminder, sessionEndReminder, studyReminder
+        case hasStartedFocus, lastReceiptSeen
     }
 
     public init(from decoder: any Decoder) throws {
@@ -77,6 +85,8 @@ nonisolated public struct SettingsSnapshot: Codable, Sendable, Equatable {
         windDownReminder = (try? c.decodeIfPresent(Bool.self, forKey: .windDownReminder)) ?? true
         sessionEndReminder = (try? c.decodeIfPresent(Bool.self, forKey: .sessionEndReminder)) ?? true
         studyReminder = try? c.decodeIfPresent(ClockTime.self, forKey: .studyReminder)
+        hasStartedFocus = (try? c.decodeIfPresent(Bool.self, forKey: .hasStartedFocus)) ?? false
+        lastReceiptSeen = try? c.decodeIfPresent(UUID.self, forKey: .lastReceiptSeen)
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -88,12 +98,15 @@ nonisolated public struct SettingsSnapshot: Codable, Sendable, Equatable {
         try c.encode(windDownReminder, forKey: .windDownReminder)
         try c.encode(sessionEndReminder, forKey: .sessionEndReminder)
         try c.encodeIfPresent(studyReminder, forKey: .studyReminder)
+        try c.encode(hasStartedFocus, forKey: .hasStartedFocus)
+        try c.encodeIfPresent(lastReceiptSeen, forKey: .lastReceiptSeen)
     }
 }
 
-/// The member's settings: hemisphere, sleep goal, the reveal sound and the wind-down reminder (spec §8.7). One instance
-/// for the app, injected with `.environment(_:)`; screens read it with `@Environment(AppSettings.self)` and assign
-/// to its properties, which saves at once.
+/// The member's settings: hemisphere, sleep goal, the reveal sound, the reminders, and what Focus remembers about the
+/// member (the first start, the last receipt seen) (spec §8.7, F1 design §5.12). One instance for the app, injected
+/// with `.environment(_:)`; screens read it with `@Environment(AppSettings.self)` and assign to its properties, which
+/// saves at once.
 ///
 /// ```swift
 /// @Environment(AppSettings.self) private var settings
@@ -189,6 +202,20 @@ public final class AppSettings {
         set { change { $0.studyReminder = newValue } }
     }
 
+    /// A Focus session has started at least once (P4). `FocusStores.start(_:intention:settings:)` sets it at the first
+    /// start; nothing clears it.
+    public var hasStartedFocus: Bool {
+        get { snapshot.hasStartedFocus }
+        set { change { $0.hasStartedFocus = newValue } }
+    }
+
+    /// The last session whose receipt was shown (P5). The receipt sets it as it appears, and `ReceiptPicker.pending`
+    /// then shows it no more.
+    public var lastReceiptSeen: UUID? {
+        get { snapshot.lastReceiptSeen }
+        set { change { $0.lastReceiptSeen = newValue } }
+    }
+
     /// The reminder switches, as `ReminderPlan` reads them.
     public var reminders: ReminderSettings {
         ReminderSettings(windDown: windDownReminder, sessionEnd: sessionEndReminder, studyReminder: studyReminderTime)
@@ -232,13 +259,27 @@ public final class AppSettings {
     /// the member's settings, like every other store, so a demo never writes the real file.
     public static func launch(directory: URL = MapleContainer.directory()) -> AppSettings {
         #if DEBUG
-        if DemoLaunchOptions.current.isActive {
-            let saved = JSONStorage<SettingsSnapshot>(.file(directory.appending(path: file))).load()
-            return AppSettings(storage: JSONStorage(.memory, initial: saved))
-        }
+        let options = DemoLaunchOptions.current
+        if options.isActive { return demo(options, directory: directory) }
         #endif
         return live(directory: directory)
     }
+
+    #if DEBUG
+    /// A demo launch's settings: an in-memory copy of the member's. With Focus arguments, the first start follows the
+    /// scenario (P4: only a first session and `-MapleDemoFresh` haven't started one), and no receipt has
+    /// been seen (P5), so the scenario's receipt shows.
+    static func demo(_ options: DemoLaunchOptions, directory: URL) -> AppSettings {
+        var saved = JSONStorage<SettingsSnapshot>(.file(directory.appending(path: file))).load()
+        if options.hasFocusArguments {
+            var focus = saved ?? SettingsSnapshot()
+            focus.hasStartedFocus = !options.fresh && FocusDemoScenario(options).hasStartedFocus
+            focus.lastReceiptSeen = nil
+            saved = focus
+        }
+        return AppSettings(storage: JSONStorage(.memory, initial: saved))
+    }
+    #endif
 
     // MARK: Private
 

@@ -65,6 +65,11 @@ public final class FocusSessionStore {
     /// The session that ended last while this store watched: the receipt's.
     public private(set) var lastEnded: SessionRecord?
     public private(set) var probe: BlockingProbe = .notDetermined
+    /// Leaves the running or last-ended session's credit opened: the running dial's gold centre and the receipt's leaf
+    /// line. They are what `applyFocus` returned while it ran, and the list is emptied at the next start. A store that
+    /// first sees the session after a relaunch (still running, or ended while away by its first refresh) starts from the
+    /// focus leaves the collection dated inside it.
+    public private(set) var sessionUnlocks: [LeafUnlock] = []
 
     @ObservationIgnored public let blocking: any BlockingService
     @ObservationIgnored private let ledger: any FocusLedgerStore
@@ -93,6 +98,10 @@ public final class FocusSessionStore {
     /// Sessions a full read found with no `sessionStarted` anywhere (a damaged line): no sign of a missing start, so they
     /// don't widen later replays.
     @ObservationIgnored private var startless: Set<UUID> = []
+    /// The session `sessionUnlocks` belongs to.
+    @ObservationIgnored private var unlocksSession: UUID?
+    /// `finish` or Release all ended a session in this command: the settle that follows still credits its leaves to it.
+    @ObservationIgnored private var justEnded = false
 
     /// - Parameters:
     ///   - writer: The app's writer, whose time source is the store's clock (a shifted one in demos).
@@ -189,6 +198,7 @@ public final class FocusSessionStore {
                 _ = try? write(.shieldCleared(.releaseAll), session: session.id)
                 absorb()
                 lastEnded = sessions.first { $0.id == session.id }
+                justEnded = true
             }
             await settle(now: now)
         }
@@ -250,6 +260,26 @@ public final class FocusSessionStore {
         }
         return DisplayCredit(today: book.seconds(on: today) + provisional, yesterday: book.seconds(on: yesterday),
                              total: book.totalSeconds + provisional)
+    }
+
+    /// A session's credit at `now`, counted with every session of the replay, so the daily cap and the overlaps with
+    /// other sessions apply exactly as they do for the counters (the receipt, Saved today). Nil for a session the
+    /// replay doesn't hold, or whose source this launch doesn't credit.
+    public func credit(for id: UUID) -> SessionCredit? {
+        HoursCredit.credit(sessions, crediting: credited, now: now).first { $0.id == id }
+    }
+
+    /// Seconds a session has counted. For the running session, its counted seconds plus the provisional time since its
+    /// last checkpoint, within the room today's cap leaves (the end-early sheet's and the emergency release's "18
+    /// minutes"); for an ended one, what it counted. 0 for a session the replay doesn't hold.
+    public func countedSoFar(_ id: UUID) -> Int {
+        let now = self.now
+        let credits = HoursCredit.credit(sessions, crediting: credited, now: now)
+        guard let credit = credits.first(where: { $0.id == id }) else { return 0 }
+        guard let running, running.id == id else { return credit.seconds }
+        let countedToday = credits.filter { $0.day == credit.day && $0.zone == credit.zone }.reduce(0) { $0 + $1.seconds }
+        let provisional = HoursCredit.provisionalSeconds(for: running, now: now, roomLeftToday: HoursCredit.dailyCap - countedToday)
+        return credit.seconds + provisional
     }
 
     // MARK: Private
@@ -401,6 +431,9 @@ public final class FocusSessionStore {
             absorb()
             return .notRecorded
         }
+        // A new session's leaves start empty.
+        unlocksSession = id
+        sessionUnlocks = []
         await settle(now: now)
         return .started(id)
     }
@@ -419,6 +452,7 @@ public final class FocusSessionStore {
         }
         absorb()
         lastEnded = sessions.first { $0.id == session.id }
+        justEnded = true
     }
 
     /// Proves the block is still there (at most once a minute, and at once in a boot with no event yet), or marks it
@@ -479,11 +513,39 @@ public final class FocusSessionStore {
         absorb()
     }
 
-    /// Credit to the collection, then the Live Activity.
+    /// Credit to the collection, the leaves it opened to their session, then the Live Activity.
     private func settle(now: Date) async {
         absorb()
-        collection.applyFocus(HoursCredit.credit(sessions, crediting: credited, now: now), at: now)
+        let opened = collection.applyFocus(HoursCredit.credit(sessions, crediting: credited, now: now), at: now)
+        noteUnlocks(opened, now: now)
         await liveActivity.reconcile(running: running.map { FocusActivityState(session: $0, now: now) })
+    }
+
+    /// Leaves `applyFocus` just opened belong to the running session, or to the one this command ended; any other
+    /// settle's leaves belong to no session's screens. A session this store hasn't credited yet (after a relaunch)
+    /// starts from the focus leaves the collection dated inside it, which already holds what just opened.
+    private func noteUnlocks(_ opened: [LeafUnlock], now: Date) {
+        defer { justEnded = false }
+        guard let session = running ?? (justEnded ? lastEnded : nil) else { return }
+        guard unlocksSession == session.id else {
+            unlocksSession = session.id
+            sessionUnlocks = Self.focusLeaves(collection.unlocks, from: session.countdownStart, to: now)
+            return
+        }
+        if !opened.isEmpty { sessionUnlocks += opened }
+    }
+
+    /// The categories Focus credit raises.
+    private static let focusCategories: Set<RewardCategoryID> = [.hoursSaved, .sessionsFinished, .focusStreak]
+
+    /// Focus leaves dated from `start` to `end`. A leaf is dated when the credit that opened it was proven.
+    private static func focusLeaves(_ unlocks: [LeafUnlock], from start: Date, to end: Date) -> [LeafUnlock] {
+        unlocks.filter { unlock in
+            guard unlock.date >= start, unlock.date <= end,
+                  let category = RewardCatalog.shared.reward(forSpecies: unlock.speciesID)?.categoryID
+            else { return false }
+            return focusCategories.contains(category)
+        }
     }
 
     /// Grants `.screenTime` in the collection while blocking is available and allowed, as `HealthPermission` does
