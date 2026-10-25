@@ -15,7 +15,8 @@ public struct MapleStores {
     public let health: HealthPermission
     /// This launch's Focus stores: sessions, presets, app sets and intentions (F1 design §7.6).
     public let focus: FocusStores
-    /// "Now" for every screen: live, or frozen inside a phase by `-MapleDemoPhase`.
+    /// "Now" for every screen: live, frozen inside a phase by `-MapleDemoPhase`, or (Focus demos) moved into it and still
+    /// ticking.
     public let clock: MapleClock
     /// `-MapleDemoSeason`; nil uses the real season.
     public let seasonOverride: Season?
@@ -102,12 +103,16 @@ public struct MapleStores {
 
     #if DEBUG
     /// DEBUG launches with demo arguments. Every store is in memory, so the real files are never written:
-    /// a demo collection (`-MapleDemoSpecies`/`Days`/`Waiting`), an empty first run (`-MapleDemoFresh`), or an
-    /// in-memory copy of the member's own collection when only the phase, season or rarity is overridden.
+    /// a demo collection (`-MapleDemoSpecies`/`Days`/`Waiting`, or any Focus argument), an empty first run
+    /// (`-MapleDemoFresh`), or an in-memory copy of the member's own collection when only the phase, season or rarity
+    /// is overridden.
     ///
     /// Permissions: `-MapleDemoPermissions` when given; otherwise demo collections are granted Apple Health and a
     /// sleep tracker (`DemoData.defaultPermissions`), so their leaves show earned progress; a fresh first run gets
     /// nothing; and a copy of the member's own collection gets their own Apple Health record.
+    ///
+    /// Focus (F1 design §7.6, §8.2): `-MapleDemoShip f1` ships exactly M1 and F1 (`.current` otherwise), and any Focus
+    /// argument moves the clock into the asked-for phase (the Day by default) and lets it tick, so a session runs.
     public static func make(
         _ options: DemoLaunchOptions, directory: URL = MapleContainer.directory(), calendar: Calendar = .current,
         now: Date = .now
@@ -124,7 +129,8 @@ public struct MapleStores {
             ? HealthConnection(promptCompletedAt: savedHealth?.promptCompletedAt ?? now) : HealthConnection()
         let health = HealthPermission(storage: JSONStorage(.memory, initial: connection))
         let context = CollectionContext(
-            permissions: permissions, calendar: calendar, hemisphere: .current, seasonOverride: options.season
+            permissions: permissions, features: options.ship ?? .current, calendar: calendar, hemisphere: .current,
+            seasonOverride: options.season
         )
         let realCollection = JSONStorage<CollectionSnapshot>(.file(directory.appending(path: collectionFile)))
         let realSchedule = JSONStorage<SavedSchedule>(.file(directory.appending(path: scheduleFile)))
@@ -155,9 +161,15 @@ public struct MapleStores {
         if options.rarity { collection.setRarityConsent(true) }
 
         let day = options.demoDay(from: now, calendar: calendar) ?? now
-        let clock: MapleClock = options.phase.map { phase in
-            .fixed(PhaseWindows(weekly: schedule.weekly).sampleDate(in: phase, onDayOf: day, calendar: calendar))
-        } ?? .live
+        let windows = PhaseWindows(weekly: schedule.weekly)
+        let clock: MapleClock
+        if options.hasFocusArguments {
+            // Measured from the real time, not `now`, so the clock reads the start moment whatever `now` a test passes.
+            let start = windows.sampleDate(in: options.phase ?? .day, onDayOf: day, calendar: calendar)
+            clock = .shifted(by: start.timeIntervalSinceNow)
+        } else {
+            clock = options.phase.map { .fixed(windows.sampleDate(in: $0, onDayOf: day, calendar: calendar)) } ?? .live
+        }
         schedule.clock = clock
         let provider: any LeafShareProvider = options.rarity ? PreviewLeafShareProvider() : UnconfiguredLeafShareProvider()
         let shares = LeafShareStore(provider: provider, storage: JSONStorage(.memory), features: context.features, clock: clock)
