@@ -80,14 +80,10 @@ struct FocusView: View {
             FocusStartView(minimised: id)
         case .needsScreenTime:
             NeedsScreenTimeView()
-        case .running(let id):
-            // Task 11: RunningSessionView.
-            FocusPlaceholder("Running session", detail: session(id).map {
-                "\($0.plan.presetName) · \(FocusTimeText.remaining($0.secondsLeft(at: now)))"
-            })
-        case .breakTime(let id):
-            // Task 11: BreakView.
-            FocusPlaceholder("Break", detail: session(id)?.plan.presetName)
+        case .running(let id), .breakTime(let id):
+            // One view for both, so the screen keeps its state as a break starts and runs out (§5.5).
+            RunningSessionView(sessionID: id)
+                .id(id)
         case .receipt(let id):
             // Task 13: ReceiptView.
             FocusPlaceholder("Receipt", detail: session(id)?.plan.presetName)
