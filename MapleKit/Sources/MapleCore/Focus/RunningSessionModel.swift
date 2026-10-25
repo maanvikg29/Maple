@@ -217,7 +217,7 @@ public struct RunningSessionModel: Sendable, Equatable {
         caption = "left of \(length)"
         timeLine = "\(remaining) left of \(length)"
         firstSessionLine = isFirstSession ? FocusCopy.firstSessionLine : nil
-        breakTitle = plan.breakSeconds > 0 && !session.breakUsed && left > 0 && !isPlain ? Self.takeBreakTitle : nil
+        breakTitle = Self.breakAvailable(session, at: now) ? Self.takeBreakTitle : nil
         endPath = SessionEndPath(plan.strictness)
 
         let canCount = plan.canCount && !isPlain
@@ -298,6 +298,15 @@ public struct RunningSessionModel: Sendable, Equatable {
                 return Opened(speciesID: unlock.speciesID, name: leaves.species(id: unlock.speciesID)?.displayName ?? unlock.speciesID,
                               minute: minute, heldUntilMorning: held(unlock))
             }
+    }
+
+    /// Whether the preset's one break can be taken at `now`: it has one, it is unused, time is left, and apps are
+    /// locked. A plain timer, or a session whose block was lost, has no break, since the break is locked and counted
+    /// (§5.5). The running screen's "Take a break" and End early's "Take a 5-minute break instead" (§5.6) both ask.
+    public static func breakAvailable(_ session: SessionRecord, at now: Date) -> Bool {
+        let plan = session.plan
+        return plan.breakSeconds > 0 && !session.breakUsed && session.secondsLeft(at: now) > 0
+            && plan.kind != .plainTimer && session.lostAt == nil
     }
 
     /// Whether `session` is the member's first: no other session in the replay, and the focus book holds nothing
