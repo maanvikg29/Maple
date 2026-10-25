@@ -210,51 +210,14 @@ struct FocusStartView: View {
         return Text("\(Text(verbatim: parts.main).foregroundStyle(theme.colors.textPrimary))\(rest.foregroundStyle(theme.colors.textSecondary))")
     }
 
-    /// The one line under the Blocking line: the counts line, the hint, a notice or the failed lock's prompt.
-    ///
-    /// - When its words change, the new words cross-fade over the old ones, and only their opacity animates. Its height
-    ///   changes at once, so nothing on the page animates its layout (§4.6): hidden copies of the words size the line,
-    ///   and the words you see sit in an overlay, which takes no room.
-    /// - While the primary is a hold, the line keeps room for the plain-tap hint, which runs to two lines where the
-    ///   counts line takes one. So a tap showing the hint moves nothing, and the dial stays put (§5.2).
+    /// The one line under the Blocking line: the counts line, the hint, a notice or the failed lock's prompt
+    /// (`DetailLine`). While the primary is a hold, the line keeps room for the plain-tap hint, which runs to two lines
+    /// where the counts line takes one. So a tap showing the hint moves nothing, and the dial stays put (§5.2).
     private func detailLine(_ lines: FocusStartLines) -> some View {
-        let words = lines.detailLine.map { DetailWords(text: $0, marksLeaf: lines.marksLeaf) }
-        let reservesHint = lines.primary == .holdToStart
-        return ZStack(alignment: .topLeading) {
-            if reservesHint {
-                detailRow(DetailWords(text: FocusCopy.holdHint, marksLeaf: false)).hidden()
-            }
-            if let words {
-                detailRow(words).hidden()
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .topLeading)
-        .accessibilityHidden(true)
-        .overlay(alignment: .topLeading) {
-            if let words {
-                detailRow(words)
-                    .id(words)
-                    .transition(.opacity.animation(theme.motion.gentle))
-            }
-        }
-        .padding(.top, words != nil || reservesHint ? theme.spacing.xxs : 0)
-    }
-
-    /// The line's words, and the dot's mark before a line naming the leaf.
-    private func detailRow(_ words: DetailWords) -> some View {
-        HStack(spacing: 7) {
-            if words.marksLeaf {
-                Circle()
-                    .fill(theme.colors.seasonTint(season))
-                    .frame(width: 6, height: 6)
-                    .accessibilityHidden(true)
-            }
-            Text(words.text)
-                .font(MapleFont.footnote)
-                .foregroundStyle(theme.colors.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        DetailLine(
+            words: lines.detailLine.map { DetailWords(text: $0, marksLeaf: lines.marksLeaf) },
+            reserving: lines.primary == .holdToStart ? DetailWords(text: FocusCopy.holdHint, marksLeaf: false) : nil
+        )
     }
 
     // MARK: Primary
@@ -378,6 +341,113 @@ struct FocusStartView: View {
 private struct DetailWords: Hashable {
     let text: String
     let marksLeaf: Bool
+}
+
+/// The start screen's line under the Blocking line (§5.1, §5.2): the counts line, the hint, a notice or the failed
+/// lock's prompt.
+///
+/// - **Layout:** the words, and a hidden copy of `reserving` (the hint, under a hold), give the line its height, so it
+///   changes at once and never animates (§4.6). The words fading out sit in an overlay, which takes no room.
+/// - **The cross-fade:** new words fade in over the old ones fading out, by opacity alone (§4.6). It is stepped by
+///   hand, 30 times a second from a task, as `HoldButton` steps its fill, not by a SwiftUI animation or transition. On
+///   device, the transition a plain tap on the hold started (from inside the hold gesture's `onEnded`) never ran, so
+///   the counts line stayed on screen though the hint had replaced it. The new words are drawn from `words` itself,
+///   so whatever happens to the fade, the line always says what the screen decided.
+private struct DetailLine: View {
+    /// `theme.motion.gentle`'s length.
+    private static let fadeSeconds = 0.6
+
+    @Environment(\.theme) private var theme
+    @Environment(\.season) private var season
+
+    let words: DetailWords?
+    let reserving: DetailWords?
+
+    /// The words the last cross-fade went to, and the ones it is fading out.
+    @State private var settled: DetailWords?
+    @State private var leaving: DetailWords?
+    /// 0…1 through the cross-fade.
+    @State private var progress = 1.0
+    @State private var fade: Task<Void, Never>?
+
+    init(words: DetailWords?, reserving: DetailWords?) {
+        self.words = words
+        self.reserving = reserving
+        _settled = State(initialValue: words)
+    }
+
+    var body: some View {
+        // Before `onChange` has started the fade for new words, they show as they are.
+        let fading = words == settled
+        let eased = progress * progress * (3 - 2 * progress)
+        ZStack(alignment: .topLeading) {
+            if let reserving {
+                row(reserving)
+                    .hidden()
+                    .accessibilityHidden(true)
+            }
+            if let words {
+                row(words)
+                    .opacity(fading ? eased : 1)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .overlay(alignment: .topLeading) {
+            if fading, let leaving {
+                row(leaving)
+                    .opacity(1 - eased)
+                    .accessibilityHidden(true)
+            }
+        }
+        .padding(.top, words != nil || reserving != nil ? theme.spacing.xxs : 0)
+        .onChange(of: words) { _, new in crossFade(to: new) }
+        .onDisappear {
+            fade?.cancel()
+            fade = nil
+            leaving = nil
+            settled = words
+            progress = 1
+        }
+    }
+
+    /// The words, and the dot's mark before a line naming the leaf.
+    private func row(_ words: DetailWords) -> some View {
+        HStack(spacing: 7) {
+            if words.marksLeaf {
+                Circle()
+                    .fill(theme.colors.seasonTint(season))
+                    .frame(width: 6, height: 6)
+                    .accessibilityHidden(true)
+            }
+            Text(words.text)
+                .font(MapleFont.footnote)
+                .foregroundStyle(theme.colors.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// Fades from what is on screen to `new`, by stepping `progress` (no SwiftUI animation).
+    private func crossFade(to new: DetailWords?) {
+        fade?.cancel()
+        leaving = settled == new ? nil : settled
+        settled = new
+        progress = 0
+        fade = Task {
+            let start = Date()
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1.0 / 30))
+                guard !Task.isCancelled else { return }
+                let step = min(1, Date().timeIntervalSince(start) / Self.fadeSeconds)
+                progress = step
+                if step >= 1 {
+                    leaving = nil
+                    fade = nil
+                    return
+                }
+            }
+        }
+    }
 }
 
 /// A horizontal line through the middle of its frame: the intention line's dashed rule.
