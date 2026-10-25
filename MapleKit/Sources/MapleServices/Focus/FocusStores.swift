@@ -79,19 +79,25 @@ public struct FocusStores {
     }
 
     #if DEBUG
-    /// Memory only, on the demo clock's offset, with the preview blocker.
-    public static func demo(collection: CollectionStore, clock: MapleClock) -> FocusStores {
-        let deviceID = UUID()
-        let ledger = MemoryLedgerStore()
-        let blocking = PreviewBlockingService()
-        let time = ShiftedFocusTime(base: LiveFocusTime(deviceID: deviceID), offset: clock.offset)
-        let writer = LedgerWriter(store: ledger, time: time, deviceID: deviceID, writer: .app, source: blocking.source)
+    /// Memory only, on the demo clock's offset, with the preview blocker (F1 design §7.6). With Focus arguments (and
+    /// not `-MapleDemoFresh`) it starts in the scenario they ask for (`FocusDemoScenario`): the ledger, the blocker, the
+    /// presets, the app sets and the intentions. Otherwise it starts empty.
+    public static func demo(collection: CollectionStore, clock: MapleClock, options: DemoLaunchOptions) -> FocusStores {
+        let device = DeviceIDSource(FocusDemo.deviceID)
+        let time = FocusDemoTime(shifted: ShiftedFocusTime(base: LiveFocusTime(device: device), offset: clock.offset))
+        let seed: FocusDemoScenario.Seed? = options.hasFocusArguments && !options.fresh
+            ? FocusDemoScenario(options).seed(now: time.stamp(), snapshot: collection.snapshot, context: collection.context,
+                                              appBuild: appBuild)
+            : nil
+        let blocking: any BlockingService = seed?.blocking ?? PreviewBlockingService()
+        let ledger = MemoryLedgerStore(seed?.events ?? [])
+        let writer = LedgerWriter(store: ledger, time: time, device: device, writer: .app, source: blocking.source)
         return FocusStores(
             sessions: FocusSessionStore(ledger: ledger, writer: writer, blocking: blocking, collection: collection,
                                         credited: LaunchMode.demo.credited, liveActivity: NoLiveActivityController(), appBuild: appBuild),
-            presets: PresetStore(storage: JSONStorage(.memory), defaultAppSetID: AppSet.distractionsID),
-            appSets: AppSetStore(storage: JSONStorage(.memory)),
-            notes: SessionNotesStore(storage: JSONStorage(.memory)),
+            presets: PresetStore(storage: JSONStorage(.memory, initial: seed?.presets), defaultAppSetID: AppSet.distractionsID),
+            appSets: AppSetStore(storage: JSONStorage(.memory, initial: seed?.appSets)),
+            notes: SessionNotesStore(storage: JSONStorage(.memory, initial: seed?.notes)),
             mode: .demo
         )
     }

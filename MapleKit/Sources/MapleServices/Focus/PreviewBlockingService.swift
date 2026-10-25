@@ -16,13 +16,16 @@ public final class PreviewBlockingService: BlockingService {
 
     public var authorization: BlockingProbe
     public var failures: Set<Failure>
-    public private(set) var store: ShieldStoreState = .empty
+    public private(set) var store: ShieldStoreState
     /// Every operation asked for, in order.
     public private(set) var operations: [ShieldOp] = []
 
-    public init(authorization: BlockingProbe = .allowed, failures: Set<Failure> = []) {
+    /// - Parameter store: What its store holds at launch. A demo scenario starts with its running session's block in
+    ///   place, as a relaunch finds it.
+    public init(authorization: BlockingProbe = .allowed, failures: Set<Failure> = [], store: ShieldStoreState = .empty) {
         self.authorization = authorization
         self.failures = failures
+        self.store = store
     }
 
     public var capability: BlockingCapability { .preview }
