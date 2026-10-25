@@ -12,7 +12,6 @@ struct HerbariumView: View {
     @Environment(\.mapleClock) private var clock
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.openURL) private var openURL
     @Environment(CollectionStore.self) private var collection
     @Environment(LeafShareStore.self) private var shares
     @Environment(AppRouter.self) private var router
@@ -63,6 +62,10 @@ struct HerbariumView: View {
         }
         .onAppear(perform: applyRouterRequest)
         .onChange(of: router.herbariumEarnedOnlyRequest) { applyRouterRequest() }
+        // "Turn on Screen Time" from a leaf inside the Search sheet: the sheet closes as the Focus tab opens.
+        .onChange(of: router.focusRequest) { _, request in
+            if request != nil { sheet = nil }
+        }
         #if DEBUG
         .task { presentDemo() }
         #endif
@@ -442,7 +445,7 @@ struct HerbariumView: View {
         guard let permission = section.permission, permission.canBeTurnedOn else { return nil }
         let leaf = section.entries.first { !$0.isUnlocked }?.id
         return {
-            turnOnPermission(permission, speciesID: leaf, showHealthPrimer: { sheet = .health($0) }, openURL: openURL)
+            turnOnPermission(permission, speciesID: leaf, showHealthPrimer: { sheet = .health($0) }, router: router)
         }
     }
 

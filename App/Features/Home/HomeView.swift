@@ -9,7 +9,6 @@ struct HomeView: View {
     @Environment(CollectionStore.self) private var collection
     @Environment(HealthSleepImporter.self) private var sleep
     @Environment(AppRouter.self) private var router
-    @Environment(\.openURL) private var openURL
     @Environment(\.mapleClock) private var clock
     @Environment(\.theme) private var theme
     @Environment(\.season) private var season
@@ -239,7 +238,7 @@ struct HomeView: View {
                 pushedLeaf = progress.speciesID
             } turnOn: {
                 turnOnPermission(progress.availability, speciesID: progress.speciesID,
-                                 showHealthPrimer: { sheet = .health($0) }, openURL: openURL)
+                                 showHealthPrimer: { sheet = .health($0) }, router: router)
             }
             .zoomSource(id: progress.speciesID, in: zoom)
         }

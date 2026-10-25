@@ -50,6 +50,10 @@ struct FocusView: View {
             .onChange(of: pending?.id, initial: true) { _, id in holdReceipt(id) }
             .onChange(of: sessions.running?.id) { old, new in sessionChanged(from: old, to: new) }
             .onChange(of: router.focusRequest, initial: true) { _, request in apply(request) }
+            // Once Screen Time allows Maple, a plain timer chosen on Needs Screen Time gives way to blocking again.
+            .onChange(of: canBlock) { _, allowed in
+                if allowed, tab.plainTimer == .chosen { tab.plainTimer = nil }
+            }
             .task(id: FocusRoute.nextChange(running: sessions.running, now: now)) { await waitForChange() }
             // §5.1, Locking: a soft haptic as the block is confirmed and the session's screen settles.
             .sensoryFeedback(.impact(flexibility: .soft), trigger: tab.lastStarted)
@@ -75,8 +79,7 @@ struct FocusView: View {
         case .minimised(let id):
             FocusStartView(minimised: id)
         case .needsScreenTime:
-            // Task 10: NeedsScreenTimeView.
-            FocusPlaceholder("Needs Screen Time")
+            NeedsScreenTimeView()
         case .running(let id):
             // Task 11: RunningSessionView.
             FocusPlaceholder("Running session", detail: session(id).map {

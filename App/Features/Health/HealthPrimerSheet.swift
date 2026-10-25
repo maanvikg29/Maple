@@ -68,18 +68,19 @@ struct HealthPrimerRequest: Identifiable, Hashable {
     var id: String { "health.\(speciesID ?? "")" }
 }
 
-/// What "Turn on" does for a missing permission: Apple Health shows the primer (`HealthPrimerSheet`); Screen Time,
-/// once it ships, opens Maple's page in Settings.
+/// What "Turn on" does for a missing permission: Apple Health shows the primer (`HealthPrimerSheet`); Screen Time
+/// opens the Focus tab's Needs Screen Time (F1 design §5.3), because Maple's page in iOS Settings has no Screen Time
+/// switch. Home and the Herbarium close their sheets and covers when the Focus tab is asked for.
 @MainActor
 func turnOnPermission(
     _ availability: LeafAvailability, speciesID: String?, showHealthPrimer: (HealthPrimerRequest) -> Void,
-    openURL: OpenURLAction
+    router: AppRouter
 ) {
     switch availability {
     case .needsAppleHealth:
         showHealthPrimer(HealthPrimerRequest(speciesID: speciesID))
     case .needsScreenTime:
-        if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+        router.showFocus(.needsScreenTime)
     case .available, .dormant, .notInThisBuild:
         break
     }

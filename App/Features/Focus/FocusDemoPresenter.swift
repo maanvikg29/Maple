@@ -10,6 +10,7 @@ import MapleServices
 /// - `-MapleDemoPreset study|quick|deep|read`: that chip selected;
 /// - `-MapleDemoIntention <text>`: "What's this for?" filled in;
 /// - `-MapleDemoScreenTime failStart`: the start screen as just after a lock that failed, offering the plain timer;
+/// - `-MapleDemoScreenTime plain`: the plain timer chosen (with `-MapleDemoFocus idle`, the start screen as a plain timer);
 /// - `-MapleDemoPresent blocking|preset|saved|streak|intention`: that sheet over the tab.
 enum FocusDemoPresenter {
     private static var applied = false
@@ -23,6 +24,7 @@ enum FocusDemoPresenter {
         if let verb = options.preset { tab.selectedPresetID = presets.presets.first { $0.verb == verb }?.id }
         if let intention = options.intention { tab.intention = intention }
         if options.screenTime == .failStart { tab.plainTimer = .lockFailed }
+        if options.screenTime == .plain { tab.plainTimer = .chosen }
         if let sheet = options.focusSheet { tab.sheet = Self.sheet(sheet, tab: tab, presets: presets) }
     }
 
