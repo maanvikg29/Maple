@@ -162,3 +162,63 @@ nonisolated public enum FinishTimeline {
         return min(1, max(0, (t - start) / (end - start)))
     }
 }
+
+// MARK: - Drawing
+
+extension MinuteDial {
+    /// The dial with the finish over its marks: each swept mark in gold (or white) at its strength, and the ring
+    /// rippling out. Nil draws the dial as it is.
+    public func finishing(_ finish: FinishFrame?) -> MinuteDial {
+        var dial = self
+        dial.finish = finish
+        return dial
+    }
+}
+
+extension DialCentre {
+    /// The centre at a moment of the finish: the leaf growing in with its glow pulsing, and the numeral fading in.
+    public func finishing(_ finish: FinishFrame) -> DialCentre {
+        var centre = grown(finish.leafGrow)
+        centre.glowScale = finish.glowScale
+        centre.glowOpacity = finish.glowOpacity
+        centre.numeralOpacity = finish.numeralOpacity
+        centre.numeralRise = finish.numeralRise
+        return centre
+    }
+}
+
+/// The finish over the dial's marks (F1 design §4.6): every swept mark stroked again in the finish's tone at its
+/// sweep strength, 2.6 units wide, and a 1.5pt ring at the dial's edge that scales out as it fades. Transform and
+/// opacity only.
+struct FinishLayer: View {
+    let finish: FinishFrame
+    let marks: [MarkState]
+    let geometry: MinuteDialGeometry
+    let theme: Theme
+
+    var body: some View {
+        let colour = finish.tone == .gold ? theme.dial.gold : theme.colors.textPrimary
+        let style = StrokeStyle(lineWidth: CGFloat(FinishTimeline.sweepStroke) * geometry.scale, lineCap: .round)
+        let strokes: [(path: Path, opacity: Double)] = marks.indices.compactMap { index in
+            let opacity = index < finish.sweep.count ? finish.sweep[index] : 0
+            guard opacity > 0 else { return nil }
+            return (geometry.path(index: index, count: marks.count, state: marks[index]), opacity)
+        }
+        ZStack {
+            Canvas { context, _ in
+                for stroke in strokes {
+                    var layer = context
+                    layer.opacity = stroke.opacity
+                    layer.stroke(stroke.path, with: .color(colour), style: style)
+                }
+            }
+            Circle()
+                .stroke(colour, lineWidth: 1.5)
+                .scaleEffect(finish.rippleScale)
+                .opacity(finish.rippleOpacity)
+        }
+        .frame(width: geometry.diameter, height: geometry.diameter)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}

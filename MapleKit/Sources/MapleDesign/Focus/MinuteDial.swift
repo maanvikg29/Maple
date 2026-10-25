@@ -24,6 +24,8 @@ public struct MinuteDial<Centre: View>: View {
     private let diameter: CGFloat
     private let theme: Theme
     private let centre: Centre
+    /// The finish drawn over the marks (`finishing(_:)`, in `FinishTimeline.swift`).
+    var finish: FinishFrame?
 
     /// - Parameters:
     ///   - diameter: The dial's side in points: `MinuteDialMetrics.preferredDiameter(forWidth:)`, shrinking with
@@ -57,6 +59,9 @@ public struct MinuteDial<Centre: View>: View {
             .accessibilityHidden(true)
             if let dot = frame.dot {
                 dotView(dot, geometry: geometry, tint: tint)
+            }
+            if let finish {
+                FinishLayer(finish: finish, marks: frame.marks, geometry: geometry, theme: theme)
             }
             centre
         }
