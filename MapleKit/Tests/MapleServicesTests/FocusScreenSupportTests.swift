@@ -410,6 +410,7 @@ struct FocusSettingsTests {
         #expect(settings("-MapleDemoSaved", "empty").hasStartedFocus)
         #expect(settings("-MapleDemoReceipt", "leaf").hasStartedFocus)
         #expect(!settings("-MapleDemoFresh", "YES", "-MapleDemoFocus", "idle").hasStartedFocus)
+        #expect(!settings("-MapleDemoFresh", "YES").hasStartedFocus)
 
         let other = settings("-MapleDemoSpecies", "10")
         #expect(other.snapshot == member)
