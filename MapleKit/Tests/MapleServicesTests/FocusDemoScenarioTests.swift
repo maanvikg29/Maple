@@ -95,8 +95,18 @@ private func twentyHoursLeaf() throws -> String {
     try #require(RewardCatalog.shared.rungs(in: .hoursSaved).first { $0.threshold == 20 }).speciesID
 }
 
-private func near(_ date: Date?, _ expected: Date, within seconds: TimeInterval = 3) -> Bool {
+/// A loose sanity bound against the live clock. `FocusSessionStore.now` keeps running after the launch seeds the
+/// ledger, so a check against it measures how long the test took to get here: the bound is a minute, enough for a loaded
+/// machine, and only says the scenario is roughly where it should be.
+private func near(_ date: Date?, _ expected: Date, within seconds: TimeInterval = 60) -> Bool {
     date.map { abs($0.timeIntervalSince(expected)) < seconds } ?? false
+}
+
+/// Whether `later` is `seconds` after `earlier`. Both are seeded ledger times, placed from the same boot's continuous
+/// clock, so the gap is exact however long the test took to run.
+private func apart(_ later: Date?, _ earlier: Date?, by seconds: TimeInterval, within tolerance: TimeInterval = 0.01) -> Bool {
+    guard let later, let earlier else { return false }
+    return abs(later.timeIntervalSince(earlier) - seconds) < tolerance
 }
 
 @MainActor
@@ -123,7 +133,7 @@ private extension MapleStores {
 @Suite("Focus demo scenarios")
 @MainActor
 struct FocusDemoScenarioTests {
-    @Test("One device, the writer's current boot: trusted time runs on from the ledger and agrees with the demo clock")
+    @Test("One device, the writer's current boot: every seeded event carries the demo device and this boot, and the clock starts at the Day sample")
     func oneBoot() async throws {
         let stores = try await demo("-MapleDemoFocus", "running")
         let events = stores.focus.sessions.sessions.flatMap(\.events).map(\.event)
@@ -134,9 +144,13 @@ struct FocusDemoScenarioTests {
         #expect(Set(events.map(\.seq)).count == events.count)
         #expect(events.allSatisfy { $0.source == .preview })
         let running = try #require(stores.focus.sessions.running)
-        #expect(near(running.countdownStart, stores.now.addingTimeInterval(-18 * 60)))
-        #expect(near(stores.now, stores.clock.now(), within: 1))
-        #expect(near(stores.clock.now(), at(2026, 10, 23, 15, 7)))
+        // The last read-back is 20 seconds before now, 18 minutes into the countdown.
+        #expect(apart(running.lastCheckpoint, running.countdownStart, by: 18 * 60 - 20))
+        // The scenario's start is the Day sample (15:07 on the standard schedule), and the demo clock reads it.
+        let scenario = FocusDemoScenario(DemoLaunchOptions(arguments: ["-MapleDemoShip", "f1", "-MapleDemoFocus", "running"]))
+        let start = scenario.start(phase: nil, day: at(2026, 10, 23, 9), windows: PhaseWindows(weekly: .standard), calendar: utc)
+        #expect(start == at(2026, 10, 23, 15, 7))
+        #expect(near(stores.clock.now(), start))
     }
 
     @Test("Idle: a ready Study on six apps, two sessions today, a run of 12, a best of 21, the next leaf 35 minutes off")
@@ -188,6 +202,9 @@ struct FocusDemoScenarioTests {
         #expect(running.plan.selection == SelectionSummary(mode: .blockThese, apps: 6, sites: 0, categories: 0))
         #expect(running.breaks.isEmpty)
         #expect(running.lostAt == nil)
+        // Proven to 20 seconds before now, 18 minutes in: 32 minutes and 20 seconds to the planned end.
+        #expect(apart(running.lastCheckpoint, running.countdownStart, by: 18 * 60 - 20))
+        #expect(apart(running.plannedEnd, running.lastCheckpoint, by: 32 * 60 + 20))
         #expect(near(running.plannedEnd, stores.now.addingTimeInterval(32 * 60)))
         #expect(stores.preview?.store == .applied(session: running.id))
         let credit = try #require(stores.credit(running.id))
@@ -228,9 +245,12 @@ struct FocusDemoScenarioTests {
         let stores = try await demo("-MapleDemoFocus", "break")
         let running = try #require(stores.focus.sessions.running)
         #expect(running.breaks.count == 1)
-        #expect(near(running.breaks.first?.start, stores.now.addingTimeInterval(-60)))
-        #expect(near(running.breakEnd(at: stores.now), stores.now.addingTimeInterval(4 * 60)))
-        #expect(near(running.plannedEnd, stores.now.addingTimeInterval(19 * 60)))
+        // Minute 31 of 50: the break began at minute 30 and lasts 5 minutes; the planned end is 20 minutes after it began.
+        let start = try #require(running.breaks.first?.start)
+        #expect(apart(start, running.countdownStart, by: 30 * 60))
+        #expect(apart(running.breakEnd(at: stores.now), start, by: TimeInterval(FocusPreset.breakSeconds)))
+        #expect(apart(running.plannedEnd, start, by: 20 * 60))
+        #expect(near(start, stores.now.addingTimeInterval(-60)))
     }
 
     @Test("Running past minute 35 has opened the next leaf mid-session")
@@ -254,6 +274,12 @@ struct FocusDemoScenarioTests {
             #expect(ended.endReason == .completed)
             #expect(ended.endVerified)
             #expect(ended.breaks.count == 1)
+            // The break began at minute 30 of 50. The launch's refresh wrote the end after the planned end, 5 seconds
+            // after it in the seed, and as near to now as the test is quick.
+            #expect(apart(ended.breaks.first?.start, ended.countdownStart, by: 30 * 60))
+            #expect(apart(ended.plannedEnd, ended.breaks.first?.start, by: 20 * 60))
+            let end = try #require(ended.end?.placed)
+            #expect(end >= ended.plannedEnd)
             #expect(near(ended.plannedEnd, stores.now.addingTimeInterval(-5)))
             let credit = try #require(stores.credit(ended.id))
             #expect(credit.seconds == 50 * 60)
@@ -272,8 +298,8 @@ struct FocusDemoScenarioTests {
         let ended = try #require(stores.focus.sessions.lastEnded)
         #expect(ended.id == FocusDemo.subjectID)
         #expect(ended.endReason == .completed)
-        #expect(near(ended.plannedEnd, stores.now.addingTimeInterval(-2 * 3600)))
-        #expect(near(ended.end?.placed, stores.now))
+        // The planned end was 2 hours before launch; the refresh wrote the end at launch.
+        #expect(apart(ended.end?.placed, ended.plannedEnd, by: 2 * 3600, within: 120))
         #expect(stores.credit(ended.id)?.seconds == 50 * 60)
     }
 
@@ -322,7 +348,7 @@ struct FocusDemoScenarioTests {
         let running = try #require(stores.focus.sessions.running)
         #expect(running.plan.kind == .blocking)
         #expect(running.lostAt != nil)
-        #expect(near(running.lastCheckpoint, running.countdownStart.addingTimeInterval(10 * 60), within: 0.01))
+        #expect(apart(running.lastCheckpoint, running.countdownStart, by: 10 * 60))
         #expect(stores.focus.sessions.probe == .allowed)
         #expect(stores.preview?.failures.contains(.revoked) == true)
         #expect(stores.preview?.store == .empty)
@@ -338,6 +364,7 @@ struct FocusDemoScenarioTests {
         #expect(running.applied == nil)
         #expect(stores.focus.sessions.probe == .declined)
         #expect(stores.credit(running.id)?.stretches.map(\.rule) == [.plainTimer])
+        #expect(apart(running.plannedEnd, running.countdownStart, by: 50 * 60))
         #expect(near(running.plannedEnd, stores.now.addingTimeInterval(32 * 60)))
     }
 
@@ -376,7 +403,7 @@ struct FocusDemoScenarioTests {
             #expect(rules == [.override])
         case .early:
             #expect(subject.endReason == .endedEarly)
-            #expect(near(end, subject.countdownStart.addingTimeInterval(18 * 60)))
+            #expect(apart(end, subject.countdownStart, by: 18 * 60))
             #expect(credit.seconds == 18 * 60)
             #expect(!credit.finished)
         case .plain:
@@ -385,7 +412,7 @@ struct FocusDemoScenarioTests {
             #expect(rules == [.plainTimer])
         case .revoked:
             #expect(subject.lostAt != nil)
-            #expect(near(subject.lastCheckpoint, subject.countdownStart.addingTimeInterval(10 * 60), within: 0.01))
+            #expect(apart(subject.lastCheckpoint, subject.countdownStart, by: 10 * 60))
             #expect(!subject.endVerified)
             #expect(credit.seconds == 10 * 60)
             #expect(rules == [.unconfirmed])
