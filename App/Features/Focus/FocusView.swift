@@ -51,6 +51,8 @@ struct FocusView: View {
             .onChange(of: sessions.running?.id) { old, new in sessionChanged(from: old, to: new) }
             .onChange(of: router.focusRequest, initial: true) { _, request in apply(request) }
             .task(id: FocusRoute.nextChange(running: sessions.running, now: now)) { await waitForChange() }
+            // §5.1, Locking: a soft haptic as the block is confirmed and the session's screen settles.
+            .sensoryFeedback(.impact(flexibility: .soft), trigger: tab.lastStarted)
             #if DEBUG
             .task { FocusDemoPresenter.apply(to: tab, presets: presets) }
             #endif
@@ -69,11 +71,9 @@ struct FocusView: View {
         case .settling:
             Color.clear
         case .start:
-            // Task 9: FocusStartView.
-            FocusPlaceholder("Focus start", detail: selectedPreset?.name)
-        case .minimised:
-            // Task 9: FocusStartView, in its "Session running, minimised" state.
-            FocusPlaceholder("Focus start", detail: "Session running, minimised")
+            FocusStartView()
+        case .minimised(let id):
+            FocusStartView(minimised: id)
         case .needsScreenTime:
             // Task 10: NeedsScreenTimeView.
             FocusPlaceholder("Needs Screen Time")
@@ -89,10 +89,6 @@ struct FocusView: View {
             // Task 13: ReceiptView.
             FocusPlaceholder("Receipt", detail: session(id)?.plan.presetName)
         }
-    }
-
-    private var selectedPreset: FocusPreset? {
-        tab.selectedPresetID.flatMap { presets.preset(id: $0) } ?? presets.lastUsed
     }
 
     private func session(_ id: UUID) -> SessionRecord? {
@@ -161,6 +157,8 @@ final class FocusTabState {
     var shownReceipt: UUID?
     /// The sheet over the tab.
     var sheet: FocusTabSheet?
+    /// The last session this tab started, for the soft haptic as its block is confirmed (§5.1).
+    var lastStarted: UUID?
 }
 
 /// Why the start screen starts a plain timer (§5.1, §5.3).
