@@ -80,6 +80,13 @@ struct MapleApp: App {
                 .environment(health)
                 .environment(sleep)
                 .environment(reminders)
+                // Focus (F1 design §7.7): the session store, presets, app sets and intentions, and the four together for
+                // the commands that span them (`FocusStores.start(_:intention:settings:)`).
+                .environment(stores.focus.sessions)
+                .environment(stores.focus.presets)
+                .environment(stores.focus.appSets)
+                .environment(stores.focus.notes)
+                .environment(\.focusStores, stores.focus)
                 .environment(\.mapleClock, clock)
         }
     }
@@ -99,6 +106,8 @@ struct LaunchGate: Equatable {
 ///   available exactly when Apple Health is connected), imports Apple Health's sleep (`HealthSleepImporter`, which
 ///   records the nights with `CollectionStore.recordSleep(_:at:)` and settles them) and refreshes rarity; an import
 ///   the locked iPhone refused runs again once protected data is available;
+/// - Focus sessions are refreshed on launch, on every foreground, when protected data becomes available and while
+///   one runs (`focusUpkeep()`);
 /// - the season is read again on every foreground and at each significant time change (which iOS posts at local
 ///   midnight), so a month boundary passed with the app open changes it everywhere. (A root `TimelineView` would do
 ///   it too, but one at the root kept the first frame from ever committing.)
@@ -121,6 +130,7 @@ private struct ThemedRoot: View {
         RootView(firstRun: launch.firstRun)
             .id(launch.generation)
             .reminderUpkeep()
+            .focusUpkeep()
             .environment(\.theme, contrast == .increased ? .mapleIncreasedContrast : .maple)
             .environment(\.season, collection.season(at: seasonDate ?? clock.now()))
             .preferredColorScheme(.dark)

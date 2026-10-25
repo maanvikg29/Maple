@@ -402,7 +402,11 @@ struct FocusSettingsTests {
 
         let idle = settings("-MapleDemoFocus", "idle")
         #expect(idle.hasStartedFocus)
-        #expect(idle.lastReceiptSeen == nil)
+        // Today's earlier sessions were seen as they ended: the newest of them (Read) is the last receipt seen.
+        #expect(idle.lastReceiptSeen == FocusDemo.historyID(2))
+        #expect(settings("-MapleDemoSaved", "capped").lastReceiptSeen == FocusDemo.historyID(4))
+        #expect(settings("-MapleDemoSaved", "empty").lastReceiptSeen == nil)
+        #expect(settings("-MapleDemoFresh", "YES").lastReceiptSeen == nil)
         #expect(idle.revealSound)
         #expect(!settings("-MapleDemoFocus", "first").hasStartedFocus)
         #expect(settings("-MapleDemoScreenTime", "unavailable").hasStartedFocus)

@@ -488,5 +488,12 @@ extension FocusDemoScenario {
     /// Whether this scenario's member has started a session before (P4, `AppSettings.hasStartedFocus`): everyone
     /// but a first session.
     var hasStartedFocus: Bool { state != .first }
+
+    /// The last receipt this scenario's member has seen (P5, `AppSettings.lastReceiptSeen`): the newest of today's
+    /// earlier sessions, whose receipt showed as it ended. So only the scenario's own session opens on a receipt; nil
+    /// without earlier sessions.
+    var seenReceipt: UUID? {
+        earlierScripts(presets: presetsFile().presets, before: 0).last?.id
+    }
 }
 #endif

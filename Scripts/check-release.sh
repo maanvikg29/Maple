@@ -13,7 +13,7 @@ xcodebuild build \
   -derivedDataPath "$DERIVED_DATA" CODE_SIGNING_ALLOWED=NO -quiet
 BINARY="$DERIVED_DATA/Build/Products/Release-iphonesimulator/Maple.app/Maple"
 # Bare `Demo` covers DemoLaunchOptions, DemoData, DemoPresenter, RevealDemoOptions, HealthDemoSeeding, HerbariumDemo,
-# ReminderDemo, RestDemo and FocusDemo. A bare `Preview` would also hit SharePreview and similar real names, so the
+# ReminderDemo, SleepDemo, FocusDemo and FocusDemoPresenter. A bare `Preview` would also hit SharePreview and similar real names, so the
 # preview types are named.
 FORBIDDEN='PreviewBlockingService|PreviewLeafShareProvider|RecordingLiveActivityController|HealthSleepSeeder|Demo|DesignSystemView'
 [[ -f "$BINARY" ]] || { echo "No binary at $BINARY" >&2; exit 2; }

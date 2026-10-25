@@ -3,7 +3,7 @@ import MapleCore
 import MapleDesign
 import MapleServices
 
-/// The schedule editor sheet (spec §8.1), opened by "Edit schedule" on Rest › Sleep.
+/// The schedule editor sheet (spec §8.1), opened by Settings' "Sleep schedule" row over the Profile sheet (F1 design §5.12).
 ///
 /// - At the top, a 36pt `SegmentedCapsule` chooses which nights the times below are for: "Every day" (one
 ///   schedule, every night), "Weekdays" or "Weekends". A quiet line under it names those nights from the member's

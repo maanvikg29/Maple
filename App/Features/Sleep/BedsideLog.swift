@@ -5,7 +5,7 @@ import MapleServices
 import Observation
 
 /// The member's `WindDownSession`, kept as JSON next to the collection so wind-down and the phone-down time
-/// survive a relaunch (spec §8.1). Wind-down mode writes it; Rest reads it for "Return to wind-down".
+/// survive a relaunch (spec §8.1). Wind-down mode writes it; Home reads it for "Return to wind-down".
 ///
 /// Home can read the same two facts for its state (§3.4):
 /// `collection.nowState(at: now, goodnightAt: BedsideLog.shared.session.goodnight(forMorningOf: now),

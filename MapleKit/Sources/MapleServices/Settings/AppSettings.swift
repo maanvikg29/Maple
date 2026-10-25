@@ -268,13 +268,14 @@ public final class AppSettings {
     #if DEBUG
     /// A demo launch's settings: an in-memory copy of the member's. With Focus arguments or `-MapleDemoFresh`, the first
     /// start follows the launch (P4: only a first session and a fresh install, `-MapleDemoFresh` with or without Focus
-    /// arguments, haven't started one), and no receipt has been seen (P5), so the scenario's receipt shows.
+    /// arguments, haven't started one), and only today's earlier sessions' receipts have been seen (P5), so the
+    /// scenario's own receipt shows and an earlier one never does.
     static func demo(_ options: DemoLaunchOptions, directory: URL) -> AppSettings {
         var saved = JSONStorage<SettingsSnapshot>(.file(directory.appending(path: file))).load()
         if options.hasFocusArguments || options.fresh {
             var focus = saved ?? SettingsSnapshot()
             focus.hasStartedFocus = !options.fresh && FocusDemoScenario(options).hasStartedFocus
-            focus.lastReceiptSeen = nil
+            focus.lastReceiptSeen = options.fresh ? nil : FocusDemoScenario(options).seenReceipt
             saved = focus
         }
         return AppSettings(storage: JSONStorage(.memory, initial: saved))

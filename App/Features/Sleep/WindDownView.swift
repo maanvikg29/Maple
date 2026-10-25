@@ -3,8 +3,8 @@ import MapleCore
 import MapleDesign
 import MapleServices
 
-/// Wind-down mode (spec §8.1): a dim bedside screen, presented full screen from Rest, Home's evening CTA or
-/// anywhere else that offers "Start wind-down".
+/// Wind-down mode (spec §8.1): a dim bedside screen, presented full screen from Home's evening action, leaf detail
+/// or anywhere else that offers "Start wind-down".
 ///
 /// - The time in `heroNumeral` at 70%, and "38m until bed" under it.
 /// - The primary "Goodnight" records the phone-down time in the bedside log (for Home's "Morning, no Apple Health"
@@ -112,7 +112,7 @@ struct WindDownView: View {
         let now = clock.now()
         BedsideLog.shared.startWindDown(at: now, schedule: schedule.weekly, calendar: collection.context.calendar)
         #if DEBUG
-        if RestDemo.saysGoodnight, goodnightAt == nil { sayGoodnight() }
+        if SleepDemo.saysGoodnight, goodnightAt == nil { sayGoodnight() }
         #endif
     }
 

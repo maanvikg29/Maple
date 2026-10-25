@@ -82,6 +82,13 @@ struct HomeView: View {
             router.treeLeafRequest = nil
             showOnMaple(request)
         }
+        // A Focus request made from inside one of Home's presentations (Settings in the Profile sheet) shows the Focus
+        // tab, so whatever Home is presenting closes.
+        .onChange(of: router.focusRequest) { _, request in
+            guard request != nil else { return }
+            sheet = nil
+            cover = nil
+        }
         #if DEBUG
         .task { applyDemoPresentation() }
         #endif
@@ -246,16 +253,21 @@ struct HomeView: View {
             cover = .windDown
         case .openReveals:
             presentingRevealWithoutSlide { cover = .reveal(nil) }
-        case .startFocus, .returnToSession, .turnOnBlocking:
-            // Until F1b adds the Focus tab, focus lives in Rest; Home offers these only once focus ships.
-            router.selectedTab = .rest
+        case .startFocus(let start):
+            // The Focus tab, with the preset selected. Task 16 starts a ready preset at once instead (F1-20).
+            router.showFocus(.selectPreset(start.presetID))
+        case .returnToSession:
+            router.showFocus(.returnToSession)
+        case .turnOnBlocking:
+            router.showFocus(.needsScreenTime)
         }
     }
 
     private func perform(_ action: NowState.SecondaryAction) {
         switch action {
         case .sleepSounds:
-            router.selectedTab = .rest
+            // Sleep sounds ship in F2 (`ShippedFeatures.sleepSounds`), so Home never offers this yet: nothing opens.
+            break
         }
     }
 

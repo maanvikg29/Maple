@@ -438,6 +438,23 @@ struct FocusDemoScenarioTests {
         if receipt != .leaf, receipt != .leafNight { #expect(opened == nil) }
     }
 
+    @Test("Only the scenario's own receipt waits to be seen: today's earlier sessions were seen as they ended")
+    func pendingReceipt() async throws {
+        func pending(_ arguments: String...) async throws -> UUID? {
+            let stores = try await launch(arguments)
+            let settings = AppSettings.demo(DemoLaunchOptions(arguments: ["-MapleDemoShip", "f1"] + arguments),
+                                            directory: try temporaryDirectory())
+            return ReceiptPicker.pending(stores.focus.sessions.sessions, seen: settings.lastReceiptSeen, now: stores.now)?.id
+        }
+        #expect(try await pending("-MapleDemoFocus", "idle") == nil)
+        #expect(try await pending("-MapleDemoFocus", "running") == nil)
+        #expect(try await pending("-MapleDemoScreenTime", "notDetermined") == nil)
+        #expect(try await pending("-MapleDemoSaved", "capped") == nil)
+        #expect(try await pending("-MapleDemoFocus", "ended") == FocusDemo.subjectID)
+        #expect(try await pending("-MapleDemoFocus", "endedAway") == FocusDemo.subjectID)
+        #expect(try await pending("-MapleDemoReceipt", "capped") == FocusDemo.subjectID)
+    }
+
     @Test("Saved today: typical has a session with an unlock; capped passes 6 hours; empty has nothing and no streak")
     func saved() async throws {
         let typical = try await demo("-MapleDemoSaved", "typical")

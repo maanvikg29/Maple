@@ -5,7 +5,7 @@ import MapleDesign
 import MapleServices
 
 enum AppTab: String, Hashable {
-    case home, rest, herbarium
+    case home, focus, herbarium
 }
 
 /// The app's root: the end of onboarding until the first leaf is on the maple, then the three tabs (spec §2.1).
@@ -45,12 +45,12 @@ struct RootView: View {
             Tab("Home", image: "maple.tree", value: AppTab.home) {
                 NavigationStack { HomeView() }
             }
-            Tab(value: AppTab.rest) {
-                NavigationStack { RestView() }
+            Tab(value: AppTab.focus) {
+                NavigationStack { FocusView() }
             } label: {
-                // The outline moon (spec §2.1), selected or not. Given the symbol itself, the bar draws `moon.fill`
-                // in both states, so it gets the outline as a plain template image.
-                Label { Text("Rest") } icon: { Self.outlineMoon }
+                // SF `timer` (P10), selected or not. Given the symbol itself, the bar can draw another variant when
+                // selected, so it gets the outline as a plain template image, as the Rest tab's moon did.
+                Label { Text("Focus") } icon: { Self.timerIcon }
             }
             Tab("Herbarium", image: "maple.herbarium", value: AppTab.herbarium) {
                 NavigationStack { HerbariumView() }
@@ -64,11 +64,11 @@ struct RootView: View {
         #endif
     }
 
-    /// SF `moon` (outline, regular) drawn once into a template bitmap, so no symbol variant can replace it.
-    private static let outlineMoon: Image = {
+    /// SF `timer` (regular) drawn once into a template bitmap, so no symbol variant can replace it.
+    private static let timerIcon: Image = {
         let configuration = UIImage.SymbolConfiguration(pointSize: 21, weight: .regular)
-        guard let symbol = UIImage(systemName: "moon", withConfiguration: configuration) else {
-            return Image(systemName: "moon")
+        guard let symbol = UIImage(systemName: "timer", withConfiguration: configuration) else {
+            return Image(systemName: "timer")
         }
         let format = UIGraphicsImageRendererFormat()
         format.scale = 3
@@ -100,7 +100,7 @@ private struct TabBarSurface: ViewModifier {
 }
 
 private extension AppTab {
-    /// Home, unless a DEBUG build was launched with `-MapleDemoTab rest|herbarium` (used for simulator screenshots).
+    /// Home, unless a DEBUG build was launched with `-MapleDemoTab focus|herbarium` (used for simulator screenshots).
     static var initial: AppTab {
         #if DEBUG
         if let name = UserDefaults.standard.string(forKey: "MapleDemoTab"), let tab = AppTab(rawValue: name) {
