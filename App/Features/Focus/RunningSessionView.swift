@@ -61,7 +61,7 @@ struct RunningSessionView: View {
             if showsEmergency, let session {
                 EmergencyReleaseView(
                     session: session, stage: emergencyStage, frozenSeconds: frozenBreath,
-                    onKeepGoing: keepGoing, onRelease: release
+                    onKeepGoing: keepGoing, onRelease: release, onDone: releaseDone
                 )
             } else {
                 sessionScreen
@@ -352,6 +352,15 @@ struct RunningSessionView: View {
             await sessions.end(.emergencyRelease)
             if clearsAll { await sessions.releaseAll() }
         }
+    }
+
+    /// The ended state's "Done" while this screen still shows it: the store didn't end the session (`end` can fail
+    /// quietly), so the member goes back to the session with its tab bar, never kept on a screen with no way out
+    /// (§5.7).
+    private func releaseDone() {
+        showsEmergency = false
+        releasedAt = nil
+        wake()
     }
 
     /// Each leaf opening, announced once as it happens (a milestone, §4.9), on the break too: "Field maple is yours. It

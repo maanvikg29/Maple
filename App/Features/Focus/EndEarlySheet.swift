@@ -79,9 +79,6 @@ struct EndEarlySheet: View {
                 Text(model.body)
                     .font(MapleFont.callout)
                     .foregroundStyle(theme.colors.textSecondary)
-                if let ring {
-                    breathingRing(ring)
-                }
                 VStack(spacing: theme.spacing.sm) {
                     Button(model.keepGoingTitle, action: keepGoing)
                         .buttonStyle(.moonlight)
@@ -94,6 +91,11 @@ struct EndEarlySheet: View {
                     if let end = model.endTitle {
                         Button(end, action: startCountdown)
                             .buttonStyle(.glassCapsule)
+                    }
+                    if let ring {
+                        // In End session's place, under "Keep going": the button that cancels never moves during the
+                        // 5 seconds, and the sheet only grows below it.
+                        breathingRing(ring)
                     }
                     if let instead = model.breakInsteadTitle {
                         TextLink(instead, chevron: false, action: onBreakInstead)

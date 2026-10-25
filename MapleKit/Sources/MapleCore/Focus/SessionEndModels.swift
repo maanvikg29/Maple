@@ -13,7 +13,7 @@ public struct EndEarlyModel: Sendable, Equatable {
 
     public let path: SessionEndPath
     public let stage: Stage
-    /// "End this session?", or "Ending in 15s" once the countdown runs.
+    /// "End this session?", or "Ending in 15s" once the countdown runs, down to "Ending in 1s".
     public let title: String
     /// The title for VoiceOver: "Ending in 15 seconds".
     public let spokenTitle: String
@@ -49,13 +49,16 @@ public struct EndEarlyModel: Sendable, Equatable {
             breakInsteadTitle = path == .steady && breakAvailable ? FocusCopy.EndEarly.takeBreakInstead : nil
             ringProgress = nil
         case .ending(let left):
-            let seconds = max(0, left)
-            title = FocusCopy.EndEarly.endingIn(seconds: seconds)
-            spokenTitle = "Ending in \(seconds) \(seconds == 1 ? "second" : "seconds")"
+            // The session ends as the countdown reaches zero, while the sheet is still sliding away: the words stop at
+            // 1s, so it never reads "Ending in 0s". The ring runs to its end.
+            let shown = max(1, left)
+            title = FocusCopy.EndEarly.endingIn(seconds: shown)
+            spokenTitle = "Ending in \(shown) \(shown == 1 ? "second" : "seconds")"
             holdTitle = nil
             endTitle = nil
             breakInsteadTitle = nil
             let ring = Self.countdown(for: .gentle)
+            let seconds = max(0, left)
             ringProgress = path == .gentle ? min(1, max(0, Double(ring - seconds) / Double(ring))) : nil
         }
     }

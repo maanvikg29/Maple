@@ -34,6 +34,12 @@ struct EndEarlyModelTests {
         let later = EndEarlyModel(path: .steady, countedSeconds: 18 * 60, breakAvailable: true, stage: .ending(secondsLeft: 1))
         #expect(later.title == "Ending in 1s")
         #expect(later.spokenTitle == "Ending in 1 second")
+        // At the end itself the sheet is already closing: it still reads 1s, never "Ending in 0s".
+        let end = at(2026, 10, 23, 14, 20)
+        let closing = EndEarlyModel(path: .steady, countedSeconds: 18 * 60, breakAvailable: true,
+                                    stage: .ending(secondsLeft: EndEarlyModel.secondsLeft(until: end, now: end)))
+        #expect(closing.title == "Ending in 1s")
+        #expect(closing.spokenTitle == "Ending in 1 second")
     }
 
     @Test("Gentle: End session starts a 5-second breathing ring")
