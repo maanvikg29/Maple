@@ -198,8 +198,12 @@ public struct RunningSessionModel: Sendable, Equatable {
             share = Self.rungFraction(leaf.current + Double(provisional) / 3600, leaf) - before
             // Provisional time that covers the rest waits for a checkpoint: never "0m to go" for a leaf not yet open.
             let toGo = max(1, Int(((leaf.threshold - leaf.current) * 3600).rounded()) - provisional)
+            // The display credit counts whole seconds, so the forecast reads from the same whole second: a sample
+            // between two seconds never pushes the dot a minute on.
+            let elapsed = max(0, now.timeIntervalSince(session.countdownStart)).rounded(.down)
             minute = SessionForecast(
-                start: session.countdownStart, plannedSeconds: plan.plannedSeconds, window: plan.window, now: now,
+                start: session.countdownStart, plannedSeconds: plan.plannedSeconds, window: plan.window,
+                now: session.countdownStart.addingTimeInterval(elapsed),
                 canCount: true, secondsToLeaf: toGo, leafName: leaf.name, roomLeftToday: roomLeftToday, firstEver: false
             ).leafMinute
             let full = SessionForecast.leafLine(leaf: leaf.name, secondsToGo: toGo)

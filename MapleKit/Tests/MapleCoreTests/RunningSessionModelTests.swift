@@ -61,6 +61,14 @@ struct RunningSessionModelTests {
         #expect(model(try record(), at: 18, intention: nil).title == "Study")
     }
 
+    @Test("A sample between two whole seconds keeps the dot at the minute the leaf line points to")
+    func betweenSeconds() throws {
+        // 18 minutes and 0.7 seconds in: the display credit counts whole seconds, and so does the forecast.
+        let screen = model(try record(), at: 18 + 0.7 / 60)
+        #expect(screen.leafLine?.trail == "· 17m to go")
+        #expect(screen.leafMinute == 35)
+    }
+
     @Test("The centre leaf fills softer for the time saved before this session, brighter for this session's share")
     func fill() throws {
         let screen = model(try record(), at: 18)
