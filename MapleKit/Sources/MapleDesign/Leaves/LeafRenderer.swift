@@ -47,6 +47,63 @@ extension LeafStyle {
     }
 }
 
+/// How a locked leaf's progress fills its blades, rising from the stalk (F1 design §4.3).
+///
+/// ```swift
+/// LeafView(species, style: .skeleton(stroke: tint.opacity(0.6), vein: .white.opacity(0.15)),
+///          progress: .twoTone(before: 0.4, session: 0.2, edge: true),
+///          palette: LeafFill.Palette(before: theme.dial.goldSoft, session: theme.dial.gold, edge: theme.dial.goldEdge))
+/// ```
+nonisolated public enum LeafFill: Sendable, Equatable {
+    /// One even coat up to `fraction` (0...1) of the leaf's length, in the palette's `session` colour: what
+    /// `LeafView.progressFill(fraction:colour:opacity:)` draws.
+    case single(Double)
+    /// Two coats: `before` (the part saved before this session) in the palette's `before` colour, then `session`
+    /// more on top of it in `session`, with a light line in `edge` along the top of the fill when `edge` is true.
+    /// Both are fractions of the leaf's length; together they stop at the tip.
+    case twoTone(before: Double, session: Double, edge: Bool)
+
+    /// The colours a fill is drawn in.
+    public struct Palette: Sendable, Equatable {
+        public var before: Color
+        public var session: Color
+        public var edge: Color
+
+        public init(before: Color, session: Color, edge: Color) {
+            self.before = before
+            self.session = session
+            self.edge = edge
+        }
+    }
+
+    /// Where the `session` coat starts, 0...1: the top of the `before` coat, or 0 for one coat.
+    public var split: Double {
+        switch self {
+        case .single: 0
+        case .twoTone(let before, _, _): Self.unit(before)
+        }
+    }
+
+    /// The top of the whole fill, 0...1.
+    public var top: Double {
+        switch self {
+        case .single(let fraction): Self.unit(fraction)
+        case .twoTone(_, let session, _): min(1, split + Self.unit(session))
+        }
+    }
+
+    /// Whether the edge is drawn: asked for, and the fill line is inside the leaf (not at the stalk or the tip).
+    public var showsEdge: Bool {
+        guard case .twoTone(_, _, true) = self else { return false }
+        return top > 0 && top < 1
+    }
+
+    /// `value` clamped to 0...1, with anything not finite as nothing (as `drawProgressFill` always treated it).
+    static func unit(_ value: Double) -> Double {
+        value.isFinite ? min(1, max(0, value)) : 0
+    }
+}
+
 /// Draws leaves into a `GraphicsContext`. Callable from any `Canvas` (including off the main actor),
 /// so a scene such as the home tree can draw hundreds of cached leaves per frame:
 ///
@@ -104,16 +161,62 @@ nonisolated public enum LeafRenderer {
         _ geometry: LeafGeometry, in context: GraphicsContext, transform: CGAffineTransform,
         fraction: Double, color: Color
     ) {
-        let fraction = fraction.isFinite ? min(max(fraction, 0), 1) : 0
-        guard fraction > 0 else { return }
-        let extent = geometry.bladeExtent
-        let level = extent.upperBound - CGFloat(fraction) * (extent.upperBound - extent.lowerBound)
-        // Everything below `level` in leaf space (y points down), with a margin past the -100...100 box.
-        let below = Path(CGRect(x: -200, y: level, width: 400, height: 400))
+        drawProgressFill(
+            geometry, in: context, transform: transform, fill: .single(fraction),
+            palette: LeafFill.Palette(before: .clear, session: color, edge: .clear)
+        )
+    }
+
+    /// Fills the blades as `fill` says, rising from their bottom along the leaf's own axis, then draws its edge:
+    /// the dial's two-tone leaf (F1 design §4.3). Drawn before the skeleton; `transform` is the one
+    /// `draw(_:in:transform:style:)` takes.
+    public static func drawProgressFill(
+        _ geometry: LeafGeometry, in context: GraphicsContext, transform: CGAffineTransform,
+        fill: LeafFill, palette: LeafFill.Palette
+    ) {
+        let top = fill.top
+        let split = fill.split
+        guard top > 0 else { return }
+        if split > 0 {
+            drawBand(geometry, in: context, transform: transform, from: 0, to: split, color: palette.before)
+        }
+        if top > split {
+            drawBand(geometry, in: context, transform: transform, from: split, to: top, color: palette.session)
+        }
+        if fill.showsEdge {
+            // A 1-point line across the leaf at the fill line, inside the silhouette.
+            var context = context
+            context.clip(to: geometry.silhouettePath.applying(transform))
+            let level = level(of: top, in: geometry)
+            var line = Path()
+            line.move(to: CGPoint(x: -200, y: level))
+            line.addLine(to: CGPoint(x: 200, y: level))
+            context.stroke(
+                line.applying(geometry.placement.concatenating(transform)),
+                with: .color(palette.edge), lineWidth: 1
+            )
+        }
+    }
+
+    /// The silhouette between `lower` and `upper` (fractions of the blades' length up from the stalk end), in `color`.
+    private static func drawBand(
+        _ geometry: LeafGeometry, in context: GraphicsContext, transform: CGAffineTransform,
+        from lower: Double, to upper: Double, color: Color
+    ) {
+        let top = level(of: upper, in: geometry)
+        // The first band reaches past the -100...100 box below, exactly as one coat always did.
+        let bottom = lower > 0 ? level(of: lower, in: geometry) : top + 400
+        let band = Path(CGRect(x: -200, y: top, width: 400, height: bottom - top))
             .applying(geometry.placement.concatenating(transform))
         var context = context
-        context.clip(to: below)
+        context.clip(to: band)
         context.fill(geometry.silhouettePath.applying(transform), with: .color(color))
+    }
+
+    /// The leaf-space y of `fraction` of the blades' length, up from the stalk end (y points down).
+    private static func level(of fraction: Double, in geometry: LeafGeometry) -> CGFloat {
+        let extent = geometry.bladeExtent
+        return extent.upperBound - CGFloat(fraction) * (extent.upperBound - extent.lowerBound)
     }
 
     /// Outline, stalk and veins stroked in device space, so their widths are in points. Each colour is drawn

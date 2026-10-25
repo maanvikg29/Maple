@@ -80,8 +80,8 @@ public struct LeafView: View {
 
     /// Progress towards a locked leaf, filled up from the stalk under the leaf's lines.
     nonisolated private struct Progress {
-        var fraction: Double
-        var color: Color
+        var fill: LeafFill
+        var palette: LeafFill.Palette
     }
 
     private let species: LeafSpecies
@@ -102,12 +102,25 @@ public struct LeafView: View {
         self.framing = framing
     }
 
+    /// Draws the leaf in `style` with `progress` rising from the stalk under its lines, in `palette`: the dial's
+    /// two-tone leaf (F1 design §4.3), whose part saved before this session is softer than this session's.
+    public init(
+        _ species: LeafSpecies, style: LeafStyle, progress: LeafFill, palette: LeafFill.Palette,
+        framing: Framing = .fitted
+    ) {
+        self.init(species, style: style, framing: framing)
+        self.progress = Progress(fill: progress, palette: palette)
+    }
+
     /// Fills the blades from where the stalk joins up to `fraction` (0...1) of the leaf's length, along its
     /// own axis, in `colour` at `opacity`, under the leaf's lines: progress towards a locked leaf. Meant for
     /// skeletons (a filled leaf covers it).
     public func progressFill(fraction: Double, colour: Color, opacity: Double = 0.4) -> LeafView {
         var view = self
-        view.progress = Progress(fraction: fraction, color: colour.opacity(opacity))
+        view.progress = Progress(
+            fill: .single(fraction),
+            palette: LeafFill.Palette(before: .clear, session: colour.opacity(opacity), edge: .clear)
+        )
         return view
     }
 
@@ -127,7 +140,7 @@ public struct LeafView: View {
             let transform = LeafRenderer.transform(fitting: region, into: CGRect(origin: .zero, size: size))
             if let progress {
                 LeafRenderer.drawProgressFill(
-                    geometry, in: context, transform: transform, fraction: progress.fraction, color: progress.color
+                    geometry, in: context, transform: transform, fill: progress.fill, palette: progress.palette
                 )
             }
             var resolved = style
