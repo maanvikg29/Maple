@@ -1,7 +1,7 @@
 // The Focus dial (F1 design §4): every mark state; the dial through a session (start, running, the last minute, the
 // leaf opening, dimmed, a plain timer, the break, Locked's hold, the emergency release, Needs Screen Time and the
 // receipt); the lengths; the centre leaf's two tones and edge; Increase Contrast; the seasons; the smallest size;
-// and Dynamic Type for the centre. All on the real #05070D background.
+// Dynamic Type for the centre; the finish's frames; and the hold buttons. All on the real #05070D background.
 //
 //   Scripts/snapshot.sh Scripts/snapshot/FocusScenes.swift [output-dir]       (macOS: Mac type sizes)
 //   SIMULATOR="iPhone 17" Scripts/snapshot-ios.sh Scripts/snapshot/FocusScenes.swift [output-dir] [filter]
@@ -14,7 +14,7 @@ import SwiftUI
 
 @MainActor
 func snapshotScenes() -> [SnapshotScene] {
-    dialScenes() + leafScenes()
+    dialScenes() + leafScenes() + motionScenes()
 }
 
 // MARK: - The dial
@@ -326,6 +326,112 @@ private struct LargeLeafSheet: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(theme.colors.background)
+    }
+}
+
+// MARK: - Motion: the finish and the holds
+
+/// The finish frozen at 0.3 s, 0.9 s and 1.6 s with a leaf opened, then with gaps, in white, and under Reduce Motion,
+/// and the hold buttons frozen as `-MapleDemoHoldAt` freezes them.
+@MainActor
+private func motionScenes() -> [SnapshotScene] {
+    let lit = Array(repeating: MarkState.lit, count: 50)
+    let gaps: [MarkState] = (0..<50).map { (22..<27).contains($0) ? .gap : .lit }
+    let opened = DialFill(before: 0.42, session: 0.58, opened: 1)
+    var scenes: [SnapshotScene] = []
+    for time in [0.3, 0.9, 1.6] {
+        scenes.append(SnapshotScene("focus-finish-\(time)s") {
+            FinishPage(marks: lit, isGold: true, fill: opened, time: time, reduceMotion: false, numeral: "50m")
+        })
+    }
+    scenes += [
+        SnapshotScene("focus-finish-gaps-0.9s") {
+            FinishPage(marks: gaps, isGold: true, fill: DialFill(before: 0.42, session: 0.38), time: 0.9,
+                       reduceMotion: false, numeral: "45m")
+        },
+        SnapshotScene("focus-finish-white-0.6s") {
+            FinishPage(marks: lit, isGold: false, fill: DialFill(before: 0.42), time: 0.6, reduceMotion: false,
+                       numeral: "50m")
+        },
+        SnapshotScene("focus-finish-reduce-motion-0.5s") {
+            FinishPage(marks: lit, isGold: true, fill: opened, time: 0.5, reduceMotion: true, numeral: "50m")
+        },
+        SnapshotScene("focus-hold-buttons", size: CGSize(width: 402, height: 700)) { HoldSheet() },
+    ]
+    return scenes
+}
+
+/// The receipt's dial, centre, leaf line and buttons at one moment of the finish.
+private struct FinishPage: View {
+    @Environment(\.theme) private var theme
+    let marks: [MarkState]
+    let isGold: Bool
+    let fill: DialFill
+    let time: Double
+    let reduceMotion: Bool
+    let numeral: String
+
+    var body: some View {
+        let dial = DialFrame.receipt(marks: marks, isGold: isGold, fill: fill)
+        let finish = FinishTimeline.frame(at: time, counted: dial.gold, leafOpened: fill.opened > 0, reduceMotion: reduceMotion)
+        let leaf = LeafCatalog.shared.species(id: "campestre").map { DialLeaf(species: $0, fill: fill) }
+        VStack(spacing: 28) {
+            Text("Finish at \(String(format: "%.1f", time)) s\(reduceMotion ? " · Reduce Motion" : "")")
+                .font(MapleFont.headline)
+                .foregroundStyle(theme.colors.textSecondary)
+            MinuteDial(frame: dial, diameter: 300, theme: theme) {
+                DialCentre(leaf: leaf, numeral: DialCentre.numeralParts(numeral), caption: "saved · 2h 10m today",
+                           diameter: 300)
+                    .finishing(finish)
+            }
+            .finishing(finish)
+            Text(fill.opened > 0 ? "Field maple is yours · it opens after this session" : "Field maple · 1h 10m to go")
+                .font(MapleFont.callout)
+                .foregroundStyle(theme.colors.textPrimary)
+                .opacity(finish.lineOpacity)
+                .offset(y: finish.lineRise)
+            VStack(spacing: 12) {
+                Button("Done") {}
+                    .buttonStyle(.moonlight)
+                TextLink("Again · 50m", chevron: false) {}
+            }
+            .padding(.horizontal, 24)
+            .opacity(finish.actionsOpacity)
+            .offset(y: finish.actionsRise)
+        }
+        .padding(.top, 100)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(theme.colors.background)
+    }
+}
+
+/// Locked's start dial filling as the hold does, and the hold buttons frozen empty, at 40%, full, and the
+/// emergency release at 60%.
+private struct HoldSheet: View {
+    @Environment(\.theme) private var theme
+    @Environment(\.locale) private var locale
+
+    var body: some View {
+        let fifty = DialLayout(plannedMinutes: 50)
+        VStack(spacing: 24) {
+            MinuteDial(frame: .hold(progress: 0.4, base: .preview(layout: fifty, leafMinute: 35)), diameter: 220, theme: theme)
+            ForEach([0.0, 0.4, 1.0], id: \.self) { progress in
+                HoldButton(
+                    title: FocusCopy.holdToStart(minutes: 50), duration: FocusCopy.holdToStartSeconds,
+                    accessibilityName: FocusCopy.holdToStartName(minutes: 50, locale: locale),
+                    progress: .constant(progress), frozenProgress: progress
+                ) {}
+            }
+            HoldButton(
+                title: FocusCopy.Emergency.holdToRelease, duration: FocusCopy.Emergency.holdSeconds,
+                accessibilityName: FocusCopy.Emergency.holdToRelease,
+                progress: .constant(0.6), frozenProgress: 0.6
+            ) {}
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 60)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(theme.colors.background)
     }
 }
