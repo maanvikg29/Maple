@@ -6,14 +6,14 @@ import MapleFocusCore
 /// its receipt, never on a running dial at 0:00 (§5.8; Review Focus 1, 2).
 ///
 /// In order:
-/// 1. Before the store's first replay: `settling`.
+/// 1. Before the store's first refresh: `settling`.
 /// 2. A running session: `settling` once its planned end has passed (the next refresh ends it); `minimised` once ⌄
 ///    tucked it away; `breakTime` while its break runs; otherwise `running`.
 /// 3. A receipt to show (the one on screen, or `ReceiptPicker.pending`).
 /// 4. `needsScreenTime` while blocking isn't available, until the member picks the plain timer.
 /// 5. `start`.
 public enum FocusRoute: Sendable, Hashable {
-    /// Nothing is drawn: the store hasn't replayed the ledger yet, or a running session has passed its planned end.
+    /// Nothing is drawn: the store's first refresh hasn't run, or a running session has passed its planned end.
     case settling
     case start
     case needsScreenTime
@@ -24,7 +24,8 @@ public enum FocusRoute: Sendable, Hashable {
     case receipt(UUID)
 
     /// - Parameters:
-    ///   - isLoaded: The store has replayed the ledger (`FocusSessionStore.isLedgerReadable`).
+    ///   - isLoaded: The store's first refresh has run and the ledger can be read (`FocusSessionStore.isLoaded` and
+    ///     `isLedgerReadable`).
     ///   - running: The store's running session.
     ///   - receipt: The receipt on screen, else the one to show (`ReceiptPicker.pending`); nil for none.
     ///   - canBlock: The build can block and Screen Time allows it.

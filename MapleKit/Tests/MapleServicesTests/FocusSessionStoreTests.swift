@@ -218,6 +218,33 @@ private final class LateShields: BlockingService {
     func releaseAll() async -> ShieldResult { await base.releaseAll() }
 }
 
+/// The preview blocker, noting `isLoaded` each time the store probes it or asks it for a shield operation.
+@MainActor
+private final class LoadedSpy: BlockingService {
+    let base: PreviewBlockingService
+    /// Reads the store's `isLoaded`; set once the store exists.
+    var isLoaded: () -> Bool = { false }
+    private(set) var seen: [Bool] = []
+
+    init(_ base: PreviewBlockingService) {
+        self.base = base
+    }
+
+    var capability: BlockingCapability { base.capability }
+    var source: FocusSource { base.source }
+    func probe() async -> BlockingProbe {
+        seen.append(isLoaded())
+        return await base.probe()
+    }
+    func requestAuthorization() async -> BlockingProbe { await base.requestAuthorization() }
+    func readStore() async -> ShieldStoreState { await base.readStore() }
+    func perform(_ op: ShieldOp, selection: Data?) async -> ShieldResult {
+        seen.append(isLoaded())
+        return await base.perform(op, selection: selection)
+    }
+    func releaseAll() async -> ShieldResult { await base.releaseAll() }
+}
+
 /// An in-memory ledger whose open read can be made to miss everything, as a clock set far forward can.
 private final class BlindOpenRead: FocusLedgerStore {
     let base: MemoryLedgerStore
@@ -457,6 +484,34 @@ struct FocusSessionStoreTests {
         #expect(h.blocking.store == .applied(session: orphan))
         #expect(await h.store.start(h.request()) == .ledgerUnavailable)
         #expect(h.ledger.events.isEmpty)
+    }
+
+    @Test("Loaded only once the first refresh has replayed the ledger, probed blocking and ended a session that ended while away")
+    func loaded() async throws {
+        let h = Harness()
+        await h.store.refresh()
+        guard case .started(let id) = await h.store.start(h.request()) else { Issue.record("not started"); return }
+        // Maple is killed mid-session and opened again after the planned end.
+        h.advance(minutes: 60)
+        let spy = LoadedSpy(h.blocking)
+        let store = h.relaunch(over: h.ledger, blocking: spy)
+        spy.isLoaded = { [unowned store] in store.isLoaded }
+        #expect(!store.isLoaded)
+        // A ledger that can't be read loads nothing.
+        h.ledger.unreadable = true
+        await store.refresh()
+        #expect(!store.isLoaded)
+        h.ledger.unreadable = false
+        await store.refresh()
+        // Not while it probed, read the block back or cleared it: only once the session it found had ended.
+        #expect(!spy.seen.isEmpty)
+        #expect(spy.seen.allSatisfy { !$0 })
+        #expect(store.isLoaded)
+        #expect(store.running == nil)
+        #expect(store.lastEnded?.id == id)
+        // It stays loaded.
+        await store.refresh()
+        #expect(store.isLoaded)
     }
 
     @Test("A block that doesn't verify starts nothing; a session that can't be written lifts its block at once")

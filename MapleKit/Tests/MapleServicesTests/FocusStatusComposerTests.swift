@@ -90,6 +90,14 @@ struct FocusStatusComposerTests {
         #expect(free.status().blocking == .notInThisBuild)
     }
 
+    @Test("Home's status says whether the session store's first refresh has run, so Home waits for it")
+    func loaded() async {
+        let fixture = ComposerStores()
+        #expect(!fixture.status().isLoaded)
+        await fixture.stores.sessions.refresh()
+        #expect(fixture.status().isLoaded)
+    }
+
     @Test("A running session's time left runs on the store's trusted time")
     func running() async throws {
         let fixture = ComposerStores()

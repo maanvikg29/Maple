@@ -57,7 +57,7 @@ extension FocusStores {
         return FocusStatus(
             savedTodaySeconds: credit.today, savedYesterdaySeconds: credit.yesterday, savedTotalSeconds: credit.total,
             remaining: sessions.running.map { max(0, $0.plannedEnd.timeIntervalSince(now)) }, start: start,
-            blocking: blockingStatus
+            blocking: blockingStatus, isLoaded: sessions.isLoaded
         )
     }
 }

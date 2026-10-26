@@ -9,8 +9,11 @@ public struct SessionMiniBar: Sendable, Equatable {
     /// "Study, 32 minutes left. Return to session."
     public let spoken: String
 
+    /// Nil once the planned end has passed: the bar hides in the moment before the refresh that ends the session, rather
+    /// than reading "Study · 0:00 left".
     /// - Parameter now: The session store's trusted time (`FocusSessionStore.now`), so the bar agrees with the dial.
-    public init(session: SessionRecord, now: Date, calendar: Calendar, locale: Locale) {
+    public init?(session: SessionRecord, now: Date, calendar: Calendar, locale: Locale) {
+        guard session.secondsLeft(at: now) > 0 else { return nil }
         if let breakEnd = session.breakEnd(at: now) {
             let back = HomeFormat.clock(HomeFormat.clockTime(of: breakEnd, calendar: calendar), locale: locale)
             title = "Break · back at \(back)"

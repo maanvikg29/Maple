@@ -210,6 +210,32 @@ struct NowStateTests {
         #expect(free.action == nil)
     }
 
+    @Test("Before the session store's first refresh Home holds everything below the stage: a relaunch mid-session never flashes Start or Turn on blocking")
+    func beforeTheFirstRefresh() {
+        let unloaded = [
+            FocusStatus(savedTotalSeconds: 41 * 3600, start: study, isLoaded: false),
+            FocusStatus(start: study, blocking: .needsPermission, isLoaded: false),
+        ]
+        for focus in unloaded {
+            for (hour, minute) in [(7, 40), (13, 40), (20, 55), (23, 30)] {
+                let now = state(hour, minute, pending: 1, features: .all, focus: focus)
+                #expect(now.content == .settling)
+                #expect(now.numeral.parts.isEmpty)
+                #expect(now.caption.isEmpty)
+                #expect(now.spoken.isEmpty)
+                #expect(now.action == nil)
+                #expect(now.secondaryAction == nil)
+                #expect(now.waitingCount == 0)
+                #expect(!now.refreshesEverySecond)
+            }
+        }
+        // Once it has run, the day shows its own numeral and Start.
+        #expect(state(13, 40, features: .all, focus: FocusStatus(savedTotalSeconds: 41 * 3600, start: study)).action == .startFocus(study))
+        // In the M1 build, before focus shipped, Home never waits for it.
+        let m1 = state(13, 40, features: ShippedFeatures(releases: [.m1]), focus: unloaded[0])
+        #expect(m1.content == .untilWindDown)
+    }
+
     @Test("A running session shows calm minutes in every phase, night included")
     func focusRunning() {
         let running = FocusStatus(savedTodaySeconds: 600, remaining: 18 * 60 + 42)

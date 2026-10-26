@@ -214,19 +214,22 @@ struct HomeView: View {
     private func belowStage(_ content: HomeContent) -> some View {
         let state = content.state
         return VStack(spacing: 0) {
-            // While a session runs Home refreshes every second, so the numeral changes crisply instead of rolling (F1
-            // design §4.6).
-            NowBlock(numeral: state.numeral.parts, caption: state.caption, spoken: state.spoken,
-                     rolls: !state.refreshesEverySecond)
-                .padding(.horizontal, theme.spacing.homeMargin)
-                .contentShape(Rectangle())
-                // Today's saved time opens Saved today (focus spec §5.9).
-                .onTapGesture { if opensSavedToday(state) { sheet = .savedToday } }
-                .accessibilityAddTraits(opensSavedToday(state) ? .isButton : [])
-                .accessibilityHint(opensSavedToday(state) ? Text(FocusSheetCopy.savedTodayHint) : Text(""))
-                .accessibilityAction { if opensSavedToday(state) { sheet = .savedToday } }
-                .padding(.top, HomeLayout.numeralGap)
-                .opacity(state.contentOpacity)
+            // Before the session store's first refresh nothing here is known yet (F1 design §5.10): it all waits.
+            if state.content != .settling {
+                // While a session runs Home refreshes every second, so the numeral changes crisply instead of rolling
+                // (F1 design §4.6).
+                NowBlock(numeral: state.numeral.parts, caption: state.caption, spoken: state.spoken,
+                         rolls: !state.refreshesEverySecond)
+                    .padding(.horizontal, theme.spacing.homeMargin)
+                    .contentShape(Rectangle())
+                    // Today's saved time opens Saved today (focus spec §5.9).
+                    .onTapGesture { if opensSavedToday(state) { sheet = .savedToday } }
+                    .accessibilityAddTraits(opensSavedToday(state) ? .isButton : [])
+                    .accessibilityHint(opensSavedToday(state) ? Text(FocusSheetCopy.savedTodayHint) : Text(""))
+                    .accessibilityAction { if opensSavedToday(state) { sheet = .savedToday } }
+                    .padding(.top, HomeLayout.numeralGap)
+                    .opacity(state.contentOpacity)
+            }
 
             if content.showsNoSleepHint {
                 NoSleepHint()

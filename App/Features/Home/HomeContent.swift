@@ -48,7 +48,7 @@ struct HomeContent {
         let state = collection.nowState(at: now, lastNight: lastNight, goodnightAt: bedside.goodnightAt, focus: focus,
                                         windDownActive: bedside.windDownActive)
         self.state = state
-        showsNoSleepHint = noSleepHint && state.waitingCount == 0
+        showsNoSleepHint = noSleepHint && state.waitingCount == 0 && state.content != .settling
         let next = collection.nextLeaf(at: now)?.displaying(provisionalSeconds: provisionalSeconds)
         self.next = next
         permissionPrompt = next == nil ? collection.permissionPrompt(at: now) : nil
@@ -111,9 +111,10 @@ struct HomeContent {
 
     /// The next-leaf row's content: the waiting variant while leaves can be opened, else the next leaf, else (with
     /// nothing earnable until Apple Health is on) the needs-permission variant. Nil when there is nothing at all, or
-    /// when the no-sleep hint stands in its place.
+    /// when the no-sleep hint stands in its place. Nil too before the session store's first refresh
+    /// (`NowState.Content.settling`), while Screen Time's state and a running session's time aren't known.
     var row: NextLeafRow.Content? {
-        if showsNoSleepHint { return nil }
+        if showsNoSleepHint || state.content == .settling { return nil }
         if state.waitingCount > 0 {
             return .waiting(count: state.waitingCount)
         }

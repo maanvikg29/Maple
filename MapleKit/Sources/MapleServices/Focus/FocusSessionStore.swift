@@ -59,6 +59,11 @@ public final class FocusSessionStore {
     public static let checkpointInterval: TimeInterval = 60
 
     public private(set) var isLedgerReadable = false
+    /// The first refresh has replayed the ledger, probed blocking and ended a session that ended while Maple was closed
+    /// (F1 design §5.4, §5.10). Until then `running`, `probe` and the credit aren't known, so the Focus route, Home's
+    /// numeral, next leaf and action, and where Maple opens (`FocusLanding`) wait for it. Set once; a ledger that can't
+    /// be read leaves it false.
+    public private(set) var isLoaded = false
     public private(set) var isStarting = false
     public private(set) var sessions: [SessionRecord] = []
     public private(set) var running: SessionRecord?
@@ -167,6 +172,7 @@ public final class FocusSessionStore {
             }
             await reconcileShields(now: now)
             await settle(now: now)
+            if !isLoaded { isLoaded = true }
         }
     }
 

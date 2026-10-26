@@ -6,8 +6,9 @@ import MapleServices
 /// The Focus tab (F1 design §5): the one screen the session store's state calls for (`FocusRoute`). It is read
 /// again whenever the store changes, and when a break or the session runs out with nothing else changing.
 ///
-/// - Before the store's first replay, and in the moment between a session's planned end and the refresh that ends
-///   it, nothing is drawn. So a session that ended while Maple was closed opens straight on its receipt.
+/// - Before the store's first refresh (`FocusSessionStore.isLoaded`), and in the moment between a session's planned
+///   end and the refresh that ends it, nothing is drawn. So a session that ended while Maple was closed opens straight
+///   on its receipt.
 /// - A running session shows its screen (its break while one runs), or the start screen's running state once
 ///   minimised.
 /// - Otherwise an unseen receipt (`ReceiptPicker.pending`, P5) comes first, then Needs Screen Time while blocking
@@ -29,8 +30,11 @@ struct FocusView: View {
         @Bindable var tab = tab
         let now = sessions.now
         let pending = ReceiptPicker.pending(sessions.sessions, seen: settings.lastReceiptSeen, now: now)
+        // The first refresh has run (so a session that ended while away is already its receipt), and the ledger can
+        // still be read.
         let route = FocusRoute.resolve(
-            isLoaded: sessions.isLedgerReadable, running: sessions.running, receipt: tab.shownReceipt ?? pending?.id,
+            isLoaded: sessions.isLoaded && sessions.isLedgerReadable, running: sessions.running,
+            receipt: tab.shownReceipt ?? pending?.id,
             isMinimised: tab.isMinimised, canBlock: canBlock, usesPlainTimer: tab.plainTimer != nil, now: now
         )
         // Read, so a tick reads the route again.
