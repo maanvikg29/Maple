@@ -43,6 +43,16 @@ public struct StatNumber: View {
             default: .crossFade
             }
         }
+
+        /// The digits' content transition. A crisp change has none, so an animation around the number (Home animates
+        /// its whole state, which changes each second while a session runs) can't fade one second into the next.
+        public var transition: ContentTransition {
+            switch self {
+            case .roll: .numericText()
+            case .crossFade: .opacity
+            case .none: .identity
+            }
+        }
     }
 
     @Environment(\.theme) private var theme
@@ -58,7 +68,7 @@ public struct StatNumber: View {
     private let rolls: Bool
     /// `rolls` as it was drawn last: it follows `rolls` just after each change, so the update that flips it still
     /// sees the old kind and cross-fades.
-    @State private var rolledBefore: Bool?
+    @State private var rolledBefore: Bool
 
     /// - Parameters:
     ///   - accessibilityText: Full spoken form, e.g. "One hour twenty minutes".
@@ -70,6 +80,7 @@ public struct StatNumber: View {
         self.size = size
         self.accessibilityText = accessibilityText
         self.rolls = rolls
+        _rolledBefore = State(initialValue: rolls)
     }
 
     public init(_ value: String, size: Size = .hero, accessibilityText: String? = nil, rolls: Bool = true) {
@@ -77,14 +88,14 @@ public struct StatNumber: View {
     }
 
     public var body: some View {
-        let change = Change.between(rolledBefore: rolledBefore ?? rolls, rollsNow: rolls)
+        let change = Change.between(rolledBefore: rolledBefore, rollsNow: rolls)
         return HStack(alignment: .firstTextBaseline, spacing: 1) {
             ForEach(Array(parts.enumerated()), id: \.offset) { index, part in
                 Text(part.text)
                     .font(part.isUnit ? MapleFont.numeralUnit(size: numeralSize / 2) : MapleFont.numeral(size: numeralSize))
                     .tracking(part.isUnit || size != .hero ? 0 : -1.5)
                     .foregroundStyle(part.isUnit ? theme.colors.textSecondary : theme.colors.textPrimary)
-                    .contentTransition(change == .roll ? .numericText() : .opacity)
+                    .contentTransition(change.transition)
                     // A word space between a unit and the next value: "1h 20m".
                     .padding(.leading, Self.startsNewGroup(parts, at: index) ? numeralSize * 0.14 : 0)
             }

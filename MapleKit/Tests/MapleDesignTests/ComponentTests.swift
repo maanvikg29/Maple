@@ -236,6 +236,11 @@ struct ComponentTests {
         // A session ending on Home ("0:01" to "2h 10m"), and one starting: never a roll, which animates a blur.
         #expect(StatNumber.Change.between(rolledBefore: false, rollsNow: true) == .crossFade)
         #expect(StatNumber.Change.between(rolledBefore: true, rollsNow: false) == .crossFade)
+        // Each change's own transition. A crisp change has none, so Home's own animation of its state (which runs each
+        // second while a session does) can't fade the time from one second to the next.
+        #expect(StatNumber.Change.roll.transition == .numericText())
+        #expect(StatNumber.Change.crossFade.transition == .opacity)
+        #expect(StatNumber.Change.none.transition == .identity)
     }
 
     @Test("A numeral that doesn't roll (Home's while a session runs) draws exactly as one that does: only its change differs")
