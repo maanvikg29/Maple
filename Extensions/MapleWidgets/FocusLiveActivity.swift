@@ -9,6 +9,7 @@ import WidgetKit
 ///   "until 14:52 · Study", and the ring. A break reads "Break · back at 14:28"; a plain timer has no leaf.
 /// - Compact: the leaf (the ring for a plain timer) and the timer text. Minimal: the ring.
 /// - Expanded: the leaf, the timer text over "Study · Chemistry ch. 4" (the only place the intention shows), the ring.
+///   Its line may take two lines, so a 40-character intention shows whole; the Lock Screen's stays on one.
 /// - Once the stale date (the planned end) passes: "Session complete" and a full ring.
 ///
 /// Every word arrives in the activity's content, already worded by MapleCore (`FocusActivityState.lines`).
@@ -30,7 +31,8 @@ struct FocusLiveActivity: Widget {
                         .padding(.trailing, 4)
                 }
                 DynamicIslandExpandedRegion(.center) {
-                    TimeAndLine(state: context.state, isStale: context.isStale, line: context.state.expandedLine, timeFont: .title3)
+                    TimeAndLine(state: context.state, isStale: context.isStale, line: context.state.expandedLine, timeFont: .title3,
+                                lineLimit: 2)
                 }
             } compactLeading: {
                 LeadingMark(attributes: context.attributes, state: context.state, isStale: context.isStale, size: 20)
@@ -78,12 +80,14 @@ private struct LockScreenActivity: View {
     }
 }
 
-/// The system timer text (or "Session complete") over one line in secondary.
+/// The system timer text (or "Session complete") over a line in secondary: one line, or up to `lineLimit` (the
+/// expanded island's two, which a 40-character intention needs).
 private struct TimeAndLine: View {
     let state: FocusActivityAttributes.ContentState
     let isStale: Bool
     let line: String
     let timeFont: Font.TextStyle
+    var lineLimit = 1
 
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
@@ -96,11 +100,13 @@ private struct TimeAndLine: View {
             }
             .font(.system(timeFont, design: .rounded, weight: .semibold).monospacedDigit())
             .foregroundStyle(ActivityPalette.text)
+            .lineLimit(1)
             Text(isStale ? state.title : line)
                 .font(.system(.caption, design: .rounded))
                 .foregroundStyle(ActivityPalette.secondary)
+                .lineLimit(lineLimit)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .lineLimit(1)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
