@@ -4,8 +4,8 @@ import MapleDesign
 import MapleServices
 
 /// Settings (spec §8.7, F1 design §5.12): hemisphere, the sleep schedule, sleep goal and the reveal sound, as one
-/// Level-1 group, then the reminders. Every change saves at once through `AppSettings`; the hemisphere moves the
-/// seasons (and the tree) straight away.
+/// Level-1 group, then the reminders and, once Focus ships in a build that can block, "Release all apps". Every change
+/// saves at once through `AppSettings`; the hemisphere moves the seasons (and the tree) straight away.
 ///
 /// "Sleep schedule" opens the schedule editor as a sheet over the Profile sheet. The schedule feeds the awake window
 /// (R6), so it stays editable now that the Rest tab is retired (F1-3).
@@ -19,6 +19,7 @@ struct SettingsView: View {
     @Environment(AppSettings.self) private var settings
     @Environment(ScheduleStore.self) private var schedule
     @Environment(CollectionStore.self) private var collection
+    @Environment(FocusSessionStore.self) private var sessions
     @State private var editsSchedule = false
     @State private var editorDetent: PresentationDetent = .medium
     /// A time whose wheel the editor opens with (DEBUG launches only).
@@ -53,9 +54,17 @@ struct SettingsView: View {
                     ProfileToggle("Reveal sound", isOn: $settings.revealSound)
                 }
             }
-            // The wind-down and morning-leaf reminders, with iOS's permission (RemindersSettingsGroup).
+            // The reminders, with iOS's permission (RemindersSettingsGroup).
             RemindersSettingsGroup()
+            // "Release all apps", once Focus ships, in a build that can block (F1 design §5.12).
+            if collection.context.features.focus && sessions.blocking.capability.canBlock {
+                ReleaseAllSettingsGroup()
+            }
         }
+        #if DEBUG
+        // `-MapleDemoSettingsOpen` (SettingsDemo): the page opens scrolled to its end, where the Focus rows are.
+        .environment(\.profilePageScrollAnchor, SettingsDemo.scrollsToEnd ? .bottom : nil)
+        #endif
         // A sheet over the Profile sheet, as the reminders primer is (RemindersSettingsGroup).
         .sheet(isPresented: $editsSchedule, onDismiss: editorDismissed) {
             editor
