@@ -22,11 +22,12 @@ struct LiveActivitySketchTests {
         #expect(try JSONDecoder().decode(FocusActivityAttributes.self, from: JSONEncoder().encode(attributes)).leaf == sketch)
     }
 
-    @Test("A sketch keeps the leaf's shape: the same box, every vein and the stalk")
-    func keepsShape() throws {
-        let geometry = LeafGeometry.of(try #require(LeafCatalog.shared.species(id: "campestre")))
+    @Test("Every species' sketch keeps its leaf's shape: the same box, every vein and the stalk",
+          arguments: LeafCatalog.shared.species.map(\.id))
+    func keepsShape(id: String) throws {
+        let geometry = LeafGeometry.of(try #require(LeafCatalog.shared.species(id: id)))
         let skeleton = geometry.placedSkeleton
-        let sketch = try sketch("campestre")
+        let sketch = try sketch(id)
         let box = CGRect(x: 0, y: 0, width: 255, height: 255)
         let drawn = Array(sketch.outlines(in: box).joined())
         let frame = skeleton.frame
@@ -41,7 +42,8 @@ struct LiveActivitySketchTests {
         for edge in [\CGPoint.x, \CGPoint.y] {
             let kept = try extent(drawn, edge)
             let full = try extent(original, edge)
-            #expect(abs(kept.lowerBound - full.lowerBound) <= 1 && abs(kept.upperBound - full.upperBound) <= 1)
+            let miss = max(abs(kept.lowerBound - full.lowerBound), abs(kept.upperBound - full.upperBound))
+            #expect(miss <= 1, "\(id) misses its box by \(miss)")
         }
         #expect(sketch.veins(in: box).count == geometry.veins.count)
         #expect(sketch.stalk(in: box).count == 7)

@@ -78,7 +78,8 @@ public struct LeafSketch: Codable, Hashable, Sendable {
     }
 
     /// Thins every outline evenly so the total fits `maximumOutlinePoints`, keeping at least
-    /// `minimumOutlinePoints` of each.
+    /// `minimumOutlinePoints` of each. Each outline always keeps its leftmost, rightmost, top and bottom points (the
+    /// lobe tips even sampling would skip), so the sketch keeps the leaf's box.
     private static func thinned(_ outlines: [[BytePoint]]) -> [[BytePoint]] {
         let total = outlines.reduce(0) { $0 + $1.count }
         guard total > maximumOutlinePoints else { return outlines }
@@ -88,8 +89,22 @@ public struct LeafSketch: Codable, Hashable, Sendable {
         return outlines.map { points in
             guard points.count > minimumOutlinePoints else { return points }
             let keep = min(points.count, minimumOutlinePoints + (points.count - minimumOutlinePoints) * spare / extra)
-            return (0..<keep).map { points[$0 * points.count / keep] }
+            let extremes = extremeIndices(points)
+            let sampled = keep - extremes.count
+            let even = (0..<sampled).map { $0 * points.count / sampled }
+            // At most `keep` points, in outline order: the extremes plus the even samples, shared ones counted once.
+            return extremes.union(even).sorted().map { points[$0] }
         }
+    }
+
+    /// The indices of an outline's leftmost, rightmost, top and bottom points (the first of each, on a tie).
+    private static func extremeIndices(_ points: [BytePoint]) -> Set<Int> {
+        let indices = points.indices
+        let edges: [Int?] = [
+            indices.min { points[$0].x < points[$1].x }, indices.max { points[$0].x < points[$1].x },
+            indices.min { points[$0].y < points[$1].y }, indices.max { points[$0].y < points[$1].y },
+        ]
+        return Set(edges.compactMap { $0 })
     }
 
     private static func data(_ points: [BytePoint]) -> Data {
