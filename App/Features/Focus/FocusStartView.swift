@@ -253,9 +253,10 @@ struct FocusStartView: View {
     }
 
     /// The capsule's words, whole at any size: at accessibility sizes "Start a quick session · 25m" needs a third
-    /// line, which the capsule's own two-line limit would cut off (§5.17). A limit set on the label itself wins over it.
+    /// line, which the capsule's own two-line limit would cut off (§5.17). A limit set on the label itself wins over
+    /// it; at other sizes it keeps the capsule's one line.
     private func capsuleWords(_ lines: FocusStartLines) -> some View {
-        Text(lines.capsuleTitle).lineLimit(nil)
+        Text(lines.capsuleTitle).lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
     }
 
     /// DEBUG `-MapleDemoHoldAt`: the hold frozen part-way, for screenshots.

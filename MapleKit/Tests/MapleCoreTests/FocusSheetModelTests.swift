@@ -53,7 +53,7 @@ struct PresetDraftTests {
         #expect(begun.chosenStrictness == .steady)
     }
 
-    @Test("Typing a name keeps 24 characters on one line; a Return that arrives as a newline (a field that wraps) is dropped")
+    @Test("Typing a name keeps 24 characters on one line; a Return that arrives as a newline (a field that wraps) ends it, and a newline inside stays a word break")
     func typeName() {
         var draft = PresetDraft(newOn: nil, presetCount: 4, today: today)
         var pressedReturn = draft.typeName("Writing")
@@ -62,8 +62,16 @@ struct PresetDraftTests {
         #expect(pressedReturn && draft.name == "Writing")
         pressedReturn = draft.typeName("Study for the chemistry exam")
         #expect(!pressedReturn && draft.name == "Study for the chemistry ")
+        // A pasted name keeps its words apart: an inside newline is one space, and the ends lose theirs.
         pressedReturn = draft.typeName("Organic\nchemistry")
-        #expect(pressedReturn && draft.name == "Organicchemistry")
+        #expect(pressedReturn && draft.name == "Organic chemistry")
+        pressedReturn = draft.typeName("\nOrganic \r\n chemistry\n")
+        #expect(pressedReturn && draft.name == "Organic chemistry")
+        pressedReturn = draft.typeName("Organic  chemistry")
+        #expect(!pressedReturn && draft.name == "Organic chemistry")
+        // A space being typed at the end stays, so the next word can follow it.
+        pressedReturn = draft.typeName("Organic ")
+        #expect(!pressedReturn && draft.name == "Organic ")
     }
 
     @Test("A new preset: unnamed, Start focus, 50 minutes, no break, Steady; any level at once")

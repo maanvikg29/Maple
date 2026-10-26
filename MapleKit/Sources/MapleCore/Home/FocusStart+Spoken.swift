@@ -5,7 +5,7 @@ extension FocusStart {
     /// hold's own name, `FocusCopy.holdToStartName`), "Start study, 50 minutes" when it is a tap.
     public func spokenTitle(locale: Locale) -> String {
         if needsHold { return FocusCopy.holdToStartName(minutes: minutes, locale: locale) }
-        return "\(verb.startTitle), \(FocusTimeText.spokenLength(minutes: minutes, locale: locale))"
+        return FocusCopy.startName(verb, minutes: minutes, locale: locale)
     }
 }
 

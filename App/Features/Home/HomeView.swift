@@ -264,8 +264,10 @@ struct HomeView: View {
             .transition(.opacity)
         } else if let action = state.action {
             // A limit on the label wins over the capsule's two lines: at accessibility sizes "Start a quick session ·
-            // 25m" needs a third (§5.17).
-            Button { perform(action) } label: { Text(action.title).lineLimit(nil) }
+            // 25m" needs a third (§5.17). At other sizes it keeps the capsule's one line.
+            Button { perform(action) } label: {
+                Text(action.title).lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+            }
                 .buttonStyle(.moonlight(dimmed: state.actionIsDimmed))
                 // "Start study, 50 minutes": VoiceOver never reads a length as "50m".
                 .accessibilityLabel(action.spokenTitle(locale: locale))

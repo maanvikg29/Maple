@@ -44,14 +44,17 @@ public struct PresetDraft: Sendable, Equatable {
         set { preset.name = String(newValue.prefix(FocusPreset.nameLimit)) }
     }
 
-    /// The name field after typing: its first 24 characters, on one line.
+    /// The name field after typing: its first 24 characters, on one line. Newlines at either end go, one inside is a
+    /// space (a pasted "Organic\nchemistry" stays two words), and runs of spaces are one.
     /// - Returns: Whether the typing was Return. A field that wraps (at accessibility sizes) gets Return as a newline
     ///   rather than a submit; the newline isn't kept, and Return ends the typing.
     @discardableResult
     public mutating func typeName(_ typed: String) -> Bool {
-        let line = typed.replacingOccurrences(of: "\n", with: "")
-        name = line
-        return line != typed
+        name = typed.trimmingCharacters(in: .newlines)
+            .components(separatedBy: .newlines)
+            .joined(separator: " ")
+            .replacingOccurrences(of: " {2,}", with: " ", options: .regularExpression)
+        return typed.rangeOfCharacter(from: .newlines) != nil
     }
 
     public var verb: FocusVerb {
