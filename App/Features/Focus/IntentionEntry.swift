@@ -52,24 +52,41 @@ struct IntentionEntry: View {
     }
 
     /// One line, which wraps at accessibility sizes so the words never scroll out of sight; there Return arrives as a
-    /// newline, which `IntentionDraft` drops and treats as Return.
+    /// newline, which `IntentionDraft` drops and treats as Return. There the prompt wraps too: a field's own prompt
+    /// keeps to one line and would be cut ("What's this fo…", §5.17), so it is drawn beside the field instead, hidden
+    /// from VoiceOver, which reads the field's label.
     private var field: some View {
-        HStack(spacing: 0) {
-            TextField(FocusCopy.intentionPrompt, text: $text, axis: dynamicTypeSize.isAccessibilitySize ? .vertical : .horizontal)
-            .onChange(of: text) { _, typed in
-                let pressedReturn = draft.type(typed)
-                // The field's own text changes back, which SwiftUI always shows; a clamp left in a binding alone may
-                // not reach the field.
-                if draft.text != typed { text = draft.text }
-                if draft.isCleared { intention = nil }
-                if pressedReturn { save() }
+        let wraps = dynamicTypeSize.isAccessibilitySize
+        return HStack(spacing: 0) {
+            ZStack(alignment: .topLeading) {
+                if wraps, text.isEmpty {
+                    // Its full height whatever the sheet offers, so the sheet, which follows the content, grows to it.
+                    Text(FocusCopy.intentionPrompt)
+                        .font(MapleFont.body)
+                        .foregroundStyle(theme.colors.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityHidden(true)
+                        .allowsHitTesting(false)
+                }
+                TextField(
+                    FocusCopy.intentionPrompt, text: $text, prompt: wraps ? Text(verbatim: "") : nil,
+                    axis: wraps ? .vertical : .horizontal
+                )
+                .onChange(of: text) { _, typed in
+                    let pressedReturn = draft.type(typed)
+                    // The field's own text changes back, which SwiftUI always shows; a clamp left in a binding alone
+                    // may not reach the field.
+                    if draft.text != typed { text = draft.text }
+                    if draft.isCleared { intention = nil }
+                    if pressedReturn { save() }
+                }
+                .font(MapleFont.body)
+                .foregroundStyle(theme.colors.textPrimary)
+                .textInputAutocapitalization(.sentences)
+                .submitLabel(.done)
+                .focused($isFocused)
+                .onSubmit(save)
             }
-            .font(MapleFont.body)
-            .foregroundStyle(theme.colors.textPrimary)
-            .textInputAutocapitalization(.sentences)
-            .submitLabel(.done)
-            .focused($isFocused)
-            .onSubmit(save)
             if !draft.text.isEmpty {
                 Button(FocusSheetCopy.clearIntention, systemImage: "xmark") {
                     // Through the field's text, so the draft and the intention follow (`onChange`).
