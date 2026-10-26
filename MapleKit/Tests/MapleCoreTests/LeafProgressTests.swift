@@ -35,11 +35,11 @@ struct LocalDayTests {
 
 @Suite("Shipped features and availability")
 struct AvailabilityTests {
-    @Test("Only M1 categories ship today")
+    @Test("M1 and F1 categories ship today; F2's don't")
     func shipped() {
         let shipped = RewardCategoryID.allCases.filter { ShippedFeatures.current.isShipped($0) }
-        #expect(shipped == [.firstLeaf, .restedNights])
-        #expect(!ShippedFeatures.current.focus)
+        #expect(shipped == [.firstLeaf, .hoursSaved, .sessionsFinished, .focusStreak, .restedNights])
+        #expect(ShippedFeatures.current.focus)
         #expect(!ShippedFeatures.current.sleepSounds)
         #expect(ShippedFeatures.all.focus && ShippedFeatures.all.sleepSounds)
         #expect(RewardCategoryID.allCases.allSatisfy { ShippedFeatures.all.isShipped($0) })
@@ -50,7 +50,8 @@ struct AvailabilityTests {
         let none = GrantedPermissions()
         let health: GrantedPermissions = [.appleHealth]
         let tracker: GrantedPermissions = [.appleHealth, .sleepTracker]
-        let m1 = ShippedFeatures.current
+        // The M1 build, before F1 shipped: the focus categories were dormant.
+        let m1 = ShippedFeatures(releases: [.m1])
         #expect(LeafAvailability(category: .firstLeaf, permissions: none, features: m1) == .available)
         #expect(LeafAvailability(category: .restedNights, permissions: none, features: m1) == .needsAppleHealth)
         #expect(LeafAvailability(category: .restedNights, permissions: health, features: m1) == .available)
@@ -60,6 +61,10 @@ struct AvailabilityTests {
         #expect(LeafAvailability(category: .bedtimeKept, permissions: tracker, features: m1) == .dormant)
         #expect(LeafAvailability(category: .hoursSaved, permissions: none, features: .all) == .needsScreenTime)
         #expect(LeafAvailability(category: .hoursSaved, permissions: [.screenTime], features: .all) == .available)
+        // This build ships F1: hours need Screen Time, and F2's categories stay dormant.
+        #expect(LeafAvailability(category: .hoursSaved, permissions: [.screenTime], features: .current) == .available)
+        #expect(LeafAvailability(category: .hoursSaved, permissions: none, features: .current) == .needsScreenTime)
+        #expect(LeafAvailability(category: .bedtimeKept, permissions: tracker, features: .current) == .dormant)
     }
 
     @Test("A build that can't block shows Screen Time leaves as not in this build, whatever is granted")
@@ -68,7 +73,9 @@ struct AvailabilityTests {
         #expect(LeafAvailability(category: .hoursSaved, permissions: [.screenTime], features: all, blocking: .unavailableInBuild) == .notInThisBuild)
         #expect(LeafAvailability(category: .hoursSaved, permissions: [], features: all, blocking: .preview) == .needsScreenTime)
         #expect(LeafAvailability(category: .restedNights, permissions: [.appleHealth], features: all, blocking: .unavailableInBuild) == .available)
-        #expect(LeafAvailability(category: .hoursSaved, permissions: [], features: .current, blocking: .unavailableInBuild) == .dormant)
+        // The free build ships F1 but can't block: "Not available in this build"; F2's stay dormant.
+        #expect(LeafAvailability(category: .hoursSaved, permissions: [], features: .current, blocking: .unavailableInBuild) == .notInThisBuild)
+        #expect(LeafAvailability(category: .phoneFreeMornings, permissions: [], features: .current, blocking: .unavailableInBuild) == .dormant)
         #expect(!LeafAvailability.notInThisBuild.canBeTurnedOn)
     }
 }
@@ -166,7 +173,7 @@ struct LeafProgressBuilderTests {
         #expect(nights.estimatedDays == nil)
         #expect(nights.current == 10)
         let focus = try #require(rows.first { $0.category == .hoursSaved })
-        #expect(focus.availability == .dormant)
+        #expect(focus.availability == .needsScreenTime)
         #expect(focus.estimatedDays == nil)
     }
 

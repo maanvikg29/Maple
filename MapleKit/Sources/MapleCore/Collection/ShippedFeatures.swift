@@ -10,8 +10,10 @@ public struct ShippedFeatures: Sendable, Hashable {
         self.releases = releases
     }
 
-    /// What this build ships: the M1 sleep loop only.
-    public static let current = ShippedFeatures(releases: [.m1])
+    /// What this build ships: the M1 sleep loop and F1's Focus. F2 (phone-free mornings, bedtime kept, sleep sounds)
+    /// hasn't shipped, so its categories are "Not earnable yet". Tests of the build before F1 use
+    /// `ShippedFeatures(releases: [.m1])`, and DEBUG demos show it with `-MapleDemoShip m1`.
+    public static let current = ShippedFeatures(releases: [.m1, .f1])
     /// Every release, for previews and tests of later screens.
     public static let all = ShippedFeatures(releases: Set(RewardRelease.allCases))
 

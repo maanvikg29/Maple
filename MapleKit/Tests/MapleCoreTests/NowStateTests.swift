@@ -225,8 +225,8 @@ struct NowStateTests {
         #expect(state(23, 30, features: .all, focus: running).action == .returnToSession)
         let last = state(13, 40, features: .all, focus: FocusStatus(remaining: 42))
         #expect(last.numeral.parts == [.value("0:42")])
-        // Before focus ships nothing runs.
-        #expect(state(20, 55, focus: running).content == .untilWindDown)
+        // In the M1 build, before focus shipped, nothing ran.
+        #expect(state(20, 55, features: ShippedFeatures(releases: [.m1]), focus: running).content == .untilWindDown)
     }
 
     @Test("Morning with no sleep data: saved yesterday, when something was")

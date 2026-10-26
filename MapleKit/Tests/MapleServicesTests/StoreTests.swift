@@ -67,7 +67,12 @@ struct CollectionStoreTests {
 
     @Test("Derived values follow the schedule and the clock")
     func derived() {
-        let store = CollectionStore(storage: JSONStorage(.memory), context: testContext, now: at(2026, 10, 1, 9))
+        // The M1 build, where Rested nights is the only ladder: this test is about the derived values, not the release.
+        let m1 = CollectionContext(
+            schedule: .standard, permissions: [.appleHealth], features: ShippedFeatures(releases: [.m1]), calendar: utc,
+            hemisphere: .northern
+        )
+        let store = CollectionStore(storage: JSONStorage(.memory), context: m1, now: at(2026, 10, 1, 9))
         store.raise(.firstLeaf, to: 1, at: at(2026, 10, 1, 9))
         store.openReveals(at: at(2026, 10, 1, 9, 5))
         store.record([.hoursSaved: 1], at: at(2026, 10, 2, 22, 20))     // wind-down: held until morning
@@ -301,7 +306,7 @@ struct LeafShareStoreTests {
         #expect(shares.share(for: "saccharinum") == .loading)
         await shares.refreshIfNeeded()
         #expect(shares.share(for: "saccharinum") == .notEnoughMembers(soFar: nil))
-        #expect(shares.share(for: "buergerianum") == .notEarnableYet)
+        #expect(shares.share(for: "sempervirens") == .notEarnableYet)     // phone-free mornings: F2
         #expect(shares.estimate(for: "saccharinum") == nil)
         #expect(shares.memberCount == nil)
     }

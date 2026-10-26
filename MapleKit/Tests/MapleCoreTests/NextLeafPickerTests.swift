@@ -128,13 +128,13 @@ struct NextLeafPickerTests {
     @Test("A new member with Apple Health is pointed at a first rung")
     func newMember() throws {
         let unlock = LeafUnlock(speciesID: "saccharum", date: at(2026, 10, 10, 9), season: .autumn, colourway: .autumn, revealed: true)
-        let rows = LeafProgressBuilder(permissions: [.appleHealth], features: .current)
+        let rows = LeafProgressBuilder(permissions: [.appleHealth], features: .current, blocking: .unavailableInBuild)
             .progress(counters: [.firstLeaf: 1], unlocks: [unlock], history: [], today: LocalDay(year: 2026, month: 10, day: 10), calendar: utc)
         let picker = NextLeafPicker(progress: rows)
         let next = try #require(picker.next(pinned: nil))
         #expect(next.speciesID == species(.restedNights, rung: 0))
         #expect(picker.candidates.allSatisfy { $0.availability == .available })
-        // Before F1 ships, Rested nights is the only ladder that can be earned.
+        // A build that can't block (the free build) earns Rested nights only, so Home keeps it.
         #expect(picker.candidates.map(\.category) == [.restedNights])
         #expect(picker.buds(pinned: nil).map(\.speciesID) == [species(.restedNights, rung: 0)])
         #expect(picker.permissionPrompt() == nil)
@@ -143,7 +143,8 @@ struct NextLeafPickerTests {
     @Test("Without Apple Health nothing is a candidate; Home offers the cheapest sleep leaf to turn it on for")
     func withoutAppleHealth() throws {
         let unlock = LeafUnlock(speciesID: "saccharum", date: at(2026, 10, 10, 9), season: .autumn, colourway: .autumn, revealed: true)
-        let rows = LeafProgressBuilder(permissions: [], features: .current)
+        // The free build: its focus leaves are not in this build, so only Apple Health can be turned on.
+        let rows = LeafProgressBuilder(permissions: [], features: .current, blocking: .unavailableInBuild)
             .progress(counters: [.firstLeaf: 1], unlocks: [unlock], history: [], today: LocalDay(year: 2026, month: 10, day: 10), calendar: utc)
         let picker = NextLeafPicker(progress: rows)
         // D9: excluded from the next leaf, buds, Almost there and pacing.
@@ -159,6 +160,21 @@ struct NextLeafPickerTests {
         let prompt = try #require(picker.permissionPrompt())
         #expect(prompt.speciesID == species(.restedNights, rung: 0))
         #expect(prompt.availability == .needsAppleHealth)
+    }
+
+    @Test("A build that can block, without Screen Time: no next leaf, and Home offers the first hours leaf to turn it on for")
+    func withoutScreenTime() throws {
+        let unlock = LeafUnlock(speciesID: "saccharum", date: at(2026, 10, 10, 9), season: .autumn, colourway: .autumn, revealed: true)
+        let rows = LeafProgressBuilder(permissions: [.appleHealth], features: .current, blocking: .screenTime)
+            .progress(counters: [.firstLeaf: 1], unlocks: [unlock], history: [], today: LocalDay(year: 2026, month: 10, day: 10), calendar: utc)
+        let picker = NextLeafPicker(progress: rows)
+        // Focus has shipped, so Rested nights is never Home's automatic next leaf (focus spec §4.5).
+        #expect(picker.candidates.map(\.category) == [.restedNights])
+        #expect(picker.homeCandidates.isEmpty)
+        #expect(picker.next(pinned: nil) == nil)
+        let prompt = try #require(picker.permissionPrompt())
+        #expect(prompt.speciesID == species(.hoursSaved, rung: 0))
+        #expect(prompt.availability == .needsScreenTime)
     }
 
     @Test("The permission prompt picks by design pace, only what can be turned on, and only when nothing else can be earned")

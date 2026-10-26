@@ -12,6 +12,9 @@ private let copy = HerbariumCopy(locale: british, timeZone: utc)
 /// Noon UTC, Sunday 4 October 2026.
 private let pressedDay = Date(timeIntervalSince1970: 1_791_115_200)
 private let permissions: GrantedPermissions = [.appleHealth, .sleepTracker]
+/// The layout tests run on the M1 build, where everything but First steps and Rested nights is dormant;
+/// `f1Sections` checks the layout this build ships.
+private let m1Build = ShippedFeatures(releases: [.m1])
 
 private func species(_ id: String) -> LeafSpecies {
     LeafCatalog.shared.species(id: id)!
@@ -25,10 +28,10 @@ private func unlock(_ id: String, colourway: LeafColourway = .autumn, date: Date
 private func entry(
     _ id: String, state: LeafState = .locked, availability: LeafAvailability? = nil, current: Double = 0,
     next: Bool = false, unseen: Bool = false, share: MemberShare = .notEnoughMembers(soFar: nil),
-    estimate: ShareEstimate? = nil, days: Double? = nil, opensNow: Bool = true
+    estimate: ShareEstimate? = nil, days: Double? = nil, opensNow: Bool = true, features: ShippedFeatures = m1Build
 ) -> HerbariumEntry {
     let rung = RewardCatalog.shared.reward(forSpecies: id)!
-    let available = availability ?? LeafAvailability(category: rung.categoryID, permissions: permissions, features: .current)
+    let available = availability ?? LeafAvailability(category: rung.categoryID, permissions: permissions, features: features)
     let progress = LeafProgress(
         speciesID: id, category: rung.categoryID, threshold: rung.threshold, tier: rung.tier, current: current,
         availability: available, state: state, estimatedDays: days
@@ -39,24 +42,26 @@ private func entry(
 
 /// All 155 leaves in canonical order. `earned` are opened, `waiting` unopened; the 3 lowest locked rungs of each
 /// available category are the next rungs, as `NextLeafPicker` draws them.
-private func collection(earned: Set<String> = ["saccharum"], waiting: Set<String> = []) -> [HerbariumEntry] {
+private func collection(
+    earned: Set<String> = ["saccharum"], waiting: Set<String> = [], features: ShippedFeatures = m1Build
+) -> [HerbariumEntry] {
     let rewards = RewardCatalog.shared
     var entries: [HerbariumEntry] = []
     for category in rewards.categories {
         var lockedSeen = 0
-        let availability = LeafAvailability(category: category.id, permissions: permissions, features: .current)
+        let availability = LeafAvailability(category: category.id, permissions: permissions, features: features)
         for rung in rewards.rungs(in: category.id) {
             let id = rung.speciesID
             if earned.contains(id) {
-                entries.append(entry(id, state: .earned(unlock(id)), current: rung.threshold))
+                entries.append(entry(id, state: .earned(unlock(id)), current: rung.threshold, features: features))
             } else if waiting.contains(id) {
                 var leaf = unlock(id, seen: false)
                 leaf.revealed = false
-                entries.append(entry(id, state: .waiting(leaf), current: rung.threshold))
+                entries.append(entry(id, state: .waiting(leaf), current: rung.threshold, features: features))
             } else {
                 let isNext = availability == .available && lockedSeen < 3
                 lockedSeen += 1
-                entries.append(entry(id, next: isNext, days: availability == .available ? rung.threshold : nil))
+                entries.append(entry(id, next: isNext, days: availability == .available ? rung.threshold : nil, features: features))
             }
         }
     }
@@ -79,6 +84,17 @@ struct HerbariumLayoutTests {
         let bud = entry("japonicum", state: .waiting(waiting))
         #expect(bud.status == .waiting(waiting))
         #expect(bud.isUnlocked && bud.isWaiting && !bud.isEarned)
+    }
+
+    @Test("Once F1 ships, its three focus ladders get sections, and only F2's 14 leaves are dormant")
+    func f1Sections() {
+        let sections = HerbariumLayout.sections(
+            collection(features: .current), expanded: Set(RewardCategoryID.allCases.map(\.rawValue) + ["dormant"])
+        )
+        #expect(sections.map(\.id) == ["first_leaf", "hours_saved", "sessions_finished", "focus_streak", "rested_nights", "dormant"])
+        #expect(sections.reduce(0) { $0 + $1.entries.count } == 155)
+        #expect(sections.last?.count == "14 leaves")
+        #expect(entry("griseum", features: .current).status == .needsPermission(.needsScreenTime))
     }
 
     @Test("Shipped categories get a section each, in canonical order; unshipped ones share one Dormant section")
