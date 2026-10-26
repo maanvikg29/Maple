@@ -15,8 +15,6 @@ import MapleServices
 ///
 /// Cross-tab requests arrive through `AppRouter.focusRequest` and are applied once. The tab's own choices live in
 /// `FocusTabState`, which every Focus screen reads from the environment, and its one sheet is `FocusTabState.sheet`.
-///
-/// Until Tasks 9–15 build them, each destination and each sheet is a `FocusPlaceholder`.
 struct FocusView: View {
     @Environment(\.theme) private var theme
     @Environment(FocusSessionStore.self) private var sessions
@@ -199,46 +197,6 @@ enum FocusTabSheet: Identifiable, Hashable {
         case .saved: "saved"
         case .streak: "streak"
         }
-    }
-
-    /// The sheet's name, for its placeholder until Tasks 14 and 15 build it.
-    var title: String {
-        switch self {
-        case .blocking: "Blocking"
-        case .preset: "Preset"
-        case .intention: "What's this for?"
-        case .saved: "Saved today"
-        case .streak: "Focus streak"
-        }
-    }
-}
-
-/// A Focus screen still to be built: its name and one line of what the store says. Tasks 9–15 replace every use.
-struct FocusPlaceholder: View {
-    @Environment(\.theme) private var theme
-    private let name: String
-    private let detail: String?
-
-    init(_ name: String, detail: String? = nil) {
-        self.name = name
-        self.detail = detail
-    }
-
-    var body: some View {
-        VStack(spacing: theme.spacing.xs) {
-            Text(name)
-                .font(MapleFont.sectionTitle)
-                .foregroundStyle(theme.colors.textPrimary)
-            if let detail {
-                Text(detail)
-                    .font(MapleFont.callout)
-                    .foregroundStyle(theme.colors.textSecondary)
-            }
-        }
-        .multilineTextAlignment(.center)
-        .padding(theme.spacing.homeMargin)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .accessibilityElement(children: .combine)
     }
 }
 

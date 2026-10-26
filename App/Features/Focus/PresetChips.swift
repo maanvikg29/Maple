@@ -9,8 +9,8 @@ import MapleServices
 /// - At default sizes the chips sit in one centred row, which scrolls sideways once it can't fit (more than 5
 ///   presets). At accessibility sizes they wrap with `ChipFlow`, and "+" reads "New preset".
 /// - A chip shows its preset's name only, and the dial's numeral shows the length. VoiceOver reads "Study, 50 minutes".
-/// - "+" opens the preset editor for a new preset (`FocusTabSheet.preset(nil)`). Holding a chip edits its preset: Task
-///   15 adds `.editsPresetOnHold { tab.sheet = .preset(preset.id) }` after each preset's `Chip`.
+/// - "+" opens the preset editor for a new preset (`FocusTabSheet.preset(nil)`). Holding a chip for half a second edits
+///   its preset (`editsPresetOnHold`), as does VoiceOver's "Edit preset" action; a tap still only selects it.
 struct PresetChips: View {
     @Environment(\.theme) private var theme
     @Environment(\.locale) private var locale
@@ -41,6 +41,7 @@ struct PresetChips: View {
         ForEach(presets.presets) { preset in
             Chip(preset.name, isSelected: preset.id == selectedID) { select(preset) }
                 .accessibilityLabel(FocusStartLines.chipLabel(preset, locale: locale))
+                .editsPresetOnHold { tab.sheet = .preset(preset.id) }
         }
         if presets.canAdd {
             Chip(FocusStartLines.addChipTitle(isAccessibilitySize: dynamicTypeSize.isAccessibilitySize), isSelected: false) {
