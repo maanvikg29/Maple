@@ -120,18 +120,44 @@ struct FinishTimelineTests {
         #expect((0..<18).allSatisfy { frame(Double($0) * stagger + 0.1, counted: counted, gold: false).sweep[$0] > 0 })
     }
 
-    @Test("Reduce Motion: no sweep, ripple, pulse or rise; the leaf is at its final size at once and the words cross-fade")
+    @Test("Reduce Motion: no ripple, pulse or rise; the leaf is at its final size at once and the words cross-fade")
     func reduceMotion() {
         let still = samples.allSatisfy { t in
             let f = frame(t, reduceMotion: true)
-            return f.sweep.allSatisfy { $0 == 0 } && f.rippleOpacity == 0 && f.glowScale == 1 && f.glowOpacity == 1
+            return f.rippleOpacity == 0 && f.glowScale == 1 && f.glowOpacity == 1
                 && f.numeralRise == 0 && f.lineRise == 0 && f.actionsRise == 0
         }
         #expect(still)
         #expect(frame(0, reduceMotion: true).leafGrow == 1)
         #expect(frame(0, leaf: false, reduceMotion: true).leafGrow == 0)
         #expect(frame(0.3, reduceMotion: true).lineOpacity == 0 && frame(0.7, reduceMotion: true).lineOpacity > 0)
-        #expect(FinishTimeline.settledTime(markCount: 50, reduceMotion: true) == 1.2)
+        #expect(FinishTimeline.settledTime(markCount: 50, reduceMotion: true) == 1.8)
+    }
+
+    @Test("Reduce Motion: no sweep; the counted marks cross-fade to gold together, 0 to 1 over 0.6 s, held to 1.2 s, back by 1.8 s")
+    func reduceMotionGold() throws {
+        // Every mark at the same stage: no stagger and no travel.
+        #expect(samples.allSatisfy { Set(frame($0, reduceMotion: true).sweep).count == 1 })
+        let gold = samples.map { frame($0, reduceMotion: true).sweep[0] }
+        #expect(gold.allSatisfy { $0 >= 0 && $0 <= 1 })
+        #expect(frame(0, reduceMotion: true).sweep[0] == 0)
+        let rising = frame(0.3, reduceMotion: true).sweep[0]
+        #expect(rising > 0 && rising < 1)
+        #expect([0.6, 0.9, 1.2].allSatisfy { frame($0, reduceMotion: true).sweep[0] == 1 })
+        let falling = frame(1.5, reduceMotion: true).sweep[0]
+        #expect(falling > 0 && falling < 1)
+        #expect([1.8, 3].allSatisfy { frame($0, reduceMotion: true).sweep.allSatisfy { $0 == 0 } })
+        // Up, held, then down: never back and forth.
+        let held = gold.indices.filter { gold[$0] == 1 }
+        let first = try #require(held.first), last = try #require(held.last)
+        #expect((1..<first).allSatisfy { gold[$0] >= gold[$0 - 1] })
+        #expect((last + 1..<gold.count).allSatisfy { gold[$0] <= gold[$0 - 1] })
+        // Gaps stay out of a gold finish; a session that counted nothing fades every mark, in white.
+        let counted = (0..<50).map { !(22..<27).contains($0) }
+        #expect(samples.allSatisfy { frame($0, counted: counted, reduceMotion: true).sweep[22..<27].allSatisfy { $0 == 0 } })
+        #expect(frame(0.9, counted: counted, reduceMotion: true).sweep[27] == 1)
+        let none = frame(0.9, counted: Array(repeating: false, count: 50), reduceMotion: true)
+        #expect(none.tone == .white && none.sweep.allSatisfy { $0 == 1 })
     }
 
     @Test("An opened leaf grows into the centre over 0.8 s with an ease-out that never overshoots")

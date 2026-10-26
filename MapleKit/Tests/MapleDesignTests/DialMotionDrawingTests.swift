@@ -41,10 +41,15 @@ struct FinishDrawingTests {
         frame.marks.map { $0 == .lit }
     }
 
-    /// The top mark's pixel with the finish at `finish` (or none), on black at 400pt.
-    private func top(_ frame: DialFrame, _ finish: FinishFrame?) throws -> (r: Int, g: Int, b: Int) {
+    /// The top mark's pixel with the finish at `finish` (or none), on black at 400pt. A gap mark is shorter, so its
+    /// pixel is nearer the edge (`y: 22`).
+    private func top(_ frame: DialFrame, _ finish: FinishFrame?, y: Int = 28) throws -> (r: Int, g: Int, b: Int) {
         let view = MinuteDial(frame: frame, diameter: 400, theme: .maple).finishing(finish).background(Color.black)
-        return rgb(try pixels(of: view, size: CGSize(width: 400, height: 400)), x: 200, y: 28, width: 400)
+        return rgb(try pixels(of: view, size: CGSize(width: 400, height: 400)), x: 200, y: y, width: 400)
+    }
+
+    private func reduceMotion(_ frame: DialFrame, at t: Double) -> FinishFrame {
+        FinishTimeline.frame(at: t, counted: counted(frame), gold: true, leafOpened: false, reduceMotion: true)
     }
 
     @Test("At its peak the sweep draws a counted mark gold; a session that counted nothing sweeps it white")
@@ -59,14 +64,32 @@ struct FinishDrawingTests {
         #expect(abs(none.r - none.b) < 20, "the lit mark alone: \(none)")
     }
 
-    @Test("Once the sweep has passed, and under Reduce Motion, the marks are the receipt's own")
+    @Test("Once the sweep has passed, and once Reduce Motion's gold has faded, the marks are the receipt's own")
     func settlesToTheReceipt() throws {
         let none = try top(lit, nil)
         let settled = try top(lit, FinishTimeline.frame(at: 3, counted: counted(lit), gold: true, leafOpened: false, reduceMotion: false))
-        let still = try top(lit, FinishTimeline.frame(at: 0.2, counted: counted(lit), gold: true, leafOpened: false, reduceMotion: true))
+        let still = try top(lit, reduceMotion(lit, at: FinishTimeline.settledTime(markCount: 50, reduceMotion: true)))
         for value in [settled, still] {
             #expect(abs(value.r - none.r) <= 3 && abs(value.b - none.b) <= 3, "\(value) against \(none)")
         }
+        // A gap stays a gap: Reduce Motion's gold never draws over it, at full strength or settled.
+        var marks = Array(repeating: MarkState.lit, count: 50)
+        marks[0] = .gap
+        let gapped = DialFrame.receipt(marks: marks, isGold: true, fill: DialFill())
+        let gap = try top(gapped, nil, y: 22)
+        for t in [0.9, 1.8] {
+            let value = try top(gapped, reduceMotion(gapped, at: t), y: 22)
+            #expect(abs(value.r - gap.r) <= 3 && abs(value.b - gap.b) <= 3, "\(value) against \(gap) at \(t) s")
+        }
+    }
+
+    @Test("Under Reduce Motion the counted marks are gold at full strength (0.6–1.2 s), part-way while fading in")
+    func reduceMotionGold() throws {
+        let none = try top(lit, nil)
+        let full = try top(lit, reduceMotion(lit, at: 0.9))
+        #expect(full.r > full.b + 80 && full.g > full.b + 50, "gold #F0C24A: \(full)")
+        let fading = try top(lit, reduceMotion(lit, at: 0.3))
+        #expect(fading.b < none.b - 10 && fading.b > full.b + 10, "part-way: \(fading) between \(none) and \(full)")
     }
 }
 

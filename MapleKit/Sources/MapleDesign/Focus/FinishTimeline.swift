@@ -12,7 +12,8 @@ nonisolated public struct FinishFrame: Sendable, Equatable {
     }
 
     public var tone: Tone
-    /// Per mark, 0…1: how strongly the sweep shows over it. Marks that didn't count stay 0 in a gold finish.
+    /// Per mark, 0…1: how strongly the sweep shows over it (under Reduce Motion, the cross-fade every mark shares).
+    /// Marks that didn't count stay 0 in a gold finish.
     public var sweep: [Double]
     /// 0…1: the opened leaf growing into the centre (`DialCentre.grown(_:)`); 0 when no leaf opened.
     public var leafGrow: Double
@@ -44,8 +45,10 @@ nonisolated public struct FinishFrame: Sendable, Equatable {
 ///   with `gentle`'s ease-in-out, rising into place as they fade.
 /// - A soft impact haptic plays at `hapticTime`.
 ///
-/// Under Reduce Motion there is no sweep, ripple, pulse or rise. The leaf is at its final size at once, and the
-/// words cross-fade in on the same timings.
+/// Under Reduce Motion there is no sweep, ripple, pulse or rise. The marks that would sweep cross-fade to the finish's
+/// tone together instead (0 to 1 over 0.6 s, held to 1.2 s, back by 1.8 s), with no stagger and no travel; the gold
+/// is the finish's (F1-18), and §4.6 takes away only the motion. The leaf is at its final size at once, and the words
+/// cross-fade in on the same timings.
 ///
 /// ```swift
 /// TimelineView(.animation(minimumInterval: 1 / 30, paused: elapsed > FinishTimeline.settledTime(markCount: n, reduceMotion: rm))) { context in
@@ -75,6 +78,11 @@ nonisolated public enum FinishTimeline {
     public static let fadeDuration: TimeInterval = 0.6
     /// When the soft impact haptic plays: as the ring sets off.
     public static let hapticTime: TimeInterval = 0.15
+    /// Reduce Motion's cross-fade: the marks reach full strength at `reduceMotionFull`, hold until `reduceMotionHold`,
+    /// and are back to the receipt's marks at `reduceMotionEnd`.
+    public static let reduceMotionFull: TimeInterval = 0.6
+    public static let reduceMotionHold: TimeInterval = 1.2
+    public static let reduceMotionEnd: TimeInterval = 1.8
 
     /// Gold over a gold receipt's counted marks (F1-18); white for any other receipt, and whenever no mark counted.
     public static func tone(counted: [Bool], gold: Bool) -> FinishFrame.Tone {
@@ -83,7 +91,7 @@ nonisolated public enum FinishTimeline {
 
     /// When everything has come to rest for a dial of `markCount` marks: nothing moves after this.
     public static func settledTime(markCount: Int, reduceMotion: Bool) -> TimeInterval {
-        if reduceMotion { return actionsStart + fadeDuration }
+        if reduceMotion { return max(reduceMotionEnd, actionsStart + fadeDuration) }
         let sweep = Double(max(0, markCount - 1)) * sweepStagger + sweepDuration
         return max(sweep, rippleStart + rippleDuration, glowStart + glowDuration, leafGrowDuration, actionsStart + fadeDuration)
     }
@@ -98,8 +106,10 @@ nonisolated public enum FinishTimeline {
         let time = t.isNaN ? .infinity : t
         let tone = tone(counted: counted, gold: gold)
         let sweeping = counted.contains(true) ? counted : counted.map { _ in true }
+        let together = reduceMotion ? crossFade(time) : 0
         let sweep: [Double] = sweeping.enumerated().map { index, sweeps in
-            reduceMotion || !sweeps ? 0 : sweepOpacity(time - Double(index) * sweepStagger)
+            guard sweeps else { return 0 }
+            return reduceMotion ? together : sweepOpacity(time - Double(index) * sweepStagger)
         }
         let grow: Double
         if !leafOpened || time < 0 {
@@ -144,6 +154,15 @@ nonisolated public enum FinishTimeline {
         let peak = sweepDuration * sweepPeak
         if local < peak { return easeOut(local / peak) }
         return 1 - easeOut((local - peak) / (sweepDuration - peak))
+    }
+
+    /// Reduce Motion's cross-fade `t` seconds in: up to full by 0.6 s with `gentle`'s ease-in-out, held to 1.2 s,
+    /// back to nothing by 1.8 s. Every mark shares it.
+    static func crossFade(_ t: TimeInterval) -> Double {
+        guard t > 0, t < reduceMotionEnd else { return 0 }
+        if t < reduceMotionFull { return fadeIn(t / reduceMotionFull) }
+        if t <= reduceMotionHold { return 1 }
+        return 1 - fadeIn((t - reduceMotionHold) / (reduceMotionEnd - reduceMotionHold))
     }
 
     /// The glow's pulse `through` (0…1) its 1.6 s: out to 1.25 by 45%, back by the end; its strength dips to 0.75
