@@ -13,13 +13,14 @@
 #    expanded  brings Settings forward and, from --after seconds (default 2.4), saves <name>-1.png, -2.png and
 #              -3.png, 0.6 s apart. Launch with -MapleDemoLiveActivityExpand 2: the activity alerts 2 s after Maple
 #              leaves the screen, and the island shows its expanded presentation for a few seconds.
-# The system marks an activity stale on its own timer, about 2 minutes after the request, not at the stale date: shoot
-# -MapleDemoLiveActivity ended with --after 130 to see "Session complete".
+# In the simulator, the `ended` activity (an 8 s stale date) was seen going stale about 2 minutes after the request,
+# when the system's own timer marked it: shoot -MapleDemoLiveActivity ended with --after 130 to see "Session complete".
 #
-# Locking and unlocking press keys in the Simulator app, which needs this terminal to be allowed to control the
-# computer (System Settings › Privacy & Security › Accessibility). Without it the lock step stops with exit 3: lock
-# the simulator by hand (⌘L in Simulator), save the screen with `xcrun simctl io <udid> screenshot <file>`, and
-# unlock it (⇧⌘H).
+# Locking and unlocking press keys in the Simulator app, which needs that app to be installed (Xcode's Simulator.app;
+# a headless simulator has none) and this terminal to be allowed to control the computer (System Settings › Privacy &
+# Security › Accessibility). The script never asks for that permission. Without either, the lock step stops with
+# exit 3: lock the simulator by hand (⌘L in Simulator, or a simulator tool's lock button), save the screen with
+# `xcrun simctl io <udid> screenshot --mask=black <file>`, and unlock it (⇧⌘H).
 #
 # Exit 0: saved (each path is printed). 1: the build failed. 2: a simulator step failed. 3: the simulator couldn't be
 # locked or unlocked. 64: wrong usage.
@@ -100,10 +101,11 @@ save() {
 case $MODE in
   lock)
     simulator_key l "command down" \
-      || fail 3 "couldn't lock the simulator: allow this terminal under System Settings › Privacy & Security › Accessibility, or lock it by hand (⌘L)"
+      || fail 3 "couldn't lock the simulator: there is no Simulator app to press ⌘L in, or this terminal isn't allowed under System Settings › Privacy & Security › Accessibility; lock it by hand (⌘L)"
     sleep "$AFTER"
     save "$NAME"
-    simulator_key h "command down, shift down" || fail 3 "couldn't unlock the simulator: press ⇧⌘H in Simulator"
+    simulator_key h "command down, shift down" \
+      || fail 3 "couldn't unlock the simulator: there is no Simulator app to press ⇧⌘H in, or this terminal isn't allowed under Accessibility; unlock it by hand (⇧⌘H)"
     ;;
   island)
     xcrun simctl launch "$UDID" com.apple.Preferences > /dev/null || fail 2 "couldn't open Settings"
