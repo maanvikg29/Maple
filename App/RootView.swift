@@ -37,6 +37,8 @@ struct RootView: View {
                     .transition(.opacity)
             }
         }
+        // A relaunch mid-session, or a receipt waiting, opens on the Focus tab (F1 design §5.4, §5.8).
+        .focusArrival(isOnboarding: isPlanting)
         .environment(router)
     }
 

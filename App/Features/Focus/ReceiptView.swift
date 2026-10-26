@@ -16,6 +16,8 @@ import MapleServices
 /// - An emergency release shows §5.7's breath and ended state instead (`EmergencyReleaseView`).
 /// - Shown once: the first look marks it seen (`AppSettings.lastReceiptSeen`); the tab keeps it on screen until Done
 ///   (`FocusTabState.shownReceipt`). A notification tap shows it again (`FocusRequest.receipt`).
+/// - The first look is the first moment the Focus tab is the one selected: a receipt drawn behind another tab is
+///   neither marked seen nor finished until the member opens the Focus tab.
 struct ReceiptView: View {
     let sessionID: UUID
 
@@ -31,6 +33,7 @@ struct ReceiptView: View {
     @Environment(CollectionStore.self) private var collection
     @Environment(AppSettings.self) private var settings
     @Environment(FocusTabState.self) private var tab
+    @Environment(AppRouter.self) private var router
 
     /// When the receipt first showed, on trusted time: the finish and the leaf lines are decided at this moment.
     @State private var shownAt: Date?
@@ -58,6 +61,10 @@ struct ReceiptView: View {
             }
         }
         .onAppear(perform: appeared)
+        // Drawn while another tab was selected: the first look is when the Focus tab opens.
+        .onChange(of: router.selectedTab) { _, selected in
+            if selected == .focus { appeared() }
+        }
         .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.5), trigger: finishImpact)
     }
 
@@ -271,7 +278,8 @@ struct ReceiptView: View {
     // MARK: Actions
 
     private func appeared() {
-        guard shownAt == nil else { return }
+        // Only once the member can see it: never marked seen, nor finished, behind another tab.
+        guard shownAt == nil, router.selectedTab == .focus else { return }
         // A receipt the store no longer holds (an old notification): nothing to show, so the tab moves on.
         guard session != nil else {
             tab.shownReceipt = nil
