@@ -3,7 +3,8 @@ import MapleCore
 import MapleDesign
 
 /// The layout every Focus session screen shares (F1 design §5.4–§5.8): ⌄ (or the room it takes), the two-line
-/// header, the dial at a fixed distance under it, the lines under the dial, and the controls at the foot.
+/// header (one VoiceOver element), the dial at a fixed distance under it, the lines under the dial, and the controls at
+/// the foot.
 ///
 /// - The dial is about 75% of the width (`MinuteDialMetrics.preferredDiameter(forWidth:)`), never more than 46% of
 ///   the height, and never under 220pt. At accessibility sizes it is 220pt and the page scrolls (§5.17).
@@ -95,6 +96,8 @@ struct SessionScreen<Dial: View, Lines: View, Controls: View>: View {
         }
         .multilineTextAlignment(.center)
         .frame(maxWidth: .infinity)
+        // One element, read as one header: "Study · Chemistry ch. 4, 6 apps resting" (§4.9).
+        .accessibilityElement(children: .combine)
     }
 
     /// The dial's diameter in a page of `size`.
