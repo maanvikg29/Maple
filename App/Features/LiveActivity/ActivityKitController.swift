@@ -14,16 +14,18 @@ import os
 /// activity's stale date is the planned end, after which the widget reads "Session complete"; an activity never ends
 /// a session itself.
 ///
-/// - A session's activity is asked for at most once per launch, so one the member dismissed, or one ActivityKit
-///   refused, isn't asked for again every refresh.
+/// - A session's activity is never asked for every refresh (`LiveActivityAsks`): one that showed, was found again and
+///   kept, or was dismissed isn't asked for again in this launch. One ActivityKit refused is asked for once more after
+///   Maple next becomes active (`mapleBecameActive()`, on each return to the foreground). "Live Activities are off" is
+///   logged once per launch.
 /// - Logs carry session ids and counts, never content.
 final class ActivityKitController: LiveActivityController {
     private var collection: CollectionStore?
     private var notes: SessionNotesStore?
     /// What was last sent to each session's activity, so a refresh with nothing new sends nothing.
     private var sent: [UUID: FocusActivityAttributes.ContentState] = [:]
-    /// Sessions this launch has asked ActivityKit for, or found dismissed.
-    private var asked: Set<UUID> = []
+    /// Which sessions this launch may still ask ActivityKit for.
+    private var asks = LiveActivityAsks()
     private let log = Logger(subsystem: "com.maanvikgupta.maple", category: "LiveActivity")
 
     /// Gives the controller what the store's state doesn't carry: intentions (`session-notes.json`), the season and
@@ -37,6 +39,10 @@ final class ActivityKitController: LiveActivityController {
         await show(state.map(described))
     }
 
+    func mapleBecameActive() {
+        asks.mapleBecameActive()
+    }
+
     /// Shows exactly `state` (already described), or ends every Maple activity when it is nil.
     func show(_ state: FocusActivityState?) async {
         let wanted = state.map { state in
@@ -44,7 +50,7 @@ final class ActivityKitController: LiveActivityController {
         }
         let id = state?.sessionID
         let outcome = await LiveActivities.sync(
-            wanted, lastSent: id.flatMap { sent[$0] }, mayRequest: id.map { !asked.contains($0) } ?? false
+            wanted, lastSent: id.flatMap { sent[$0] }, mayRequest: id.map { asks.mayRequest($0) } ?? false
         )
         if outcome.ended > 0 { log.info("Ended \(outcome.ended, privacy: .public) Live Activities Maple didn't recognise") }
         guard let id, let wanted else {
@@ -52,19 +58,21 @@ final class ActivityKitController: LiveActivityController {
             return
         }
         switch outcome.result {
-        case .updated:
+        case .updated, .requested:
+            asks.record(.shown, for: id)
             sent[id] = wanted.content
-        case .requested:
-            asked.insert(id)
-            sent[id] = wanted.content
+        case .unchanged:
+            asks.record(.shown, for: id)
         case .dismissed:
-            asked.insert(id)
+            asks.record(.dismissed, for: id)
         case .refused(let reason):
-            asked.insert(id)
+            asks.record(.refused, for: id)
             log.error("No Live Activity for session \(id, privacy: .public): \(reason, privacy: .public)")
         case .disabled:
-            log.info("Live Activities are off; session \(id, privacy: .public) shows none")
-        case .unchanged, .notAsked, .cleared:
+            if asks.record(.disabled, for: id) {
+                log.info("Live Activities are off; session \(id, privacy: .public) shows none")
+            }
+        case .notAsked, .cleared:
             break
         }
     }

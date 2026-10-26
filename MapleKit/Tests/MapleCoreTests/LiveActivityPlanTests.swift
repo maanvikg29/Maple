@@ -51,3 +51,50 @@ struct LiveActivityPlanTests {
             == LiveActivityPlan(end: [], next: .update(1)))
     }
 }
+
+@Suite("Live Activity asks")
+struct LiveActivityAsksTests {
+    private let session = UUID(uuidString: "00000000-0000-4000-8000-0000000000A1")!
+
+    @Test("A session's activity that showed, was kept after a reconnect, or was dismissed isn't asked for again")
+    func settled() {
+        var asks = LiveActivityAsks()
+        #expect(asks.mayRequest(session))
+        asks.record(.shown, for: session)
+        #expect(!asks.mayRequest(session))
+        asks.mapleBecameActive()
+        #expect(!asks.mayRequest(session))
+
+        var dismissed = LiveActivityAsks()
+        dismissed.record(.dismissed, for: session)
+        dismissed.mapleBecameActive()
+        #expect(!dismissed.mayRequest(session))
+    }
+
+    @Test("A refused activity is asked for once more after Maple next becomes active")
+    func refused() {
+        var asks = LiveActivityAsks()
+        asks.record(.refused, for: session)
+        #expect(!asks.mayRequest(session))
+        asks.mapleBecameActive()
+        #expect(asks.mayRequest(session))
+        asks.record(.refused, for: session)
+        #expect(!asks.mayRequest(session))
+        asks.mapleBecameActive()
+        asks.record(.shown, for: session)
+        asks.mapleBecameActive()
+        #expect(!asks.mayRequest(session))
+    }
+
+    @Test("Live Activities turned off are reported once per launch, and never stop a later ask")
+    func disabled() {
+        var asks = LiveActivityAsks()
+        let first = asks.record(.disabled, for: session)
+        let again = asks.record(.disabled, for: session)
+        let other = asks.record(.disabled, for: UUID())
+        #expect(first && !again && !other)
+        #expect(asks.mayRequest(session))
+        let refusal = asks.record(.refused, for: session)
+        #expect(refusal)
+    }
+}

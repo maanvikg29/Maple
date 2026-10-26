@@ -170,6 +170,12 @@ public final class FocusSessionStore {
         }
     }
 
+    /// Maple is in front again: tells the Live Activity controller, before the return's `refresh()`, so an activity
+    /// ActivityKit refused can be asked for once more (F1 design §5.11, upkeep).
+    public func mapleBecameActive() {
+        liveActivity.mapleBecameActive()
+    }
+
     /// Sends the running session to the Live Activity again, after the session's intention (which the controller reads
     /// from `session-notes.json`) was saved just after the start. In line with the other commands; nothing else runs.
     public func resendLiveActivity() async {

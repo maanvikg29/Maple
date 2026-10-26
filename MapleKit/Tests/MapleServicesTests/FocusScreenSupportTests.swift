@@ -378,6 +378,19 @@ struct FocusStartTests {
         #expect(plain.sessionID == second)
         #expect(plain.intention == nil)
     }
+
+    @Test("Maple's return to the foreground reaches the Live Activity controller, so a refused activity can be asked again")
+    func foregroundReachesLiveActivity() {
+        let recorder = DescribingLiveActivity()
+        let collection = CollectionStore(storage: JSONStorage(.memory), context: f1Context, now: at(2026, 10, 23, 9))
+        let stores = FocusStores.demo(collection: collection, clock: .live, options: DemoLaunchOptions(arguments: []),
+                                      liveActivity: recorder)
+        #expect(recorder.activations == 0)
+        stores.sessions.mapleBecameActive()
+        #expect(recorder.activations == 1)
+        // A controller that doesn't need it ignores it.
+        NoLiveActivityController().mapleBecameActive()
+    }
 }
 
 /// Like the app's ActivityKit controller: each state it is asked to show is described with the session's intention,
@@ -386,6 +399,11 @@ struct FocusStartTests {
 private final class DescribingLiveActivity: LiveActivityController {
     var notes: SessionNotesStore?
     private(set) var shown: [FocusActivityState?] = []
+    private(set) var activations = 0
+
+    func mapleBecameActive() {
+        activations += 1
+    }
 
     func reconcile(running state: FocusActivityState?) async {
         shown.append(state.map { $0.described(intention: notes?.intention(for: $0.sessionID), tint: LeafColor(0x9CC3A4), leafID: nil) })

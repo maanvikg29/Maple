@@ -16,9 +16,11 @@ private struct FocusUpkeep: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            // Launch, and every return to the foreground.
+            // Launch, and every return to the foreground. The Live Activity hears of the return first, so this refresh
+            // can ask again for an activity ActivityKit refused.
             .task(id: scenePhase) {
                 guard scenePhase == .active else { return }
+                sessions.mapleBecameActive()
                 await sessions.refresh()
             }
             // While a session runs and Maple is in front. Started again when a session starts or ends, when a break
