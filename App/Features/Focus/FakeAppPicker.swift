@@ -50,7 +50,8 @@ struct FakeAppPicker: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.profileRow)
-        .accessibilityAddTraits(isOn ? .isSelected : [])
+        // A toggle with its name, on or off (§5.14): "Battle game, toggle, on".
+        .accessibilityAddTraits(isOn ? [.isToggle, .isSelected] : .isToggle)
     }
 }
 #endif
