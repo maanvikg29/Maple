@@ -13,6 +13,9 @@ public struct SavedTodayModel: Sendable, Equatable {
         /// The greyed lines, in the order the time happened: "Unlocked 5 min", "After bedtime".
         public let reasons: [String]
         public let isRunning: Bool
+        /// The row for VoiceOver, its lengths in words and a sentence per reason: "Study, 14:00 to 15:10, 1 hour,
+        /// 5 minutes. Unlocked 5 minutes".
+        public let spoken: String
     }
 
     public static let title = "Saved today"
@@ -29,6 +32,8 @@ public struct SavedTodayModel: Sendable, Equatable {
     public let totalSeconds: Int
     /// "2h 10m".
     public let total: String
+    /// The total for VoiceOver: "2 hours, 10 minutes".
+    public let totalSpoken: String
     /// "Nothing saved yet today." when there are no rows.
     public var emptyLine: String? { rows.isEmpty ? Self.emptyText : nil }
 
@@ -68,15 +73,24 @@ public struct SavedTodayModel: Sendable, Equatable {
                 if seconds[rule] == nil { order.append(rule) }
                 seconds[rule, default: 0] += stretch.interval.duration
             }
-            let reasons = order.filter { seconds[$0, default: 0] >= 1 }
-                .map { CreditWords.line($0, seconds: Int(seconds[$0, default: 0].rounded())) }
+            let named = order.filter { seconds[$0, default: 0] >= 1 }
+            let reasons = named.map { CreditWords.line($0, seconds: Int(seconds[$0, default: 0].rounded())) }
             let span = "\(session.plan.presetName) · \(clock(session.countdownStart))–\(clock(end))"
             let title = counted >= 60 ? "\(span) · \(HomeFormat.duration(minutes: counted / 60))" : span
+            // Spoken: a comma for each "·", "to" for the dash, lengths in words, then each reason as its own sentence.
+            let spokenSpan = "\(session.plan.presetName), \(clock(session.countdownStart)) to \(clock(end))"
+            let spokenTitle = counted >= 60
+                ? "\(spokenSpan), \(FocusTimeText.spokenLength(minutes: counted / 60, locale: locale))" : spokenSpan
+            let spokenReasons = named.map {
+                CreditWords.spokenLine($0, seconds: Int(seconds[$0, default: 0].rounded()), locale: locale)
+            }
             found.append((start: session.countdownStart,
-                          row: Row(id: session.id, title: title, countedSeconds: counted, reasons: reasons, isRunning: running)))
+                          row: Row(id: session.id, title: title, countedSeconds: counted, reasons: reasons, isRunning: running,
+                                   spoken: ([spokenTitle] + spokenReasons).joined(separator: ". "))))
         }
         rows = found.sorted { $0.start < $1.start }.map { $0.row }
         totalSeconds = rows.reduce(0) { $0 + $1.countedSeconds }
         total = HomeFormat.duration(minutes: totalSeconds / 60)
+        totalSpoken = FocusTimeText.spokenLength(minutes: totalSeconds / 60, locale: locale)
     }
 }

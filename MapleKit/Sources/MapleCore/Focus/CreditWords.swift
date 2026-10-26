@@ -21,4 +21,18 @@ public enum CreditWords {
         guard rule == .override else { return reason(rule) }
         return "Unlocked \(max(1, Int((Double(seconds) / 60).rounded()))) min"
     }
+
+    /// `line(_:seconds:)` for VoiceOver: lengths in words, so it never reads a bare "min" or "h" ("Unlocked 5 minutes",
+    /// "Over today's 6 hours").
+    public static func spokenLine(_ rule: CreditRule, seconds: Int, locale: Locale) -> String {
+        switch rule {
+        case .override:
+            let minutes = max(1, Int((Double(seconds) / 60).rounded()))
+            return "Unlocked \(FocusTimeText.spokenLength(minutes: minutes, locale: locale))"
+        case .dailyCap:
+            return "Over today's \(FocusTimeText.spokenLength(minutes: HoursCredit.dailyCap / 60, locale: locale))"
+        default:
+            return reason(rule)
+        }
+    }
 }

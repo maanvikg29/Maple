@@ -25,6 +25,16 @@ struct CreditWordsTests {
         #expect(CreditWords.line(.dailyCap, seconds: 3000) == "Over today's 6h")
         #expect(CreditWords.line(.unconfirmed, seconds: 2400) == "Couldn't confirm the block")
     }
+
+    @Test("Spoken, a greyed line says its length in words: never a bare min or h")
+    func spokenLines() {
+        #expect(CreditWords.spokenLine(.override, seconds: 300, locale: enGB) == "Unlocked 5 minutes")
+        #expect(CreditWords.spokenLine(.override, seconds: 20, locale: enGB) == "Unlocked 1 minute")
+        #expect(CreditWords.spokenLine(.dailyCap, seconds: 3000, locale: enGB)
+            == "Over today's \(HomeFormat.spokenDuration(minutes: 360, locale: enGB))")
+        #expect(CreditWords.spokenLine(.afterBedtime, seconds: 600, locale: enGB) == "After bedtime")
+        #expect(CreditWords.spokenLine(.unconfirmed, seconds: 2400, locale: enGB) == "Couldn't confirm the block")
+    }
 }
 
 @Suite("Receipt marks")
@@ -511,6 +521,34 @@ struct SavedTodayModelTests {
         #expect(saved.emptyLine == nil)
         let twelveHour = model(day.credits(), day.ledger.sessions(), now: at(2026, 10, 23, 17), locale: enUS)
         #expect(twelveHour.rows.first?.title == "Study · 2:00 PM–3:10 PM · 1h 5m")
+    }
+
+    @Test("Spoken, each row and the total say their lengths in words: never a bare m or h")
+    func spoken() {
+        let day = typicalDay()
+        let saved = model(day.credits(), day.ledger.sessions(), now: at(2026, 10, 23, 17))
+        #expect(saved.rows.map(\.spoken) == [
+            "Study, 14:00 to 15:10, \(HomeFormat.spokenDuration(minutes: 65, locale: enGB)). Unlocked 5 minutes",
+            "Quick, 16:00 to 16:25, 25 minutes",
+        ])
+        #expect(saved.totalSpoken == HomeFormat.spokenDuration(minutes: 90, locale: enGB))
+        #expect(saved.totalSpoken.hasPrefix("1 hour"))
+        let twelveHour = model(day.credits(), day.ledger.sessions(), now: at(2026, 10, 23, 17), locale: enUS)
+        #expect(twelveHour.rows.last?.spoken == "Quick, 4:00 PM to 4:25 PM, 25 minutes")
+
+        let capped = FocusDay(at(2026, 10, 23, 8))
+        capped.session(minutes: 180)
+        capped.at(at(2026, 10, 23, 11, 30))
+        capped.session(minutes: 180)
+        capped.at(at(2026, 10, 23, 15))
+        capped.session(minutes: 50)
+        let full = model(capped.credits(), capped.ledger.sessions(), now: at(2026, 10, 23, 16))
+        #expect(full.rows.last?.spoken == "Study, 15:00 to 15:50. Over today's \(HomeFormat.spokenDuration(minutes: 360, locale: enGB))")
+        #expect(full.totalSpoken == HomeFormat.spokenDuration(minutes: 360, locale: enGB))
+
+        for line in saved.rows.map(\.spoken) + full.rows.map(\.spoken) + [saved.totalSpoken, full.totalSpoken] {
+            #expect(line.range(of: #"\d\s?(m|h|min)\b"#, options: .regularExpression) == nil, "\(line)")
+        }
     }
 
     @Test("Over the cap: the greyed reason is Over today's 6h, and the total stops at 6h")
