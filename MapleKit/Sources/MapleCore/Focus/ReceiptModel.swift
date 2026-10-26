@@ -87,6 +87,9 @@ public struct ReceiptModel: Sendable, Equatable {
     public let numeralParts: [NumeralPart]
     /// "saved · 2h 10m today".
     public let caption: String
+    /// The numeral and caption as one line, repeated under the dial at accessibility sizes, where the numeral stops
+    /// growing (§5.17): "50m saved · 2h 10m today"; a caption that starts its own sentence follows a dot.
+    public let timeLine: String
     public let leafLine: String?
     /// The leaf line in its two tones, as the running screen draws it (§4.3): "Field maple" in the primary colour and
     /// "· 1h 10m to go" in the secondary; a line that says a leaf is yours is one primary run.
@@ -183,6 +186,7 @@ public struct ReceiptModel: Sendable, Equatable {
         } else {
             caption = todaySeconds >= 60 ? "saved · \(HomeFormat.duration(minutes: todaySeconds / 60)) today" : "saved · none yet today"
         }
+        timeLine = caption.first?.isUppercase == true ? "\(numeral) · \(caption)" : "\(numeral) \(caption)"
         let line = Self.leafLine(counts: counts, ending: ending, unlocks: unlocks, held: heldUntilMorning, next: next, locale: locale)
         leafLine = line?.parts.text
         leafLineParts = line?.parts

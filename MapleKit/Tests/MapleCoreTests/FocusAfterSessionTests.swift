@@ -467,6 +467,22 @@ struct ReceiptModelTests {
         #expect(model.subtitle == "Apps open again")
     }
 
+    @Test("At accessibility sizes the time repeats under the dial: the numeral and its caption, as the dial shows them (§5.17)")
+    func timeLine() throws {
+        #expect(receipt(try clean()).timeLine == "50m saved · 2h 10m today")
+        #expect(receipt(try clean(), today: 0).timeLine == "50m saved · none yet today")
+        let plain = try session(plan: FocusFixtures.plan(kind: .plainTimer, selection: nil), applied: false) {
+            $0.after(50 * 60, .sessionEnded(.completed, verified: false))
+        }
+        #expect(receipt(plain).timeLine == "50m focused · not counted toward leaves")
+        // A caption that starts its own sentence follows a dot.
+        let allowList = SelectionSummary(mode: .onlyThese, apps: 24, sites: 0, categories: 0)
+        let notCounted = try session(plan: FocusFixtures.plan(selection: allowList)) {
+            $0.after(50 * 60, .sessionEnded(.completed, verified: true))
+        }
+        #expect(receipt(notCounted).timeLine == "50m · Not counted · add an app to count")
+    }
+
     @Test("No receipt line shouts, fails, quits or talks about a streak")
     func voice() throws {
         let early = try session { $0.after(18 * 60, .sessionEnded(.endedEarly, verified: true)) }

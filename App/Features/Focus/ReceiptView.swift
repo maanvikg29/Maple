@@ -9,7 +9,8 @@ import MapleServices
 ///   (`ReceiptModel.playsFinish`, decided once at `shownAt`): the counted marks sweep gold (or every mark white when
 ///   nothing counted), an opened leaf grows into the centre, the glow pulses, a ring ripples out, the numeral, the
 ///   leaf line, then Done and Again fade in, and a soft impact plays. Later, the final frame shows still.
-/// - "50m" over "saved · 2h 10m today"; tapping the dial (its numeral) opens Saved today.
+/// - "50m" over "saved · 2h 10m today"; tapping the dial (its numeral) opens Saved today. At accessibility sizes the
+///   two repeat as one line under the dial, "50m saved · 2h 10m today" (§5.17).
 /// - The leaf line, the breakdown, "How did it go?" (All done · Partly · Not yet), Done, and "Again · 50m", which
 ///   follows start readiness: one tap, a hold in Locked, or the start screen when it has something to say.
 /// - An emergency release shows §5.7's breath and ended state instead (`EmergencyReleaseView`).
@@ -21,6 +22,7 @@ struct ReceiptView: View {
     @Environment(\.theme) private var theme
     @Environment(\.locale) private var locale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.focusStores) private var focusStores
     @Environment(FocusSessionStore.self) private var sessions
     @Environment(PresetStore.self) private var presets
@@ -128,6 +130,15 @@ struct ReceiptView: View {
                 dial(model, frame: frame, centre: centre, finish: finish, diameter: diameter)
             }
         } lines: {
+            if dynamicTypeSize.isAccessibilitySize {
+                // The dial's centre stops growing at xxLarge, so the time is repeated where it can grow (§5.17), fading in
+                // with the numeral. The dial already reads it to VoiceOver.
+                Text(model.timeLine)
+                    .font(MapleFont.headline)
+                    .foregroundStyle(theme.colors.textPrimary)
+                    .accessibilityHidden(true)
+                    .opacity(finish.numeralOpacity)
+            }
             if let parts = model.leafLineParts {
                 // The running screen's line, so its look doesn't change at the handover: the name, then the rest in
                 // the secondary colour; the amber bud before a line that says a leaf is yours (§4.3).
