@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import UserNotifications
 import MapleCore
 import MapleDesign
 import MapleServices
@@ -18,8 +19,12 @@ struct MapleApp: App {
     @State private var health: HealthPermission
     /// Apple Health's sleep, read into the collection: the sleep leaves' only source (spec D9).
     @State private var sleep: HealthSleepImporter
-    /// The wind-down reminder, kept scheduled by `ReminderUpkeep`.
+    /// Maple's reminders (wind-down, a session's end and the study reminder), kept scheduled by `ReminderUpkeep`.
     @State private var reminders = NotificationScheduler.launch()
+    /// What a tapped notification asks Maple to show (`NotificationRouter`).
+    @State private var notifications: NotificationRouter
+    /// iOS keeps its notification delegate weakly: this one lives as long as the app.
+    private let notificationDelegate: NotificationDelegate
     private let stores: MapleStores
     private let clock: MapleClock
     /// Where the first run starts or picks up (spec §8.8): until the Sugar maple is on the tree, the app opens on
@@ -46,6 +51,12 @@ struct MapleApp: App {
         sleep.startObserving(clock: stores.clock)
         _sleep = State(initialValue: sleep)
         _launch = State(initialValue: LaunchGate(firstRun: Self.firstRun(stores)))
+        // Before launch finishes, so a tap that launched Maple still reaches it (F1 design §6).
+        let notifications = NotificationRouter()
+        _notifications = State(initialValue: notifications)
+        let delegate = NotificationDelegate { identifier in notifications.opened(identifier) }
+        notificationDelegate = delegate
+        UNUserNotificationCenter.current().delegate = delegate
     }
 
     /// A member without the First-steps leaf on the tree plants their maple first, resuming wherever an earlier
@@ -80,6 +91,7 @@ struct MapleApp: App {
                 .environment(health)
                 .environment(sleep)
                 .environment(reminders)
+                .environment(notifications)
                 // Focus (F1 design §7.7): the session store, presets, app sets and intentions, and the four together for
                 // the commands that span them (`FocusStores.start(_:intention:settings:)`).
                 .environment(stores.focus.sessions)

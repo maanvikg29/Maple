@@ -12,6 +12,7 @@ enum AppTab: String, Hashable {
 struct RootView: View {
     @Environment(\.theme) private var theme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(NotificationRouter.self) private var notifications
     @State private var router = AppRouter(selectedTab: .initial)
     /// Latched at launch and cleared only by onboarding's `onFinish`: the First-steps leaf is placed mid-flow, and
     /// the seedling it grows still has to be shown before Home takes over.
@@ -59,6 +60,13 @@ struct RootView: View {
         .tint(theme.colors.textPrimary)
         .tabBarMinimizeBehavior(.onScrollDown)
         .modifier(TabBarSurface())
+        // A tapped session-end notification opens its receipt once the tabs are up: on a cold launch from the tap
+        // too, and after the first run if it was still on screen.
+        .onChange(of: notifications.tappedReceipt, initial: true) { _, session in
+            guard let session else { return }
+            notifications.tappedReceipt = nil
+            router.showFocus(.receipt(session))
+        }
         #if DEBUG
         .demoPresenter()
         #endif
