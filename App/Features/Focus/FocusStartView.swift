@@ -87,9 +87,9 @@ struct FocusStartView: View {
         // The rung as the counters have it: the softer gold for what was saved before.
         let fill = leaf.map { DialFill(rung: $0, sessionHours: 0) } ?? DialFill()
         if let session {
-            // Minimised: live, once a second, on the store's trusted time.
+            // Minimised: live, once a second, on the store's trusted time; its last frame held past the planned end.
             TimelineView(.periodic(from: .now, by: 1)) { _ in
-                let now = sessions.now
+                let now = FocusRoute.frameTime(session, now: sessions.now)
                 let planned = session.plan.plannedMinutes
                 let left = max(0, session.plannedEnd.timeIntervalSince(now))
                 MinuteDial(
@@ -154,7 +154,7 @@ struct FocusStartView: View {
         Group {
             if let session {
                 TimelineView(.periodic(from: .now, by: 1)) { _ in
-                    Text(FocusTimeText.remaining(max(0, session.plannedEnd.timeIntervalSince(sessions.now))))
+                    Text(FocusTimeText.remaining(session.plannedEnd.timeIntervalSince(FocusRoute.frameTime(session, now: sessions.now))))
                 }
             } else {
                 Text(model.lengthText)

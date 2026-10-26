@@ -7,13 +7,14 @@ import MapleFocusCore
 ///
 /// In order:
 /// 1. Before the store's first refresh: `settling`.
-/// 2. A running session: `settling` once its planned end has passed (the next refresh ends it); `minimised` once ⌄
-///    tucked it away; `breakTime` while its break runs; otherwise `running`.
+/// 2. A running session: `minimised` once ⌄ tucked it away; `breakTime` while its break runs; otherwise `running`.
+///    Past its planned end it keeps that screen's last frame (`frameTime`) for `endGrace`, while the refresh that ends
+///    it lands, and is `settling` after that: a session found past its end then ended while Maple was away.
 /// 3. A receipt to show (the one on screen, or `ReceiptPicker.pending`).
 /// 4. `needsScreenTime` while blocking isn't available, until the member picks the plain timer.
 /// 5. `start`.
 public enum FocusRoute: Sendable, Hashable {
-    /// Nothing is drawn: the store's first refresh hasn't run, or a running session has passed its planned end.
+    /// Nothing is drawn: the store's first refresh hasn't run, or a running session is found well past its planned end.
     case settling
     case start
     case needsScreenTime
@@ -36,18 +37,31 @@ public enum FocusRoute: Sendable, Hashable {
     ) -> FocusRoute {
         guard isLoaded else { return .settling }
         if let running, !running.isEnded {
-            guard running.secondsLeft(at: now) > 0 else { return .settling }
+            guard now < running.plannedEnd.addingTimeInterval(endGrace) else { return .settling }
             if isMinimised { return .minimised(running.id) }
-            return running.isInBreak(at: now) ? .breakTime(running.id) : .running(running.id)
+            return running.isInBreak(at: frameTime(running, now: now)) ? .breakTime(running.id) : .running(running.id)
         }
         if let receipt { return .receipt(receipt) }
         return canBlock || usesPlainTimer ? .start : .needsScreenTime
     }
 
-    /// When the route can next change with time alone: the running break's end, else the planned end; nil when
-    /// nothing runs. The tab reads its route again then, because nothing in the store changes when a break runs out.
+    /// How long a running session's screen keeps its last frame after the planned end, while the refresh that ends the
+    /// session lands (`FocusUpkeep` asks for it a tenth of a second after the end, half a second at most), so the finish
+    /// follows the last running frame with nothing blank between. A session found past its end any later ended while
+    /// Maple was away: nothing is drawn until its receipt, never a running dial (Review Focus 2).
+    public static let endGrace: TimeInterval = 2
+
+    /// The moment a running session's screen draws at `now`: `now`, held just short of the planned end. In the beat
+    /// between the end and the refresh that ends the session the screen keeps its last running frame, never 0:00.
+    public static func frameTime(_ session: SessionRecord, now: Date) -> Date {
+        min(now, session.plannedEnd.addingTimeInterval(-0.001))
+    }
+
+    /// When the route can next change with time alone: the running break's end, else the end of the last frame's grace
+    /// (`endGrace` after the planned end); nil when nothing runs. The tab reads its route again then, because nothing in
+    /// the store changes when a break runs out.
     public static func nextChange(running: SessionRecord?, now: Date) -> Date? {
         guard let running, !running.isEnded else { return nil }
-        return running.breakEnd(at: now) ?? running.plannedEnd
+        return running.breakEnd(at: now) ?? running.plannedEnd.addingTimeInterval(endGrace)
     }
 }

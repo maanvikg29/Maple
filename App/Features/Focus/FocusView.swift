@@ -6,9 +6,10 @@ import MapleServices
 /// The Focus tab (F1 design §5): the one screen the session store's state calls for (`FocusRoute`). It is read
 /// again whenever the store changes, and when a break or the session runs out with nothing else changing.
 ///
-/// - Before the store's first refresh (`FocusSessionStore.isLoaded`), and in the moment between a session's planned
-///   end and the refresh that ends it, nothing is drawn. So a session that ended while Maple was closed opens straight
-///   on its receipt.
+/// - Before the store's first refresh (`FocusSessionStore.isLoaded`) nothing is drawn, so a session that ended while
+///   Maple was closed opens straight on its receipt.
+/// - At a session's planned end its screen keeps its last frame (never 0:00) until the refresh that ends the session
+///   brings the receipt (`FocusRoute.endGrace`), so the finish follows with no blank beat.
 /// - A running session shows its screen (its break while one runs), or the start screen's running state once
 ///   minimised.
 /// - Otherwise an unseen receipt (`ReceiptPicker.pending`, P5) comes first, then Needs Screen Time while blocking

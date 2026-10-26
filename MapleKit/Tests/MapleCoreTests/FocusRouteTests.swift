@@ -57,13 +57,38 @@ struct FocusRouteTests {
         #expect(route(before, at: minutes(10), receipt: UUID(), canBlock: false) == .running(before.id))
     }
 
-    @Test("A session past its planned end is never drawn as a running dial at 0:00: the next refresh ends it")
-    func pastThePlannedEnd() throws {
+    @Test("At the planned end the session keeps its last running frame until the refresh that ends it: never a blank beat")
+    func atThePlannedEnd() throws {
         let session = try running()
         #expect(route(session, at: minutes(49.9)) == .running(session.id))
-        #expect(route(session, at: minutes(50)) == .settling)
+        #expect(route(session, at: minutes(50)) == .running(session.id))
+        #expect(route(session, at: minutes(50).addingTimeInterval(0.3)) == .running(session.id))
+        #expect(route(session, at: minutes(50).addingTimeInterval(0.3), minimised: true) == .minimised(session.id))
+        // A break the planned end cut short keeps its own last frame.
+        let inBreak = try running(breakAfter: 47)
+        #expect(route(inBreak, at: minutes(50).addingTimeInterval(0.3)) == .breakTime(inBreak.id))
+    }
+
+    @Test("Review Focus 2: a session found past its planned end any later (it ended while away) is never drawn as a running dial")
+    func pastThePlannedEnd() throws {
+        let session = try running()
+        #expect(FocusRoute.endGrace == 2)
+        #expect(route(session, at: minutes(50).addingTimeInterval(FocusRoute.endGrace)) == .settling)
         #expect(route(session, at: minutes(50).addingTimeInterval(2 * 3600)) == .settling)
-        #expect(route(session, at: minutes(50), minimised: true) == .settling)
+        #expect(route(session, at: minutes(50).addingTimeInterval(2 * 3600), minimised: true) == .settling)
+    }
+
+    @Test("The running screen draws at the store's time, held in its last second at the planned end: it never reads 0:00")
+    func frameTime() throws {
+        let session = try running()
+        #expect(FocusRoute.frameTime(session, now: minutes(18)) == minutes(18))
+        #expect(FocusRoute.frameTime(session, now: minutes(49.99)) == minutes(49.99))
+        for late in [0.0, 0.3, 1.9] {
+            let frame = FocusRoute.frameTime(session, now: minutes(50).addingTimeInterval(late))
+            #expect(frame < session.plannedEnd)
+            #expect(session.plannedEnd.timeIntervalSince(frame) < 0.01)
+            #expect(FocusTimeText.remaining(session.secondsLeft(at: frame)) == "0:01")
+        }
     }
 
     @Test("An unseen receipt comes before the start screen and Needs Screen Time")
@@ -83,10 +108,10 @@ struct FocusRouteTests {
         #expect(route(try ended(), at: minutes(60)) == .start)
     }
 
-    @Test("The route changes by itself at the break's end, else at the planned end")
+    @Test("The route changes by itself at the break's end, else once the last frame's grace after the planned end is over")
     func nextChange() throws {
         let session = try running(breakAfter: 30)
-        #expect(FocusRoute.nextChange(running: try running(), now: minutes(10)) == minutes(50))
+        #expect(FocusRoute.nextChange(running: try running(), now: minutes(10)) == minutes(50).addingTimeInterval(FocusRoute.endGrace))
         #expect(FocusRoute.nextChange(running: session, now: minutes(31)) == minutes(35))
         #expect(FocusRoute.nextChange(running: nil, now: minutes(10)) == nil)
         #expect(FocusRoute.nextChange(running: try ended(), now: minutes(60)) == nil)

@@ -120,12 +120,13 @@ struct RunningSessionView: View {
         SessionEndPath(session?.plan.strictness ?? .steady)
     }
 
-    /// The break while one runs, otherwise the running dial, sampled once a second.
+    /// The break while one runs, otherwise the running dial, sampled once a second. Past the planned end it keeps its
+    /// last frame, never 0:00, until the refresh that ends the session brings the receipt (`FocusRoute.frameTime`).
     private var sessionScreen: some View {
         let session = self.session
         return TimelineView(.periodic(from: .now, by: 1)) { _ in
             if let session {
-                screen(session, now: sessions.now)
+                screen(session, now: FocusRoute.frameTime(session, now: sessions.now))
             } else {
                 Color.clear
             }
