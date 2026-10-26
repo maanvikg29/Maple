@@ -11,7 +11,34 @@
 		4D41504C0000000000000051 /* MapleDesign in Frameworks */ = {isa = PBXBuildFile; productRef = 4D41504C0000000000000061 /* MapleDesign */; };
 		4D41504C0000000000000052 /* MapleData in Frameworks */ = {isa = PBXBuildFile; productRef = 4D41504C0000000000000062 /* MapleData */; };
 		4D41504C0000000000000053 /* MapleServices in Frameworks */ = {isa = PBXBuildFile; productRef = 4D41504C0000000000000063 /* MapleServices */; };
+		4D41504C0000000000000054 /* MapleWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4D41504C0000000000000120 /* MapleWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		4D41504C0000000000000055 /* MapleActivity in Frameworks */ = {isa = PBXBuildFile; productRef = 4D41504C0000000000000064 /* MapleActivity */; };
+		4D41504C0000000000000150 /* MapleActivity in Frameworks */ = {isa = PBXBuildFile; productRef = 4D41504C0000000000000160 /* MapleActivity */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		4D41504C0000000000000100 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4D41504C0000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4D41504C0000000000000130;
+			remoteInfo = MapleWidgets;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		4D41504C0000000000000043 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				4D41504C0000000000000054 /* MapleWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		4D41504C0000000000000020 /* Maple.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Maple.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -22,12 +49,20 @@
 		4D41504C0000000000000025 /* Maple-free.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "Maple-free.entitlements"; sourceTree = "<group>"; };
 		4D41504C0000000000000026 /* Maple-paid.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "Maple-paid.entitlements"; sourceTree = "<group>"; };
 		4D41504C0000000000000027 /* MapleKit */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = MapleKit; sourceTree = "<group>"; };
+		4D41504C0000000000000120 /* MapleWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MapleWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		4D41504C0000000000000121 /* MapleWidgets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = MapleWidgets.xcconfig; sourceTree = "<group>"; };
+		4D41504C0000000000000122 /* MapleWidgets-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "MapleWidgets-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		4D41504C0000000000000013 /* App */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = App;
+			sourceTree = "<group>";
+		};
+		4D41504C0000000000000113 /* MapleWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = MapleWidgets;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -41,6 +76,15 @@
 				4D41504C0000000000000051 /* MapleDesign in Frameworks */,
 				4D41504C0000000000000052 /* MapleData in Frameworks */,
 				4D41504C0000000000000053 /* MapleServices in Frameworks */,
+				4D41504C0000000000000055 /* MapleActivity in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D41504C0000000000000141 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4D41504C0000000000000150 /* MapleActivity in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -51,6 +95,7 @@
 			isa = PBXGroup;
 			children = (
 				4D41504C0000000000000013 /* App */,
+				4D41504C0000000000000115 /* Extensions */,
 				4D41504C0000000000000027 /* MapleKit */,
 				4D41504C0000000000000012 /* Config */,
 				4D41504C0000000000000011 /* Products */,
@@ -61,6 +106,7 @@
 			isa = PBXGroup;
 			children = (
 				4D41504C0000000000000020 /* Maple.app */,
+				4D41504C0000000000000120 /* MapleWidgets.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -72,6 +118,8 @@
 				4D41504C0000000000000021 /* Base.xcconfig */,
 				4D41504C0000000000000023 /* Maple.xcconfig */,
 				4D41504C0000000000000024 /* Maple-Info.plist */,
+				4D41504C0000000000000121 /* MapleWidgets.xcconfig */,
+				4D41504C0000000000000122 /* MapleWidgets-Info.plist */,
 				4D41504C0000000000000014 /* Entitlements */,
 			);
 			path = Config;
@@ -86,6 +134,14 @@
 			path = Entitlements;
 			sourceTree = "<group>";
 		};
+		4D41504C0000000000000115 /* Extensions */ = {
+			isa = PBXGroup;
+			children = (
+				4D41504C0000000000000113 /* MapleWidgets */,
+			);
+			path = Extensions;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -96,10 +152,12 @@
 				4D41504C0000000000000040 /* Sources */,
 				4D41504C0000000000000041 /* Frameworks */,
 				4D41504C0000000000000042 /* Resources */,
+				4D41504C0000000000000043 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				4D41504C0000000000000101 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				4D41504C0000000000000013 /* App */,
@@ -110,10 +168,34 @@
 				4D41504C0000000000000061 /* MapleDesign */,
 				4D41504C0000000000000062 /* MapleData */,
 				4D41504C0000000000000063 /* MapleServices */,
+				4D41504C0000000000000064 /* MapleActivity */,
 			);
 			productName = Maple;
 			productReference = 4D41504C0000000000000020 /* Maple.app */;
 			productType = "com.apple.product-type.application";
+		};
+		4D41504C0000000000000130 /* MapleWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4D41504C0000000000000191 /* Build configuration list for PBXNativeTarget "MapleWidgets" */;
+			buildPhases = (
+				4D41504C0000000000000140 /* Sources */,
+				4D41504C0000000000000141 /* Frameworks */,
+				4D41504C0000000000000142 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				4D41504C0000000000000113 /* MapleWidgets */,
+			);
+			name = MapleWidgets;
+			packageProductDependencies = (
+				4D41504C0000000000000160 /* MapleActivity */,
+			);
+			productName = MapleWidgets;
+			productReference = 4D41504C0000000000000120 /* MapleWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -126,6 +208,9 @@
 				LastUpgradeCheck = 2700;
 				TargetAttributes = {
 					4D41504C0000000000000030 = {
+						CreatedOnToolsVersion = 27.0;
+					};
+					4D41504C0000000000000130 = {
 						CreatedOnToolsVersion = 27.0;
 					};
 				};
@@ -148,12 +233,20 @@
 			projectRoot = "";
 			targets = (
 				4D41504C0000000000000030 /* Maple */,
+				4D41504C0000000000000130 /* MapleWidgets */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		4D41504C0000000000000042 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D41504C0000000000000142 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -170,7 +263,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		4D41504C0000000000000140 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		4D41504C0000000000000101 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4D41504C0000000000000130 /* MapleWidgets */;
+			targetProxy = 4D41504C0000000000000100 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		4D41504C0000000000000080 /* Debug */ = {
@@ -220,6 +328,20 @@
 			};
 			name = Release;
 		};
+		4D41504C0000000000000182 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4D41504C0000000000000121 /* MapleWidgets.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		4D41504C0000000000000183 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4D41504C0000000000000121 /* MapleWidgets.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -237,6 +359,15 @@
 			buildConfigurations = (
 				4D41504C0000000000000082 /* Debug */,
 				4D41504C0000000000000083 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		4D41504C0000000000000191 /* Build configuration list for PBXNativeTarget "MapleWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4D41504C0000000000000182 /* Debug */,
+				4D41504C0000000000000183 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -266,6 +397,14 @@
 		4D41504C0000000000000063 /* MapleServices */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MapleServices;
+		};
+		4D41504C0000000000000064 /* MapleActivity */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MapleActivity;
+		};
+		4D41504C0000000000000160 /* MapleActivity */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MapleActivity;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

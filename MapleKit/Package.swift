@@ -19,6 +19,7 @@ let package = Package(
         .library(name: "MapleServices", targets: ["MapleServices"]),
         .library(name: "MapleFocusCore", targets: ["MapleFocusCore"]),
         .library(name: "MapleStorage", targets: ["MapleStorage"]),
+        .library(name: "MapleActivity", targets: ["MapleActivity"]),
     ],
     targets: [
         // The types the F1-paid extensions share (events, plans, time, the ledger and the reconciler). No
@@ -31,6 +32,12 @@ let package = Package(
         .target(
             name: "MapleStorage",
             dependencies: ["MapleFocusCore"],
+            swiftSettings: [.enableUpcomingFeature("MemberImportVisibility")]
+        ),
+        // The Live Activity's attributes and content, shared by the app and the MapleWidgets extension. Nonisolated,
+        // with no resources and no other Maple module, so the extension links only this (F1 design §7.7).
+        .target(
+            name: "MapleActivity",
             swiftSettings: [.enableUpcomingFeature("MemberImportVisibility")]
         ),
         // Pure Foundation. No SwiftUI/SwiftData: it must fit in the ~6 MB DeviceActivityMonitor extension.
