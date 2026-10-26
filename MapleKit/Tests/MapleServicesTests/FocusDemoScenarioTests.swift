@@ -90,6 +90,16 @@ private func demo(_ arguments: String...) async throws -> MapleStores {
     try await launch(arguments)
 }
 
+/// The moment a scenario's demo clock starts (`launch`'s Friday): where `MapleStores.make` starts the shifted clock, and
+/// so where `FocusDemoScenario.seed(now:…)` is stamped from, give or take the synchronous setup between the two (a few
+/// microseconds; there is no suspension point between them). Unlike `FocusSessionStore.now`, it doesn't run on while
+/// the suite's other cases launch, so a gap measured from it is the scenario's own.
+@MainActor
+private func scenarioStart(_ arguments: String...) -> Date {
+    FocusDemoScenario(DemoLaunchOptions(arguments: ["-MapleDemoShip", "f1"] + arguments))
+        .start(phase: nil, day: at(2026, 10, 23, 9), windows: PhaseWindows(weekly: .standard), calendar: utc)
+}
+
 /// The 20-hour leaf the scenarios aim at.
 private func twentyHoursLeaf() throws -> String {
     try #require(RewardCatalog.shared.rungs(in: .hoursSaved).first { $0.threshold == 20 }).speciesID
@@ -439,7 +449,8 @@ struct FocusDemoScenarioTests {
             #expect(subject.plan.strictness == .locked)
             #expect(subject.endReason == .emergencyRelease)
             #expect(apart(end, subject.countdownStart, by: 18 * 60))
-            #expect(near(end, stores.now.addingTimeInterval(-5), within: 2))
+            // Released 5 seconds before the launch, on the demo's own clock: the seed is stamped where that clock starts.
+            #expect(apart(scenarioStart("-MapleDemoReceipt", "emergency"), end, by: 5, within: 0.5))
             #expect(credit.seconds == 18 * 60)
             #expect(!credit.finished)
         }
