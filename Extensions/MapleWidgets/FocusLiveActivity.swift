@@ -46,8 +46,10 @@ struct FocusLiveActivity: Widget {
                         .frame(width: 52)
                 }
             } minimal: {
+                // One element of its own: the ring hides itself, so a label on it alone would never be read.
                 SessionRing(state: context.state, isStale: context.isStale)
                     .frame(width: 18, height: 18)
+                    .accessibilityElement(children: .ignore)
                     .accessibilityLabel(Text(context.isStale ? context.state.completeLine : context.state.lockLine))
             }
             .keylineTint(Color(attributes: context.attributes))
