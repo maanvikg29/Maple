@@ -105,7 +105,7 @@ struct EmergencyReleaseModelTests {
         _ stage: EmergencyReleaseModel.Stage, counted: Int = 18 * 60, canCount: Bool = true, reduceMotion: Bool = false
     ) -> EmergencyReleaseModel {
         EmergencyReleaseModel(presetName: "Study", countedSeconds: counted, focusedSeconds: 19 * 60 + 20, canCount: canCount,
-                              stage: stage, reduceMotion: reduceMotion)
+                              stage: stage, reduceMotion: reduceMotion, locale: enGB)
     }
 
     @Test("The hold: 10s over hold to release, then keep holding, counting down to the release")
@@ -153,7 +153,8 @@ struct EmergencyReleaseModelTests {
         let ended = model(.released(seconds: 8.3))
         #expect(ended.isEnded)
         #expect(ended.centre == .ended(numeral: "18m", caption: "saved · they stay yours"))
-        #expect(ended.spoken == nil)
+        // Its numeral and caption in words, as the dial shows them (§4.9).
+        #expect(ended.spoken == "18 minutes saved, they stay yours.")
         #expect(ended.body == "Session ended. It won't count as finished.")
         #expect(ended.doneTitle == "Done")
         #expect(abs(ended.endedOpacity - 0.5) < 1e-9)
@@ -163,6 +164,18 @@ struct EmergencyReleaseModelTests {
         // A plain timer couldn't count: the minutes focused.
         #expect(model(.released(seconds: 20), counted: 0, canCount: false).centre
             == .ended(numeral: "19m", caption: "not counted toward leaves"))
+        #expect(model(.released(seconds: 20), counted: 0).spoken == "0 minutes, not counted toward leaves.")
+        #expect(model(.released(seconds: 20), counted: 0, canCount: false).spoken == "19 minutes, not counted toward leaves.")
+    }
+
+    @Test("At accessibility sizes the time repeats under the dial: the hold's seconds, then the minutes that stay (§5.17)")
+    func timeLine() {
+        #expect(model(.hold(progress: 0)).timeLine == "10s hold to release")
+        #expect(model(.hold(progress: 0.6)).timeLine == "4s keep holding")
+        // The breath has no time to repeat.
+        #expect(model(.released(seconds: 1)).timeLine == nil)
+        #expect(model(.released(seconds: 20)).timeLine == "18m saved · they stay yours")
+        #expect(model(.released(seconds: 20), counted: 0).timeLine == "0m not counted toward leaves")
     }
 }
 

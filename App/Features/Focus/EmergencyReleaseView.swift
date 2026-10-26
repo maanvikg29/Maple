@@ -12,6 +12,8 @@ import MapleServices
 /// - **Released:** the release happens when the hold completes, so the breath can't trap anyone. Then "Breathe in"
 ///   for 4 seconds and "and out" for 4, while the cool bloom swells and settles (a transform and an opacity), then
 ///   the ended state: "18m", "saved · they stay yours", "Session ended. It won't count as finished." and "Done".
+/// - At accessibility sizes the dial's time repeats as a line under it (§5.17): "10s hold to release", then "18m saved ·
+///   they stay yours".
 ///
 /// The session screen shows the hold. Once the store has ended the session, the receipt route shows the released
 /// stage from the session's end, so the breath carries on across the change and a later look opens on the ended
@@ -26,7 +28,7 @@ struct EmergencyReleaseView: View {
 
     let session: SessionRecord
     let stage: Stage
-    /// The receipt, once the session has ended: the ended dial's marks and its VoiceOver reading.
+    /// The receipt, once the session has ended: the ended dial's marks.
     let receipt: ReceiptModel?
     /// DEBUG still frames: this many seconds into the breath, frozen.
     let frozenSeconds: Double?
@@ -35,6 +37,8 @@ struct EmergencyReleaseView: View {
     let onDone: () -> Void
 
     @Environment(\.theme) private var theme
+    @Environment(\.locale) private var locale
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(FocusSessionStore.self) private var sessions
 
@@ -79,6 +83,15 @@ struct EmergencyReleaseView: View {
         SessionScreen(title: model.title, subtitle: model.subtitle) { diameter in
             dial(model, diameter: diameter)
         } lines: {
+            if dynamicTypeSize.isAccessibilitySize, let time = model.timeLine {
+                // The dial's centre stops growing at xxLarge, so its time is repeated where it can grow (§5.17): the hold's
+                // seconds, then the minutes that stay. The dial already reads it to VoiceOver.
+                Text(time)
+                    .font(MapleFont.headline)
+                    .foregroundStyle(theme.colors.textPrimary)
+                    .accessibilityHidden(true)
+                    .opacity(model.isEnded ? model.endedOpacity : 1)
+            }
             if let body = model.body {
                 Text(body)
                     .font(MapleFont.callout)
@@ -113,7 +126,8 @@ struct EmergencyReleaseView: View {
     }
 
     /// The hold's dial, the breath's (every mark held, the bloom swelling), and the ended state's (the receipt's
-    /// marks), cross-fading as the ended state comes in. VoiceOver reads it as one element.
+    /// marks), cross-fading as the ended state comes in. VoiceOver reads it as one element: the hold's seconds, the
+    /// breath, then the ended numeral and caption in words (`EmergencyReleaseModel.spoken`).
     private func dial(_ model: EmergencyReleaseModel, diameter: CGFloat) -> some View {
         let side = diameter * MinuteDialMetrics.bloomScale
         let held = model.holdTitle != nil ? holdProgress : 1
@@ -142,7 +156,7 @@ struct EmergencyReleaseView: View {
         }
         .frame(width: diameter, height: diameter)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(model.spoken ?? receipt?.dialLabel ?? endedReading(model)))
+        .accessibilityLabel(Text(model.spoken ?? model.title))
     }
 
     /// The hold dial's centre: the hold's countdown, then the breath's words. "Breathe in" cross-fades into "and out"
@@ -178,17 +192,12 @@ struct EmergencyReleaseView: View {
         return frame
     }
 
-    private func endedReading(_ model: EmergencyReleaseModel) -> String {
-        guard case .ended(let numeral, let caption) = model.centre else { return model.title }
-        return "\(numeral), \(caption)"
-    }
-
     private func model(_ stage: EmergencyReleaseModel.Stage) -> EmergencyReleaseModel {
         let end = session.endedAt ?? sessions.now
         return EmergencyReleaseModel(
             presetName: session.plan.presetName, countedSeconds: sessions.countedSoFar(session.id),
             focusedSeconds: Int(max(0, end.timeIntervalSince(session.countdownStart))), canCount: session.plan.canCount,
-            stage: stage, reduceMotion: reduceMotion
+            stage: stage, reduceMotion: reduceMotion, locale: locale
         )
     }
 

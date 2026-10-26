@@ -249,6 +249,13 @@ public enum FocusCopy {
         public static func endedCaption(countedSeconds: Int) -> String {
             countedSeconds > 0 ? "saved · they stay yours" : "not counted toward leaves"
         }
+
+        /// The ended dial for VoiceOver (§4.9), its numeral and caption in words: "18 minutes saved, they stay yours.",
+        /// or "19 minutes, not counted toward leaves." when nothing counted.
+        public static func endedSpoken(minutes: Int, countedSeconds: Int, locale: Locale) -> String {
+            let length = FocusTimeText.spokenLength(minutes: minutes, locale: locale)
+            return countedSeconds > 0 ? "\(length) saved, they stay yours." : "\(length), not counted toward leaves."
+        }
     }
 
     // MARK: Release all apps (§5.12)

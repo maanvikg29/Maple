@@ -112,9 +112,12 @@ public struct EmergencyReleaseModel: Sendable, Equatable {
     /// "Study · Locked".
     public let subtitle: String
     public let centre: Centre
-    /// The dial for VoiceOver while holding and breathing: "4 seconds, keep holding", "Breathe in". Nil once ended
-    /// (the receipt's `dialLabel` reads it).
+    /// The dial for VoiceOver: "4 seconds, keep holding", "Breathe in", and once ended its numeral and caption in words,
+    /// "18 minutes saved, they stay yours." (§4.9).
     public let spoken: String?
+    /// The dial's time repeated under it at accessibility sizes, where its numeral stops growing (§5.17): "10s hold to
+    /// release", then "18m saved · they stay yours"; nil during the breath, which shows no time.
+    public let timeLine: String?
     /// While holding: "Ends this session now. Your 18 minutes stay yours, but it won't count as finished."; once
     /// ended: "Session ended. It won't count as finished."; nil during the breath.
     public let body: String?
@@ -139,7 +142,8 @@ public struct EmergencyReleaseModel: Sendable, Equatable {
     ///     count.
     ///   - canCount: The session could count (`FocusPlan.canCount`).
     public init(
-        presetName: String, countedSeconds: Int, focusedSeconds: Int, canCount: Bool, stage: Stage, reduceMotion: Bool
+        presetName: String, countedSeconds: Int, focusedSeconds: Int, canCount: Bool, stage: Stage, reduceMotion: Bool,
+        locale: Locale = .current
     ) {
         title = FocusCopy.Emergency.title
         subtitle = FocusCopy.Emergency.subtitle(presetName: presetName)
@@ -149,6 +153,7 @@ public struct EmergencyReleaseModel: Sendable, Equatable {
             let numeral = FocusCopy.Emergency.secondsLeft(FocusCopy.Emergency.holdSeconds * (1 - progress))
             let caption = progress > 0 ? FocusCopy.Emergency.keepHolding : FocusCopy.Emergency.holdCaption
             centre = .countdown(numeral: numeral, caption: caption)
+            timeLine = "\(numeral) \(caption)"
             let seconds = max(0, Int((FocusCopy.Emergency.holdSeconds * (1 - progress) - 1e-9).rounded(.up)))
             spoken = "\(seconds) \(seconds == 1 ? "second" : "seconds"), \(caption)"
             body = FocusCopy.Emergency.body(countedSeconds: countedSeconds)
@@ -166,6 +171,7 @@ public struct EmergencyReleaseModel: Sendable, Equatable {
                 let words = t < FocusCopy.Emergency.breathSeconds ? FocusCopy.Emergency.breatheIn : FocusCopy.Emergency.breatheOut
                 centre = .breath(words)
                 spoken = words
+                timeLine = nil
                 body = nil
                 doneTitle = nil
                 endedOpacity = 0
@@ -176,9 +182,11 @@ public struct EmergencyReleaseModel: Sendable, Equatable {
             } else {
                 // As the receipt reads it: the counted minutes, or the minutes focused when nothing could count.
                 let shown = canCount ? max(0, countedSeconds) / 60 : max(0, focusedSeconds) / 60
-                centre = .ended(numeral: FocusTimeText.length(minutes: shown),
-                                caption: FocusCopy.Emergency.endedCaption(countedSeconds: countedSeconds))
-                spoken = nil
+                let numeral = FocusTimeText.length(minutes: shown)
+                let caption = FocusCopy.Emergency.endedCaption(countedSeconds: countedSeconds)
+                centre = .ended(numeral: numeral, caption: caption)
+                spoken = FocusCopy.Emergency.endedSpoken(minutes: shown, countedSeconds: countedSeconds, locale: locale)
+                timeLine = "\(numeral) \(caption)"
                 body = FocusCopy.Emergency.endedLine
                 doneTitle = FocusCopy.done
                 endedOpacity = min(1, (t - Self.breathSeconds) / Self.endedFade)
