@@ -175,6 +175,17 @@ struct NowStateTests {
         #expect(FocusCopy.holdToStartSeconds == 1.5)
     }
 
+    @Test("Home's capsule reads Start by its spoken name, and every other action by its own words")
+    func spokenAction() {
+        #expect(NowState.Action.startFocus(study).spokenTitle(locale: enGB) == "Start study, 50 minutes")
+        var long = study
+        long.minutes = 90
+        #expect(NowState.Action.startFocus(long).spokenTitle(locale: enGB) == "Start study, 1 hour, 30 minutes")
+        #expect(NowState.Action.returnToSession.spokenTitle(locale: enGB) == "Return to session")
+        #expect(NowState.Action.turnOnBlocking.spokenTitle(locale: enGB) == "Turn on blocking")
+        #expect(NowState.Action.startWindDown.spokenTitle(locale: enGB) == "Start wind-down")
+    }
+
     @Test("Before the day's first session: the lifetime total; with nothing ever saved, the countdown")
     func dayBeforeFirstSession() {
         let total = state(13, 40, features: .all, focus: FocusStatus(savedTodaySeconds: 20, savedTotalSeconds: 41 * 3600, start: study))
