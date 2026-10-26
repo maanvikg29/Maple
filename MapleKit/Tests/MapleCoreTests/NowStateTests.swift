@@ -159,6 +159,22 @@ struct NowStateTests {
         #expect(NowState.Action.startFocus(locked).title == "Hold to start · Locked 50m")
     }
 
+    @Test("Home's Start has a spoken name: the hold's for a Locked start that goes straight ahead, the tap's otherwise")
+    func spokenStart() {
+        var locked = study
+        locked.strictness = .locked
+        locked.readiness = .ready(needsHold: true)
+        #expect(locked.needsHold)
+        #expect(locked.spokenTitle(locale: enGB) == "Hold to start, Locked 50 minutes")
+        // The start screen has something to say: a tap opens the Focus tab, which asks for the hold itself.
+        locked.readiness = .needsStartScreen(.expiredTokens)
+        #expect(!locked.needsHold)
+        #expect(locked.title == "Start study · 50m")
+        #expect(locked.spokenTitle(locale: enGB) == "Start study, 50 minutes")
+        #expect(study.spokenTitle(locale: enGB) == "Start study, 50 minutes")
+        #expect(FocusCopy.holdToStartSeconds == 1.5)
+    }
+
     @Test("Before the day's first session: the lifetime total; with nothing ever saved, the countdown")
     func dayBeforeFirstSession() {
         let total = state(13, 40, features: .all, focus: FocusStatus(savedTodaySeconds: 20, savedTotalSeconds: 41 * 3600, start: study))
