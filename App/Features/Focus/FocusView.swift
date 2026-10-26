@@ -41,6 +41,9 @@ struct FocusView: View {
             .toolbarVisibility(.hidden, for: .navigationBar)
             .sheet(item: $tab.sheet) { sheet in
                 FocusTabSheetContent(sheet: sheet)
+                    #if DEBUG
+                    .revealDemoMotion()
+                    #endif
             }
             .onChange(of: pending?.id, initial: true) { _, id in holdReceipt(id) }
             .onChange(of: sessions.running?.id) { old, new in sessionChanged(from: old, to: new) }

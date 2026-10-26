@@ -69,6 +69,7 @@ struct RootView: View {
         }
         #if DEBUG
         .demoPresenter()
+        .revealDemoMotion()
         #endif
     }
 

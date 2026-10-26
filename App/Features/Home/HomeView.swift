@@ -80,8 +80,14 @@ struct HomeView: View {
                 HealthPrimerSheet(speciesID: request.speciesID)
             case .savedToday:
                 SavedTodaySheet()
+                    #if DEBUG
+                    .revealDemoMotion()
+                    #endif
             case .streak:
                 StreakSheet()
+                    #if DEBUG
+                    .revealDemoMotion()
+                    #endif
             }
         }
         .fullScreenCover(item: $cover, onDismiss: presentPendingTree) { cover in

@@ -78,6 +78,9 @@ struct RunningSessionView: View {
                         showsEndEarly = false
                     }
                 )
+                #if DEBUG
+                .revealDemoMotion()
+                #endif
             }
         }
         .onChange(of: tab.releasesAll, initial: true) { _, asked in
