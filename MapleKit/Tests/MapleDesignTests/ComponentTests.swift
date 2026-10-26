@@ -229,6 +229,23 @@ struct ComponentTests {
         #expect(!StatNumber.startsNewGroup(parts, at: 9))
     }
 
+    @Test("A numeral that doesn't roll (Home's while a session runs) draws exactly as one that does: only its change differs")
+    func statNumberWithoutRoll() throws {
+        let size = CGSize(width: 300, height: 120)
+        let parts: [StatNumber.Part] = [.value("0:42")]
+        let rolling = try pixels(of: StatNumber(parts).background(Color.black), size: size)
+        let crisp = try pixels(of: StatNumber(parts, rolls: false).background(Color.black), size: size)
+        #expect(crisp == rolling)
+        #expect(crisp.contains { $0 > 200 })
+        let block = CGSize(width: 402, height: 160)
+        func now(rolls: Bool) -> some View {
+            NowBlock(numeral: [.value("32"), .unit("m")], caption: "left in this session",
+                     spoken: "32 minutes left in this session.", rolls: rolls)
+                .background(Color.black)
+        }
+        #expect(try pixels(of: now(rolls: false), size: block) == pixels(of: now(rolls: true), size: block))
+    }
+
     @Test("The segmented thumb covers exactly one segment inside the track's inset")
     func segmentedThumb() {
         let width = SegmentedCapsuleMetrics.thumbWidth(total: 304, count: 3)

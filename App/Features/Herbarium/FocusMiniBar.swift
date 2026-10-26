@@ -28,7 +28,8 @@ struct FocusMiniBar: View {
                             .multilineTextAlignment(.leading)
                             .frame(maxWidth: .infinity, alignment: .leading)
                         Image(systemName: "chevron.up")
-                            .font(.system(size: 13, weight: .semibold))
+                            // 13pt at the default size, growing with Dynamic Type beside the title.
+                            .font(.system(.footnote, weight: .semibold))
                             .foregroundStyle(theme.colors.textSecondary)
                             .accessibilityHidden(true)
                     }

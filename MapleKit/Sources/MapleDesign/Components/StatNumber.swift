@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// A large, readable number, optionally with units at half size ("1h 20m").
-/// Grows with Dynamic Type (capped), rolls when it changes, and reads as one element in VoiceOver.
+/// Grows with Dynamic Type (capped), rolls when it changes (unless `rolls` is false), and reads as one element in
+/// VoiceOver.
 public struct StatNumber: View {
     public enum Size: Sendable {
         /// Home's one hero numeral (64pt, max 88).
@@ -35,16 +36,21 @@ public struct StatNumber: View {
     private let parts: [Part]
     private let size: Size
     private let accessibilityText: String?
+    private let rolls: Bool
 
-    /// - Parameter accessibilityText: Full spoken form, e.g. "One hour twenty minutes".
-    public init(_ parts: [Part], size: Size = .hero, accessibilityText: String? = nil) {
+    /// - Parameters:
+    ///   - accessibilityText: Full spoken form, e.g. "One hour twenty minutes".
+    ///   - rolls: Whether a change rolls the digits. False for a number that changes every second (Home's numeral while
+    ///     a session runs, F1 design §4.6: motion is transform and opacity only), which then changes crisply.
+    public init(_ parts: [Part], size: Size = .hero, accessibilityText: String? = nil, rolls: Bool = true) {
         self.parts = parts
         self.size = size
         self.accessibilityText = accessibilityText
+        self.rolls = rolls
     }
 
-    public init(_ value: String, size: Size = .hero, accessibilityText: String? = nil) {
-        self.init([.value(value)], size: size, accessibilityText: accessibilityText)
+    public init(_ value: String, size: Size = .hero, accessibilityText: String? = nil, rolls: Bool = true) {
+        self.init([.value(value)], size: size, accessibilityText: accessibilityText, rolls: rolls)
     }
 
     public var body: some View {
@@ -54,14 +60,16 @@ public struct StatNumber: View {
                     .font(part.isUnit ? MapleFont.numeralUnit(size: numeralSize / 2) : MapleFont.numeral(size: numeralSize))
                     .tracking(part.isUnit || size != .hero ? 0 : -1.5)
                     .foregroundStyle(part.isUnit ? theme.colors.textSecondary : theme.colors.textPrimary)
-                    .contentTransition(.numericText())
+                    .contentTransition(rolls ? .numericText() : .identity)
                     // A word space between a unit and the next value: "1h 20m".
                     .padding(.leading, Self.startsNewGroup(parts, at: index) ? numeralSize * 0.14 : 0)
             }
         }
         .lineLimit(1)
         .minimumScaleFactor(0.6)
-        .mapleAnimation(theme.motion.gentle, value: parts)
+        // Without the roll the parts never animate: the watched value stays nil, so this view stays the same view
+        // (no identity change) when `rolls` flips.
+        .mapleAnimation(theme.motion.gentle, value: rolls ? parts : nil)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityText ?? parts.map(\.text).joined())
     }
