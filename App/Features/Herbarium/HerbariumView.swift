@@ -89,6 +89,8 @@ struct HerbariumView: View {
             } action: { _, scrolled in
                 isScrolled = scrolled
             }
+            // The running session, one tap from its screen; only here, because Home already shows it (F1 design §5.10).
+            .safeAreaBar(edge: .bottom) { FocusMiniBar() }
             // Home's tree caption opens the Herbarium at the top (spec §3.2).
             .onChange(of: router.herbariumTopRequest) {
                 detail = nil

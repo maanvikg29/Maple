@@ -3,8 +3,9 @@ import MapleCore
 import MapleDesign
 import MapleServices
 
-/// Everything Home shows at one moment, read from the collection once per minute (spec §3). Views never compute
-/// unlocks, phases or estimates; this only gathers what the stores already decided.
+/// Everything Home shows at one moment, read from the collection once per minute (every second while a session runs;
+/// spec §3, F1 design §5.10). Views never compute unlocks, phases or estimates; this only gathers what the stores
+/// already decided.
 struct HomeContent {
     let now: Date
     let state: NowState
@@ -35,16 +36,20 @@ struct HomeContent {
     ///   - lastNight: Last night's sleep from Apple Health (`HealthSleepImporter.lastNightSleep(at:)`), the
     ///     morning's numeral (spec §3.4).
     ///   - noSleepHint: `HealthSleepImporter.showsNoSleepHint(at:)`.
+    ///   - focus: Today's focus (`FocusStores.status(at:collection:settings:)`), once Focus ships: the numeral, caption
+    ///     and Start.
+    ///   - provisionalSeconds: A running session's provisional seconds, which the next-leaf row adds, as the dial does
+    ///     (F1 design §4.3).
     init(
         collection: CollectionStore, now: Date, bedside: BedsideState = BedsideState(), lastNight: LastNightSleep? = nil,
-        noSleepHint: Bool = false
+        noSleepHint: Bool = false, focus: FocusStatus? = nil, provisionalSeconds: Int = 0
     ) {
         self.now = now
-        let state = collection.nowState(at: now, lastNight: lastNight, goodnightAt: bedside.goodnightAt,
+        let state = collection.nowState(at: now, lastNight: lastNight, goodnightAt: bedside.goodnightAt, focus: focus,
                                         windDownActive: bedside.windDownActive)
         self.state = state
         showsNoSleepHint = noSleepHint && state.waitingCount == 0
-        let next = collection.nextLeaf(at: now)
+        let next = collection.nextLeaf(at: now)?.displaying(provisionalSeconds: provisionalSeconds)
         self.next = next
         permissionPrompt = next == nil ? collection.permissionPrompt(at: now) : nil
         let inputs = collection.treeInputs(at: now)
