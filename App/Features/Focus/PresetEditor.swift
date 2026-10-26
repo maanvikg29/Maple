@@ -28,6 +28,7 @@ struct PresetEditor: View {
     @State private var nameText: String
     @State private var asksToDelete = false
     @State private var failure: String?
+    @FocusState private var nameIsFocused: Bool
     private let onSaved: (UUID) -> Void
     private let onDeleted: (UUID) -> Void
 
@@ -108,16 +109,22 @@ struct PresetEditor: View {
     private var fields: some View {
         ProfileListGroup {
             ProfileSettingRow(FocusSheetCopy.nameTitle, stacked: true) {
-                TextField(FocusSheetCopy.nameTitle, text: $nameText)
+                // One line, which wraps at accessibility sizes so the name never scrolls out of sight (§5.17), as the
+                // intention's field does; there Return arrives as a newline, which `PresetDraft` drops and treats as Return.
+                TextField(
+                    FocusSheetCopy.nameTitle, text: $nameText, axis: dynamicTypeSize.isAccessibilitySize ? .vertical : .horizontal
+                )
                     .font(MapleFont.body)
                     .foregroundStyle(theme.colors.textPrimary)
                     .textInputAutocapitalization(.sentences)
                     .submitLabel(.done)
+                    .focused($nameIsFocused)
                     .onChange(of: nameText) { _, typed in
-                        draft.name = typed
+                        let pressedReturn = draft.typeName(typed)
                         // The field's own text changes back, which SwiftUI always shows; a clamp left in the binding
                         // alone may not reach the field.
                         if draft.name != typed { nameText = draft.name }
+                        if pressedReturn { nameIsFocused = false }
                     }
             }
             ProfileSettingRow(FocusSheetCopy.verbTitle, stacked: true, controlIsLabelled: false) {
@@ -153,9 +160,10 @@ struct PresetEditor: View {
             ZStack {
                 Text(PresetDraft.widestLengthText)
                     .hidden()
+                // A cross-fade: the numeric roll would animate a blur, and Focus motion is transform and opacity only (§4.6).
                 Text(draft.lengthText)
                     .foregroundStyle(theme.colors.textPrimary)
-                    .contentTransition(.numericText())
+                    .contentTransition(.opacity)
                     .mapleAnimation(theme.motion.gentle, value: draft.minutes)
             }
             .font(MapleFont.headline.monospacedDigit())

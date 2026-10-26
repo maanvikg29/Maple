@@ -44,6 +44,16 @@ public struct PresetDraft: Sendable, Equatable {
         set { preset.name = String(newValue.prefix(FocusPreset.nameLimit)) }
     }
 
+    /// The name field after typing: its first 24 characters, on one line.
+    /// - Returns: Whether the typing was Return. A field that wraps (at accessibility sizes) gets Return as a newline
+    ///   rather than a submit; the newline isn't kept, and Return ends the typing.
+    @discardableResult
+    public mutating func typeName(_ typed: String) -> Bool {
+        let line = typed.replacingOccurrences(of: "\n", with: "")
+        name = line
+        return line != typed
+    }
+
     public var verb: FocusVerb {
         get { preset.verb }
         set { preset.verb = newValue }

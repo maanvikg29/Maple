@@ -53,6 +53,19 @@ struct PresetDraftTests {
         #expect(begun.chosenStrictness == .steady)
     }
 
+    @Test("Typing a name keeps 24 characters on one line; a Return that arrives as a newline (a field that wraps) is dropped")
+    func typeName() {
+        var draft = PresetDraft(newOn: nil, presetCount: 4, today: today)
+        var pressedReturn = draft.typeName("Writing")
+        #expect(!pressedReturn && draft.name == "Writing")
+        pressedReturn = draft.typeName("Writing\n")
+        #expect(pressedReturn && draft.name == "Writing")
+        pressedReturn = draft.typeName("Study for the chemistry exam")
+        #expect(!pressedReturn && draft.name == "Study for the chemistry ")
+        pressedReturn = draft.typeName("Organic\nchemistry")
+        #expect(pressedReturn && draft.name == "Organicchemistry")
+    }
+
     @Test("A new preset: unnamed, Start focus, 50 minutes, no break, Steady; any level at once")
     func newPreset() {
         var draft = PresetDraft(newOn: nil, presetCount: 4, today: today)
