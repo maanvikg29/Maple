@@ -96,6 +96,12 @@ nonisolated public struct PickerChoice: Codable, Sendable, Equatable {
         return (try? encoder.encode(self)) ?? Data()
     }
 
+    /// Whether saving this choice in `mode` would leave the list as saved. A list the picker didn't write (a seeded
+    /// one) is stored in other bytes than this choice would be, so it compares choices, never bytes.
+    public func isUnchanged(from data: Data, summary: SelectionSummary, mode: SelectionSummary.Mode) -> Bool {
+        mode == summary.mode && self == PickerChoice(data: data, summary: summary)
+    }
+
     public mutating func toggle(_ id: String) {
         if picked.contains(id) { picked.remove(id) } else { picked.insert(id) }
     }

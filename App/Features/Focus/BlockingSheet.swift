@@ -6,9 +6,9 @@ import MapleServices
 /// The Blocking sheet (F1 design §5.14), from the start screen's Blocking line and its "Choose apps" capsule: which list
 /// this preset blocks (Distractions, Study apps or Bedtime), "Block these" or "Only these", the picker, the counter and
 /// the footer. An empty selection is never saved over a full one, and no more than 50 apps rest across every list
-/// (`BlockingSheetModel`, `AppSetStore.save`). Choosing another list also makes it the preset's on Save, and an
-/// unchanged list is never saved again, so an expired one keeps "Some apps need choosing again" until something is
-/// chosen.
+/// (`BlockingSheetModel`, `AppSetStore.save`). Choosing another list also makes it the preset's on Save. Save is off
+/// while it would change nothing, and an unchanged list is never saved again, so an expired one keeps "Some apps need
+/// choosing again" until something is chosen.
 ///
 /// F1 has no real picker: launches on the DEBUG preview blocker show `FakeAppPicker`; every other build says it can't
 /// lock apps, where F1-paid puts Apple's picker. `.large`, with the counter and Save pinned at the bottom. The line
@@ -58,7 +58,7 @@ struct BlockingSheet: View {
                 .accessibilityLabel(Text(FocusSheetCopy.modeLabel))
                 .padding(.top, theme.spacing.sm)
                 if saved?.tokensExpired == true {
-                    Text(FocusSheetCopy.needsChoosingAgain)
+                    Text(SelectionText.needsChoosingAgain)
                         .font(MapleFont.footnote)
                         .foregroundStyle(theme.colors.textSecondary)
                         .padding(.top, theme.spacing.xs)
@@ -96,7 +96,6 @@ struct BlockingSheet: View {
         }
         .presentationDetents([.large])
         .presentationBackground(theme.colors.surface2)
-        .onChange(of: setID) { load() }
         .onChange(of: mode) { failure = nil }
     }
 
@@ -119,7 +118,7 @@ struct BlockingSheet: View {
     private var lists: some View {
         ChipFlow(spacing: theme.spacing.xs, lineSpacing: 0) {
             ForEach(appSets.sets) { set in
-                Chip(set.name, isSelected: set.id == setID) { setID = set.id }
+                Chip(set.name, isSelected: set.id == setID) { select(set) }
             }
         }
         .accessibilityElement(children: .contain)
@@ -213,22 +212,26 @@ struct BlockingSheet: View {
         return saved?.selection ?? Data()
     }
 
-    /// Whether Save would change the list. The fake picker compares its choice with the one it opened on, because a list
-    /// it didn't write (a seeded one) is stored in other bytes than the same choice would be.
+    /// Whether Save would change the list itself. The fake picker compares its choice with the list's
+    /// (`PickerChoice.isUnchanged`), because a list it didn't write (a seeded one) is stored in other bytes than the same
+    /// choice would be; so an untouched expired list keeps "Some apps need choosing again".
     private var selectionChanged: Bool {
         guard let saved else { return true }
         #if DEBUG
         if usesFakePicker {
-            return mode != saved.summary.mode || choice != PickerChoice(data: saved.selection, summary: saved.summary)
+            return !choice.isUnchanged(from: saved.selection, summary: saved.summary, mode: mode)
         }
         #endif
         return draft != saved.summary || draftData != saved.selection
     }
 
+    /// Another list for the preset is a change too.
+    private var listChanged: Bool { setID != preset.appSetID }
+
     private var model: BlockingSheetModel {
         BlockingSheetModel(
             draft: draft, saved: saved?.summary ?? SelectionSummary(mode: .blockThese, apps: 0, sites: 0, categories: 0),
-            others: appSets.sets.filter { $0.id != setID }.map(\.summary)
+            others: appSets.sets.filter { $0.id != setID }.map(\.summary), isChange: listChanged || selectionChanged
         )
     }
 
@@ -242,10 +245,12 @@ struct BlockingSheet: View {
 
     // MARK: Actions
 
-    /// Shows another list as it is saved; changes to the one before are dropped.
-    private func load() {
+    /// Shows another list as it is saved, its id, mode and choice in one change, so the sheet never judges one list's
+    /// choice against another (a false "Choose at least one app…" for a frame). Changes to the list before are dropped.
+    private func select(_ set: AppSet) {
+        guard set.id != setID else { return }
         failure = nil
-        guard let set = appSets.set(id: setID) else { return }
+        setID = set.id
         mode = set.summary.mode
         #if DEBUG
         choice = PickerChoice(data: set.selection, summary: set.summary)
@@ -253,7 +258,6 @@ struct BlockingSheet: View {
     }
 
     private func save() {
-        let listChanged = setID != preset.appSetID
         if selectionChanged {
             switch appSets.save(selection: draftData, summary: draft, to: setID) {
             case .saved:

@@ -31,7 +31,10 @@ struct FocusSheetCopyTests {
         #expect(FocusSheetCopy.modeTitle(.onlyThese) == "Only these")
         #expect(FocusSheetCopy.footer == "Calls and apps on iOS's Always Allowed list stay open.")
         #expect(FocusSheetCopy.editPresetTitle == "Edit preset")
-        #expect(FocusSheetCopy.needsChoosingAgain == "Some apps need choosing again")
+        // Task 4's words, reused rather than copied.
+        #expect(SelectionText.needsChoosingAgain == "Some apps need choosing again")
+        #expect(SelectionText.limitNote == "Up to \(SelectionSummary.tokenLimit) apps can rest at once")
+        #expect(FocusSheetCopy.overLimit == "\(SelectionText.limitNote). Choose a category to cover more.")
         #expect(FocusSheetCopy.pickerUnavailable == "This version of Maple can't lock apps.")
         #expect(FocusSheetCopy.breakOption(false) == "No break")
         #expect(FocusSheetCopy.breakOption(true) == "One 5-minute break")
@@ -46,7 +49,7 @@ struct FocusSheetCopyTests {
             FocusSheetCopy.breakTitle, FocusSheetCopy.breakNote, FocusSheetCopy.appsTitle, FocusSheetCopy.strictnessTitle,
             FocusSheetCopy.deletePreset, FocusSheetCopy.deleteQuestion, FocusSheetCopy.deleteNote,
             FocusSheetCopy.couldNotSave, FocusSheetCopy.listsLabel, FocusSheetCopy.modeLabel,
-            FocusSheetCopy.needsChoosingAgain, FocusSheetCopy.keepOneChosen, FocusSheetCopy.overLimit,
+            FocusSheetCopy.keepOneChosen, FocusSheetCopy.overLimit,
             FocusSheetCopy.onlyTheseNote, FocusSheetCopy.footer, FocusSheetCopy.pickerUnavailable,
             FocusSheetCopy.clearIntention,
         ] + [false, true].map(FocusSheetCopy.breakOption)

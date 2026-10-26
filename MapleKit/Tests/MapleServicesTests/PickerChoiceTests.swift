@@ -44,6 +44,21 @@ struct PickerChoiceTests {
         #expect(PickerChoice(data: Data(), summary: none) == PickerChoice())
     }
 
+    @Test("A list is unchanged while its choice and mode are as saved, even one the picker didn't write")
+    func unchanged() {
+        let six = SelectionSummary(mode: .blockThese, apps: 6, sites: 0, categories: 0)
+        let seeded = Data("seeded".utf8)
+        var choice = PickerChoice(data: seeded, summary: six)
+        #expect(choice.isUnchanged(from: seeded, summary: six, mode: .blockThese))
+        #expect(!choice.isUnchanged(from: seeded, summary: six, mode: .onlyThese))
+        choice.toggle("app.maps")
+        #expect(!choice.isUnchanged(from: seeded, summary: six, mode: .blockThese))
+        choice.toggle("app.maps")
+        #expect(choice.isUnchanged(from: seeded, summary: six, mode: .blockThese))
+        // A list the picker stored is its own bytes.
+        #expect(choice.isUnchanged(from: choice.data, summary: six, mode: .blockThese))
+    }
+
     @Test("The same choice is the same bytes, whatever order it was ticked in")
     func stableData() {
         var first = PickerChoice()

@@ -10,38 +10,52 @@ import MapleServices
 ///   presets). At accessibility sizes they wrap with `ChipFlow`, and "+" reads "New preset".
 /// - A chip shows its preset's name only, and the dial's numeral shows the length. VoiceOver reads "Study, 50 minutes".
 /// - "+" opens the preset editor for a new preset (`FocusTabSheet.preset(nil)`). Holding a chip for half a second edits
-///   its preset (`editsPresetOnHold`), as does VoiceOver's "Edit preset" action; a tap still only selects it.
+///   its preset (`editsPresetOnHold`), as does VoiceOver's "Edit preset" action; a tap still only selects it. The lift
+///   that ends a hold doesn't also select the chip (`ChipHoldGate`), so opening the editor leaves a turned dial, a
+///   notice and the plain-timer offer as they were.
 struct PresetChips: View {
     @Environment(\.theme) private var theme
     @Environment(\.locale) private var locale
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(FocusTabState.self) private var tab
     @Environment(PresetStore.self) private var presets
+    @State private var gate = ChipHoldGate()
 
     /// The preset the start screen shows.
     let selectedID: UUID?
     let select: (FocusPreset) -> Void
 
     var body: some View {
-        if dynamicTypeSize.isAccessibilitySize {
-            ChipFlow(spacing: theme.spacing.xs, lineSpacing: 0, alignment: .center) { chips }
-        } else {
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: theme.spacing.xs) { chips }
-                ScrollView(.horizontal) {
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                ChipFlow(spacing: theme.spacing.xs, lineSpacing: 0, alignment: .center) { chips }
+            } else {
+                ViewThatFits(in: .horizontal) {
                     HStack(spacing: theme.spacing.xs) { chips }
+                    ScrollView(.horizontal) {
+                        HStack(spacing: theme.spacing.xs) { chips }
+                    }
+                    .scrollIndicators(.hidden)
                 }
-                .scrollIndicators(.hidden)
             }
+        }
+        // Any lift has come by the time the editor closes, so a tap after it always selects.
+        .onChange(of: tab.sheet == nil) { _, closed in
+            if closed { gate.editorClosed() }
         }
     }
 
     @ViewBuilder
     private var chips: some View {
         ForEach(presets.presets) { preset in
-            Chip(preset.name, isSelected: preset.id == selectedID) { select(preset) }
-                .accessibilityLabel(FocusStartLines.chipLabel(preset, locale: locale))
-                .editsPresetOnHold { tab.sheet = .preset(preset.id) }
+            Chip(preset.name, isSelected: preset.id == selectedID) {
+                if gate.tap(preset.id) { select(preset) }
+            }
+            .accessibilityLabel(FocusStartLines.chipLabel(preset, locale: locale))
+            .editsPresetOnHold { byHold in
+                if byHold { gate.held(preset.id) }
+                tab.sheet = .preset(preset.id)
+            }
         }
         if presets.canAdd {
             Chip(FocusStartLines.addChipTitle(isAccessibilitySize: dynamicTypeSize.isAccessibilitySize), isSelected: false) {

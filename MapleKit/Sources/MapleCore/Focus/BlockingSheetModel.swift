@@ -18,12 +18,16 @@ public struct BlockingSheetModel: Sendable, Equatable {
     /// The larger of apps and sites across every list, with this draft in place of the list as saved.
     public let totalTokens: Int
     public let problem: Problem?
+    /// Save would change something: another list for the preset, or this list's choice or mode.
+    public let isChange: Bool
 
     /// - Parameters:
     ///   - saved: This list as saved.
     ///   - others: Every other list, as saved.
-    public init(draft: SelectionSummary, saved: SelectionSummary, others: [SelectionSummary]) {
+    ///   - isChange: Whether Save would change anything; while it wouldn't, Save is off, as the editor's is.
+    public init(draft: SelectionSummary, saved: SelectionSummary, others: [SelectionSummary], isChange: Bool = true) {
         self.draft = draft
+        self.isChange = isChange
         let apps = others.reduce(draft.apps) { $0 + $1.apps }
         let sites = others.reduce(draft.sites) { $0 + $1.sites }
         totalTokens = max(apps, sites)
@@ -57,5 +61,5 @@ public struct BlockingSheetModel: Sendable, Equatable {
     /// limit note.
     public var note: String? { problemLine ?? counter.limitNote }
 
-    public var canSave: Bool { problem != .wouldEmpty && problem != .overLimit }
+    public var canSave: Bool { isChange && problem != .wouldEmpty && problem != .overLimit }
 }

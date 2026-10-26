@@ -61,9 +61,9 @@ public enum FocusSheetCopy {
     public static let listsLabel = "App list"
     /// VoiceOver's label for Block these · Only these.
     public static let modeLabel = "Which apps rest"
-    public static let needsChoosingAgain = "Some apps need choosing again"
     public static let keepOneChosen = "Choose at least one app, site or category. This list stays as it was."
-    public static let overLimit = "Up to 50 apps can rest at once. Choose a category to cover more."
+    /// Over the limit, Save is off: the counter's own limit note, and what to do.
+    public static let overLimit = "\(SelectionText.limitNote). Choose a category to cover more."
     public static let onlyTheseNote = "Only these counts with 20 or fewer apps and sites, and no categories."
     public static let footer = "Calls and apps on iOS's Always Allowed list stay open."
     /// Where the app picker goes in a build that can't block (F1-17's words).

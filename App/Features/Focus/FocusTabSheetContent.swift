@@ -32,9 +32,7 @@ struct FocusTabSheetContent: View {
                 BlockingSheet(preset: preset, sets: appSets.sets)
             }
         case .preset(let id):
-            if let draft = draft(for: id) {
-                PresetEditor(draft: draft, onSaved: saved, onDeleted: deleted)
-            }
+            PresetEditorHost(draft: draft(for: id), onSaved: saved, onDeleted: deleted)
         case .intention:
             IntentionEntry(intention: $tab.intention)
         }
@@ -71,6 +69,28 @@ struct FocusTabSheetContent: View {
     private func deleted(_ id: UUID) {
         if tab.selectedPresetID == id { tab.selectedPresetID = nil }
         tab.minutes = nil
+    }
+}
+
+/// Holds the editor's opening draft for as long as its sheet shows. Delete removes the preset from the store before the
+/// sheet has slid away, and `draft(for:)` then finds nothing; the draft held here keeps the editor, and its background,
+/// on screen until it has gone.
+private struct PresetEditorHost: View {
+    @State private var draft: PresetDraft?
+    private let onSaved: (UUID) -> Void
+    private let onDeleted: (UUID) -> Void
+
+    /// - Parameter draft: The draft to open on. Only the first one counts; later ones (nil once deleted) are ignored.
+    init(draft: PresetDraft?, onSaved: @escaping (UUID) -> Void, onDeleted: @escaping (UUID) -> Void) {
+        _draft = State(initialValue: draft)
+        self.onSaved = onSaved
+        self.onDeleted = onDeleted
+    }
+
+    var body: some View {
+        if let draft {
+            PresetEditor(draft: draft, onSaved: onSaved, onDeleted: onDeleted)
+        }
     }
 }
 

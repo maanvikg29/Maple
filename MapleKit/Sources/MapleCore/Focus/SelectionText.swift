@@ -37,6 +37,10 @@ public enum SelectionText {
 
     /// From this many tokens across every set (`AppSetStore.totalTokens`), the counter names the 50-app limit.
     public static let nearLimit = 40
+    /// The counter's note near the limit: "Up to 50 apps can rest at once".
+    public static let limitNote = "Up to \(SelectionSummary.tokenLimit) apps can rest at once"
+    /// Expired tokens, on the Blocking line and in the Blocking sheet.
+    public static let needsChoosingAgain = "Some apps need choosing again"
 
     /// Checked in `StartReadiness`'s order: no apps, a selection that can't count (R3), expired tokens.
     public static func blockingLine(_ selection: SelectionSummary?, strictness: Strictness, expired: Bool) -> BlockingLine {
@@ -47,7 +51,7 @@ public enum SelectionText {
             return BlockingLine(text: notQualifying(selection), strictness: nil, needsAttention: true)
         }
         if expired {
-            return BlockingLine(text: "Some apps need choosing again", strictness: nil, needsAttention: true)
+            return BlockingLine(text: needsChoosingAgain, strictness: nil, needsAttention: true)
         }
         return BlockingLine(text: "\(verb(selection.mode)) \(list(selection))", strictness: strictness, needsAttention: false)
     }
@@ -70,7 +74,7 @@ public enum SelectionText {
         let items = parts(selection)
         return Counter(
             text: items.isEmpty ? "No apps chosen yet" : items.joined(separator: " · "),
-            limitNote: totalTokens >= nearLimit ? "Up to \(SelectionSummary.tokenLimit) apps can rest at once" : nil
+            limitNote: totalTokens >= nearLimit ? limitNote : nil
         )
     }
 

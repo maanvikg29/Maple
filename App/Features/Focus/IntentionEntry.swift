@@ -16,13 +16,17 @@ struct IntentionEntry: View {
     @Environment(FocusSessionStore.self) private var sessions
     @Binding private var intention: String?
     @State private var draft: IntentionDraft
+    /// What the field shows: written back as the draft keeps it, so a 61st character or a Return never appears.
+    @State private var text: String
     /// The content's measured height, which the sheet's detent follows.
     @State private var height: CGFloat = 132
     @FocusState private var isFocused: Bool
 
     init(intention: Binding<String?>) {
         _intention = intention
-        _draft = State(initialValue: IntentionDraft(intention.wrappedValue))
+        let draft = IntentionDraft(intention.wrappedValue)
+        _draft = State(initialValue: draft)
+        _text = State(initialValue: draft.text)
     }
 
     var body: some View {
@@ -51,13 +55,15 @@ struct IntentionEntry: View {
     /// newline, which `IntentionDraft` drops and treats as Return.
     private var field: some View {
         HStack(spacing: 0) {
-            TextField(FocusCopy.intentionPrompt, text: Binding {
-                draft.text
-            } set: { typed in
+            TextField(FocusCopy.intentionPrompt, text: $text, axis: dynamicTypeSize.isAccessibilitySize ? .vertical : .horizontal)
+            .onChange(of: text) { _, typed in
                 let pressedReturn = draft.type(typed)
+                // The field's own text changes back, which SwiftUI always shows; a clamp left in a binding alone may
+                // not reach the field.
+                if draft.text != typed { text = draft.text }
                 if draft.isCleared { intention = nil }
                 if pressedReturn { save() }
-            }, axis: dynamicTypeSize.isAccessibilitySize ? .vertical : .horizontal)
+            }
             .font(MapleFont.body)
             .foregroundStyle(theme.colors.textPrimary)
             .textInputAutocapitalization(.sentences)
@@ -66,8 +72,8 @@ struct IntentionEntry: View {
             .onSubmit(save)
             if !draft.text.isEmpty {
                 Button(FocusSheetCopy.clearIntention, systemImage: "xmark") {
-                    draft.type("")
-                    intention = nil
+                    // Through the field's text, so the draft and the intention follow (`onChange`).
+                    text = ""
                 }
                 .labelStyle(.iconOnly)
                 .font(.system(size: 13, weight: .semibold))

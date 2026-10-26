@@ -54,6 +54,13 @@ public struct PresetDraft: Sendable, Equatable {
     /// "50m", "1h 30m".
     public var lengthText: String { FocusTimeText.length(minutes: preset.minutes) }
 
+    /// The longest length the stepper can show ("1h 10m"), whose room its value keeps so the minus never moves.
+    public static let widestLengthText: String = {
+        let lengths = stride(from: DialLayout.minimumMinutes, through: DialLayout.maximumMinutes, by: DialLayout.stepMinutes)
+            .map { FocusTimeText.length(minutes: $0) }
+        return lengths.max { $0.count < $1.count } ?? FocusTimeText.length(minutes: DialLayout.maximumMinutes)
+    }()
+
     /// The Length stepper's VoiceOver value, in words (§4.9): "50 minutes", "1 hour, 30 minutes".
     public func spokenLength(locale: Locale) -> String {
         FocusTimeText.spokenLength(minutes: preset.minutes, locale: locale)

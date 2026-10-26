@@ -11,7 +11,8 @@ import MapleServices
 ///
 /// Delete and its confirmation are never red (spec §1, principle 8), and "Steady starts tomorrow" keeps its room
 /// whether or not it shows, so choosing a level moves nothing (§4.6); at accessibility sizes the sheet grows below the
-/// rows instead (`pendingLine`), and the start button's words and the break are radio rows (`ChoiceRow`).
+/// rows instead (`pendingLine`), and the start button's words are radio rows (`ChoiceRow`), as the break is from
+/// xxLarge text, where its capsule can't hold its words.
 struct PresetEditor: View {
     @Environment(\.theme) private var theme
     @Environment(\.locale) private var locale
@@ -23,6 +24,8 @@ struct PresetEditor: View {
     @Environment(AppSetStore.self) private var appSets
 
     @State private var draft: PresetDraft
+    /// What the name field shows: written back as the draft keeps it, so a 25th character never appears.
+    @State private var nameText: String
     @State private var asksToDelete = false
     @State private var failure: String?
     private let onSaved: (UUID) -> Void
@@ -33,6 +36,7 @@ struct PresetEditor: View {
     ///   - onDeleted: The preset deleted, for the start screen to stop selecting.
     init(draft: PresetDraft, onSaved: @escaping (UUID) -> Void, onDeleted: @escaping (UUID) -> Void) {
         _draft = State(initialValue: draft)
+        _nameText = State(initialValue: draft.name)
         self.onSaved = onSaved
         self.onDeleted = onDeleted
     }
@@ -104,11 +108,17 @@ struct PresetEditor: View {
     private var fields: some View {
         ProfileListGroup {
             ProfileSettingRow(FocusSheetCopy.nameTitle, stacked: true) {
-                TextField(FocusSheetCopy.nameTitle, text: $draft.name)
+                TextField(FocusSheetCopy.nameTitle, text: $nameText)
                     .font(MapleFont.body)
                     .foregroundStyle(theme.colors.textPrimary)
                     .textInputAutocapitalization(.sentences)
                     .submitLabel(.done)
+                    .onChange(of: nameText) { _, typed in
+                        draft.name = typed
+                        // The field's own text changes back, which SwiftUI always shows; a clamp left in the binding
+                        // alone may not reach the field.
+                        if draft.name != typed { nameText = draft.name }
+                    }
             }
             ProfileSettingRow(FocusSheetCopy.verbTitle, stacked: true, controlIsLabelled: false) {
                 verbChoice
@@ -133,19 +143,25 @@ struct PresetEditor: View {
     }
 
     /// Minus and plus around the length ("50m"), in 5-minute steps; one adjustable element for VoiceOver, whose value
-    /// is read in words ("50 minutes"), never "m".
+    /// is read in words ("50 minutes"), never "m". The value keeps the room of the widest length at every text size, so
+    /// neither button moves as the length changes.
     private var lengthStepper: some View {
         HStack(spacing: 0) {
             Button(FocusSheetCopy.shorter, systemImage: "minus") { draft.shorten() }
                 .buttonStyle(.iconCircle)
                 .disabled(!draft.canShorten)
-            Text(draft.lengthText)
-                .font(MapleFont.headline.monospacedDigit())
-                .foregroundStyle(theme.colors.textPrimary)
-                .contentTransition(.numericText())
-                .mapleAnimation(theme.motion.gentle, value: draft.minutes)
-                .frame(minWidth: 72)
-                .lineLimit(1)
+            ZStack {
+                Text(PresetDraft.widestLengthText)
+                    .hidden()
+                Text(draft.lengthText)
+                    .foregroundStyle(theme.colors.textPrimary)
+                    .contentTransition(.numericText())
+                    .mapleAnimation(theme.motion.gentle, value: draft.minutes)
+            }
+            .font(MapleFont.headline.monospacedDigit())
+            .lineLimit(1)
+            .fixedSize()
+            .padding(.horizontal, theme.spacing.xs)
             Button(FocusSheetCopy.longer, systemImage: "plus") { draft.lengthen() }
                 .buttonStyle(.iconCircle)
                 .disabled(!draft.canLengthen)
@@ -183,11 +199,11 @@ struct PresetEditor: View {
         }
     }
 
-    /// No break · One 5-minute break: a capsule; at accessibility sizes, where two segments can't hold their words,
-    /// rows with a drawn radio, as the start button's are.
+    /// No break · One 5-minute break: a capsule; from xxLarge text, where its segments can no longer hold "One 5-minute
+    /// break" even scaled down, rows with a drawn radio, as the start button's are at accessibility sizes.
     @ViewBuilder
     private var breakChoice: some View {
-        if dynamicTypeSize.isAccessibilitySize {
+        if dynamicTypeSize >= .xxLarge {
             VStack(alignment: .leading, spacing: 0) {
                 ForEach([false, true], id: \.self) { option in
                     ChoiceRow(title: FocusSheetCopy.breakOption(option), isChosen: draft.hasBreak == option) {
@@ -281,7 +297,7 @@ struct PresetEditor: View {
         guard let set = chosenSetID.flatMap({ appSets.set(id: $0) }) else {
             return SelectionText.counter(none, totalTokens: appSets.totalTokens).text
         }
-        if set.tokensExpired { return FocusSheetCopy.needsChoosingAgain }
+        if set.tokensExpired { return SelectionText.needsChoosingAgain }
         return SelectionText.counter(set.summary, totalTokens: appSets.totalTokens).text
     }
 
@@ -438,18 +454,23 @@ struct SelectionMark: View {
 
 extension View {
     /// Holding a preset chip opens its editor (F1 design §4.5, §5.13): a half-second press with a soft haptic, and the
-    /// same as a VoiceOver action, "Edit preset". Letting go afterwards still selects the chip.
+    /// same as a VoiceOver action, "Edit preset".
     ///
     /// The press runs beside the chip's own tap, never instead of it: a tap shorter than half a second only selects.
     /// It ends without opening anything once the finger travels more than 10 points, so a drag that scrolls the chips
     /// (or the start screen at accessibility sizes) never opens the editor; the scroll view taking the touch cancels
-    /// it too.
+    /// it too. The lift that ends a completed hold can still reach the chip as a tap, so `edit` is told the editor was
+    /// opened by a hold, and the chip swallows that tap (`ChipHoldGate`).
     ///
     /// ```swift
-    /// Chip(preset.name, isSelected: isSelected) { select(preset) }
-    ///     .editsPresetOnHold { tab.sheet = .preset(preset.id) }
+    /// Chip(preset.name, isSelected: isSelected) { if gate.tap(preset.id) { select(preset) } }
+    ///     .editsPresetOnHold { byHold in
+    ///         if byHold { gate.held(preset.id) }
+    ///         tab.sheet = .preset(preset.id)
+    ///     }
     /// ```
-    func editsPresetOnHold(_ edit: @escaping () -> Void) -> some View {
+    /// - Parameter edit: Opens the editor; `byHold` is true for a held finger, false for VoiceOver's action.
+    func editsPresetOnHold(_ edit: @escaping (_ byHold: Bool) -> Void) -> some View {
         modifier(PresetChipHold(edit: edit))
     }
 }
@@ -460,18 +481,18 @@ private struct PresetChipHold: ViewModifier {
     private static let travel: CGFloat = 10
 
     @State private var holds = 0
-    let edit: () -> Void
+    let edit: (_ byHold: Bool) -> Void
 
     func body(content: Content) -> some View {
         content
             .simultaneousGesture(
                 LongPressGesture(minimumDuration: Self.seconds, maximumDistance: Self.travel).onEnded { _ in
                     holds += 1
-                    edit()
+                    edit(true)
                 }
             )
             .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.5), trigger: holds)
-            .accessibilityAction(named: Text(FocusSheetCopy.editPreset), edit)
+            .accessibilityAction(named: Text(FocusSheetCopy.editPreset)) { edit(false) }
     }
 }
 

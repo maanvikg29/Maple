@@ -98,6 +98,15 @@ struct PresetDraftTests {
         #expect(!draft.preset.hasBreak && draft.preset.verb == .reading && draft.preset.appSetID != nil)
     }
 
+    @Test("The stepper keeps room for its widest length, so its minus never moves")
+    func widestLength() {
+        let widest = PresetDraft.widestLengthText
+        #expect(widest.count == 6)
+        for minutes in stride(from: DialLayout.minimumMinutes, through: DialLayout.maximumMinutes, by: DialLayout.stepMinutes) {
+            #expect(FocusTimeText.length(minutes: minutes).count <= widest.count, "\(minutes)")
+        }
+    }
+
     @Test("VoiceOver reads the length in words, never \"m\" or \"h\", as it steps")
     func spokenLength() {
         var draft = PresetDraft(editing: study(), presetCount: 4, today: today)
@@ -151,6 +160,15 @@ struct BlockingSheetModelTests {
         #expect(atLimit.note != nil)
         let sites = SelectionSummary(mode: .blockThese, apps: 0, sites: 51, categories: 0)
         #expect(BlockingSheetModel(draft: sites, saved: empty, others: []).problem == .overLimit)
+    }
+
+    @Test("Save is off while nothing would change, as the editor's is")
+    func nothingToSave() {
+        let unchanged = BlockingSheetModel(draft: six, saved: six, others: [], isChange: false)
+        #expect(unchanged.problem == nil && !unchanged.canSave)
+        #expect(BlockingSheetModel(draft: six, saved: six, others: [], isChange: true).canSave)
+        // A problem keeps Save off, whatever changed.
+        #expect(!BlockingSheetModel(draft: empty, saved: six, others: [], isChange: true).canSave)
     }
 
     @Test("Only these with a category, or over 20, saves and says it won't count")
