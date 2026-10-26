@@ -50,7 +50,9 @@ struct SavedTodaySheet: View {
                         .foregroundStyle(theme.colors.textSecondary)
                         .padding(.top, theme.spacing.xs)
                 } else {
-                    StatNumber(model.total, size: .stat, accessibilityText: model.totalSpoken)
+                    // Crisp, never rolled: the roll animates a blur, and Focus motion is transform and opacity only (§4.6).
+                    // A running session moves the total once a minute while the sheet is open.
+                    StatNumber(model.total, size: .stat, accessibilityText: model.totalSpoken, rolls: false)
                         .padding(.top, theme.spacing.xs)
                     ProfileListGroup {
                         ForEach(model.rows) { row in
