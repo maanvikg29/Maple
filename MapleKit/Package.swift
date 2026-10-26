@@ -55,7 +55,7 @@ let package = Package(
         ),
         .target(name: "MapleServices", dependencies: ["MapleCore", "MapleData", "MapleStorage"], swiftSettings: mainActorByDefault),
         .testTarget(name: "MapleCoreTests", dependencies: ["MapleCore", "MapleFocusCore"]),
-        .testTarget(name: "MapleDesignTests", dependencies: ["MapleDesign", "MapleCore"]),
+        .testTarget(name: "MapleDesignTests", dependencies: ["MapleDesign", "MapleCore", "MapleActivity"]),
         .testTarget(name: "MapleServicesTests", dependencies: ["MapleServices", "MapleCore", "MapleStorage", "MapleFocusCore"]),
     ]
 )
