@@ -52,9 +52,10 @@ Greenfield build of **Maple**, an iPhone digital-wellbeing app. Users earn **map
     - `PrivateCloudAI`: optional, only when entitled.
     - `TemplateAI`: rule-based fallback.
     - All AI output carries a visible "AI-generated" label.
-- **App target**: feature folders (Onboarding, Today, Grove [tree + herbarium], Sleep, Sounds, Focus, Insights, Settings/Privacy). Each feature has one view-model and small views, with tab navigation.
+- **App target**: one folder per feature under `App/Features/` (Home, Focus, Sleep, Herbarium, TreeView, Reveal, Onboarding, Health, Notifications, Profile, Settings, Privacy, LiveActivity, DesignSystem), with three tabs: Home · Focus · Herbarium. `Focus` holds the Focus tab's screens and sheets; `Sleep` holds wind-down mode, its bedside log and the schedule editor, which outlived the Rest tab (decisions.md, 2026-10-24); `LiveActivity` holds the ActivityKit controller. Views stay thin: their words and decisions come from MapleCore models.
 - **MapleFocusCore** (F1) is pure, `Sendable` and nonisolated, with no resources, so the Screen Time extensions can link it alone: focus events and plans, time sources (the wall clock, the continuous clock and a hashed boot id), the ledger's merge and placement, `SessionRecord`, and the shield reconciler. MapleCore re-exports it.
 - **MapleStorage** (F1) is nonisolated: the App Group container, JSON-lines files and the ledger stores (`FileLedgerStore`, one file per writer per month; `MemoryLedgerStore`). MapleServices re-exports it.
+- **MapleActivity** (F1) is nonisolated and imports ActivityKit: the Live Activity's `FocusActivityAttributes` and the leaf's outline, `LeafSketch`. The app and the `MapleWidgets` extension link it, and the extension links nothing else from MapleKit, so every word and colour it draws arrives in the activity (MapleCore words them: `FocusActivityState.lines`).
 
 **Key data flows**
 - **Leaf earning:**
@@ -82,20 +83,22 @@ New folder `Maple/` beside FoodAI, which stays untouched, with its own git repo.
 Maple/
 ├─ Maple.xcodeproj           hand-authored, minimal: objectVersion 77, synchronized folders, settings in xcconfigs
 ├─ Config/
-│  ├─ Base.xcconfig          bundle prefix, iOS 27, iPhone only, Swift 6
+│  ├─ Base.xcconfig          bundle prefix, iOS 27, iPhone only, Swift 6, version numbers (the extension's match the app's)
+│  ├─ Maple.xcconfig         the app target (NSSupportsLiveActivities)
+│  ├─ MapleWidgets.xcconfig, MapleWidgets-Info.plist   the Live Activity extension (F1)
 │  ├─ Signing.xcconfig       ← you edit: DEVELOPMENT_TEAM, MAPLE_TIER = free | paid
 │  └─ Entitlements/          Maple-free.entitlements, Maple-paid.entitlements, one per extension
 ├─ App/                      "Maple" iPhone app target
-│  ├─ MapleApp.swift, AppEnvironment.swift
-│  ├─ Features/{Onboarding,Today,Grove,Sleep,Sounds,Focus,Insights,Settings}/
-│  └─ Resources/ (Assets.xcassets, Localizable.xcstrings)
-├─ Extensions/               added in M3
-│  ├─ MapleMonitor/  MapleReport/  MapleShield/  MapleShieldAction/
-│  └─ MapleWidgets/          (M8: widgets + Live Activities)
+│  ├─ MapleApp.swift, RootView.swift, AppRouter.swift, DemoPresenter.swift (DEBUG)
+│  ├─ Features/{Home,Focus,Sleep,Herbarium,TreeView,Reveal,Onboarding,Health,Notifications,Profile,Settings,Privacy,LiveActivity,DesignSystem}/
+│  └─ Resources/ (Assets.xcassets)
+├─ Extensions/
+│  ├─ MapleWidgets/          F1: the Live Activity (Lock Screen and Dynamic Island), embedded in both tiers
+│  └─ MapleMonitor/  MapleReport/  MapleShield/  MapleShieldAction/   (planned for F1-paid and F2; paid tier only)
 ├─ Watch/                    (M8)
-├─ MapleKit/                 local Swift package: MapleFocusCore · MapleStorage · MapleCore · MapleDesign · MapleData · MapleServices + Tests/
-├─ docs/                     architecture.md (this plan), leaves.md, entitlements.md, decisions.md
-└─ Scripts/                  build.sh, test.sh
+├─ MapleKit/                 local Swift package: MapleFocusCore · MapleStorage · MapleCore · MapleActivity · MapleDesign · MapleData · MapleServices + Tests/
+├─ docs/                     architecture.md (this plan), core-api.md, decisions.md, entitlements.md, debug-launch-arguments.md, design/
+└─ Scripts/                  build.sh, test.sh, check-release.sh, shoot.sh, shoot-activity.sh, snapshot.sh, generate-rewards.py
 ```
 - **Signing tiers.** `free` gives HealthKit and App Groups. `paid` adds Family Controls, iCloud/CloudKit and push. The Screen Time extensions are embedded **only in the paid tier**, so they don't use up your 10 free App IDs. The Simulator needs no signing at all.
 - **Project file.** I'll hand-write a minimal `project.pbxproj`, because no project generator is installed and downloading one needs your OK. I'll check it after every change with `xcodebuild -list` and real builds.
@@ -110,11 +113,12 @@ Each milestone ends with: unit tests pass, a clean build for the iPhone simulato
 1. **Reward re-cut and parked M1 merge (done).** `rewards.json` and the category code re-cut to the 7 focus categories; `m1-schedule-onboarding`, `m1-health-import` and `m1-notifications` merged, with Rested nights from Apple Health and no morning notification.
 2. **F1 Focus core** (`docs/superpowers/specs/2026-10-23-f1-focus-design.md`), in three plans:
    - **F1a, logic:** MapleFocusCore (events, the ledger's order and placement, `SessionRecord` and the reconciler), MapleStorage (the container and the ledger files), credit, `FocusBook` and counters in MapleCore, and the stores with preview blocking. Ladders: `first_leaf`, `hours_saved`, `sessions_finished` and `focus_streak`.
-   - **F1b, screens:**
-     - the Focus tab, built around the minute-marks dial;
-     - Home changes, the Live Activity and the notifications.
+   - **F1b, screens (built):**
+     - the Focus tab, built around the minute-marks dial, with the Rest tab retired (the sleep schedule is a Settings row);
+     - Home changes, the Settings rows, the Live Activity (`MapleActivity`, `Extensions/MapleWidgets`) and the notifications;
+     - `ShippedFeatures.current` flipped to M1 and F1.
 
-     Everything runs against `PreviewBlockingService` in DEBUG.
+     Everything runs against `PreviewBlockingService` in DEBUG; a free build shows F1 as a plain timer that doesn't count (F1-17).
    - **F1-paid, after joining the paid program:**
      - on-device tests first;
      - then real Screen Time blocking, and the monitor, shield and shield-action extensions;
