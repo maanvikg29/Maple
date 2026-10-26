@@ -9,9 +9,14 @@ public struct IntentionDraft: Sendable, Equatable {
         text = String((intention ?? "").prefix(RecentIntentions.maximumLength))
     }
 
-    /// The field after typing: its first 60 characters.
-    public mutating func type(_ typed: String) {
-        text = String(typed.prefix(RecentIntentions.maximumLength))
+    /// The field after typing: its first 60 characters, on one line.
+    /// - Returns: Whether the typing was Return. A field that wraps (at accessibility sizes) gets Return as a newline
+    ///   rather than a submit; the newline isn't kept, and Return saves.
+    @discardableResult
+    public mutating func type(_ typed: String) -> Bool {
+        let line = typed.replacingOccurrences(of: "\n", with: "")
+        text = String(line.prefix(RecentIntentions.maximumLength))
+        return line != typed
     }
 
     /// What Return saves: trimmed, or nil (no intention) for a blank field.

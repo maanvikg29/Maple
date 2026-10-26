@@ -180,4 +180,18 @@ struct IntentionDraftTests {
         #expect(draft.saved == nil && draft.isCleared)
         #expect(IntentionDraft("Essay").text == "Essay")
     }
+
+    @Test("A field that wraps (accessibility sizes) gets Return as a newline: it isn't kept, and it saves")
+    func returnInAWrappingField() {
+        var draft = IntentionDraft("Chemistry")
+        let typing = draft.type("Chemistry ch. 4")
+        #expect(!typing)
+        let atEnd = draft.type("Chemistry ch. 4\n")
+        #expect(atEnd)
+        #expect(draft.text == "Chemistry ch. 4" && draft.saved == "Chemistry ch. 4")
+        // Return with the cursor mid-line.
+        let midLine = draft.type("Chemistry\n ch. 4")
+        #expect(midLine)
+        #expect(draft.text == "Chemistry ch. 4")
+    }
 }
