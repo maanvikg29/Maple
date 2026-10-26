@@ -355,6 +355,41 @@ struct FocusStartTests {
         #expect(await stores.start(request, intention: "Again", settings: settings) == .alreadyRunning)
         #expect(stores.notes.notes.isEmpty)
     }
+
+    @Test("The Live Activity has the intention before the start returns; a blank one shows none")
+    func intentionReachesLiveActivity() async throws {
+        let recorder = DescribingLiveActivity()
+        let collection = CollectionStore(storage: JSONStorage(.memory), context: f1Context, now: at(2026, 10, 23, 9))
+        let stores = FocusStores.demo(collection: collection, clock: .live, options: DemoLaunchOptions(arguments: []),
+                                      liveActivity: recorder)
+        recorder.notes = stores.notes
+        let settings = AppSettings(storage: JSONStorage(.memory))
+        let request = FocusSessionStore.StartRequest(preset: stores.presets.presets[1], minutes: 25, appSet: six, from: .focusTab)
+        let outcome = await stores.start(request, intention: "Chemistry ch. 4", settings: settings)
+        guard case .started(let id) = outcome else { Issue.record("not started: \(outcome)"); return }
+        let shown = try #require(recorder.shown.last ?? nil)
+        #expect(shown.sessionID == id)
+        #expect(shown.intention == "Chemistry ch. 4")
+
+        await stores.sessions.end(.endedEarly)
+        let blank = await stores.start(request, intention: "   ", settings: settings)
+        guard case .started(let second) = blank else { Issue.record("not started: \(blank)"); return }
+        let plain = try #require(recorder.shown.last ?? nil)
+        #expect(plain.sessionID == second)
+        #expect(plain.intention == nil)
+    }
+}
+
+/// Like the app's ActivityKit controller: each state it is asked to show is described with the session's intention,
+/// read from the notes at that moment.
+@MainActor
+private final class DescribingLiveActivity: LiveActivityController {
+    var notes: SessionNotesStore?
+    private(set) var shown: [FocusActivityState?] = []
+
+    func reconcile(running state: FocusActivityState?) async {
+        shown.append(state.map { $0.described(intention: notes?.intention(for: $0.sessionID), tint: LeafColor(0x9CC3A4), leafID: nil) })
+    }
 }
 
 @Suite("Focus settings")

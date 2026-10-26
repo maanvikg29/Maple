@@ -170,6 +170,14 @@ public final class FocusSessionStore {
         }
     }
 
+    /// Sends the running session to the Live Activity again, after the session's intention (which the controller reads
+    /// from `session-notes.json`) was saved just after the start. In line with the other commands; nothing else runs.
+    public func resendLiveActivity() async {
+        await serially { [self] in
+            await liveActivity.reconcile(running: running.map { FocusActivityState(session: $0, now: now) })
+        }
+    }
+
     public func start(_ request: StartRequest) async -> StartOutcome {
         // Checked before any await, so a second tap during the first start is refused.
         guard !isStarting, running == nil else { return .alreadyRunning }

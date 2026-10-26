@@ -5,7 +5,8 @@ extension FocusStores {
     /// Starts a session from a screen (F1 design §5.1, P4): the store's start, and once it has started:
     /// - the preset is marked used, so the next start preselects it, and a starter preset is saved with its id;
     /// - the intention is kept for the session, at its start, in `session-notes.json`, never in the ledger (a blank one
-    ///   keeps nothing);
+    ///   keeps nothing), and the Live Activity is sent again so its expanded view has it from the first frame the system
+    ///   shows away from Maple (§5.11);
     /// - the first start is recorded (`AppSettings.hasStartedFocus`).
     ///
     /// Nothing is kept when the session doesn't start.
@@ -17,6 +18,7 @@ extension FocusStores {
         presets.markUsed(request.preset.id)
         if let text = intention.flatMap(RecentIntentions.normalized) {
             notes.setIntention(text, for: id, at: sessions.running?.started.placed ?? sessions.now)
+            await sessions.resendLiveActivity()
         }
         settings.hasStartedFocus = true
         return outcome
