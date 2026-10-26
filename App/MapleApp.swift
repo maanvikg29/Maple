@@ -26,6 +26,8 @@ struct MapleApp: App {
     /// iOS keeps its notification delegate weakly: this one lives as long as the app.
     private let notificationDelegate: NotificationDelegate
     private let stores: MapleStores
+    /// The running session's Live Activity (F1 design §5.11), kept current by the Focus session store.
+    private let liveActivity: ActivityKitController
     private let clock: MapleClock
     /// Where the first run starts or picks up (spec §8.8): until the Sugar maple is on the tree, the app opens on
     /// the end of onboarding, already showing the right step in its first frame. Decided again if the files could
@@ -33,7 +35,10 @@ struct MapleApp: App {
     @State private var launch: LaunchGate
 
     init() {
-        let stores = MapleStores.launch()
+        let liveActivity = ActivityKitController()
+        let stores = MapleStores.launch(liveActivity: liveActivity)
+        liveActivity.attach(collection: stores.collection, notes: stores.focus.notes)
+        self.liveActivity = liveActivity
         self.stores = stores
         _collection = State(initialValue: stores.collection)
         _schedule = State(initialValue: stores.schedule)
@@ -100,6 +105,9 @@ struct MapleApp: App {
                 .environment(stores.focus.notes)
                 .environment(\.focusStores, stores.focus)
                 .environment(\.mapleClock, clock)
+                #if DEBUG
+                .liveActivityDemo(liveActivity, collection: stores.collection)
+                #endif
         }
     }
 }
