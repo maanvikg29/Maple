@@ -81,10 +81,12 @@ struct BlockingSheet: View {
         .scrollBounceBehavior(.basedOnSize)
         .safeAreaBar(edge: .bottom) {
             VStack(alignment: .leading, spacing: theme.spacing.xxs) {
+                // A cross-fade if a change is ever animated: the numeric roll animates a blur, and Focus motion is
+                // transform and opacity only (§4.6).
                 Text(model.counter.text)
                     .font(MapleFont.headline)
                     .foregroundStyle(theme.colors.textPrimary)
-                    .contentTransition(.numericText())
+                    .contentTransition(.opacity)
                 note(failure ?? model.note)
                 Button(FocusSheetCopy.save, action: save)
                     .buttonStyle(.moonlight(dimmed: isQuietHours))
