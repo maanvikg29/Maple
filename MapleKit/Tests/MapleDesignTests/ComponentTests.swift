@@ -369,6 +369,27 @@ struct ComponentTests {
         #expect(!containsAmber(try pixels(of: resting, size: CGSize(width: 96, height: 96))))
     }
 
+    @Test("The Focus streak is a drawn Field maple in reward amber, and the header shows it only from a 2-day run")
+    func streakLeaf() throws {
+        // The leaf's colour is the reward token, so the two can't drift apart.
+        let reward = Theme.maple.colors.reward.resolve(in: EnvironmentValues())
+        #expect(abs(Double(reward.red) * 255 - Double(StreakLeaf.color.red)) < 1.5)
+        #expect(abs(Double(reward.green) * 255 - Double(StreakLeaf.color.green)) < 1.5)
+        #expect(abs(Double(reward.blue) * 255 - Double(StreakLeaf.color.blue)) < 1.5)
+        #expect(LeafCatalog.shared.species(id: StreakLeaf.speciesID)?.displayName == "Field maple")
+        let leaf = StreakLeaf(detailed: true).frame(width: 40, height: 40).background(Color.black)
+        #expect(containsAmber(try pixels(of: leaf, size: CGSize(width: 40, height: 40))))
+        // Winter's tint is blue, and there is no avatar, so any amber in the header comes from the streak.
+        let date = Date(timeIntervalSince1970: 1_792_000_000)
+        func header(_ streak: Int) -> some View {
+            HomeHeader(season: .winter, date: date, streak: streak, avatar: nil, onStreak: {}, onAvatar: {})
+                .frame(width: 402)
+                .background(Color.black)
+        }
+        #expect(!containsAmber(try pixels(of: header(1), size: CGSize(width: 402, height: 44))))
+        #expect(containsAmber(try pixels(of: header(12), size: CGSize(width: 402, height: 44))))
+    }
+
     @Test("Every component renders in every state without failing")
     func componentsRender() throws {
         let rubrum = try #require(LeafCatalog.shared.species(id: "rubrum"))

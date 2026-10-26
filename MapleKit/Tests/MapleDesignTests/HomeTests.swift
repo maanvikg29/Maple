@@ -131,7 +131,8 @@ struct HomeTests {
         #expect(HomeSpeech.treeLabel(stage: .seedling, leaves: 1, total: 155, tendedDays: 0)
             == "Your maple. Seedling, 1 of 155 leaves.")
         #expect(HomeSpeech.caption(stage: .youngMaple, leaves: 23, total: 155) == "23 of 155 leaves, young maple")
-        #expect(HomeSpeech.streak(nights: 12) == "12-night bedtime run")
+        #expect(HomeSpeech.streak(days: 12) == "Focus streak, 12 days")
+        #expect(HomeSpeech.streak(days: 1) == "Focus streak, 1 day")
     }
 
     @Test("The tree's value names the newest and next leaf, then what applies")

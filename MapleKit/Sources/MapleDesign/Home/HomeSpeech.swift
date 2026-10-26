@@ -20,9 +20,9 @@ nonisolated public enum HomeSpeech {
         }
     }
 
-    /// "12-night bedtime run".
-    public static func streak(nights: Int) -> String {
-        "\(nights)-night bedtime run"
+    /// The Focus streak, in the header and as the streak sheet's title: "Focus streak, 12 days" (F1 design §5.10).
+    public static func streak(days: Int) -> String {
+        "Focus streak, \(days) \(days == 1 ? "day" : "days")"
     }
 
     /// "23 of 155 leaves, young maple".
