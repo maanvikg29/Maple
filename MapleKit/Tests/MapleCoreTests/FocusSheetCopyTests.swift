@@ -24,4 +24,40 @@ struct FocusSheetCopyTests {
         #expect(FocusSheetCopy.weekdayInitials(calendar: saturday).first == "S")
         #expect(FocusSheetCopy.weekdayInitials(calendar: saturday).count == 7)
     }
+
+    @Test("The editor, Blocking sheet and intention words, in the spec's own where it has them")
+    func sheetWords() {
+        #expect(FocusSheetCopy.modeTitle(.blockThese) == "Block these")
+        #expect(FocusSheetCopy.modeTitle(.onlyThese) == "Only these")
+        #expect(FocusSheetCopy.footer == "Calls and apps on iOS's Always Allowed list stay open.")
+        #expect(FocusSheetCopy.editPresetTitle == "Edit preset")
+        #expect(FocusSheetCopy.needsChoosingAgain == "Some apps need choosing again")
+        #expect(FocusSheetCopy.pickerUnavailable == "This version of Maple can't lock apps.")
+        #expect(FocusSheetCopy.breakOption(false) == "No break")
+        #expect(FocusSheetCopy.breakOption(true) == "One 5-minute break")
+    }
+
+    @Test("Every fixed line is sentence case, with no exclamation and none of the words Maple never uses")
+    func voice() {
+        let lines: [String] = [
+            FocusSheetCopy.savedTodayHint, FocusSheetCopy.howWeCountTitle, FocusSheetCopy.save, FocusSheetCopy.close,
+            FocusSheetCopy.cancel, FocusSheetCopy.editPresetTitle, FocusSheetCopy.editPreset, FocusSheetCopy.nameTitle,
+            FocusSheetCopy.verbTitle, FocusSheetCopy.lengthTitle, FocusSheetCopy.shorter, FocusSheetCopy.longer,
+            FocusSheetCopy.breakTitle, FocusSheetCopy.breakNote, FocusSheetCopy.appsTitle, FocusSheetCopy.strictnessTitle,
+            FocusSheetCopy.deletePreset, FocusSheetCopy.deleteQuestion, FocusSheetCopy.deleteNote,
+            FocusSheetCopy.couldNotSave, FocusSheetCopy.listsLabel, FocusSheetCopy.modeLabel,
+            FocusSheetCopy.needsChoosingAgain, FocusSheetCopy.keepOneChosen, FocusSheetCopy.overLimit,
+            FocusSheetCopy.onlyTheseNote, FocusSheetCopy.footer, FocusSheetCopy.pickerUnavailable,
+            FocusSheetCopy.clearIntention,
+        ] + [false, true].map(FocusSheetCopy.breakOption)
+            + [SelectionSummary.Mode.blockThese, .onlyThese].map(FocusSheetCopy.modeTitle)
+        for line in lines {
+            #expect(line.first?.isUppercase == true, "\(line)")
+            #expect(!line.contains("!"), "\(line)")
+            let lower = line.lowercased()
+            for word in ["fail", "quit", "streak lost", "rest days left", "missed", "demo"] {
+                #expect(!lower.contains(word), "\(line)")
+            }
+        }
+    }
 }
