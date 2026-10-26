@@ -129,7 +129,8 @@ public struct LeafCell: View {
             Text(model.meta.text)
                 .font(MapleFont.tileMeta)
                 .foregroundStyle(theme.colors.textSecondary)
-                .lineLimit(1)
+                // Two lines for a needs-permission tile's line ("Not available in this build"), one for the rest.
+                .lineLimit(model.metaLineLimit)
                 .minimumScaleFactor(0.85)
                 .fixedSize(horizontal: false, vertical: true)
             // The bar's slot is kept on every tile, so all tiles in a row share one height.

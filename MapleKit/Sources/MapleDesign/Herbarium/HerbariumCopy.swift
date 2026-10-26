@@ -222,6 +222,9 @@ nonisolated public struct LeafCellModel: Sendable, Equatable, Identifiable {
     /// Locked tiles name the leaf in `textSecondary`.
     public let nameIsSecondary: Bool
     public let meta: Meta
+    /// The lines the meta may take: two for a needs-permission tile's line, so a free build's "Not available in this
+    /// build" (F1-17) shows whole; one for every other tile.
+    public let metaLineLimit: Int
     /// The 11pt "≈" in the top-left corner (confidence i or u).
     public let showsApproximateMark: Bool
     /// The 6pt amber dot in the top-right corner (earned, not looked at yet).
@@ -274,6 +277,7 @@ nonisolated public struct LeafCellModel: Sendable, Equatable, Identifiable {
             spoken += ["\(species.displayName), locked", entry.rule, HerbariumCopy.notEarnableYet]
         }
 
+        metaLineLimit = variant == .needsPermission && !showsRarity ? 2 : 1
         let hidesSpecies = variant == .waiting
         name = hidesSpecies ? HerbariumCopy.waitingName : species.displayName
         nameIsScientific = !hidesSpecies && species.common.isEmpty

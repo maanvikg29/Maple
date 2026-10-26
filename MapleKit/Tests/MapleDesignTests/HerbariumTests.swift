@@ -410,6 +410,20 @@ struct LeafCellModelTests {
         #expect(dormant.meta == .text("Not earnable yet"))
     }
 
+    @Test("A needs-permission tile's line may take two lines, so a free build's \"Not available in this build\" shows whole; every other tile keeps one")
+    func permissionLineWraps() {
+        let free = LeafCellModel(entry("rubrum", availability: .notInThisBuild), season: .autumn)
+        #expect(free.meta == .text("Not available in this build"))
+        #expect(free.metaLineLimit == 2)
+        #expect(LeafCellModel(entry("campestre", availability: .needsAppleHealth), season: .autumn).metaLineLimit == 2)
+        // Every other tile, and a needs-permission tile showing its share, keeps the one line its row shares.
+        #expect(LeafCellModel(entry("rubrum", availability: .notInThisBuild), season: .autumn, showsRarity: true).metaLineLimit == 1)
+        #expect(LeafCellModel(entry("rubrum", state: .earned(unlock("rubrum"))), season: .autumn).metaLineLimit == 1)
+        #expect(LeafCellModel(entry("tataricum", current: 9, next: true), season: .winter).metaLineLimit == 1)
+        #expect(LeafCellModel(entry("oligocarpum"), season: .autumn).metaLineLimit == 1)
+        #expect(LeafCellModel(entry("griseum", share: .notEarnableYet), season: .autumn).metaLineLimit == 1)
+    }
+
     @Test("Approximate drawings carry the ≈ mark and say so to VoiceOver; unnamed species use their scientific name")
     func approximate() {
         let uncharted = LeafCellModel(entry("zarei"), season: .autumn)
