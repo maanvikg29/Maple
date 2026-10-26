@@ -44,6 +44,8 @@ struct FocusView: View {
             }
             .onChange(of: pending?.id, initial: true) { _, id in holdReceipt(id) }
             .onChange(of: sessions.running?.id) { old, new in sessionChanged(from: old, to: new) }
+            // A receipt a notification tap asked for before the first replay goes once the ledger can't draw it.
+            .onChange(of: sessions.isLedgerReadable) { dropUnshowableReceipt() }
             .onChange(of: router.focusRequest, initial: true) { _, request in apply(request) }
             // Once Screen Time allows Maple, a plain timer chosen on Needs Screen Time gives way to blocking again.
             .onChange(of: canBlock) { _, allowed in
@@ -109,6 +111,15 @@ struct FocusView: View {
         }
     }
 
+    /// Lets go of a receipt the tab can't show now the ledger is read (`ReceiptPicker.canShow`), so the tab falls back to
+    /// its usual screen instead of waiting on it.
+    private func dropUnshowableReceipt() {
+        guard let id = tab.shownReceipt,
+              !ReceiptPicker.canShow(id, isLoaded: sessions.isLedgerReadable, running: sessions.running, sessions: sessions.sessions)
+        else { return }
+        tab.shownReceipt = nil
+    }
+
     private func apply(_ request: FocusRequest?) {
         guard let request else { return }
         router.focusRequest = nil
@@ -119,6 +130,10 @@ struct FocusView: View {
         case .needsScreenTime:
             tab.plainTimer = nil
         case .receipt(let id):
+            // A tapped notification can be old, or name a session the ledger doesn't hold (`ReceiptPicker.canShow`).
+            guard ReceiptPicker.canShow(
+                id, isLoaded: sessions.isLedgerReadable, running: sessions.running, sessions: sessions.sessions
+            ) else { return }
             tab.shownReceipt = id
         case .returnToSession:
             tab.isMinimised = false

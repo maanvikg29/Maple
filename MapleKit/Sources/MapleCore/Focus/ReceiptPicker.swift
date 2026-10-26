@@ -20,6 +20,18 @@ public enum ReceiptPicker {
         return newest.session
     }
 
+    /// Whether the Focus tab may show `id`'s receipt for a tapped session-end notification (F1 design §6), and keep it
+    /// once the ledger has been read. Delivered notifications stay in Notification Center, so a tap can name an old
+    /// session, or one the ledger doesn't hold.
+    /// - Never while another session runs: that session's end shows its own receipt.
+    /// - Before the store's first replay nothing is known, so it may; the tab decides again once the ledger is read.
+    /// - Once read, only for a session the ledger holds, so the tab never waits on a receipt it can't draw (§5.7).
+    public static func canShow(_ id: UUID, isLoaded: Bool, running: SessionRecord?, sessions: [SessionRecord]) -> Bool {
+        guard isLoaded else { return true }
+        if let running, !running.isEnded, running.id != id { return false }
+        return sessions.contains { $0.id == id }
+    }
+
     /// A blocking session that ended without its block ever confirmed: the start couldn't be written whole, so it was
     /// ended at once (`FocusSessionStore`).
     private static func isHalfWritten(_ session: SessionRecord) -> Bool {

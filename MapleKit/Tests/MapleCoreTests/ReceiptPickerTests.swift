@@ -143,4 +143,31 @@ struct ReceiptPickerTests {
         let plain = day.session(minutes: 25, plan: FocusFixtures.plan(minutes: 25, kind: .plainTimer, selection: nil))
         #expect(ReceiptPicker.pending(day.ledger.sessions(), seen: nil, now: at(2026, 10, 23, 13, 30))?.id == plain)
     }
+
+    @Test("A tapped session end shows its receipt only when nothing else runs and, once the ledger is read, the session is known")
+    func tapped() {
+        let day = FocusDay(at(2026, 10, 23, 10))
+        let old = day.session(minutes: 50)
+        day.at(at(2026, 10, 23, 12))
+        let ended = day.session(minutes: 25)
+        let unknown = UUID()
+        let sessions = day.ledger.sessions()
+        // Nothing runs: a known session shows; one the ledger doesn't hold never does, so the tab can't wait on it.
+        #expect(ReceiptPicker.canShow(old, isLoaded: true, running: nil, sessions: sessions))
+        #expect(ReceiptPicker.canShow(ended, isLoaded: true, running: nil, sessions: sessions))
+        #expect(!ReceiptPicker.canShow(unknown, isLoaded: true, running: nil, sessions: sessions))
+        // Before the first replay nothing is known yet: it may show, and is decided again once the ledger is read.
+        #expect(ReceiptPicker.canShow(unknown, isLoaded: false, running: nil, sessions: []))
+
+        // Another session runs: an old end's tap never shows, so the running session's end shows its own receipt.
+        day.at(at(2026, 10, 23, 13))
+        let current = day.session(minutes: 10, planned: 25, reason: nil)
+        let withRunning = day.ledger.sessions()
+        let running = withRunning.first { $0.id == current }
+        #expect(running?.isEnded == false)
+        #expect(!ReceiptPicker.canShow(old, isLoaded: true, running: running, sessions: withRunning))
+        #expect(!ReceiptPicker.canShow(unknown, isLoaded: true, running: running, sessions: withRunning))
+        // The running session's own end, tapped just before the refresh that ends it, still shows.
+        #expect(ReceiptPicker.canShow(current, isLoaded: true, running: running, sessions: withRunning))
+    }
 }

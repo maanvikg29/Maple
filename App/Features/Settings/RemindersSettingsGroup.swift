@@ -120,12 +120,9 @@ struct RemindersSettingsGroup: View {
         StudyReminderWindow(weekly: schedule.weekly, around: clock.now(), calendar: collection.context.calendar)
     }
 
+    /// The line under the switch, which says no more than the switch shows (`FocusSettingsCopy.studyDetail`).
     private func studyDetail(_ window: StudyReminderWindow?) -> String {
-        guard let window else { return FocusSettingsCopy.studyNoDaytime }
-        guard let time = settings.studyReminderTime else { return FocusSettingsCopy.studyOff }
-        return window.contains(time)
-            ? FocusSettingsCopy.studyOn(time, locale: locale)
-            : FocusSettingsCopy.studyOutsideDay(time, window: window, locale: locale)
+        FocusSettingsCopy.studyDetail(settings.studyReminderTime, window: window, isAllowed: reminders.isAllowed, locale: locale)
     }
 
     /// "Change time", once a time is saved.

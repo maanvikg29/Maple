@@ -24,6 +24,16 @@ public enum FocusSettingsCopy {
 
     /// The schedule leaves no time in the Day phase every day.
     public static let studyNoDaytime = "Your sleep schedule leaves no daytime for it."
+
+    /// The line under the study reminder's switch, which never says more than the switch shows:
+    /// - no daytime in the schedule: `studyNoDaytime`;
+    /// - a saved time while notifications are allowed: `studyOn`, or `studyOutsideDay` once it has left the Day phase;
+    /// - otherwise (nothing saved, or iOS not asked or turned off, so the switch rests off): `studyOff`.
+    public static func studyDetail(_ time: ClockTime?, window: StudyReminderWindow?, isAllowed: Bool, locale: Locale) -> String {
+        guard let window else { return studyNoDaytime }
+        guard isAllowed, let time else { return studyOff }
+        return window.contains(time) ? studyOn(time, locale: locale) : studyOutsideDay(time, window: window, locale: locale)
+    }
     public static let studyChangeTime = "Change time"
 
     /// The time sheet's line: "Any time from 10:00 to 20:14."

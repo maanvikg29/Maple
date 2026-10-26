@@ -26,9 +26,6 @@ final class NotificationRouter {
 ///   and wind-down and the study reminder never showed in the foreground before either.
 /// - A tap on the notification itself (not a dismissal) goes to `opened`, which `MapleApp` points at
 ///   `NotificationRouter.opened(_:)`.
-///
-/// If the compiler reports that a method's signature doesn't match the protocol's, copy the requirement's exact
-/// signature from `UNUserNotificationCenterDelegate` (Jump to Definition) and keep the method's body.
 nonisolated final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
     private let opened: @MainActor @Sendable (String) -> Void
 

@@ -29,6 +29,24 @@ struct FocusSettingsCopyTests {
         #expect(FocusSettingsCopy.releaseAllDone == "Every app is open again.")
     }
 
+    @Test("The study row's line never contradicts its switch: a saved time shows only while notifications are allowed")
+    func studyDetail() throws {
+        let window = try window()
+        let four = ClockTime(hour: 16)
+        #expect(FocusSettingsCopy.studyDetail(four, window: window, isAllowed: true, locale: enGB)
+            == "At 16:00, unless a session has already started that day.")
+        #expect(FocusSettingsCopy.studyDetail(ClockTime(hour: 21), window: window, isAllowed: true, locale: enGB)
+            == "21:00 is outside your day now. Choose a time from 10:00 to 20:14.")
+        #expect(FocusSettingsCopy.studyDetail(nil, window: window, isAllowed: true, locale: enGB) == "Once a day, at a time you choose.")
+        // Not asked yet, or turned off in iOS: the switch rests off, and so does the line.
+        #expect(FocusSettingsCopy.studyDetail(four, window: window, isAllowed: false, locale: enGB) == "Once a day, at a time you choose.")
+        #expect(FocusSettingsCopy.studyDetail(ClockTime(hour: 21), window: window, isAllowed: false, locale: enGB)
+            == "Once a day, at a time you choose.")
+        // No daytime at all says why the switch can't turn on.
+        #expect(FocusSettingsCopy.studyDetail(nil, window: nil, isAllowed: true, locale: enGB) == "Your sleep schedule leaves no daytime for it.")
+        #expect(FocusSettingsCopy.studyDetail(four, window: nil, isAllowed: false, locale: enGB) == "Your sleep schedule leaves no daytime for it.")
+    }
+
     @Test("Calm: sentence case, no exclamation marks, nothing about leaves, streaks or missed days")
     func calm() throws {
         let window = try window()

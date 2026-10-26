@@ -12,6 +12,7 @@ import MapleServices
 /// `SettingsView` shows it once Focus ships, in a build that can block.
 struct ReleaseAllSettingsGroup: View {
     @Environment(\.theme) private var theme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(AppRouter.self) private var router
     @Environment(FocusSessionStore.self) private var sessions
     @State private var asks = false
@@ -54,11 +55,12 @@ struct ReleaseAllSettingsGroup: View {
             Text(FocusCopy.ReleaseAll.title)
                 .font(MapleFont.body)
                 .foregroundStyle(theme.colors.textPrimary)
-            Text(released ? FocusSettingsCopy.releaseAllDone : FocusSettingsCopy.releaseAllDetail)
-                .font(MapleFont.footnote)
-                .foregroundStyle(theme.colors.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-                .contentTransition(.opacity)
+            // Both lines hold their place, so the row keeps its height and the swap is a cross-fade (§4.6: nothing
+            // animates layout).
+            ZStack(alignment: .topLeading) {
+                line(FocusSettingsCopy.releaseAllDetail, shows: !released)
+                line(FocusSettingsCopy.releaseAllDone, shows: released)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, theme.spacing.listMargin)
@@ -66,6 +68,15 @@ struct ReleaseAllSettingsGroup: View {
         .frame(minHeight: theme.spacing.row)
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
+    }
+
+    private func line(_ text: String, shows: Bool) -> some View {
+        Text(text)
+            .font(MapleFont.footnote)
+            .foregroundStyle(theme.colors.textSecondary)
+            .fixedSize(horizontal: false, vertical: true)
+            .opacity(shows ? 1 : 0)
+            .accessibilityHidden(!shows)
     }
 
     private func release() {
@@ -76,7 +87,7 @@ struct ReleaseAllSettingsGroup: View {
             isReleasing = false
             // False: a session was running, and the Focus tab took over with its own way out.
             guard releasedNow else { return }
-            released = true
+            withAnimation(reduceMotion ? nil : theme.motion.gentle) { released = true }
             AccessibilityNotification.Announcement(FocusSettingsCopy.releaseAllDone).post()
         }
     }
