@@ -60,6 +60,13 @@ struct SettingsView: View {
             if collection.context.features.focus && sessions.blocking.capability.canBlock {
                 ReleaseAllSettingsGroup()
             }
+            #if DEBUG
+            // DEBUG only: the ledger's events, with no content (F1 design §7.7).
+            ProfileListGroup {
+                NavigationLink(value: ProfileRoute.ledgerInspector) { ProfileNavigationRow("Ledger inspector") }
+            }
+            .buttonStyle(.profileRow)
+            #endif
         }
         #if DEBUG
         // `-MapleDemoSettingsOpen` (SettingsDemo): the page opens scrolled to its end, where the Focus rows are.

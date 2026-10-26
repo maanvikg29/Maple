@@ -16,8 +16,9 @@ APP="$DERIVED_DATA/Build/Products/Release-iphonesimulator/Maple.app"
 BINARIES=("$APP/Maple" "$APP/PlugIns/MapleWidgets.appex/MapleWidgets")
 # Bare `Demo` covers DemoLaunchOptions, DemoData, DemoPresenter, RevealDemoOptions, HealthDemoSeeding, HerbariumDemo,
 # ReminderDemo, SleepDemo, FocusDemo, FocusDemoPresenter and LiveActivityDemo. A bare `Preview` would also hit
-# SharePreview and similar real names, so the preview types are named.
-FORBIDDEN='PreviewBlockingService|PreviewLeafShareProvider|RecordingLiveActivityController|HealthSleepSeeder|Demo|DesignSystemView'
+# SharePreview and similar real names, so the preview types are named. `LedgerInspect` covers LedgerInspection and
+# LedgerInspector; FakeAppPicker and PickerChoice are the DEBUG fake app picker's.
+FORBIDDEN='PreviewBlockingService|PreviewLeafShareProvider|RecordingLiveActivityController|HealthSleepSeeder|Demo|DesignSystemView|LedgerInspect|FakeAppPicker|PickerChoice'
 FOUND=""
 for BINARY in "${BINARIES[@]}"; do
   [[ -f "$BINARY" ]] || { echo "No binary at $BINARY" >&2; exit 2; }

@@ -575,3 +575,13 @@ public final class FocusSessionStore {
         if context != collection.context { collection.context = context }
     }
 }
+
+#if DEBUG
+extension FocusSessionStore {
+    /// DEBUG only (Settings › Ledger inspector): the whole ledger as the inspector's rows, newest first, with no
+    /// content. Nil while the ledger can't be read. In this file because `ledger` is private.
+    public func ledgerInspection(calendar: Calendar) -> LedgerInspection.Page? {
+        ledger.readAll().map { LedgerInspection.page($0, calendar: calendar) }
+    }
+}
+#endif

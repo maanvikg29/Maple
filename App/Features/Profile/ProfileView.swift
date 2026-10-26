@@ -10,6 +10,7 @@ enum ProfileRoute: Hashable {
     case about
     #if DEBUG
     case designSystem
+    case ledgerInspector
     #endif
 }
 
@@ -36,6 +37,7 @@ struct ProfileView: View {
                     case .about: AboutView()
                     #if DEBUG
                     case .designSystem: DesignSystemView()
+                    case .ledgerInspector: LedgerInspector()
                     #endif
                     }
                 }
@@ -230,7 +232,7 @@ private struct ProfileTotalsRow: View {
 
 #if DEBUG
 extension ProfileRoute {
-    /// `-MapleDemoProfile settings|privacy|rarity|about|design` opens the sheet on that page (with
+    /// `-MapleDemoProfile settings|privacy|rarity|about|design|ledger` opens the sheet on that page (with
     /// `-MapleDemoPresent profile`); docs/debug-launch-arguments.md.
     static var launchPath: [ProfileRoute] {
         switch UserDefaults.standard.string(forKey: "MapleDemoProfile") {
@@ -238,6 +240,7 @@ extension ProfileRoute {
         case "privacy", "rarity": [.privacy]
         case "about": [.about]
         case "design": [.designSystem]
+        case "ledger": [.settings, .ledgerInspector]
         default: []
         }
     }
