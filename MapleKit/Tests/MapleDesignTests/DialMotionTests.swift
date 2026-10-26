@@ -69,8 +69,10 @@ struct FinishTimelineTests {
     private let all = Array(repeating: true, count: 50)
     private let samples = stride(from: -0.5, through: 3.0, by: 0.01).map { $0 }
 
-    private func frame(_ t: Double, counted: [Bool]? = nil, leaf: Bool = true, reduceMotion: Bool = false) -> FinishFrame {
-        FinishTimeline.frame(at: t, counted: counted ?? all, leafOpened: leaf, reduceMotion: reduceMotion)
+    private func frame(
+        _ t: Double, counted: [Bool]? = nil, gold: Bool = true, leaf: Bool = true, reduceMotion: Bool = false
+    ) -> FinishFrame {
+        FinishTimeline.frame(at: t, counted: counted ?? all, gold: gold, leafOpened: leaf, reduceMotion: reduceMotion)
     }
 
     @Test("Counted marks sweep gold one after another, 14 ms apart, each over 0.9 s and peaking a quarter of the way in")
@@ -104,7 +106,18 @@ struct FinishTimelineTests {
         let none = Array(repeating: false, count: 50)
         #expect(frame(0.5, counted: none).tone == .white)
         #expect((0..<50).allSatisfy { frame(Double($0) * FinishTimeline.sweepStagger + 0.1, counted: none).sweep[$0] > 0 })
-        #expect(FinishTimeline.tone(counted: []) == .white)
+        #expect(FinishTimeline.tone(counted: [], gold: true) == .white)
+    }
+
+    @Test("A receipt that isn't gold sweeps only its counted marks, in white: 18 lit of 50 leave the 32 gaps out")
+    func whiteOverCounted() {
+        let counted = (0..<50).map { $0 < 18 }
+        #expect(FinishTimeline.tone(counted: counted, gold: false) == .white)
+        #expect(FinishTimeline.tone(counted: counted, gold: true) == .gold)
+        #expect(samples.allSatisfy { frame($0, counted: counted, gold: false).tone == .white })
+        #expect(samples.allSatisfy { frame($0, counted: counted, gold: false).sweep[18...].allSatisfy { $0 == 0 } })
+        let stagger = FinishTimeline.sweepStagger
+        #expect((0..<18).allSatisfy { frame(Double($0) * stagger + 0.1, counted: counted, gold: false).sweep[$0] > 0 })
     }
 
     @Test("Reduce Motion: no sweep, ripple, pulse or rise; the leaf is at its final size at once and the words cross-fade")

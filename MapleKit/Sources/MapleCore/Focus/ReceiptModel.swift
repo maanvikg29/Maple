@@ -80,16 +80,28 @@ public struct ReceiptModel: Sendable, Equatable {
     public let subtitle: String
     /// "Ended at 18 of 50m", over the numeral after an early end.
     public let note: String?
+    /// The note for VoiceOver, its lengths in words: "Ended at 18 of 50 minutes".
+    public let noteSpoken: String?
     /// "50m": counted minutes, or the minutes focused when the session couldn't count.
     public let numeral: String
     public let numeralParts: [NumeralPart]
     /// "saved · 2h 10m today".
     public let caption: String
     public let leafLine: String?
+    /// The leaf line in its two tones, as the running screen draws it (§4.3): "Field maple" in the primary colour and
+    /// "· 1h 10m to go" in the secondary; a line that says a leaf is yours is one primary run.
+    public let leafLineParts: RunningSessionModel.Line?
+    /// The leaf line says a leaf is yours (any Focus leaf this session opened): it carries the amber bud.
+    public let leafLineOpened: Bool
+    /// The leaf line for VoiceOver, its time in words: "Field maple, 1 hour, 10 minutes to go"; a line that says a leaf
+    /// is yours as it is.
+    public let leafSpoken: String?
     /// An hours leaf opened: the centre leaf grows and the numeral shrinks beneath it (§4.3).
     public let leafOpened: Bool
     /// "Locked the whole time · 1 break".
     public let breakdown: String?
+    /// The breakdown for VoiceOver, its lengths in words: "45 minutes locked, 5 minutes unlocked, not counted".
+    public let breakdownSpoken: String?
     /// The emergency release's "Session ended. It won't count as finished."
     public let endedLine: String?
     public let layout: DialLayout
@@ -101,6 +113,8 @@ public struct ReceiptModel: Sendable, Equatable {
     public let choices: [Choice]
     /// "Again · 50m"; nil after an emergency release. Locked's Again is a hold, and it follows start readiness.
     public let again: String?
+    /// Again for VoiceOver: "Again, 50 minutes". (Locked's hold is named by `FocusCopy.holdToStartName`.)
+    public let againSpoken: String?
 
     /// - Parameters:
     ///   - session: The ended session.
@@ -150,8 +164,11 @@ public struct ReceiptModel: Sendable, Equatable {
         if ending == .endedEarly {
             let at = focused < 60 ? "\(focused)" : FocusTimeText.length(minutes: focused)
             note = "Ended at \(at) of \(FocusTimeText.length(minutes: plan.plannedMinutes))"
+            let spokenAt = focused < 60 ? "\(focused)" : FocusTimeText.spokenLength(minutes: focused, locale: locale)
+            noteSpoken = "Ended at \(spokenAt) of \(FocusTimeText.spokenLength(minutes: plan.plannedMinutes, locale: locale))"
         } else {
             note = nil
+            noteSpoken = nil
         }
 
         let shown = counts ? counted / 60 : focused
@@ -166,11 +183,20 @@ public struct ReceiptModel: Sendable, Equatable {
         } else {
             caption = todaySeconds >= 60 ? "saved · \(HomeFormat.duration(minutes: todaySeconds / 60)) today" : "saved · none yet today"
         }
-        leafLine = Self.leafLine(counts: counts, ending: ending, unlocks: unlocks, held: heldUntilMorning, next: next)
+        let line = Self.leafLine(counts: counts, ending: ending, unlocks: unlocks, held: heldUntilMorning, next: next, locale: locale)
+        leafLine = line?.parts.text
+        leafLineParts = line?.parts
+        leafLineOpened = line?.opened ?? false
+        leafSpoken = line?.spoken
         leafOpened = unlocks.contains { RewardCatalog.shared.reward(forSpecies: $0.speciesID)?.categoryID == .hoursSaved }
-        breakdown = counts && ending != .emergency
-            ? Self.breakdown(session, stretches: credit?.stretches ?? [], counted: counted, locale: locale, calendar: calendar)
-            : nil
+        if counts && ending != .emergency {
+            let stretches = credit?.stretches ?? []
+            breakdown = Self.breakdown(session, stretches: stretches, counted: counted, spoken: false, locale: locale, calendar: calendar)
+            breakdownSpoken = Self.breakdown(session, stretches: stretches, counted: counted, spoken: true, locale: locale, calendar: calendar)
+        } else {
+            breakdown = nil
+            breakdownSpoken = nil
+        }
         endedLine = ending == .emergency ? FocusCopy.Emergency.endedLine : nil
 
         layout = DialLayout(plannedMinutes: plan.plannedMinutes)
@@ -200,39 +226,76 @@ public struct ReceiptModel: Sendable, Equatable {
             reflectionPrompt = nil
             choices = []
             again = nil
+            againSpoken = nil
         } else {
             reflectionPrompt = "How did it go?"
             let answers: [(Reflection, String)] = [(.allDone, "All done"), (.partly, "Partly"), (.notYet, "Not yet")]
             choices = answers.map { Choice(reflection: $0.0, title: $0.1, isSelected: $0.0 == reflection) }
             again = "Again · \(FocusTimeText.length(minutes: plan.plannedMinutes))"
+            againSpoken = "Again, \(FocusTimeText.spokenLength(minutes: plan.plannedMinutes, locale: locale))"
         }
     }
 
     // MARK: Private
 
-    private static func leafLine(counts: Bool, ending: Ending, unlocks: [LeafUnlock], held: Bool, next: LeafProgress?) -> String? {
+    /// The leaf line's two tones, its spoken form, and whether it says a leaf is yours.
+    private struct LeafLine {
+        let parts: RunningSessionModel.Line
+        let spoken: String
+        let opened: Bool
+
+        /// A line that says a leaf is yours: one primary run, read as it is (as the running screen reads it).
+        init(opened text: String) {
+            parts = RunningSessionModel.Line(lead: text)
+            spoken = text
+            opened = true
+        }
+
+        init(parts: RunningSessionModel.Line, spoken: String) {
+            self.parts = parts
+            self.spoken = spoken
+            opened = false
+        }
+    }
+
+    private static func leafLine(
+        counts: Bool, ending: Ending, unlocks: [LeafUnlock], held: Bool, next: LeafProgress?, locale: Locale
+    ) -> LeafLine? {
         guard counts else { return nil }
-        if unlocks.count >= 2 { return SessionForecast.openedLine(count: unlocks.count) }
+        if unlocks.count >= 2 { return LeafLine(opened: SessionForecast.openedLine(count: unlocks.count)) }
         if let only = unlocks.first {
             let name = LeafCatalog.shared.species(id: only.speciesID)?.displayName ?? only.speciesID
-            return SessionForecast.openedLine(leaf: name, heldUntilMorning: held)
+            return LeafLine(opened: SessionForecast.openedLine(leaf: name, heldUntilMorning: held))
         }
         guard ending != .emergency, let next, next.category == .hoursSaved, next.state == .locked, next.remaining > 0,
               let name = LeafCatalog.shared.species(id: next.speciesID)?.displayName else { return nil }
-        return SessionForecast.leafLine(leaf: name, secondsToGo: Int((next.remaining * 3600).rounded()))
+        let secondsToGo = Int((next.remaining * 3600).rounded())
+        let full = SessionForecast.leafLine(leaf: name, secondsToGo: secondsToGo)
+        // The minutes the line shows, rounded up as `SessionForecast.leafLine` rounds them.
+        let minutesToGo = Int((Double(max(0, secondsToGo)) / 60 - 1e-9).rounded(.up))
+        return LeafLine(
+            parts: RunningSessionModel.Line(lead: name, trail: String(full.dropFirst(name.count + 1))),
+            spoken: "\(name), \(FocusTimeText.spokenLength(minutes: minutesToGo, locale: locale)) to go"
+        )
     }
 
     /// One line: lost proof first; otherwise the uncounted rule with the most time, or "Locked the whole time".
+    /// `spoken` gives VoiceOver's form: lengths in words ("45 minutes", "6 hours"), and a comma for each "·".
     private static func breakdown(
-        _ session: SessionRecord, stretches: [CreditStretch], counted: Int, locale: Locale, calendar: Calendar
+        _ session: SessionRecord, stretches: [CreditStretch], counted: Int, spoken: Bool, locale: Locale, calendar: Calendar
     ) -> String {
         if session.lostAt != nil {
             let checkpoint = session.lastCheckpoint ?? session.countdownStart
             return "Couldn't confirm the block after \(HomeFormat.clock(HomeFormat.clockTime(of: checkpoint, calendar: calendar), locale: locale))"
         }
+        let dot = spoken ? "," : " ·"
+        func length(_ minutes: Int) -> String {
+            spoken ? FocusTimeText.spokenLength(minutes: minutes, locale: locale) : HomeFormat.duration(minutes: minutes)
+        }
+        let cap = spoken ? length(HoursCredit.dailyCap / 60) : "\(HoursCredit.dailyCap / 3600)h"
         let breaks = session.breaks.count
         func withBreaks(_ line: String) -> String {
-            breaks == 0 ? line : "\(line) · \(breaks) \(breaks == 1 ? "break" : "breaks")"
+            breaks == 0 ? line : "\(line)\(dot) \(breaks) \(breaks == 1 ? "break" : "breaks")"
         }
         var seconds: [CreditRule: TimeInterval] = [:]
         for stretch in stretches {
@@ -244,21 +307,21 @@ public struct ReceiptModel: Sendable, Equatable {
 
         if counted == 0 {
             switch rule {
-            case .afterBedtime, .beforeMorning: return "After bedtime · this didn't count"
-            case .dailyCap: return "Over today's \(HoursCredit.dailyCap / 3600)h · this didn't add"
-            case .override: return "Unlocked the whole time · this didn't count"
-            default: return "\(CreditWords.reason(rule)) · this didn't count"
+            case .afterBedtime, .beforeMorning: return "After bedtime\(dot) this didn't count"
+            case .dailyCap: return "Over today's \(cap)\(dot) this didn't add"
+            case .override: return "Unlocked the whole time\(dot) this didn't count"
+            default: return "\(CreditWords.reason(rule))\(dot) this didn't count"
             }
         }
-        let amount = HomeFormat.duration(minutes: max(1, Int((seconds[rule, default: 0] / 60).rounded())))
-        let kept = HomeFormat.duration(minutes: counted / 60)
+        let amount = length(max(1, Int((seconds[rule, default: 0] / 60).rounded())))
+        let kept = length(counted / 60)
         switch rule {
-        case .override: return withBreaks("\(kept) locked · \(amount) unlocked, not counted")
-        case .afterBedtime: return withBreaks("\(kept) counted · \(amount) after bedtime")
-        case .beforeMorning: return withBreaks("\(kept) counted · \(amount) before morning")
-        case .dailyCap: return withBreaks("\(kept) counted · \(amount) over today's \(HoursCredit.dailyCap / 3600)h")
-        case .overlap: return withBreaks("\(kept) counted · \(amount) overlapped another session")
-        default: return withBreaks("\(kept) counted · \(amount) unconfirmed")
+        case .override: return withBreaks("\(kept) locked\(dot) \(amount) unlocked, not counted")
+        case .afterBedtime: return withBreaks("\(kept) counted\(dot) \(amount) after bedtime")
+        case .beforeMorning: return withBreaks("\(kept) counted\(dot) \(amount) before morning")
+        case .dailyCap: return withBreaks("\(kept) counted\(dot) \(amount) over today's \(cap)")
+        case .overlap: return withBreaks("\(kept) counted\(dot) \(amount) overlapped another session")
+        default: return withBreaks("\(kept) counted\(dot) \(amount) unconfirmed")
         }
     }
 }

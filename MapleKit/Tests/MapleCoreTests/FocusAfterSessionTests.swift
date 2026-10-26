@@ -185,6 +185,71 @@ struct ReceiptModelTests {
         #expect(receipt(done, next: nil).leafLine == nil)
     }
 
+    @Test("The leaf line's two tones: the name, then the rest; a line that says a leaf is yours is one run, with the bud")
+    func leafLineParts() throws {
+        let done = try clean()
+        let model = receipt(done)
+        #expect(model.leafLineParts == RunningSessionModel.Line(lead: "Field maple", trail: "· 1h 10m to go"))
+        #expect(model.leafLineParts?.text == model.leafLine)
+        #expect(!model.leafLineOpened)
+        let one = receipt(done, unlocks: [leaf("campestre")])
+        #expect(one.leafLineParts == RunningSessionModel.Line(lead: "Field maple is yours · it opens after this session"))
+        #expect(one.leafLineOpened)
+        let two = receipt(done, unlocks: [leaf("campestre"), leaf("buergerianum")])
+        #expect(two.leafLineParts == RunningSessionModel.Line(lead: "2 new leaves are yours"))
+        #expect(two.leafLineOpened)
+        // A leaf that isn't the dial's (not an hours leaf) is still yours: the bud, but no grown centre.
+        let other = receipt(done, unlocks: [leaf("buergerianum")])
+        #expect(other.leafLineOpened)
+        #expect(!other.leafOpened)
+        #expect(receipt(done, next: nil).leafLineParts == nil)
+        #expect(!receipt(done, next: nil).leafLineOpened)
+    }
+
+    @Test("Spoken forms: the leaf line, Ended at, the breakdown and Again say their times in words, never a bare m or h")
+    func spoken() throws {
+        let model = receipt(try clean())
+        #expect(model.leafSpoken == "Field maple, \(HomeFormat.spokenDuration(minutes: 70, locale: enGB)) to go")
+        #expect(model.leafSpoken?.hasPrefix("Field maple, 1 hour") == true)
+        #expect(model.breakdownSpoken == "Locked the whole time, 1 break")
+        #expect(model.againSpoken == "Again, 50 minutes")
+        #expect(model.noteSpoken == nil)
+
+        let early = receipt(try session { $0.after(18 * 60 + 20, .sessionEnded(.endedEarly, verified: true)) })
+        #expect(early.noteSpoken == "Ended at 18 of 50 minutes")
+        #expect(early.breakdownSpoken == "Locked the whole time")
+
+        let unlocked = receipt(try session {
+            $0.after(20 * 60, .overrideStarted(seconds: 300))
+            $0.after(5 * 60, .overrideEnded)
+            $0.after(25 * 60, .sessionEnded(.completed, verified: true))
+        })
+        #expect(unlocked.breakdownSpoken == "45 minutes locked, 5 minutes unlocked, not counted")
+
+        let crossing = receipt(try session(at: at(2026, 10, 23, 22, 30)) { $0.after(50 * 60, .sessionEnded(.completed, verified: true)) })
+        #expect(crossing.breakdownSpoken == "30 minutes counted, 20 minutes after bedtime")
+
+        // A line that says a leaf is yours has no time in it, and reads as it is (as on the running screen).
+        let one = receipt(try clean(), unlocks: [leaf("campestre")])
+        #expect(one.leafSpoken == "Field maple is yours · it opens after this session")
+
+        let released = try session(plan: FocusFixtures.plan(strictness: .locked)) {
+            $0.after(18 * 60, .sessionEnded(.emergencyRelease, verified: true))
+        }
+        let emergency = receipt(released)
+        #expect(emergency.againSpoken == nil && emergency.breakdownSpoken == nil && emergency.leafSpoken == nil)
+
+        let long = try session(plan: FocusFixtures.plan(minutes: 90)) { $0.after(65 * 60, .sessionEnded(.endedEarly, verified: true)) }
+        #expect(receipt(long).noteSpoken == "Ended at \(HomeFormat.spokenDuration(minutes: 65, locale: enGB)) of \(HomeFormat.spokenDuration(minutes: 90, locale: enGB))")
+        #expect(receipt(long).againSpoken == "Again, \(HomeFormat.spokenDuration(minutes: 90, locale: enGB))")
+
+        for model in [model, early, unlocked, crossing, one, receipt(long)] {
+            for line in [model.leafSpoken, model.noteSpoken, model.breakdownSpoken, model.againSpoken].compactMap({ $0 }) {
+                #expect(line.range(of: #"\d\s?[mh]\b"#, options: .regularExpression) == nil, "\(line)")
+            }
+        }
+    }
+
     @Test("Ended while away: the finish plays only within 10 minutes of the end")
     func endedAway() throws {
         let late = try session { $0.after(2 * 3600 + 50 * 60, .sessionEnded(.completed, verified: true)) }
@@ -307,6 +372,7 @@ struct ReceiptModelTests {
         }
         let model = receipt(revoked)
         #expect(model.breakdown == "Couldn't confirm the block after 14:10")
+        #expect(model.breakdownSpoken == "Couldn't confirm the block after 14:10")
         #expect(model.numeral == "10m")
         #expect(model.isGold)
         #expect(model.marks == Array(repeating: .lit, count: 10) + Array(repeating: .gap, count: 40))
@@ -333,6 +399,7 @@ struct ReceiptModelTests {
         #expect(model.numeral == "0m")
         #expect(model.caption == "saved · 6h today")
         #expect(model.breakdown == "Over today's 6h · this didn't add")
+        #expect(model.breakdownSpoken == "Over today's \(HomeFormat.spokenDuration(minutes: 360, locale: enGB)), this didn't add")
 
         let partial = FocusDay(at(2026, 10, 23, 8))
         partial.session(minutes: 180)
@@ -345,6 +412,8 @@ struct ReceiptModelTests {
         let capped = receipt((session: lastSession, credit: lastCredit), today: HoursCredit.dailyCap)
         #expect(capped.numeral == "10m")
         #expect(capped.breakdown == "10m counted · 40m over today's 6h")
+        #expect(capped.breakdownSpoken
+            == "10 minutes counted, 40 minutes over today's \(HomeFormat.spokenDuration(minutes: 360, locale: enGB))")
         #expect(capped.isGold)
         #expect(capped.marks == Array(repeating: .lit, count: 10) + Array(repeating: .gap, count: 40))
     }

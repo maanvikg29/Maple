@@ -36,6 +36,11 @@ private func rgb(_ pixels: [UInt8], x: Int, y: Int, width: Int) -> (r: Int, g: I
 struct FinishDrawingTests {
     private let lit = DialFrame.receipt(marks: Array(repeating: .lit, count: 50), isGold: true, fill: DialFill())
 
+    /// The marks that counted: the receipt's lit ones.
+    private func counted(_ frame: DialFrame) -> [Bool] {
+        frame.marks.map { $0 == .lit }
+    }
+
     /// The top mark's pixel with the finish at `finish` (or none), on black at 400pt.
     private func top(_ frame: DialFrame, _ finish: FinishFrame?) throws -> (r: Int, g: Int, b: Int) {
         let view = MinuteDial(frame: frame, diameter: 400, theme: .maple).finishing(finish).background(Color.black)
@@ -45,10 +50,10 @@ struct FinishDrawingTests {
     @Test("At its peak the sweep draws a counted mark gold; a session that counted nothing sweeps it white")
     func sweepColours() throws {
         let peak = FinishTimeline.sweepDuration * FinishTimeline.sweepPeak
-        let gold = try top(lit, FinishTimeline.frame(at: peak, counted: lit.gold, leafOpened: false, reduceMotion: false))
+        let gold = try top(lit, FinishTimeline.frame(at: peak, counted: counted(lit), gold: true, leafOpened: false, reduceMotion: false))
         #expect(gold.r > gold.b + 80 && gold.g > gold.b + 50, "gold #F0C24A: \(gold)")
         let plain = DialFrame.receipt(marks: Array(repeating: .lit, count: 50), isGold: false, fill: DialFill())
-        let white = try top(plain, FinishTimeline.frame(at: peak, counted: plain.gold, leafOpened: false, reduceMotion: false))
+        let white = try top(plain, FinishTimeline.frame(at: peak, counted: counted(plain), gold: false, leafOpened: false, reduceMotion: false))
         #expect(white.r > 200 && abs(white.r - white.b) < 20, "white: \(white)")
         let none = try top(lit, nil)
         #expect(abs(none.r - none.b) < 20, "the lit mark alone: \(none)")
@@ -57,8 +62,8 @@ struct FinishDrawingTests {
     @Test("Once the sweep has passed, and under Reduce Motion, the marks are the receipt's own")
     func settlesToTheReceipt() throws {
         let none = try top(lit, nil)
-        let settled = try top(lit, FinishTimeline.frame(at: 3, counted: lit.gold, leafOpened: false, reduceMotion: false))
-        let still = try top(lit, FinishTimeline.frame(at: 0.2, counted: lit.gold, leafOpened: false, reduceMotion: true))
+        let settled = try top(lit, FinishTimeline.frame(at: 3, counted: counted(lit), gold: true, leafOpened: false, reduceMotion: false))
+        let still = try top(lit, FinishTimeline.frame(at: 0.2, counted: counted(lit), gold: true, leafOpened: false, reduceMotion: true))
         for value in [settled, still] {
             #expect(abs(value.r - none.r) <= 3 && abs(value.b - none.b) <= 3, "\(value) against \(none)")
         }

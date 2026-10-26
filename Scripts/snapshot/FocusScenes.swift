@@ -374,7 +374,9 @@ private struct FinishPage: View {
 
     var body: some View {
         let dial = DialFrame.receipt(marks: marks, isGold: isGold, fill: fill)
-        let finish = FinishTimeline.frame(at: time, counted: dial.gold, leafOpened: fill.opened > 0, reduceMotion: reduceMotion)
+        let finish = FinishTimeline.frame(
+            at: time, counted: marks.map { $0 == .lit }, gold: isGold, leafOpened: fill.opened > 0, reduceMotion: reduceMotion
+        )
         let leaf = LeafCatalog.shared.species(id: "campestre").map { DialLeaf(species: $0, fill: fill) }
         VStack(spacing: 28) {
             Text("Finish at \(String(format: "%g", time)) s\(reduceMotion ? " · Reduce Motion" : "")")

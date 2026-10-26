@@ -34,9 +34,10 @@ nonisolated public struct FinishFrame: Sendable, Equatable {
 
 /// The finish as a pure function of time (F1 design §4.6). It plays once, when the session ends, and only if the
 /// member sees it within 10 minutes (`ReceiptModel.ending`).
-/// - The counted marks sweep gold one after another, 14 ms apart and 0.9 s each: each rises to full in its first
-///   quarter and fades back to the receipt's mark. Marks that didn't count stay gaps. A session that counted
-///   nothing sweeps every mark white.
+/// - The counted marks sweep one after another, 14 ms apart and 0.9 s each: each rises to full in its first quarter
+///   and fades back to the receipt's mark. They sweep gold when the receipt is gold, and white otherwise (an early
+///   end, a plain timer). Marks that didn't count stay gaps. Only a session that counted nothing sweeps every mark,
+///   in white.
 /// - An opened leaf grows into the centre over 0.8 s, with an ease-out and no overshoot.
 /// - The leaf's glow pulses once, and a ring ripples out from the marks (1.5 s from 0.15 s).
 /// - The numeral starts fading in at once, the leaf line at 0.4 s, and Done and Again at 0.6 s, each over 0.6 s
@@ -48,15 +49,14 @@ nonisolated public struct FinishFrame: Sendable, Equatable {
 ///
 /// ```swift
 /// TimelineView(.animation(minimumInterval: 1 / 30, paused: elapsed > FinishTimeline.settledTime(markCount: n, reduceMotion: rm))) { context in
-///     let finish = FinishTimeline.frame(at: context.date.timeIntervalSince(shownAt), counted: dial.gold,
-///                                       leafOpened: dial.fill.opened > 0, reduceMotion: rm)
+///     let finish = FinishTimeline.frame(at: context.date.timeIntervalSince(shownAt), counted: dial.marks.map { $0 == .lit },
+///                                       gold: receipt.isGold, leafOpened: dial.fill.opened > 0, reduceMotion: rm)
 ///     MinuteDial(frame: dial, diameter: d, theme: theme) { DialCentre(…).finishing(finish) }
 ///         .finishing(finish)
 /// }
 /// ```
-/// Pass `DialFrame.receipt(…).gold` as `counted`. It is all false when the receipt isn't gold, and that makes the
-/// finish white. A still frame (`-MapleDemoFinishAt`, or a finish seen too late to play) is `frame(at:)` at that
-/// time, or at `settledTime(markCount:reduceMotion:)`.
+/// Pass the receipt's lit marks as `counted` and `ReceiptModel.isGold` as `gold`. A still frame (`-MapleDemoFinishAt`,
+/// or a finish seen too late to play) is `frame(at:)` at that time, or at `settledTime(markCount:reduceMotion:)`.
 nonisolated public enum FinishTimeline {
     public static let sweepStagger: TimeInterval = 0.014
     public static let sweepDuration: TimeInterval = 0.9
@@ -76,9 +76,9 @@ nonisolated public enum FinishTimeline {
     /// When the soft impact haptic plays: as the ring sets off.
     public static let hapticTime: TimeInterval = 0.15
 
-    /// Gold when any mark counted, white when none did.
-    public static func tone(counted: [Bool]) -> FinishFrame.Tone {
-        counted.contains(true) ? .gold : .white
+    /// Gold over a gold receipt's counted marks (F1-18); white for any other receipt, and whenever no mark counted.
+    public static func tone(counted: [Bool], gold: Bool) -> FinishFrame.Tone {
+        gold && counted.contains(true) ? .gold : .white
     }
 
     /// When everything has come to rest for a dial of `markCount` marks: nothing moves after this.
@@ -90,12 +90,14 @@ nonisolated public enum FinishTimeline {
 
     /// The finish `t` seconds in. Times before 0 are the first frame; NaN and times past the end are the last.
     /// - Parameters:
-    ///   - counted: One entry per mark: whether it counted (`DialFrame.gold`).
+    ///   - counted: One entry per mark: whether it counted (the receipt's lit marks). Only these sweep; when none did,
+    ///     every mark sweeps.
+    ///   - gold: The receipt is gold (`ReceiptModel.isGold`): the counted marks sweep gold, not white.
     ///   - leafOpened: A leaf opened in this session, so it grows into the centre.
-    public static func frame(at t: Double, counted: [Bool], leafOpened: Bool, reduceMotion: Bool) -> FinishFrame {
+    public static func frame(at t: Double, counted: [Bool], gold: Bool, leafOpened: Bool, reduceMotion: Bool) -> FinishFrame {
         let time = t.isNaN ? .infinity : t
-        let tone = tone(counted: counted)
-        let sweeping = tone == .white ? counted.map { _ in true } : counted
+        let tone = tone(counted: counted, gold: gold)
+        let sweeping = counted.contains(true) ? counted : counted.map { _ in true }
         let sweep: [Double] = sweeping.enumerated().map { index, sweeps in
             reduceMotion || !sweeps ? 0 : sweepOpacity(time - Double(index) * sweepStagger)
         }

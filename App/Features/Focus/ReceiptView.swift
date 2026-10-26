@@ -36,6 +36,9 @@ struct ReceiptView: View {
     @State private var finishStart = Date()
     /// The finish has come to rest: the timeline stops.
     @State private var isSettled = false
+    /// The finish's announcement and soft impact have played for this showing, so a return to the receipt (another
+    /// tab and back) never plays them again (§4.6 "it plays once", §4.9).
+    @State private var finishPlayed = false
     @State private var finishImpact = 0
     @State private var againProgress = 0.0
     @State private var isStarting = false
@@ -87,14 +90,22 @@ struct ReceiptView: View {
             let fill = centreFill(centre, next: next, countedSeconds: model.countedSeconds)
             let frame = DialFrame.receipt(marks: model.marks, isGold: model.isGold, fill: fill)
             let plays = model.playsFinish && frozenFinish == nil
-            TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !plays || isSettled)) { context in
-                let time = frozenFinish ?? (plays
-                    ? context.date.timeIntervalSince(finishStart)
-                    : FinishTimeline.settledTime(markCount: frame.marks.count, reduceMotion: reduceMotion))
-                let finish = FinishTimeline.frame(
-                    at: time, counted: frame.gold, leafOpened: fill.opened > 0, reduceMotion: reduceMotion
-                )
-                screen(model, session: session, frame: frame, centre: centre, finish: finish)
+            // Once a minute, so Again follows start readiness as the clock moves on (wind-down starting while the
+            // receipt is open sends Again to the start screen). It is read here, not in the finish's frames.
+            TimelineView(.everyMinute) { _ in
+                let again = model.again == nil ? nil : againAction(session)
+                TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !plays || isSettled)) { context in
+                    let time = frozenFinish ?? (plays
+                        ? context.date.timeIntervalSince(finishStart)
+                        : FinishTimeline.settledTime(markCount: frame.marks.count, reduceMotion: reduceMotion))
+                    // The counted (lit) marks sweep: gold when the receipt is gold, white otherwise. Only a session
+                    // that counted nothing sweeps every mark, in white (§4.6).
+                    let finish = FinishTimeline.frame(
+                        at: time, counted: frame.marks.map { $0 == .lit }, gold: model.isGold, leafOpened: fill.opened > 0,
+                        reduceMotion: reduceMotion
+                    )
+                    screen(model, session: session, frame: frame, centre: centre, finish: finish, again: again)
+                }
             }
             .task(id: plays) { await playFinish(plays, markCount: frame.marks.count, announcing: model.dialLabel) }
         }
@@ -102,7 +113,7 @@ struct ReceiptView: View {
 
     private func screen(
         _ model: ReceiptModel, session: SessionRecord, frame: DialFrame, centre: ReceiptFlow.CentreLeaf?,
-        finish: FinishFrame
+        finish: FinishFrame, again: AgainAction?
     ) -> some View {
         let title = FocusCopy.sessionTitle(presetName: session.plan.presetName, intention: notes.intention(for: session.id))
         return SessionScreen(title: title, subtitle: model.subtitle) { diameter in
@@ -112,14 +123,17 @@ struct ReceiptView: View {
                     Text(note)
                         .font(MapleFont.footnote)
                         .foregroundStyle(theme.colors.textSecondary)
+                        .accessibilityLabel(Text(model.noteSpoken ?? note))
                 }
                 dial(model, frame: frame, centre: centre, finish: finish, diameter: diameter)
             }
         } lines: {
-            if let leafLine = model.leafLine {
-                Text(leafLine)
-                    .font(MapleFont.callout)
-                    .foregroundStyle(theme.colors.textPrimary)
+            if let parts = model.leafLineParts {
+                // The running screen's line, so its look doesn't change at the handover: the name, then the rest in
+                // the secondary colour; the amber bud before a line that says a leaf is yours (§4.3).
+                LeafLineRow(words: LeafLineWords(line: parts, opened: model.leafLineOpened))
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(Text(model.leafSpoken ?? parts.text))
                     .opacity(finish.lineOpacity)
                     .offset(y: finish.lineRise)
             }
@@ -127,6 +141,7 @@ struct ReceiptView: View {
                 Text(breakdown)
                     .font(MapleFont.footnote)
                     .foregroundStyle(theme.colors.textSecondary)
+                    .accessibilityLabel(Text(model.breakdownSpoken ?? breakdown))
                     .opacity(finish.lineOpacity)
                     .offset(y: finish.lineRise)
             }
@@ -140,8 +155,8 @@ struct ReceiptView: View {
                 .buttonStyle(.moonlight)
                 .opacity(finish.actionsOpacity)
                 .offset(y: finish.actionsRise)
-            if let again = model.again {
-                againControl(again, session: session)
+            if let title = model.again, let again {
+                againControl(title, spoken: model.againSpoken ?? title, again: again, session: session)
                     .opacity(finish.actionsOpacity)
                     .offset(y: finish.actionsRise)
             }
@@ -190,25 +205,27 @@ struct ReceiptView: View {
     }
 
     /// "Again · 50m": one tap when the start screen has nothing to say, a 1.5-second hold in Locked (§5.2), and
-    /// otherwise the start screen with the preset and length selected (F1-20). Hidden when the preset is gone.
+    /// otherwise the start screen with the preset and length selected (F1-20). VoiceOver reads the link's length in
+    /// words ("Again, 50 minutes"); Locked's hold is named "Hold to start, Locked 50 minutes".
     @ViewBuilder
-    private func againControl(_ title: String, session: SessionRecord) -> some View {
-        if let preset = presets.preset(id: session.plan.presetID), let readiness = againReadiness(preset, session: session) {
-            switch ReceiptFlow.again(readiness) {
-            case .hold:
-                HoldButton(
-                    title: title, duration: FocusCopy.holdToStartSeconds,
-                    accessibilityName: FocusCopy.holdToStartName(minutes: session.plan.plannedMinutes, locale: locale),
-                    progress: $againProgress, frozenProgress: frozenHold
-                ) {
-                    startAgain(preset, session: session)
-                }
-            case .start:
-                TextLink(title, chevron: false) { startAgain(preset, session: session) }
-                    .disabled(isStarting)
-            case .openStartScreen:
-                TextLink(title, chevron: false) { openStartScreen(preset, session: session, lockFailed: false) }
+    private func againControl(_ title: String, spoken: String, again: AgainAction, session: SessionRecord) -> some View {
+        let preset = again.preset
+        switch again.action {
+        case .hold:
+            HoldButton(
+                title: title, duration: FocusCopy.holdToStartSeconds,
+                accessibilityName: FocusCopy.holdToStartName(minutes: session.plan.plannedMinutes, locale: locale),
+                progress: $againProgress, frozenProgress: frozenHold
+            ) {
+                startAgain(preset, session: session)
             }
+        case .start:
+            TextLink(title, chevron: false) { startAgain(preset, session: session) }
+                .disabled(isStarting)
+                .accessibilityLabel(Text(spoken))
+        case .openStartScreen:
+            TextLink(title, chevron: false) { openStartScreen(preset, session: session, lockFailed: false) }
+                .accessibilityLabel(Text(spoken))
         }
     }
 
@@ -221,6 +238,14 @@ struct ReceiptView: View {
         if centre.opened { return DialFill(before: 1, session: 0, opened: 1) }
         guard let next else { return DialFill() }
         return DialFill(rung: next, sessionHours: Double(countedSeconds) / 3600)
+    }
+
+    /// Again's preset and what it does now, from its start readiness; nil hides Again (the preset is gone, or there are
+    /// no Focus stores, as in a bare preview).
+    private func againAction(_ session: SessionRecord) -> AgainAction? {
+        guard let preset = presets.preset(id: session.plan.presetID),
+              let readiness = againReadiness(preset, session: session) else { return nil }
+        return AgainAction(preset: preset, action: ReceiptFlow.again(readiness))
     }
 
     /// The start readiness of the session's preset at its planned length, now (F1-20): Task 9's start-screen model,
@@ -252,16 +277,21 @@ struct ReceiptView: View {
     }
 
     /// The finish's haptic as the ring sets off, the session's end announced, and the timeline stopped once
-    /// everything has come to rest.
+    /// everything has come to rest. The task starts again each time the receipt reappears (another tab and back): the
+    /// announcement and the haptic play only the first time, and a return mid-finish waits out only what is left.
     private func playFinish(_ plays: Bool, markCount: Int, announcing reading: String) async {
-        guard plays else { return }
-        // The session ending is a milestone (§4.9).
-        AccessibilityNotification.Announcement(reading).post()
-        try? await Task.sleep(for: .seconds(FinishTimeline.hapticTime))
-        guard !Task.isCancelled else { return }
-        finishImpact += 1
-        let rest = FinishTimeline.settledTime(markCount: markCount, reduceMotion: reduceMotion) - FinishTimeline.hapticTime
-        try? await Task.sleep(for: .seconds(max(0, rest)))
+        guard plays, !isSettled else { return }
+        if !finishPlayed {
+            finishPlayed = true
+            // The session ending is a milestone (§4.9).
+            AccessibilityNotification.Announcement(reading).post()
+            try? await Task.sleep(for: .seconds(FinishTimeline.hapticTime))
+            guard !Task.isCancelled else { return }
+            finishImpact += 1
+        }
+        let settled = FinishTimeline.settledTime(markCount: markCount, reduceMotion: reduceMotion)
+        let rest = settled - Date.now.timeIntervalSince(finishStart)
+        if rest > 0 { try? await Task.sleep(for: .seconds(rest)) }
         guard !Task.isCancelled else { return }
         isSettled = true
     }
@@ -336,4 +366,10 @@ struct ReceiptView: View {
         return nil
         #endif
     }
+}
+
+/// Again's preset and what it does now (`ReceiptFlow.again`), read once a minute.
+private struct AgainAction {
+    let preset: FocusPreset
+    let action: ReceiptFlow.Again
 }
