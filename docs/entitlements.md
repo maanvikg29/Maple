@@ -26,6 +26,7 @@ So it is **not clearly allowed on a free team**, and Maple treats it as paid-onl
 | Purpose | Identifier |
 |---|---|
 | App | `com.maanvikgupta.maple` |
+| Live Activity extension (F1) | `com.maanvikgupta.maple.widgets` |
 | DeviceActivityMonitor extension (M3) | `com.maanvikgupta.maple.monitor` |
 | DeviceActivityReport extension (M3) | `com.maanvikgupta.maple.report` |
 | ShieldConfiguration extension (M3) | `com.maanvikgupta.maple.shield` |
@@ -34,6 +35,12 @@ So it is **not clearly allowed on a free team**, and Maple treats it as paid-onl
 | iCloud container (M7) | `iCloud.com.maanvikgupta.maple` |
 
 Confirm these before filing the Family Controls request; they're hard to change afterwards.
+
+## Live Activities (F1, checked 2026-10-24)
+- The app's Info.plist carries `NSSupportsLiveActivities = YES` (`INFOPLIST_KEY_NSSupportsLiveActivities` in `Config/Maple.xcconfig`). It is a key, not an entitlement, so no capability or approval is needed, and the free team can build it.
+- The `MapleWidgets` extension (`Config/MapleWidgets.xcconfig`) has no entitlements file and no App Group: everything it draws arrives in the activity's attributes and content. It is embedded in both tiers.
+- No push: activities are started, updated and ended by the app (`pushType: nil`), so there is no push entitlement or token to manage.
+- On a free team the extension uses one more App ID of the 10 per 7 days (below).
 
 ## Requests to file once on the paid program
 1. **Family Controls (Distribution)**: one request per bundle ID above that uses Screen Time: the app, `.monitor`, `.report`, `.shield`, `.shieldaction`. Approval can take weeks; development builds work without it.
@@ -44,4 +51,4 @@ HealthKit (including background delivery, on the paid program), App Groups, iClo
 
 ## Free-account limits to remember
 - Builds expire after 7 days: re-run from Xcode. Don't delete the app, or its data goes with it.
-- 10 App IDs per 7 days and 3 apps per device. Screen Time extensions are only embedded in the `paid` tier so they don't use these up.
+- 10 App IDs per 7 days and 3 apps per device. Screen Time extensions are only embedded in the `paid` tier so they don't use these up; the Live Activity extension (`.widgets`) is embedded in both, so the free tier uses two App IDs.
