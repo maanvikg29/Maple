@@ -229,6 +229,15 @@ struct ComponentTests {
         #expect(!StatNumber.startsNewGroup(parts, at: 9))
     }
 
+    @Test("Home's numeral: two saved values roll, a running session's time changes crisply, and a switch between them either way cross-fades")
+    func statNumberChange() {
+        #expect(StatNumber.Change.between(rolledBefore: true, rollsNow: true) == .roll)
+        #expect(StatNumber.Change.between(rolledBefore: false, rollsNow: false) == .none)
+        // A session ending on Home ("0:01" to "2h 10m"), and one starting: never a roll, which animates a blur.
+        #expect(StatNumber.Change.between(rolledBefore: false, rollsNow: true) == .crossFade)
+        #expect(StatNumber.Change.between(rolledBefore: true, rollsNow: false) == .crossFade)
+    }
+
     @Test("A numeral that doesn't roll (Home's while a session runs) draws exactly as one that does: only its change differs")
     func statNumberWithoutRoll() throws {
         let size = CGSize(width: 300, height: 120)
