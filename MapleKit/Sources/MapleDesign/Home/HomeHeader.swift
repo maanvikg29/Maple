@@ -99,9 +99,11 @@ public struct HomeHeader: View {
             HStack(spacing: 6) {
                 StreakLeaf()
                     .frame(width: leafSize, height: leafSize)
+                // The Focus streak changes by opacity: a numeric roll animates a blur, and Focus motion is transform
+                // and opacity only (F1 design §4.6).
                 Text(streak, format: .number)
                     .font(.system(.headline, design: .rounded, weight: .semibold).monospacedDigit())
-                    .contentTransition(.numericText())
+                    .contentTransition(.opacity)
             }
             .foregroundStyle(theme.colors.reward)
             .frame(minWidth: theme.spacing.minimumHitTarget, minHeight: theme.spacing.minimumHitTarget, alignment: .trailing)
