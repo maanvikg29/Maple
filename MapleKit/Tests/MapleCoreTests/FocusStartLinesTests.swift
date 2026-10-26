@@ -12,14 +12,15 @@ struct FocusStartLinesTests {
 
     private func model(
         strictness: Strictness = .steady, selection: SelectionSummary? = FocusFixtures.blockSix,
-        blocking: FocusStatus.Blocking = .ready, first: Bool = false, stage: StartScreenModel.Stage = .choosing
+        blocking: FocusStatus.Blocking = .ready, first: Bool = false, stage: StartScreenModel.Stage = .choosing,
+        displayToday: Int = 0
     ) -> StartScreenModel {
         var preset = presets[0]
         preset.strictness = strictness
         return StartScreenModel(
             preset: preset, minutes: 50, selection: selection, expiredTokens: false, blocking: blocking, isFirstSession: first,
             phase: .day, day: LocalDay(year: 2026, month: 10, day: 23), window: FocusFixtures.window(),
-            now: at(2026, 10, 23, 14), progress: fieldMaple, displayToday: 0, stage: stage, hasTurned: true, locale: enGB,
+            now: at(2026, 10, 23, 14), progress: fieldMaple, displayToday: displayToday, stage: stage, hasTurned: true, locale: enGB,
             calendar: utc
         )
     }
@@ -136,6 +137,42 @@ struct FocusStartLinesTests {
         #expect(running.leafMinute == nil)
         #expect(running.plainLine == nil)
         #expect(!running.startsPlainTimer)
+    }
+
+    @Test("VoiceOver reads the capsule's and the counts line's lengths in words, never 50m or 6h (§4.9)")
+    func spoken() {
+        let start = FocusStartLines(model: model(), mode: .blocking, locale: enGB)
+        #expect(start.capsuleSpoken == "Start study, 50 minutes")
+        // A line with no length reads as it is shown.
+        #expect(start.detailSpoken == "You'll reach Field maple at minute 35")
+
+        let cap = FocusStartLines(model: model(displayToday: HoursCredit.dailyCap), mode: .blocking, locale: enGB)
+        #expect(cap.detailLine == "6h counted today · more won't add")
+        #expect(cap.detailSpoken == "6 hours counted today, more won't add")
+        let toward = FocusStartLines(model: model(displayToday: HoursCredit.dailyCap - 20 * 60), mode: .blocking, locale: enGB)
+        #expect(toward.detailLine == "Counts toward Field maple · 35m to go")
+        #expect(toward.detailSpoken == "Counts toward Field maple, 35 minutes to go")
+
+        // A plain timer's start has its length too; the failed lock's and the other capsules have none.
+        #expect(FocusStartLines(model: model(blocking: .needsPermission), mode: .plainTimer, locale: enGB).capsuleSpoken
+            == "Start study, 50 minutes")
+        let failed = FocusStartLines(model: model(), mode: .lockFailed, locale: enGB)
+        #expect(failed.capsuleSpoken == "Start as a plain timer")
+        #expect(failed.detailSpoken == "Couldn't lock your apps · Start as a plain timer?")
+        #expect(FocusStartLines(model: model(selection: empty), mode: .blocking, locale: enGB).capsuleSpoken == "Choose apps")
+        #expect(FocusStartLines(model: model(stage: .running), mode: .blocking, locale: enGB).capsuleSpoken == "Return to session")
+        #expect(FocusStartLines(model: model(stage: .running), mode: .blocking, locale: enGB).detailSpoken == nil)
+        // Locked's hold reads its own name.
+        let locked = FocusStartLines(model: model(strictness: .locked), mode: .blocking, showsHoldHint: true, locale: enGB)
+        #expect(locked.capsuleSpoken == "Hold to start, Locked 50 minutes")
+        #expect(locked.detailSpoken == "Hold to start. Locked ends early only by emergency release.")
+
+        #expect(FocusCopy.startName(.deep, minutes: 90, locale: enGB) == "Start a deep session, 1 hour, 30 minutes")
+        #expect(FocusCopy.countsLineSpoken(.capReached, locale: enGB) == "6 hours counted today, more won't add")
+        #expect(FocusCopy.countsLineSpoken(.toward(leaf: "Field maple", minutesToGo: 80), locale: enGB)
+            == "Counts toward Field maple, 1 hour, 20 minutes to go")
+        #expect(FocusCopy.countsLineSpoken(.reaches(leaf: "Field maple", minute: 35), locale: enGB) == nil)
+        #expect(FocusCopy.countsLineSpoken(.definition, locale: enGB) == nil)
     }
 
     @Test("The preset: the chip picked, then Quick for the first session, then the last used, then the first")

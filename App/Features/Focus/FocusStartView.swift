@@ -215,8 +215,9 @@ struct FocusStartView: View {
     /// where the counts line takes one. So a tap showing the hint moves nothing, and the dial stays put (§5.2).
     private func detailLine(_ lines: FocusStartLines) -> some View {
         DetailLine(
-            words: lines.detailLine.map { DetailWords(text: $0, marksLeaf: lines.marksLeaf) },
-            reserving: lines.primary == .holdToStart ? DetailWords(text: FocusCopy.holdHint, marksLeaf: false) : nil
+            words: lines.detailLine.map { DetailWords(text: $0, spoken: lines.detailSpoken ?? $0, marksLeaf: lines.marksLeaf) },
+            reserving: lines.primary == .holdToStart
+                ? DetailWords(text: FocusCopy.holdHint, spoken: FocusCopy.holdHint, marksLeaf: false) : nil
         )
     }
 
@@ -226,8 +227,10 @@ struct FocusStartView: View {
     private func primary(_ model: StartScreenModel, lines: FocusStartLines) -> some View {
         switch lines.primary {
         case .start:
-            Button(lines.capsuleTitle) { start(model, lines: lines) }
+            Button { start(model, lines: lines) } label: { capsuleWords(lines) }
                 .buttonStyle(.moonlight(dimmed: model.capsuleIsDimmed))
+                // "Start study, 50 minutes": VoiceOver never reads a length as "50m" (§4.9).
+                .accessibilityLabel(lines.capsuleSpoken)
         case .holdToStart:
             HoldButton(
                 title: lines.capsuleTitle, duration: FocusCopy.holdToStartSeconds,
@@ -237,16 +240,22 @@ struct FocusStartView: View {
                 start(model, lines: lines)
             }
         case .chooseApps:
-            Button(lines.capsuleTitle) { tab.sheet = .blocking }
+            Button { tab.sheet = .blocking } label: { capsuleWords(lines) }
                 .buttonStyle(.moonlight(dimmed: model.capsuleIsDimmed))
         case .locking:
-            Button(lines.capsuleTitle) {}
+            Button {} label: { capsuleWords(lines) }
                 .buttonStyle(.moonlight)
                 .disabled(true)
         case .returnToSession:
-            Button(lines.capsuleTitle) { tab.isMinimised = false }
+            Button { tab.isMinimised = false } label: { capsuleWords(lines) }
                 .buttonStyle(.moonlight)
         }
+    }
+
+    /// The capsule's words, whole at any size: at accessibility sizes "Start a quick session · 25m" needs a third
+    /// line, which the capsule's own two-line limit would cut off (§5.17). A limit set on the label itself wins over it.
+    private func capsuleWords(_ lines: FocusStartLines) -> some View {
+        Text(lines.capsuleTitle).lineLimit(nil)
     }
 
     /// DEBUG `-MapleDemoHoldAt`: the hold frozen part-way, for screenshots.
@@ -336,10 +345,11 @@ struct FocusStartView: View {
     }
 }
 
-/// The detail line's words, and whether they name the leaf (and so carry the dot's mark). A change of either
-/// cross-fades the line.
+/// The detail line's words, how VoiceOver reads them (lengths in words), and whether they name the leaf (and so carry
+/// the dot's mark). A change of the words or the mark cross-fades the line.
 private struct DetailWords: Hashable {
     let text: String
+    let spoken: String
     let marksLeaf: Bool
 }
 
@@ -423,6 +433,7 @@ private struct DetailLine: View {
                 .font(MapleFont.footnote)
                 .foregroundStyle(theme.colors.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
+                .accessibilityLabel(words.spoken)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

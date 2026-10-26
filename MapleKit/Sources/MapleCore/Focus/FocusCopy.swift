@@ -59,6 +59,25 @@ public enum FocusCopy {
         "Hold to start, Locked \(FocusTimeText.spokenLength(minutes: minutes, locale: locale))"
     }
 
+    /// A start capsule's VoiceOver name (§4.9): "Start study, 50 minutes", so its length is never read as "50m".
+    public static func startName(_ verb: FocusVerb, minutes: Int, locale: Locale) -> String {
+        "\(verb.startTitle), \(FocusTimeText.spokenLength(minutes: minutes, locale: locale))"
+    }
+
+    /// The counts line for VoiceOver where it shows a length (§4.9), so "6h" and "35m" are never read as units:
+    /// "6 hours counted today, more won't add", "Counts toward Field maple, 35 minutes to go". Nil for a line with no
+    /// length, which reads as it is shown.
+    public static func countsLineSpoken(_ line: SessionForecast.CountsLine, locale: Locale) -> String? {
+        switch line {
+        case .capReached:
+            "\(FocusTimeText.spokenLength(minutes: HoursCredit.dailyCap / 60, locale: locale)) counted today, more won't add"
+        case .toward(let leaf, let minutes):
+            "Counts toward \(leaf), \(FocusTimeText.spokenLength(minutes: minutes, locale: locale)) to go"
+        case .hidden, .definition, .afterBedtime, .untilBed, .reaches:
+            nil
+        }
+    }
+
     /// The start dial's VoiceOver label (§4.9): "Session length, 50 minutes".
     public static func sessionLengthLabel(minutes: Int, locale: Locale) -> String {
         "Session length, \(FocusTimeText.spokenLength(minutes: minutes, locale: locale))"

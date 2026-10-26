@@ -49,11 +49,17 @@ public struct FocusStartLines: Sendable, Equatable {
     public let capsuleTitle: String
     /// The hold's VoiceOver name and named action, when the primary is a hold (§4.9, F1-22).
     public let holdName: String?
+    /// The capsule for VoiceOver: a start reads its length in words ("Start study, 50 minutes"), a hold its `holdName`,
+    /// and every other capsule its title, which has no length (§4.9).
+    public let capsuleSpoken: String
     /// "Plain timer · apps aren't locked" in place of the Blocking line; nil keeps the Blocking line.
     public let plainLine: String?
     /// The one line under the Blocking line: the plain-tap hint, a notice, the failed lock's prompt, or the counts
     /// line, in that order; nil hides it.
     public let detailLine: String?
+    /// The detail line for VoiceOver: a counts line that shows a length reads it in words ("Counts toward Field maple,
+    /// 35 minutes to go"); every other line as it is shown (§4.9).
+    public let detailSpoken: String?
     /// The detail line is a counts line naming the next leaf ("You'll reach…", "Counts toward…"), so it carries the
     /// leaf dot's season-tint mark.
     public let marksLeaf: Bool
@@ -74,18 +80,23 @@ public struct FocusStartLines: Sendable, Equatable {
         let locked = model.strictness == .locked
         let primary: StartScreenModel.Primary
         let capsuleTitle: String
+        // "Start study · 50m" and its plain-timer twin carry a length; "Start as a plain timer" doesn't.
+        let startHasLength: Bool
         switch effective {
         case .blocking:
             primary = model.primary
             capsuleTitle = model.capsuleTitle
+            startHasLength = true
         case .plainTimer:
             // A plain timer needs no apps, so it never asks for them; Locked still needs a hold.
             primary = model.primary == .locking ? .locking : locked ? .holdToStart : .start
             capsuleTitle = locked
                 ? FocusCopy.holdToStart(minutes: model.minutes) : "\(model.preset.verb.startTitle) · \(model.lengthText)"
+            startHasLength = true
         case .lockFailed:
             primary = model.primary == .locking ? .locking : locked ? .holdToStart : .start
             capsuleTitle = locked ? Self.holdToStartPlainTimer : FocusCopy.startPlainTimer
+            startHasLength = false
         }
         self.primary = primary
         self.capsuleTitle = capsuleTitle
@@ -95,6 +106,13 @@ public struct FocusStartLines: Sendable, Equatable {
                 ? "\(Self.holdToStartPlainTimer), Locked \(length)" : FocusCopy.holdToStartName(minutes: model.minutes, locale: locale)
         } else {
             holdName = nil
+        }
+        if let holdName {
+            capsuleSpoken = holdName
+        } else if primary == .start, startHasLength {
+            capsuleSpoken = FocusCopy.startName(model.preset.verb, minutes: model.minutes, locale: locale)
+        } else {
+            capsuleSpoken = capsuleTitle
         }
         plainLine = effective == .plainTimer ? SelectionText.restingLine(nil, isPlainTimer: true) : nil
 
@@ -113,6 +131,7 @@ public struct FocusStartLines: Sendable, Equatable {
             }
         }
         detailLine = detail
+        detailSpoken = isCounts ? FocusCopy.countsLineSpoken(model.forecast.countsLine, locale: locale) ?? detail : detail
         marksLeaf = isCounts && detail != nil && Self.namesLeaf(model.forecast.countsLine)
         leafMinute = effective == .blocking ? model.leafMinute : nil
         showsLeaf = effective != .plainTimer
