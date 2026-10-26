@@ -42,10 +42,7 @@ struct FocusView: View {
             .background(theme.colors.background)
             .toolbarVisibility(.hidden, for: .navigationBar)
             .sheet(item: $tab.sheet) { sheet in
-                // Tasks 14 and 15 replace these with the sheets themselves.
-                FocusPlaceholder(sheet.title)
-                    .presentationDetents([.medium])
-                    .presentationBackground(theme.colors.surface2)
+                FocusTabSheetContent(sheet: sheet)
             }
             .onChange(of: pending?.id, initial: true) { _, id in holdReceipt(id) }
             .onChange(of: sessions.running?.id) { old, new in sessionChanged(from: old, to: new) }

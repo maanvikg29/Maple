@@ -62,6 +62,10 @@ struct HomeView: View {
                     .presentationBackground(theme.colors.surface2)
             case .health(let request):
                 HealthPrimerSheet(speciesID: request.speciesID)
+            case .savedToday:
+                SavedTodaySheet()
+            case .streak:
+                StreakSheet()
             }
         }
         .fullScreenCover(item: $cover, onDismiss: presentPendingTree) { cover in
@@ -165,7 +169,7 @@ struct HomeView: View {
         .safeAreaBar(edge: .top) {
             HomeHeader(
                 season: season, date: content.now, streak: content.streak, avatar: content.avatar,
-                onStreak: {}, onAvatar: { sheet = .profile }
+                onStreak: { sheet = .streak }, onAvatar: { sheet = .profile }
             )
             .opacity(state.contentOpacity)
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { measured.header = $0 }
@@ -191,6 +195,11 @@ struct HomeView: View {
             NowBlock(numeral: state.numeral.parts, caption: state.caption, spoken: state.spoken)
                 .padding(.horizontal, theme.spacing.homeMargin)
                 .contentShape(Rectangle())
+                // Today's saved time opens Saved today (focus spec §5.9).
+                .onTapGesture { if opensSavedToday(state) { sheet = .savedToday } }
+                .accessibilityAddTraits(opensSavedToday(state) ? .isButton : [])
+                .accessibilityHint(opensSavedToday(state) ? Text(FocusSheetCopy.savedTodayHint) : Text(""))
+                .accessibilityAction { if opensSavedToday(state) { sheet = .savedToday } }
                 .padding(.top, HomeLayout.numeralGap)
                 .opacity(state.contentOpacity)
 
@@ -206,6 +215,11 @@ struct HomeView: View {
                     .opacity(state.contentOpacity)
             }
         }
+    }
+
+    /// The numeral opens Saved today once Focus ships, while it shows today's saved time.
+    private func opensSavedToday(_ state: NowState) -> Bool {
+        collection.context.features.focus && state.content == .savedToday
     }
 
     /// The one primary capsule, or night's glass capsule once sleep sounds ship; nothing when there is no action.
@@ -271,7 +285,7 @@ struct HomeView: View {
     }
 
     #if DEBUG
-    /// `-MapleDemoPresent tree|tree:<id>|streak|leaf:<id>|health` on the Home tab (docs/debug-launch-arguments.md).
+    /// `-MapleDemoPresent tree|tree:<id>|saved|streak|leaf:<id>|health` on the Home tab (docs/debug-launch-arguments.md).
     private func applyDemoPresentation() {
         guard !demoApplied else { return }
         demoApplied = true
@@ -285,6 +299,10 @@ struct HomeView: View {
             cover = .tree(focusing: String(value.dropFirst("tree:".count)))
         case "health":
             sheet = .health(HealthPrimerRequest())
+        case "saved":
+            sheet = .savedToday
+        case "streak":
+            sheet = .streak
         case let value where value.hasPrefix("leaf:"):
             pushedLeaf = String(value.dropFirst("leaf:".count))
         default:
@@ -294,15 +312,20 @@ struct HomeView: View {
     #endif
 }
 
-/// Home's sheets (spec §2.3): Profile `.large`, and the Apple Health primer `.medium` from the needs-permission row.
+/// Home's sheets (spec §2.3): Profile `.large`, the Apple Health primer `.medium` from the needs-permission row, and
+/// the Focus sheets: Saved today from the numeral, the streak from the header (F1 design §5.9, §5.15).
 enum HomeSheet: Identifiable, Hashable {
     case profile
     case health(HealthPrimerRequest)
+    case savedToday
+    case streak
 
     var id: String {
         switch self {
         case .profile: "profile"
         case .health(let request): request.id
+        case .savedToday: "savedToday"
+        case .streak: "streak"
         }
     }
 }

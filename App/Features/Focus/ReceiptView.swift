@@ -180,7 +180,7 @@ struct ReceiptView: View {
         .onTapGesture(perform: openSavedToday)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(model.dialLabel))
-        .accessibilityHint(Text(ReceiptFlow.savedTodayHint))
+        .accessibilityHint(Text(FocusSheetCopy.savedTodayHint))
         .accessibilityAddTraits(.isButton)
         .accessibilityAction(.default, openSavedToday)
     }

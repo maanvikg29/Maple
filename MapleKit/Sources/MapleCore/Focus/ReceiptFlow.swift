@@ -27,9 +27,6 @@ public enum ReceiptFlow {
         }
     }
 
-    /// The numeral's VoiceOver hint: tapping it opens Saved today (§5.8).
-    public static let savedTodayHint = "Opens Saved today"
-
     /// The hours leaf this session opened, else the next hours leaf (`next`, after this session's credit); nil when
     /// the session couldn't count (a plain timer, a selection that doesn't qualify) or no hours leaf is left.
     public static func centreLeaf(

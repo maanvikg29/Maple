@@ -68,7 +68,8 @@ struct HomeContent {
         leaves = count.opened
         total = count.total
         tendedDays = inputs.tendedDays
-        streak = 0 // The Focus streak arrives with F1 (focus spec §6).
+        // The Focus streak's current run (F1 design §5.10): only once Focus ships; the header hides it under 2.
+        streak = collection.context.features.focus ? collection.currentRun(at: now) : 0
         if let featured = collection.featuredLeaf, let species = LeafCatalog.shared.species(id: featured),
            let unlock = collection.unlock(for: featured) {
             avatar = HomeHeader.Avatar(species: species, colourway: unlock.colourway)
