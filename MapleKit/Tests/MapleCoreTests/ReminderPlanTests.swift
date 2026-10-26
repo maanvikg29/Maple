@@ -311,6 +311,18 @@ struct FocusReminderTests {
         #expect(timer.body == "50 minutes")
     }
 
+    @Test("A session's end is named by its id, and the name gives the id back, so a tap opens its receipt")
+    func sessionEndIdentifier() {
+        let id = FocusFixtures.session
+        let name = ReminderKind.sessionEndIdentifier(for: id)
+        #expect(name == "maple.reminder.sessionEnd.\(id.uuidString.lowercased())")
+        #expect(ReminderKind(identifier: name) == .sessionEnd)
+        #expect(ReminderKind.session(inSessionEndIdentifier: name) == id)
+        #expect(ReminderKind.session(inSessionEndIdentifier: "maple.reminder.windDown.2026-10-12") == nil)
+        #expect(ReminderKind.session(inSessionEndIdentifier: "maple.reminder.sessionEnd.demo") == nil)
+        #expect(ReminderKind.session(inSessionEndIdentifier: "com.example.\(id.uuidString)") == nil)
+    }
+
     @Test("No end reminder when it's switched off or the end has passed")
     func noSessionEnd() {
         let running = session(endingAt: at(2026, 10, 12, 14, 50))

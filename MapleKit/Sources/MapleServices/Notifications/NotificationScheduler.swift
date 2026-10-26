@@ -100,10 +100,11 @@ public final class UserNotificationCenter: NotificationCentering {
 ///
 /// reminders.authorization                     // .notDetermined, .denied or .allowed
 /// await reminders.requestAuthorization()      // iOS's prompt (alerts and sounds, no badge)
-/// await reminders.reschedule(plan: plan)      // Maple's pending requests become exactly the plan's
+/// await reminders.reschedule(plan: plan, now: sessions.now)   // Maple's pending requests become exactly the plan's
 /// ```
 ///
-/// While Maple is open iOS shows nothing (there is no notification-center delegate); a tap just opens the app.
+/// While Maple is open iOS shows none of them (the app's `NotificationDelegate`). Tapping a session's end opens its
+/// receipt; tapping the others just opens the app.
 @Observable
 public final class NotificationScheduler {
     /// Whether iOS lets Maple notify. Read again on every foreground (`refreshAuthorization()`).
@@ -184,11 +185,13 @@ public final class NotificationScheduler {
     /// Makes Maple's pending requests exactly the plan's: removes the ones it no longer has, adds (or replaces)
     /// the rest, and clears delivered ones that no longer hold. Only the next 7 days are ever pending, and nothing
     /// while iOS doesn't allow Maple to notify. Requests other apps' code made are never touched.
-    public func reschedule(plan: ReminderPlan) async {
+    /// - Parameter now: The moment the plan was made for: `FocusSessionStore.now` (trusted time), so a session's end
+    ///   fires after its real time left even when the clock has been moved. Nil uses the scheduler's own clock.
+    public func reschedule(plan: ReminderPlan, now: Date? = nil) async {
         let previous = work
         let task = Task { [weak self] in
             await previous?.value
-            await self?.apply(plan)
+            await self?.apply(plan, now: now)
         }
         work = task
         await task.value
@@ -196,10 +199,10 @@ public final class NotificationScheduler {
 
     // MARK: Private
 
-    private func apply(_ plan: ReminderPlan) async {
+    private func apply(_ plan: ReminderPlan, now planned: Date?) async {
         guard schedulesReminders else { return }
         await refreshAuthorization()
-        let now = clock.now()
+        let now = planned ?? clock.now()
         let horizon = now.addingTimeInterval(TimeInterval(ReminderPlan.horizonDays) * 24 * 3600)
         let wanted = isAllowed ? plan.requests.filter { $0.fireDate > now && $0.fireDate <= horizon } : []
         let wantedIDs = Set(wanted.map(\.id))
