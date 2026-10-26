@@ -49,6 +49,26 @@ struct DialTurnTrackerTests {
         #expect(tracker.move(to: point(340), from: point(350), around: centre, deadZone: 20) == -1)
     }
 
+    @Test("At accessibility sizes only a band around the rim turns the dial, so a drag that starts inside it scrolls the page; at other sizes the whole dial turns")
+    func rimOnly() {
+        let rect = CGRect(x: 0, y: 0, width: 200, height: 200)
+        let whole = DialTurnArea(rimOnly: false).path(in: rect)
+        let rim = DialTurnArea(rimOnly: true).path(in: rect)
+        func out(_ distance: CGFloat) -> CGPoint { CGPoint(x: 100, y: 100 - distance) }
+        // Default sizes: anywhere on the dial.
+        for distance: CGFloat in [0, 30, 55, 60, 95] { #expect(whole.contains(out(distance), eoFill: true)) }
+        // Accessibility sizes: the leaf, the numeral and the caption scroll; the marks' band turns.
+        for distance: CGFloat in [0, 30, 55] { #expect(!rim.contains(out(distance), eoFill: true)) }
+        for distance: CGFloat in [60, 80, 95] { #expect(rim.contains(out(distance), eoFill: true)) }
+        // Never outside the dial.
+        #expect(!rim.contains(CGPoint(x: 2, y: 2), eoFill: true))
+        #expect(!whole.contains(CGPoint(x: 2, y: 2), eoFill: true))
+        // The band is 40% of the radius, and never under a 44pt target.
+        #expect(DialTurnArea.innerRadius(radius: 100) == 56)
+        #expect(DialTurnArea.innerRadius(radius: 200) == 120)
+        #expect(DialTurnArea.innerRadius(radius: 40) == 0)
+    }
+
     @Test("Touches near the centre are ignored, and a new touch starts from where it lands")
     func deadZone() {
         var tracker = DialTurnTracker()

@@ -6,6 +6,9 @@ extension View {
     /// an hour, within 20 minutes to 3 hours. Each step plays the `.selection` haptic. VoiceOver reads the dial as
     /// one adjustable element, "Session length, 50 minutes", which swipes up or down by 5 minutes (§4.9).
     ///
+    /// At accessibility sizes the start screen scrolls (§5.17), so only a band around the rim turns the dial
+    /// (`DialTurnArea`): a drag that starts inside it scrolls the page. The adjustable action still turns it.
+    ///
     /// ```swift
     /// MinuteDial(frame: .preview(layout: DialLayout(plannedMinutes: minutes), leafMinute: model.leafMinute),
     ///            diameter: diameter, theme: theme) { … }
@@ -24,6 +27,7 @@ extension View {
 
 private struct DialTurningModifier: ViewModifier {
     @Environment(\.locale) private var locale
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Binding var minutes: Int
     let enabled: Bool
     let onTurn: (() -> Void)?
@@ -40,7 +44,8 @@ private struct DialTurningModifier: ViewModifier {
     /// 50 minutes" (§4.9).
     func body(content: Content) -> some View {
         let element = content
-            .contentShape(Circle())
+            // The whole dial, or at accessibility sizes only its rim, so the page scrolls from inside it.
+            .contentShape(DialTurnArea(rimOnly: dynamicTypeSize.isAccessibilitySize), eoFill: true)
             .onGeometryChange(for: CGSize.self) { proxy in
                 proxy.size
             } action: { newSize in
@@ -91,6 +96,30 @@ private struct DialTurningModifier: ViewModifier {
         minutes = next
         steps += 1
         onTurn?()
+    }
+}
+
+/// Where a touch can start turning the dial: the whole dial, or at accessibility sizes (`rimOnly`) only the band of its
+/// rim, where the marks are, so a drag that starts on the leaf, the numeral or the caption scrolls the start screen's
+/// page (F1 design §5.17). The band is 40% of the radius and never under a 44pt target. Filled even-odd: the inner
+/// circle is a hole.
+nonisolated struct DialTurnArea: Shape {
+    let rimOnly: Bool
+
+    /// The hole's radius in a dial of `radius`: the rim band is 40% of it, and at least 44pt.
+    static func innerRadius(radius: CGFloat) -> CGFloat {
+        max(0, radius - max(44, radius * 0.4))
+    }
+
+    func path(in rect: CGRect) -> Path {
+        let radius = min(rect.width, rect.height) / 2
+        let centre = CGPoint(x: rect.midX, y: rect.midY)
+        var path = Path(ellipseIn: CGRect(x: centre.x - radius, y: centre.y - radius, width: radius * 2, height: radius * 2))
+        let inner = rimOnly ? Self.innerRadius(radius: radius) : 0
+        if inner > 0 {
+            path.addEllipse(in: CGRect(x: centre.x - inner, y: centre.y - inner, width: inner * 2, height: inner * 2))
+        }
+        return path
     }
 }
 
