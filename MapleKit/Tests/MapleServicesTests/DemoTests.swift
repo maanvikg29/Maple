@@ -34,11 +34,14 @@ struct DemoDataTests {
 
     @Test("Shipped categories fill first, so a small collection has no dormant leaves")
     func shippedFirst() {
-        let snapshot = demo(23)
-        #expect(snapshot.unlocks.allSatisfy { unlock in
+        let shipped = RewardCatalog.shared.assignments.filter { ShippedFeatures.current.isShipped($0.categoryID) }
+        func isShipped(_ unlock: LeafUnlock) -> Bool {
             let category = RewardCatalog.shared.reward(forSpecies: unlock.speciesID)?.categoryID
             return category.map { ShippedFeatures.current.isShipped($0) } ?? false
-        })
+        }
+        #expect(demo(shipped.count).unlocks.allSatisfy(isShipped))
+        // A bigger collection holds every shipped leaf before any other.
+        #expect(Set(shipped.map(\.speciesID)).isSubset(of: Set(demo(23).unlocks.map(\.speciesID))))
     }
 
     @Test("Waiting leaves are the newest, and can be opened in morning, day and evening")
@@ -68,7 +71,6 @@ struct DemoDataTests {
         #expect(snapshot.unlocks.allSatisfy { $0.date < now })
         #expect(snapshot.unlocks.allSatisfy { $0.colourway == LeafColourway.pressed(in: $0.season, evergreen: LeafCatalog.shared.species(id: $0.speciesID)?.evergreen ?? false) })
         #expect(snapshot.vitality(at: now, calendar: utc).value > 0.8)
-        #expect(snapshot.currentBedtimeRun >= 2)
         #expect(snapshot.recentNights.count == 7)
         let big = demo(155, days: 600)
         #expect(Set(big.unlocks.map(\.season)) == Set(Season.allCases))
@@ -167,7 +169,7 @@ struct MapleStoresTests {
         #expect(stores.collection.rarityConsent == .included)
         #expect(stores.shares.providerIdentifier == "preview")
 
-        stores.collection.record([.nightsTracked: 50], at: now)
+        stores.collection.record([.restedNights: 50], at: now)
         stores.collection.openReveals(at: stores.clock.now())
         #expect(try Data(contentsOf: folder.appendingPathComponent("collection.json")) == before)
     }

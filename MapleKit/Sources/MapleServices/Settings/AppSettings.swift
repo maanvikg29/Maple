@@ -32,26 +32,29 @@ nonisolated public struct SettingsSnapshot: Codable, Sendable, Equatable {
 
     public var version: Int
     public var hemisphere: HemisphereChoice
-    /// The sleep need behind Full nights: asleep for at least this, less 30 minutes (rewards.json `full_nights`;
-    /// "7h unless you change it", spec §5.1).
+    /// The sleep need behind Full nights: asleep for at least this, less 30 minutes (rewards.json `full_nights`:
+    /// 7h 30m unless the member changes it, adjustable from 7 to 9 hours).
     public var sleepGoalMinutes: Int
     /// A soft sound as a leaf opens. Off by default (spec §8.7).
     public var revealSound: Bool
+    /// "Time to wind down" at the start of wind-down. On by default; sent only once iOS allows notifications.
+    public var windDownReminder: Bool
 
     public init(
         hemisphere: HemisphereChoice = .automatic, sleepGoalMinutes: Int = AppSettings.defaultSleepGoalMinutes,
-        revealSound: Bool = false
+        revealSound: Bool = false, windDownReminder: Bool = true
     ) {
         version = Self.currentVersion
         self.hemisphere = hemisphere
         self.sleepGoalMinutes = AppSettings.validSleepGoal(sleepGoalMinutes)
         self.revealSound = revealSound
+        self.windDownReminder = windDownReminder
     }
 
     // MARK: Codable (tolerant: missing or unknown values take their defaults)
 
     private enum CodingKeys: String, CodingKey {
-        case version, hemisphere, sleepGoalMinutes, revealSound
+        case version, hemisphere, sleepGoalMinutes, revealSound, windDownReminder
     }
 
     public init(from decoder: any Decoder) throws {
@@ -63,6 +66,7 @@ nonisolated public struct SettingsSnapshot: Codable, Sendable, Equatable {
             (try? c.decodeIfPresent(Int.self, forKey: .sleepGoalMinutes)) ?? AppSettings.defaultSleepGoalMinutes
         )
         revealSound = (try? c.decodeIfPresent(Bool.self, forKey: .revealSound)) ?? false
+        windDownReminder = (try? c.decodeIfPresent(Bool.self, forKey: .windDownReminder)) ?? true
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -71,12 +75,13 @@ nonisolated public struct SettingsSnapshot: Codable, Sendable, Equatable {
         try c.encode(hemisphere, forKey: .hemisphere)
         try c.encode(sleepGoalMinutes, forKey: .sleepGoalMinutes)
         try c.encode(revealSound, forKey: .revealSound)
+        try c.encode(windDownReminder, forKey: .windDownReminder)
     }
 }
 
-/// The member's settings: hemisphere, sleep goal and the reveal sound (spec §8.7). One instance for the app,
-/// injected with `.environment(_:)`; screens read it with `@Environment(AppSettings.self)` and assign to its
-/// properties, which saves at once.
+/// The member's settings: hemisphere, sleep goal, the reveal sound and the wind-down reminder (spec §8.7). One instance
+/// for the app, injected with `.environment(_:)`; screens read it with `@Environment(AppSettings.self)` and assign
+/// to its properties, which saves at once.
 ///
 /// ```swift
 /// @Environment(AppSettings.self) private var settings
@@ -89,7 +94,7 @@ nonisolated public struct SettingsSnapshot: Codable, Sendable, Equatable {
 public final class AppSettings {
     nonisolated public static let file = "settings.json"
     nonisolated public static let defaultSleepGoalMinutes = CollectionContext.defaultSleepNeedMinutes
-    nonisolated public static let sleepGoalRange = (5 * 60)...(10 * 60)
+    nonisolated public static let sleepGoalRange = (7 * 60)...(9 * 60)
     nonisolated public static let sleepGoalStep = 30
 
     public private(set) var snapshot: SettingsSnapshot
@@ -143,7 +148,7 @@ public final class AppSettings {
     /// What Automatic means on this device.
     public var regionHemisphere: Hemisphere { HemisphereChoice.automatic.resolved(regionCode: regionCode) }
 
-    /// Between 5 and 10 hours, in 30-minute steps; other values are clamped and rounded down to a step.
+    /// Between 7 and 9 hours, in 30-minute steps; other values are clamped and rounded down to a step.
     public var sleepGoalMinutes: Int {
         get { snapshot.sleepGoalMinutes }
         set { change { $0.sleepGoalMinutes = Self.validSleepGoal(newValue) } }
@@ -152,6 +157,17 @@ public final class AppSettings {
     public var revealSound: Bool {
         get { snapshot.revealSound }
         set { change { $0.revealSound = newValue } }
+    }
+
+    /// "Time to wind down" at the start of wind-down (Profile › Settings). On until the member turns it off.
+    public var windDownReminder: Bool {
+        get { snapshot.windDownReminder }
+        set { change { $0.windDownReminder = newValue } }
+    }
+
+    /// The reminder switch, as `ReminderPlan` reads it.
+    public var reminders: ReminderSettings {
+        ReminderSettings(windDown: windDownReminder)
     }
 
     public var canIncreaseSleepGoal: Bool { sleepGoalMinutes < Self.sleepGoalRange.upperBound }

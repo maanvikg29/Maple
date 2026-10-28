@@ -14,7 +14,7 @@ struct LeafEngineTests {
 
     @Test("Setup awards the sugar maple")
     func firstSteps() throws {
-        let unlocks = engine.newUnlocks(counters: [.firstSteps: 1], existing: [], at: october, season: .autumn)
+        let unlocks = engine.newUnlocks(counters: [.firstLeaf: 1], existing: [], at: october, season: .autumn)
         let first = try #require(unlocks.first)
         #expect(unlocks.count == 1)
         #expect(first.speciesID == "saccharum")
@@ -27,33 +27,34 @@ struct LeafEngineTests {
 
     @Test("Every met rung unlocks at once, in canonical order")
     func everyMetRung() {
-        let unlocks = engine.newUnlocks(counters: [.nightsTracked: 7, .onTimeBedtimes: 3, .firstSteps: 1],
+        let unlocks = engine.newUnlocks(counters: [.restedNights: 3, .hoursSaved: 3, .firstLeaf: 1],
                                         existing: [], at: october, season: .autumn)
-        #expect(unlocks.map(\.speciesID) == ["saccharum", "rubrum", "saccharinum", "nigrum"]
-            + RewardCatalog.shared.rungs(in: .onTimeBedtimes).prefix(2).map(\.speciesID))
+        #expect(unlocks.map(\.speciesID) == ["saccharum"]
+            + RewardCatalog.shared.rungs(in: .hoursSaved).prefix(3).map(\.speciesID) + [species(.restedNights, rung: 0)])
+        #expect(unlocks.map(\.speciesID).prefix(2) == ["saccharum", "rubrum"])
     }
 
     @Test("Thresholds are inclusive and fractional counters work")
     func thresholds() {
-        let below = engine.newUnlocks(counters: [.focusHours: 3.99], existing: [], at: october, season: .autumn)
+        let below = engine.newUnlocks(counters: [.hoursSaved: 0.99], existing: [], at: october, season: .autumn)
         #expect(below.isEmpty)
-        let at4 = engine.newUnlocks(counters: [.focusHours: 4.0], existing: [], at: october, season: .autumn)
-        #expect(at4.count == 1)
+        let atOne = engine.newUnlocks(counters: [.hoursSaved: 1.0], existing: [], at: october, season: .autumn)
+        #expect(atOne.count == 1)
     }
 
     @Test("Running twice adds nothing")
     func idempotent() {
-        let counters: [RewardCategoryID: Double] = [.firstSteps: 1, .nightsTracked: 30, .steadyWeeks: 6, .focusDays: 14]
+        let counters: [RewardCategoryID: Double] = [.firstLeaf: 1, .restedNights: 30, .focusStreak: 7, .sessionsFinished: 10]
         let first = engine.newUnlocks(counters: counters, existing: [], at: october, season: .autumn)
         #expect(!first.isEmpty)
         let second = engine.newUnlocks(counters: counters, existing: first, at: october.addingTimeInterval(3600), season: .winter)
         #expect(second.isEmpty)
         // Raising one counter adds only that category's new rungs.
         var raised = counters
-        raised[.nightsTracked] = 60
+        raised[.restedNights] = 60
         let third = engine.newUnlocks(counters: raised, existing: first, at: october, season: .autumn)
         #expect(third.count == 1)
-        #expect(third.first?.speciesID == RewardCatalog.shared.rungs(in: .nightsTracked).first { $0.threshold == 60 }?.speciesID)
+        #expect(third.first?.speciesID == RewardCatalog.shared.rungs(in: .restedNights).first { $0.threshold == 60 }?.speciesID)
     }
 
     @Test("Every leaf can be earned exactly once")
@@ -71,7 +72,7 @@ struct LeafEngineTests {
     @Test("Pressed colourway follows the season; evergreens stay green")
     func colourways() throws {
         let winter = at(2026, 1, 15, 8)
-        let unlocks = engine.newUnlocks(counters: [.nightsTracked: 1, .steadyWeeks: 1], existing: [], at: winter,
+        let unlocks = engine.newUnlocks(counters: [.hoursSaved: 1, .phoneFreeMornings: 1], existing: [], at: winter,
                                         hemisphere: .northern, calendar: utc)
         let rubrum = try #require(unlocks.first { $0.speciesID == "rubrum" })
         #expect(rubrum.season == .winter)
@@ -82,7 +83,7 @@ struct LeafEngineTests {
 
     @Test("Season comes from the hemisphere")
     func hemisphere() throws {
-        let unlocks = engine.newUnlocks(counters: [.nightsTracked: 1], existing: [], at: october, hemisphere: .southern, calendar: utc)
+        let unlocks = engine.newUnlocks(counters: [.hoursSaved: 1], existing: [], at: october, hemisphere: .southern, calendar: utc)
         let rubrum = try #require(unlocks.first)
         #expect(rubrum.season == .spring)
         #expect(rubrum.colourway == .spring)
@@ -92,7 +93,7 @@ struct LeafEngineTests {
 @Suite("Held and pending reveals")
 struct RevealScheduleTests {
     // Standard schedule: wind-down 22:15, bed 23:00, wake 07:00 → Evening from 20:15, Morning from 06:00.
-    private let schedule = SleepSchedule.standard
+    private let schedule = WeeklySleepSchedule.standard
 
     private func unlock(_ id: String = "rubrum", at date: Date, revealed: Bool = false) -> LeafUnlock {
         LeafUnlock(speciesID: id, date: date, season: .autumn, colourway: .autumn, revealed: revealed)
@@ -127,7 +128,7 @@ struct RevealScheduleTests {
         // Bed 01:00, wake 09:00, 60m wind-down → wind-down 00:00, Evening from 22:00, Morning from 08:00.
         let late = SleepSchedule(bedtime: ClockTime(hour: 1), wake: ClockTime(hour: 9), windDownMinutes: 60)
         func release(_ date: Date) -> Date {
-            RevealSchedule.releaseDate(for: unlock(at: date), schedule: late, calendar: utc)
+            RevealSchedule.releaseDate(for: unlock(at: date), schedule: .everyNight(late), calendar: utc)
         }
         #expect(release(at(2026, 10, 10, 21, 59)) == at(2026, 10, 10, 21, 59))
         #expect(release(at(2026, 10, 10, 22)) == at(2026, 10, 11, 8))

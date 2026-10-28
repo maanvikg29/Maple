@@ -31,39 +31,33 @@ public struct LeafRemainder: Sendable, Equatable {
     }
 
     enum Unit: Equatable {
-        case nights, evenings, mornings, days, weeks, seasons, hours, challenges, steps
+        case nights, mornings, days, hours, steps, sessions
 
         var singular: String {
             switch self {
             case .nights: "night"
-            case .evenings: "evening"
             case .mornings: "morning"
             case .days: "day"
-            case .weeks: "week"
-            case .seasons: "season"
             case .hours: "hour"
-            case .challenges: "challenge"
             case .steps: "step"
+            case .sessions: "session"
             }
         }
 
         var plural: String { singular + "s" }
 
-        /// Units that one more night (or evening) can complete.
-        var perNight: Bool { self == .nights || self == .evenings }
+        /// Units that one more night can complete.
+        var perNight: Bool { self == .nights }
     }
 
     static func unit(for category: RewardCategoryID) -> Unit {
         switch category {
-        case .firstSteps: .steps
-        case .nightsTracked, .onTimeBedtimes, .bedtimeRun, .fullNights, .soundWindDowns, .bedtimeShieldKept: .nights
-        case .scrollFreeWindDowns, .windDownRituals: .evenings
-        case .steadyMornings, .phoneFreeMornings: .mornings
-        case .focusDays, .caffeineCurfew: .days
-        case .steadyWeeks, .focusWeeks, .reflectionWeeks: .weeks
-        case .seasonsInRhythm: .seasons
-        case .focusHours: .hours
-        case .communityChallenges: .challenges
+        case .firstLeaf: .steps
+        case .hoursSaved: .hours
+        case .sessionsFinished: .sessions
+        case .focusStreak: .days
+        case .phoneFreeMornings: .mornings
+        case .bedtimeKept, .restedNights: .nights
         }
     }
 }

@@ -3,25 +3,30 @@ import MapleCore
 import MapleDesign
 import MapleServices
 
-/// The end of onboarding (spec §8.8, D12), the only place the Seed stage is seen:
+/// The first run (spec §8.8, D12), full screen, and the only place the Seed stage is seen:
 ///
-/// 1. "Your sleep schedule": saving it through `ScheduleStore` earns the First-steps leaf (the Sugar maple).
-/// 2. The scene with the 44 pt sprout and its neutral bud on the hill; the bud turns amber. "Your maple",
+/// 1. Four questions, one per screen (`OnboardingQuestionView`): the weekday wake, the weekend wake, the sleep need
+///    (which becomes Settings › Sleep goal) and the wind-down length.
+/// 2. "Your sleep schedule", opening on the schedule proposed from the answers. Saving it through `ScheduleStore`
+///    earns the First-steps leaf (the Sugar maple).
+/// 3. The Apple Health primer ("Not now" allowed), then the reminders primer (`OnboardingNotificationsStep`,
+///    skipped once iOS has been asked).
+/// 4. The scene with the 44 pt sprout and its neutral bud on the hill; the bud turns amber. "Your maple",
 ///    "Tap to open your first leaf".
-/// 3. The full reveal of the Sugar maple ("For setting your sleep schedule"), at any hour.
-/// 4. "Place on your maple" grafts it onto the tree, which becomes a seedling, then `onFinish` shows Home.
+/// 5. The full reveal of the Sugar maple ("For setting your sleep schedule"), at any hour.
+/// 6. "Place on your maple" grafts it onto the tree, which becomes a seedling, then `onFinish` shows Home.
 ///
-/// The first frame already shows the step `start` names (decided at launch by `ScheduleStore.resumeFirstRun`), so
-/// there is no empty frame or slow fade before it. A run stopped after "Save schedule" resumes at the sprout for
-/// the Sugar maple it already earned: the schedule is never asked for twice and the leaf is never awarded twice.
+/// Every step is saved as it happens (`OnboardingStore`, `ScheduleStore`, the collection), and the first frame shows
+/// the step those files name, so a run stopped anywhere resumes on the same screen: the schedule is never asked for
+/// twice once saved, and the leaf is never awarded twice.
 struct PlantYourMapleView: View {
-    /// Where the run starts: `.schedule`, or `.sprout` when the Sugar maple is already earned.
+    /// Where the run starts: `.schedule` (the questions and schedule), or `.sprout` when the Sugar maple is earned.
     var start: FirstRunStep
     /// Called after "Place on your maple"; the app then shows Home.
     var onFinish: () -> Void
 
     var body: some View {
-        PlantYourMapleScreen(start: start, onFinish: onFinish)
+        PlantYourMapleScreen(onFinish: onFinish)
             #if DEBUG
             .revealDemoMotion()
             #endif
@@ -33,35 +38,38 @@ private struct PlantYourMapleScreen: View {
 
     @Environment(CollectionStore.self) private var collection
     @Environment(ScheduleStore.self) private var schedule
+    @Environment(OnboardingStore.self) private var onboarding
+    @Environment(AppSettings.self) private var settings
     @Environment(LeafShareStore.self) private var shares
     @Environment(\.mapleClock) private var clock
     @Environment(\.theme) private var theme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private enum Step: Equatable {
-        case schedule, sprout, reveal, placed
+        /// The questions, the schedule and the primers: `OnboardingStore` says which.
+        case setup
+        case sprout, reveal, placed
     }
 
-    /// Set from `start` before the first frame, so the screen never opens empty.
-    @State private var step: Step
+    /// Nil until the first frame, which takes it from the saved files (`initialStep`), so the screen never opens
+    /// empty or on the wrong step.
+    @State private var stepOverride: Step?
     @State private var budIsAmber = false
     @State private var revealMoment: RevealMoment = .closed
     @State private var openings = 0
     @State private var holdsAtEnd = false
     @State private var started = false
 
-    init(start: FirstRunStep, onFinish: @escaping () -> Void) {
-        self.onFinish = onFinish
-        _step = State(initialValue: Self.step(for: start))
+    private var step: Step { stepOverride ?? initialStep }
+
+    /// The questions and primers until they are done, then the sprout.
+    private var initialStep: Step {
+        setupStep == .sprout || setupStep == nil ? .sprout : .setup
     }
 
-    /// The flow's first step for the launch's first-run step. `.recordFirstLeaf` has been repaired by the time the
-    /// view exists (`resumeFirstRun`), and `.finished` hands over to Home in `begin()`.
-    private static func step(for start: FirstRunStep) -> Step {
-        switch start {
-        case .schedule, .recordFirstLeaf: .schedule
-        case .sprout, .finished: .sprout
-        }
+    /// The setup screen the files name (`OnboardingProgress.resume`); nil once the Sugar maple is placed.
+    private var setupStep: OnboardingStep? {
+        onboarding.step(schedule: schedule, collection: collection)
     }
 
     /// The First-steps leaf: the Sugar maple.
@@ -71,9 +79,12 @@ private struct PlantYourMapleScreen: View {
         ZStack {
             theme.colors.background.ignoresSafeArea()
             switch step {
-            case .schedule:
-                SleepScheduleStep(onSave: save)
-                    .transition(.opacity)
+            case .setup:
+                if let current = setupStep {
+                    setup(current)
+                        .id(current)
+                        .transition(.opacity)
+                }
             case .sprout, .placed:
                 scene
                     .transition(.opacity)
@@ -96,6 +107,53 @@ private struct PlantYourMapleScreen: View {
 
     private var firstLeaf: RevealLeaf? {
         collection.unlock(for: firstLeafID).flatMap { RevealLeaf(unlock: $0, share: shares.share(for: $0.speciesID)) }
+    }
+
+    // MARK: Setup: questions, schedule, primers
+
+    @ViewBuilder
+    private func setup(_ current: OnboardingStep) -> some View {
+        switch current {
+        case .weekdayWake, .weekendWake, .sleepNeed, .windDown:
+            OnboardingQuestionView(
+                step: current, onBack: current.previous.map { previous in { go(to: previous) } },
+                onContinue: { go(to: current.next) }
+            )
+        case .schedule:
+            SleepScheduleStep(
+                proposal: onboarding.answers.proposedSchedule, start: onboarding.scheduleShown,
+                onChange: { onboarding.setScheduleDraft($0) },
+                onBack: { go(to: .windDown) },
+                onSave: save
+            )
+        case .health:
+            OnboardingHealthStep { answered(.health) }
+        case .notifications:
+            OnboardingNotificationsStep { answered(.notifications) }
+        case .sprout:
+            Color.clear
+        }
+    }
+
+    /// Continue or back: a calm crossfade to the next screen, which is saved at once.
+    private func go(to next: OnboardingStep) {
+        withAnimation(theme.motion.gentle) { onboarding.go(to: next) }
+    }
+
+    /// A primer was answered; after the last one the sprout appears.
+    private func answered(_ primer: OnboardingStep) {
+        withAnimation(theme.motion.gentle) { onboarding.answered(primer) }
+        if setupStep == .sprout { showSprout() }
+    }
+
+    private func save(_ newSchedule: WeeklySleepSchedule) {
+        let now = clock.now()
+        // The sleep need answer is the sleep goal behind Full nights (rewards.json `full_nights`).
+        settings.sleepGoalMinutes = onboarding.answers.sleepNeedMinutes
+        schedule.save(newSchedule, at: now)
+        // Saving the first schedule earns the Sugar maple; `resumeFirstRun` repairs a save that didn't record it.
+        guard schedule.resumeFirstRun(at: now) == .sprout else { return onFinish() }
+        go(to: .health)
     }
 
     // MARK: The sprout and the seedling
@@ -187,8 +245,12 @@ private struct PlantYourMapleScreen: View {
             onFinish()
             return
         }
+        stepOverride = initialStep
         // A sprout with no leaf behind it would be a dead end, so ask for the schedule instead.
-        if step == .sprout, collection.firstLeaf == nil { step = .schedule }
+        if step == .sprout, collection.firstLeaf == nil {
+            onboarding.go(to: .schedule)
+            stepOverride = .setup
+        }
         if step == .sprout { ripenBud() }
         #if DEBUG
         applyDemo()
@@ -196,11 +258,10 @@ private struct PlantYourMapleScreen: View {
         #endif
     }
 
-    private func save(_ newSchedule: SleepSchedule) {
-        schedule.save(newSchedule, at: clock.now())
-        // Saving the first schedule earns the Sugar maple; `resumeFirstRun` repairs a save that didn't record it.
-        guard schedule.resumeFirstRun(at: clock.now()) == .sprout else { return onFinish() }
-        withAnimation(theme.motion.calm) { step = .sprout }
+    /// The questions and primers are done: the scene with the sprout, whose bud then ripens.
+    private func showSprout() {
+        guard step == .setup else { return }
+        withAnimation(theme.motion.calm) { stepOverride = .sprout }
         ripenBud()
     }
 
@@ -217,7 +278,7 @@ private struct PlantYourMapleScreen: View {
     private func openFromSprout() {
         guard step == .sprout, budIsAmber else { return }
         revealMoment = .closed
-        withAnimation(theme.motion.gentle) { step = .reveal }
+        withAnimation(theme.motion.gentle) { stepOverride = .reveal }
         Task {
             try? await Task.sleep(for: .seconds(0.6))
             open()
@@ -236,7 +297,7 @@ private struct PlantYourMapleScreen: View {
         if let name = placed.first.flatMap({ LeafCatalog.shared.species(id: $0.speciesID)?.displayName }) {
             AccessibilityNotification.Announcement("\(name) placed on your maple.").post()
         }
-        withAnimation(theme.motion.graft) { step = .placed }
+        withAnimation(theme.motion.graft) { stepOverride = .placed }
         guard !holdsAtEnd else { return }
         Task {
             try? await Task.sleep(for: .seconds(2.4))
@@ -245,19 +306,52 @@ private struct PlantYourMapleScreen: View {
     }
 
     #if DEBUG
-    /// `-MapleDemoOnboardingStep` and, for the reveal, `-MapleDemoRevealAt`.
+    /// `-MapleDemoOnboardingStep` and, for the reveal, `-MapleDemoRevealAt` (docs/debug-launch-arguments.md). Demo
+    /// launches keep every store in memory, so the saves here never reach the member's files.
     private func applyDemo() {
-        guard let demo = RevealDemoOptions.onboardingStep, step == .schedule || step == .sprout else { return }
-        if !schedule.hasSavedSchedule { schedule.save(.standard, at: clock.now()) }
+        guard let demo = RevealDemoOptions.onboardingStep, step == .setup || step == .sprout else { return }
+        var answers = onboarding.answers
+        switch demo {
+        case "wake":
+            onboarding.go(to: .weekdayWake)
+        case "weekend", "weekend:later":
+            if demo == "weekend:later" { answers.weekendWake = answers.suggestedWeekendWake }
+            onboarding.answers = answers
+            onboarding.go(to: .weekendWake)
+        case "sleep":
+            onboarding.go(to: .sleepNeed)
+        case "winddown":
+            onboarding.go(to: .windDown)
+        case "schedule", "schedule:weekend":
+            if demo == "schedule:weekend" { answers.weekendWake = ClockTime(hour: 9) }
+            onboarding.answers = answers
+            onboarding.go(to: .schedule)
+        case "health", "notifications":
+            if !schedule.hasSavedSchedule { schedule.save(onboarding.scheduleShown, at: clock.now()) }
+            if demo == "notifications" { onboarding.answered(.health) }
+            onboarding.go(to: demo == "health" ? .health : .notifications)
+            stepOverride = .setup
+        case "seed", "sprout", "reveal", "placed":
+            if !schedule.hasSavedSchedule { schedule.save(.standard, at: clock.now()) }
+            onboarding.answered(.health)
+            onboarding.answered(.notifications)
+            applyEndDemo(demo)
+        default:
+            break
+        }
+    }
+
+    /// The onboarding end's demo steps: `seed`, `sprout`, `reveal`, `placed`.
+    private func applyEndDemo(_ demo: String) {
         switch demo {
         case "seed":
-            step = .sprout
+            stepOverride = .sprout
         case "sprout":
-            step = .sprout
+            stepOverride = .sprout
             ripenBud()
         case "reveal":
             budIsAmber = true
-            step = .reveal
+            stepOverride = .reveal
             if let time = RevealDemoOptions.openAt {
                 revealMoment = .still(time)
             } else {
@@ -274,18 +368,33 @@ private struct PlantYourMapleScreen: View {
         }
     }
 
-    /// `-MapleDemoFirstRunAutoplay <seconds>`: taps through the first run on its own, pausing that long on each step
-    /// (the schedule, the amber bud, the settled reveal), so a fresh install's real first run can be screenshotted
-    /// without touching the simulator. Unlike the other onboarding arguments it acts on a live launch: it saves the
-    /// schedule shown (the standard one) and places the Sugar maple, writing the member's files exactly as the taps
-    /// would (docs/debug-launch-arguments.md).
+    /// `-MapleDemoFirstRunAutoplay <seconds>`: taps through the first run on its own, pausing that long on each
+    /// screen: Continue on each question (keeping its default answer), "Save schedule" on the proposal, "Not now" on
+    /// the Apple Health primer (Apple's own sheet needs a real tap), then the amber bud and "Place on your maple".
+    /// Unlike the other onboarding arguments it acts on a live launch: it writes the member's files exactly as the
+    /// taps would (docs/debug-launch-arguments.md).
     private func autoplay() {
         let pause = UserDefaults.standard.double(forKey: "MapleDemoFirstRunAutoplay")
         guard pause > 0 else { return }
         Task {
-            if step == .schedule {
-                try? await Task.sleep(for: .seconds(pause))
-                save(.standard)
+            while step == .setup, let current = setupStep, current != .sprout {
+                switch current {
+                case .weekdayWake, .weekendWake, .sleepNeed, .windDown:
+                    try? await Task.sleep(for: .seconds(pause))
+                    if setupStep == current { go(to: current.next) }
+                case .schedule:
+                    try? await Task.sleep(for: .seconds(pause))
+                    if setupStep == .schedule { save(onboarding.scheduleShown) }
+                case .health:
+                    try? await Task.sleep(for: .seconds(pause))
+                    if setupStep == .health { answered(.health) }
+                case .notifications:
+                    // "Not now" on the reminders primer (iOS's own prompt needs a real tap).
+                    try? await Task.sleep(for: .seconds(pause))
+                    if setupStep == .notifications { answered(.notifications) }
+                case .sprout:
+                    try? await Task.sleep(for: .seconds(0.3))
+                }
             }
             // The bud turns amber 1.2 s after the sprout appears.
             try? await Task.sleep(for: .seconds(1.2 + pause))

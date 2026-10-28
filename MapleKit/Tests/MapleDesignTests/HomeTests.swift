@@ -136,11 +136,11 @@ struct HomeTests {
 
     @Test("The tree's value names the newest and next leaf, then what applies")
     func treeValue() throws {
-        let next = try progress(.onTimeBedtimes, current: 9)
+        let next = try progress(.restedNights, current: 9)
         let name = try #require(LeafCatalog.shared.species(id: next.speciesID)).displayName
         let threshold = Int(next.threshold)
         #expect(HomeSpeech.treeValue(newest: "Red maple", next: next, waiting: 0, grewToday: false, resting: false)
-            == "Newest: Red maple. Next leaf: \(name), 9 of \(threshold) on-time bedtimes.")
+            == "Newest: Red maple. Next leaf: \(name), 9 of \(threshold) rested nights.")
         #expect(HomeSpeech.treeValue(newest: nil, next: nil, waiting: 1, grewToday: true, resting: true)
             == "A new leaf is waiting. Grew today. Resting.")
         #expect(HomeSpeech.treeValue(newest: nil, next: nil, waiting: 3, grewToday: false, resting: false)
@@ -149,28 +149,31 @@ struct HomeTests {
 
     @Test("The next-leaf row reads the leaf, its progress in its own words and what is left")
     func nextLeaf() throws {
-        let next = try progress(.onTimeBedtimes, current: 2)
+        let next = try progress(.restedNights, current: 2)
         let species = try #require(LeafCatalog.shared.species(id: next.speciesID))
         let threshold = Int(next.threshold)
-        var expected = "Next leaf: \(species.displayName). 2 of \(threshold) on-time bedtimes, \(threshold - 2) to go."
+        var expected = "Next leaf: \(species.displayName). 2 of \(threshold) rested nights, \(threshold - 2) to go."
         if let approximate = species.confidence.approximateSpokenLabel {
             expected += " " + approximate
         }
         #expect(HomeSpeech.nextLeaf(next) == expected)
 
-        let run = try progress(.bedtimeRun, current: 2)
-        #expect(HomeSpeech.amount(run) == "2 of \(Int(run.threshold)) nights in a row")
-        let tracked = try progress(.nightsTracked, current: 0)
-        #expect(HomeSpeech.amount(tracked).hasPrefix("0 of "))
+        let streak = try progress(.focusStreak, current: 2)
+        #expect(HomeSpeech.amount(streak) == "2 of \(Int(streak.threshold)) days in a row")
+        let hours = try progress(.hoursSaved, current: 0)
+        #expect(HomeSpeech.amount(hours) == "0 of \(Int(hours.threshold)) hours saved")
+        let firstHour = LeafProgress(speciesID: "rubrum", category: .hoursSaved, threshold: 1, tier: .firstSteps, current: 0,
+                                     availability: .available, state: .locked, estimatedDays: 1)
+        #expect(HomeSpeech.amount(firstHour) == "0 of 1 hour saved")
         #expect(HomeSpeech.waiting(1) == "A new leaf is waiting")
         #expect(HomeSpeech.waiting(2) == "2 new leaves are waiting")
     }
 
     @Test("Without Apple Health the row names the leaf and what it needs, with Turn on Apple Health")
     func needsPermission() {
-        let rubrum = LeafProgress(speciesID: "rubrum", category: .nightsTracked, threshold: 1, tier: .common, current: 0,
+        let rubrum = LeafProgress(speciesID: "saccharinum", category: .restedNights, threshold: 3, tier: .firstSteps, current: 0,
                                   availability: .needsAppleHealth, state: .locked, estimatedDays: nil)
-        #expect(HomeSpeech.needsPermission(rubrum) == "Next leaf: Red maple. Needs Apple Health.")
+        #expect(HomeSpeech.needsPermission(rubrum) == "Next leaf: Silver maple. Needs Apple Health.")
         #expect(HerbariumCopy.turnOnTitle(rubrum.availability) == "Turn on Apple Health")
         // Home's copy rule: one line of 7 words or fewer.
         #expect((HerbariumCopy.turnOnTitle(rubrum.availability) ?? "").split(separator: " ").count <= 7)
@@ -213,30 +216,6 @@ struct HomeTests {
         onTime.enumerated().map { index, value in
             NightRecord(day: lastNight.adding(days: index - onTime.count + 1, calendar: calendar), onTime: value, fullNight: nil, scrollFree: nil)
         }
-    }
-
-    @Test("The run fills back from last night; a miss inside it is forgiven; earlier nights are outside")
-    func runMarks() {
-        let marks = BedtimeRunNights.marks(
-            nights: nights([true, false, true, true, false, true, true]), currentRun: 4, lastNight: lastNight, calendar: calendar
-        )
-        #expect(marks.count == 14)
-        // Oldest → newest: 7 unrecorded nights and an on-time night before the run, the miss that ended it, then
-        // 2 on time, a forgiven miss and 2 on time.
-        let expected: [BedtimeRunNights.Mark] = [.other, .other, .other, .other, .other, .other, .other, .other, .other,
-                                                 .inRun, .inRun, .forgiven, .inRun, .inRun]
-        #expect(marks == expected)
-    }
-
-    @Test("No run leaves every night outside; a long run fills nights it has no record of")
-    func runEdges() {
-        let none = BedtimeRunNights.marks(nights: nights([true, true]), currentRun: 0, lastNight: lastNight, calendar: calendar)
-        #expect(none == Array(repeating: .other, count: 14))
-        let long = BedtimeRunNights.marks(nights: nights([false, true]), currentRun: 20, lastNight: lastNight, calendar: calendar)
-        #expect(long.filter { $0 == .inRun }.count == 13)
-        #expect(long[12] == .forgiven)
-        #expect(HomeSpeech.runNights(long) == "Last 14 nights: 13 in your run, 1 forgiven.")
-        #expect(HomeSpeech.runNights(none) == "Last 14 nights: 0 in your run.")
     }
 
     // MARK: Tree view

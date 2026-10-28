@@ -14,7 +14,7 @@ struct RevealSessionTests {
     }
 
     private var threeCommons: [LeafUnlock] {
-        [unlock("negundo", minutesAgo: 90), unlock("glabrum", minutesAgo: 60), unlock("macrophyllum", minutesAgo: 30)]
+        [unlock("davidii", minutesAgo: 90), unlock("triflorum", minutesAgo: 60), unlock("truncatum", minutesAgo: 30)]
     }
 
     // MARK: Queue
@@ -25,13 +25,13 @@ struct RevealSessionTests {
         #expect(RevealSession.ordered(["a", "b", "c"], startingWith: "a") == ["a", "b", "c"])
         #expect(RevealSession.ordered(["a", "b", "c"], startingWith: "zz") == ["a", "b", "c"])
         #expect(RevealSession.ordered(["a", "b", "c"], startingWith: nil) == ["a", "b", "c"])
-        let session = RevealSession(queue: threeCommons, startingWith: "glabrum", revealsBefore: 20)
-        #expect(session.items.map(\.speciesID) == ["glabrum", "negundo", "macrophyllum"])
+        let session = RevealSession(queue: threeCommons, startingWith: "triflorum", revealsBefore: 20)
+        #expect(session.items.map(\.speciesID) == ["triflorum", "davidii", "truncatum"])
     }
 
     @Test("Tiers come from the reward table")
     func tiers() {
-        let session = RevealSession(queue: [unlock("saccharum"), unlock("laevigatum")], revealsBefore: 0)
+        let session = RevealSession(queue: [unlock("saccharum"), unlock("pentaphyllum")], revealsBefore: 0)
         #expect(session.items.map(\.tier) == [.firstSteps, .legendary])
     }
 
@@ -50,7 +50,7 @@ struct RevealSessionTests {
     @Test("Once Wind-down begins mid-sitting, closed buds stay closed; what was opened is still placed")
     func phaseBoundary() {
         var session = RevealSession(queue: threeCommons, revealsBefore: 20)
-        let evening: Set<String> = ["negundo", "glabrum", "macrophyllum"]
+        let evening: Set<String> = ["davidii", "triflorum", "truncatum"]
         #expect(session.mayOpen(openable: evening))
         #expect(!session.mayOpen(openable: []))
         session.open(at: Self.now)
@@ -60,8 +60,8 @@ struct RevealSessionTests {
         #expect(!session.mayOpen(all: true, openable: []))
         session.advance()
         #expect(!session.mayOpen(openable: []))
-        #expect(session.unopened.map(\.speciesID) == ["glabrum", "macrophyllum"])
-        #expect(session.opened == ["negundo"])
+        #expect(session.unopened.map(\.speciesID) == ["triflorum", "truncatum"])
+        #expect(session.opened == ["davidii"])
     }
 
     @Test("A tap opens the current leaf once; the haptic plays once")
@@ -75,7 +75,7 @@ struct RevealSessionTests {
         let second = session.open(at: Self.now.addingTimeInterval(1))
         #expect(second == false)
         #expect(session.currentOpenedAt == Self.now)
-        #expect(session.opened == ["negundo"])
+        #expect(session.opened == ["davidii"])
     }
 
     @Test("While more wait the footer is Next leaf and Open all 3; the last one places")
@@ -98,7 +98,7 @@ struct RevealSessionTests {
         #expect(session.footer == .place)
         session.advance()
         #expect(session.index == 2)
-        #expect(session.opened == ["negundo", "glabrum", "macrophyllum"])
+        #expect(session.opened == ["davidii", "triflorum", "truncatum"])
     }
 
     @Test("A single leaf has no position and places straight away")
@@ -114,13 +114,13 @@ struct RevealSessionTests {
         let early = session.openAll(at: Self.now)
         #expect(early == false, "the first leaf opens by tap")
         session.open(at: Self.now)
-        #expect(session.remaining.map(\.speciesID) == ["glabrum", "macrophyllum"])
+        #expect(session.remaining.map(\.speciesID) == ["triflorum", "truncatum"])
         let all = session.openAll(at: Self.now.addingTimeInterval(4))
         #expect(all)
         #expect(session.isOpeningAll)
         #expect(session.openAllRange == 1..<3)
         #expect(session.openAllAt == Self.now.addingTimeInterval(4))
-        #expect(session.opened == ["negundo", "glabrum", "macrophyllum"])
+        #expect(session.opened == ["davidii", "triflorum", "truncatum"])
         #expect(session.footer == .place)
         let again = session.openAll(at: Self.now)
         #expect(again == false, "only once")
@@ -133,23 +133,23 @@ struct RevealSessionTests {
         var session = RevealSession(queue: threeCommons, revealsBefore: 20)
         session.open(at: Self.now)
         session.advance()
-        #expect(session.opened == ["negundo"], "the close circle on the second bud places only the first")
+        #expect(session.opened == ["davidii"], "the close circle on the second bud places only the first")
     }
 
     /// Review finding "share-card-render-after-moving-on".
     @Test("A share card is worth rendering only while its leaf is on screen, open, outside Open all")
     func shareCardMoment() {
         var session = RevealSession(queue: threeCommons, revealsBefore: 20)
-        #expect(!session.isShowingOpened("negundo"), "still a closed bud")
+        #expect(!session.isShowingOpened("davidii"), "still a closed bud")
         session.open(at: Self.now)
-        #expect(session.isShowingOpened("negundo"))
+        #expect(session.isShowingOpened("davidii"))
         session.advance()
-        #expect(!session.isShowingOpened("negundo"), "the member moved on to the next leaf")
-        #expect(!session.isShowingOpened("glabrum"), "the next bud is still closed")
+        #expect(!session.isShowingOpened("davidii"), "the member moved on to the next leaf")
+        #expect(!session.isShowingOpened("triflorum"), "the next bud is still closed")
         session.open(at: Self.now)
-        #expect(session.isShowingOpened("glabrum"))
+        #expect(session.isShowingOpened("triflorum"))
         session.openAll(at: Self.now)
-        #expect(!session.isShowingOpened("glabrum"), "Open all shows the row, not the card")
+        #expect(!session.isShowingOpened("triflorum"), "Open all shows the row, not the card")
     }
 
     // MARK: Rituals
@@ -165,7 +165,7 @@ struct RevealSessionTests {
 
     @Test("A legendary leaf gets the full ritual however many came before")
     func legendaryFull() {
-        let session = RevealSession(queue: [unlock("negundo"), unlock("laevigatum")], revealsBefore: 90)
+        let session = RevealSession(queue: [unlock("davidii"), unlock("pentaphyllum")], revealsBefore: 90)
         #expect(session.ritual(at: 0, reduceMotion: false) == .short)
         #expect(session.ritual(at: 1, reduceMotion: false) == .full)
     }
@@ -177,8 +177,8 @@ struct RevealSessionTests {
         let leaf = try #require(RevealLeaf(unlock: unlock("saccharum"), share: .notEnoughMembers(soFar: nil)))
         #expect(leaf.species.common == "Sugar maple")
         #expect(leaf.tier == .firstSteps)
-        #expect(leaf.categoryName == "First steps")
-        #expect(leaf.earnedLine == "For setting your sleep schedule")
+        #expect(leaf.categoryName == "First leaf")
+        #expect(leaf.earnedLine == "For planting your maple")
         #expect(RevealLeaf(unlock: unlock("not-a-maple"), share: .loading) == nil)
     }
 

@@ -38,12 +38,10 @@ struct AvailabilityTests {
     @Test("Only M1 categories ship today")
     func shipped() {
         let shipped = RewardCategoryID.allCases.filter { ShippedFeatures.current.isShipped($0) }
-        #expect(shipped == [.firstSteps, .nightsTracked, .onTimeBedtimes, .bedtimeRun, .steadyWeeks, .seasonsInRhythm,
-                            .steadyMornings, .fullNights])
+        #expect(shipped == [.firstLeaf, .restedNights])
         #expect(!ShippedFeatures.current.focus)
         #expect(!ShippedFeatures.current.sleepSounds)
-        #expect(!ShippedFeatures.current.checkIns)
-        #expect(ShippedFeatures.all.focus && ShippedFeatures.all.sleepSounds && ShippedFeatures.all.checkIns)
+        #expect(ShippedFeatures.all.focus && ShippedFeatures.all.sleepSounds)
         #expect(RewardCategoryID.allCases.allSatisfy { ShippedFeatures.all.isShipped($0) })
     }
 
@@ -53,20 +51,15 @@ struct AvailabilityTests {
         let health: GrantedPermissions = [.appleHealth]
         let tracker: GrantedPermissions = [.appleHealth, .sleepTracker]
         let m1 = ShippedFeatures.current
-        #expect(LeafAvailability(category: .firstSteps, permissions: none, features: m1) == .available)
-        #expect(LeafAvailability(category: .onTimeBedtimes, permissions: none, features: m1) == .needsAppleHealth)
-        #expect(LeafAvailability(category: .nightsTracked, permissions: none, features: m1) == .needsAppleHealth)
-        #expect(LeafAvailability(category: .onTimeBedtimes, permissions: health, features: m1) == .available)
-        #expect(LeafAvailability(category: .steadyMornings, permissions: none, features: m1) == .needsAppleHealth)
-        #expect(LeafAvailability(category: .steadyMornings, permissions: health, features: m1) == .available)
-        #expect(LeafAvailability(category: .fullNights, permissions: none, features: m1) == .needsAppleHealth)
-        #expect(LeafAvailability(category: .fullNights, permissions: health, features: m1) == .needsSleepTracker)
-        #expect(LeafAvailability(category: .fullNights, permissions: tracker, features: m1) == .available)
+        #expect(LeafAvailability(category: .firstLeaf, permissions: none, features: m1) == .available)
+        #expect(LeafAvailability(category: .restedNights, permissions: none, features: m1) == .needsAppleHealth)
+        #expect(LeafAvailability(category: .restedNights, permissions: health, features: m1) == .available)
+        #expect(LeafAvailability(category: .restedNights, permissions: tracker, features: m1) == .available)
         // An unshipped category is dormant whatever the permissions.
-        #expect(LeafAvailability(category: .scrollFreeWindDowns, permissions: [.screenTime], features: m1) == .dormant)
-        #expect(LeafAvailability(category: .focusHours, permissions: tracker, features: m1) == .dormant)
-        #expect(LeafAvailability(category: .scrollFreeWindDowns, permissions: none, features: .all) == .needsScreenTime)
-        #expect(LeafAvailability(category: .scrollFreeWindDowns, permissions: [.screenTime], features: .all) == .available)
+        #expect(LeafAvailability(category: .hoursSaved, permissions: [.screenTime], features: m1) == .dormant)
+        #expect(LeafAvailability(category: .bedtimeKept, permissions: tracker, features: m1) == .dormant)
+        #expect(LeafAvailability(category: .hoursSaved, permissions: none, features: .all) == .needsScreenTime)
+        #expect(LeafAvailability(category: .hoursSaved, permissions: [.screenTime], features: .all) == .available)
     }
 }
 
@@ -77,28 +70,28 @@ struct PaceTests {
     @Test("Rate is units gained over the last 14 days, divided by 14")
     func rate() {
         let history = [
-            DailyCounters(day: LocalDay(year: 2026, month: 9, day: 20), counters: [.nightsTracked: 1]),
-            DailyCounters(day: LocalDay(year: 2026, month: 9, day: 26), counters: [.nightsTracked: 3]),
-            DailyCounters(day: LocalDay(year: 2026, month: 10, day: 1), counters: [.nightsTracked: 6]),
+            DailyCounters(day: LocalDay(year: 2026, month: 9, day: 20), counters: [.restedNights: 1]),
+            DailyCounters(day: LocalDay(year: 2026, month: 9, day: 26), counters: [.restedNights: 3]),
+            DailyCounters(day: LocalDay(year: 2026, month: 10, day: 1), counters: [.restedNights: 6]),
         ]
         // The baseline is the counter at the end of 26 Sep (14 days before today).
-        let rate = LeafPace.rate(for: .nightsTracked, current: 10, history: history, today: today, calendar: utc)
+        let rate = LeafPace.rate(for: .restedNights, current: 10, history: history, today: today, calendar: utc)
         #expect(abs(rate - 0.5) < 1e-9)
     }
 
     @Test("A member newer than the window counts from zero")
     func newMember() {
-        let history = [DailyCounters(day: LocalDay(year: 2026, month: 10, day: 8), counters: [.nightsTracked: 1])]
-        let rate = LeafPace.rate(for: .nightsTracked, current: 2, history: history, today: today, calendar: utc)
+        let history = [DailyCounters(day: LocalDay(year: 2026, month: 10, day: 8), counters: [.restedNights: 1])]
+        let rate = LeafPace.rate(for: .restedNights, current: 2, history: history, today: today, calendar: utc)
         #expect(abs(rate - 2.0 / 14) < 1e-9)
     }
 
     @Test("Estimate uses the rate, or the design pace when the rate is zero")
     func estimate() {
-        #expect(LeafPace.estimatedDays(remaining: 4, rate: 0.5, category: .nightsTracked) == 8)
-        let designPace = RewardCategoryInfo(.onTimeBedtimes).designPace
-        #expect(LeafPace.estimatedDays(remaining: 7, rate: 0, category: .onTimeBedtimes) == 7 / designPace)
-        #expect(LeafPace.estimatedDays(remaining: 0, rate: 0, category: .onTimeBedtimes) == 0)
+        #expect(LeafPace.estimatedDays(remaining: 4, rate: 0.5, category: .restedNights) == 8)
+        let designPace = RewardCategoryInfo(.restedNights).designPace
+        #expect(LeafPace.estimatedDays(remaining: 7, rate: 0, category: .restedNights) == 7 / designPace)
+        #expect(LeafPace.estimatedDays(remaining: 0, rate: 0, category: .restedNights) == 0)
     }
 }
 
@@ -129,7 +122,7 @@ struct LeafProgressBuilderTests {
     func states() throws {
         let opened = LeafUnlock(speciesID: "saccharum", date: morning, season: .autumn, colourway: .autumn, revealed: true)
         let waiting = LeafUnlock(speciesID: "rubrum", date: morning, season: .autumn, colourway: .autumn)
-        let rows = build(counters: [.firstSteps: 1, .nightsTracked: 1], unlocks: [opened, waiting])
+        let rows = build(counters: [.firstLeaf: 1, .restedNights: 1], unlocks: [opened, waiting])
         let byID = Dictionary(uniqueKeysWithValues: rows.map { ($0.speciesID, $0) })
         #expect(byID["saccharum"]?.state == .earned(opened))
         #expect(byID["rubrum"]?.state == .waiting(waiting))
@@ -140,31 +133,29 @@ struct LeafProgressBuilderTests {
 
     @Test("Current is the category counter, clamped to each threshold")
     func current() throws {
-        let rows = build(counters: [.nightsTracked: 5])
-        let ladder = rows.filter { $0.category == .nightsTracked }
-        #expect(ladder.map(\.current).prefix(4) == [1, 3, 5, 5])
-        let third = try #require(ladder.first { $0.threshold == 7 })
-        #expect(third.remaining == 2)
+        let rows = build(counters: [.restedNights: 5])
+        let ladder = rows.filter { $0.category == .restedNights }
+        #expect(ladder.map(\.current).prefix(3) == [3, 5, 5])
+        let second = try #require(ladder.first { $0.threshold == 14 })
+        #expect(second.remaining == 9)
     }
 
     @Test("Estimates come from the 14-day rate, else the design pace; none when unavailable")
     func estimates() throws {
-        let history = [DailyCounters(day: LocalDay(year: 2026, month: 9, day: 26), counters: [.nightsTracked: 3])]
-        let rows = build(counters: [.nightsTracked: 10], history: history, permissions: [.appleHealth])
-        let fourteen = try #require(rows.first { $0.category == .nightsTracked && $0.threshold == 14 })
+        let history = [DailyCounters(day: LocalDay(year: 2026, month: 9, day: 26), counters: [.restedNights: 3])]
+        let rows = build(counters: [.restedNights: 10], history: history, permissions: [.appleHealth])
+        let fourteen = try #require(rows.first { $0.category == .restedNights && $0.threshold == 14 })
         #expect(fourteen.estimatedDays == 8)                       // 4 to go at 0.5 a day
-        let onTime = try #require(rows.first { $0.category == .onTimeBedtimes && $0.threshold == 1 })
-        #expect(onTime.estimatedDays == 1 / RewardCategoryInfo(.onTimeBedtimes).designPace)
-        let full = try #require(rows.first { $0.category == .fullNights })
-        #expect(full.availability == .needsSleepTracker)
-        #expect(full.estimatedDays == nil)
+        let fresh = build(counters: [:], permissions: [.appleHealth])
+        let first = try #require(fresh.first { $0.category == .restedNights && $0.threshold == 3 })
+        #expect(first.estimatedDays == 3 / RewardCategoryInfo(.restedNights).designPace)
         // Without Apple Health no sleep leaf has an estimate (D9: left out of pacing).
-        let without = build(counters: [.nightsTracked: 10], history: history)
-        let nights = try #require(without.first { $0.category == .nightsTracked && $0.threshold == 14 })
+        let without = build(counters: [.restedNights: 10], history: history)
+        let nights = try #require(without.first { $0.category == .restedNights && $0.threshold == 14 })
         #expect(nights.availability == .needsAppleHealth)
         #expect(nights.estimatedDays == nil)
         #expect(nights.current == 10)
-        let focus = try #require(rows.first { $0.category == .focusDays })
+        let focus = try #require(rows.first { $0.category == .hoursSaved })
         #expect(focus.availability == .dormant)
         #expect(focus.estimatedDays == nil)
     }
@@ -175,23 +166,22 @@ struct CollectionSnapshotTests {
     @Test("Round-trips through JSON, with counters keyed by category id")
     func roundTrip() throws {
         var snapshot = CollectionSnapshot.empty(profileID: UUID(), createdAt: at(2026, 10, 1, 9))
-        snapshot.counters = [.firstSteps: 1, .nightsTracked: 4.5]
+        snapshot.counters = [.firstLeaf: 1, .restedNights: 4.5]
         snapshot.unlocks = [LeafUnlock(speciesID: "saccharum", date: at(2026, 10, 1, 9), season: .autumn, colourway: .autumn, revealed: true)]
         snapshot.revealedAt = ["saccharum": at(2026, 10, 1, 9, 5)]
-        snapshot.history = [DailyCounters(day: LocalDay(year: 2026, month: 10, day: 1), counters: [.firstSteps: 1])]
+        snapshot.history = [DailyCounters(day: LocalDay(year: 2026, month: 10, day: 1), counters: [.firstLeaf: 1])]
         snapshot.tendedDays = [LocalDay(year: 2026, month: 10, day: 2)]
         snapshot.recentNights = [NightRecord(day: LocalDay(year: 2026, month: 10, day: 2), onTime: true, fullNight: nil, scrollFree: nil)]
         snapshot.pinnedSpeciesID = "rubrum"
         snapshot.featuredSpeciesID = "saccharum"
         snapshot.rarityConsent = .included
         snapshot.revealsOpened = 1
-        snapshot.currentBedtimeRun = 2
 
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         let data = try encoder.encode(snapshot)
         let json = String(decoding: data, as: UTF8.self)
-        #expect(json.contains("\"nights_tracked\":4.5"))
+        #expect(json.contains("\"rested_nights\":4.5"))
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         #expect(try decoder.decode(CollectionSnapshot.self, from: data) == snapshot)
@@ -206,7 +196,8 @@ struct CollectionSnapshotTests {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let snapshot = try decoder.decode(CollectionSnapshot.self, from: Data(json.utf8))
-        #expect(snapshot.counters == [.firstSteps: 1])
+        // "first_steps" is the old table's key for the first leaf.
+        #expect(snapshot.counters == [.firstLeaf: 1])
         #expect(snapshot.unlocks.isEmpty)
         #expect(snapshot.rarityConsent == .notAsked)
         #expect(snapshot.revealsOpened == 0)

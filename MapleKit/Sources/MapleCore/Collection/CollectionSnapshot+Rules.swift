@@ -2,7 +2,8 @@ import Foundation
 
 /// The member's circumstances that the collection rules depend on but that aren't part of the collection itself.
 public struct CollectionContext: Sendable, Equatable {
-    public var schedule: SleepSchedule
+    /// The member's weekday and weekend schedules (`ScheduleStore` keeps it in sync).
+    public var schedule: WeeklySleepSchedule
     public var permissions: GrantedPermissions
     public var features: ShippedFeatures
     /// The member's calendar and time zone. The app passes `Calendar.autoupdatingCurrent`, so a new time zone (a
@@ -15,12 +16,13 @@ public struct CollectionContext: Sendable, Equatable {
     /// The member's sleep need (Settings › Sleep goal): a full night is at least this − 30 minutes asleep.
     public var sleepNeedMinutes: Int
 
-    /// Seven hours, until the member changes it (spec §5.1; `AppSettings.defaultSleepGoalMinutes`).
-    public static let defaultSleepNeedMinutes = 7 * 60
+    /// 7h 30m, until the member changes it (rewards.json `full_nights`, which supersedes spec §5.1's 7h;
+    /// `AppSettings.defaultSleepGoalMinutes`).
+    public static let defaultSleepNeedMinutes = 7 * 60 + 30
 
     /// - Parameter permissions: What the member has granted. Empty by default: nothing is granted until it really is.
     public init(
-        schedule: SleepSchedule = .standard, permissions: GrantedPermissions = [], features: ShippedFeatures = .current,
+        schedule: WeeklySleepSchedule = .standard, permissions: GrantedPermissions = [], features: ShippedFeatures = .current,
         calendar: Calendar = .autoupdatingCurrent, hemisphere: Hemisphere = .current, seasonOverride: Season? = nil,
         sleepNeedMinutes: Int = CollectionContext.defaultSleepNeedMinutes
     ) {
@@ -42,7 +44,7 @@ extension CollectionSnapshot {
     static let nightsKept = 14
 
     /// Adds `increases` to the counters. Non-positive amounts are ignored, so counters never fall. Any rise marks
-    /// the local day as tended, except First steps and Community challenges (spec §4.1).
+    /// the local day as tended, except First leaf.
     /// - Returns: Whether any counter rose.
     @discardableResult
     public mutating func record(_ increases: [RewardCategoryID: Double], at date: Date, calendar: Calendar) -> Bool {
@@ -65,7 +67,7 @@ extension CollectionSnapshot {
     private mutating func didRaise(_ categories: [RewardCategoryID], at date: Date, calendar: Calendar) -> Bool {
         guard !categories.isEmpty else { return false }
         let day = LocalDay(date, calendar: calendar)
-        if categories.contains(where: { $0 != .firstSteps && $0 != .communityChallenges }), !tendedDays.contains(day) {
+        if categories.contains(where: { $0 != .firstLeaf }), !tendedDays.contains(day) {
             tendedDays.append(day)
             tendedDays.sort()
         }
@@ -159,9 +161,7 @@ extension CollectionSnapshot {
 
     /// Apple Health's nights (M1's importer; spec D9: there is no manual fallback, so no tap ever counts). Records
     /// them in the ledger, settles every night whose next morning has started by `date` (from the install night),
-    /// and records what they earned: Nights tracked, On-time bedtimes, Steady mornings and Full nights per night, the
-    /// live bedtime run (the counter keeps the best), Steady weeks as weeks close and Seasons in rhythm, plus each
-    /// tracked night's outcome for vitality. Late data upgrades a settled night for 72 hours; recording the same
+    /// and records what they earned: Rested nights per on-time night, plus each tracked night's outcome for vitality. Late data upgrades a settled night for 72 hours; recording the same
     /// nights again changes nothing. Ignored before the maple is planted.
     /// - Returns: Leaves the nights unlocked, stamped `date` (held or pending like any unlock).
     @discardableResult
@@ -175,17 +175,13 @@ extension CollectionSnapshot {
         let changes = nights.record(observations, at: date, rules: rules)
         guard !changes.isEmpty else { return [] }
         record(changes.increases, at: date, calendar: calendar)
-        if let run = changes.run {
-            currentBedtimeRun = run
-            raise(.bedtimeRun, to: Double(changes.bestRun), at: date, calendar: calendar)
-        }
         for night in changes.vitality { recordNight(night) }
         return runEngine(at: date, context: context, engine: engine)
     }
 
     /// The member replaced their schedule at `date`. Nights that had begun by then are still judged by `old`
     /// (rewards.md: edits apply from the next night, cut-off 18:00). The first schedule ever saved replaces nothing.
-    public mutating func scheduleChanged(from old: SleepSchedule, to new: SleepSchedule, at date: Date, calendar: Calendar) {
+    public mutating func scheduleChanged(from old: WeeklySleepSchedule, to new: WeeklySleepSchedule, at date: Date, calendar: Calendar) {
         guard old != new, hasPlantedMaple else { return }
         nights.scheduleChanged(from: old, at: date, calendar: calendar)
     }
@@ -201,7 +197,7 @@ extension CollectionSnapshot {
     /// "N of 155": opened leaves only (spec §5.2, `LeafCount`).
     public var leafCount: LeafCount { LeafCount(unlocks: unlocks) }
     /// The First-steps leaf has been earned: onboarding is done and Home can show (D12).
-    public var hasPlantedMaple: Bool { unlocks.contains { RevealSchedule.isFirstSteps($0.speciesID) } }
+    public var hasPlantedMaple: Bool { unlocks.contains { RevealSchedule.isFirstLeaf($0.speciesID) } }
     public var tendedDayCount: Int { tendedDays.count }
 
     public func unlock(for speciesID: String) -> LeafUnlock? {
@@ -252,7 +248,7 @@ extension CollectionSnapshot {
     public func progress(at date: Date, context: CollectionContext) -> [LeafProgress] {
         LeafProgressBuilder(permissions: permissions(in: context), features: context.features)
             .progress(counters: counters, unlocks: unlocks, history: history, today: LocalDay(date, calendar: context.calendar),
-                      calendar: context.calendar, currentBedtimeRun: currentBedtimeRun)
+                      calendar: context.calendar)
     }
 
     public func picker(at date: Date, context: CollectionContext) -> NextLeafPicker {
@@ -260,11 +256,11 @@ extension CollectionSnapshot {
     }
 
     public func nextLeaf(at date: Date, context: CollectionContext) -> LeafProgress? {
-        picker(at: date, context: context).next(phase: phase(at: date, context: context), pinned: pinnedSpeciesID)
+        picker(at: date, context: context).next(pinned: pinnedSpeciesID)
     }
 
     public func buds(at date: Date, context: CollectionContext) -> [LeafProgress] {
-        picker(at: date, context: context).buds(phase: phase(at: date, context: context), pinned: pinnedSpeciesID)
+        picker(at: date, context: context).buds(pinned: pinnedSpeciesID)
     }
 
     public func almostThere(at date: Date, context: CollectionContext) -> [LeafProgress] {
@@ -281,7 +277,7 @@ extension CollectionSnapshot {
     }
 
     public func phase(at date: Date, context: CollectionContext) -> NowPhase {
-        NowPhase.resolve(date: date, schedule: context.schedule, calendar: context.calendar)
+        NowPhase.resolve(date: date, weekly: context.schedule, calendar: context.calendar)
     }
 
     /// The season the tree shows: the real one for the member's hemisphere, unless overridden.
@@ -293,7 +289,6 @@ extension CollectionSnapshot {
     public func treeInputs(at date: Date, context: CollectionContext) -> TreeInputs {
         let placed = earned
         let picker = picker(at: date, context: context)
-        let phase = phase(at: date, context: context)
         let halos = placed.compactMap { leaf -> TreeInputs.Halo? in
             guard let opened = revealedAt[leaf.speciesID], date.timeIntervalSince(opened) < TreeInputs.haloLifetime,
                   opened <= date else { return nil }
@@ -305,7 +300,7 @@ extension CollectionSnapshot {
             growth: TreeGrowth.structure(tendedDays: tendedDayCount),
             stage: TreeStage(speciesCount: leafCount.opened),
             species: placed.map { TreeInputs.Leaf(speciesID: $0.speciesID, pressed: $0.colourway) },
-            buds: picker.buds(phase: phase, pinned: pinnedSpeciesID).map { TreeInputs.Bud(speciesID: $0.speciesID, progress: $0.fraction) },
+            buds: picker.buds(pinned: pinnedSpeciesID).map { TreeInputs.Bud(speciesID: $0.speciesID, progress: $0.fraction) },
             waiting: revealable(at: date, context: context).map(\.speciesID),
             featured: featuredLeaf,
             season: season(at: date, context: context),
@@ -324,8 +319,8 @@ extension CollectionSnapshot {
         let opened = leafCount.opened
         return ProfileTotals(
             leaves: opened, tendedDays: tendedDayCount, stage: TreeStage(speciesCount: opened),
-            nightsOnTime: total(.onTimeBedtimes).map { Int($0) }, focusHours: total(.focusHours),
-            windDowns: total(.windDownRituals).map { Int($0) }, mornings: total(.steadyMornings).map { Int($0) }
+            hoursSaved: total(.hoursSaved), sessionsFinished: total(.sessionsFinished).map { Int($0) },
+            restedNights: total(.restedNights).map { Int($0) }, phoneFreeMornings: total(.phoneFreeMornings).map { Int($0) }
         )
     }
 }

@@ -25,8 +25,8 @@ nonisolated public struct WindDownSession: Codable, Sendable, Equatable {
     /// Records a start at `date` when wind-down is offered then and isn't already on.
     /// - Returns: Whether the start was recorded.
     @discardableResult
-    public mutating func start(at date: Date, schedule: SleepSchedule, calendar: Calendar) -> Bool {
-        guard Self.offersWindDown(in: NowPhase.resolve(date: date, schedule: schedule, calendar: calendar)),
+    public mutating func start(at date: Date, schedule: WeeklySleepSchedule, calendar: Calendar) -> Bool {
+        guard Self.offersWindDown(in: NowPhase.resolve(date: date, weekly: schedule, calendar: calendar)),
               !isActive(at: date, schedule: schedule, calendar: calendar) else { return false }
         startedAt = date
         return true
@@ -38,14 +38,13 @@ nonisolated public struct WindDownSession: Codable, Sendable, Equatable {
     }
 
     /// Wind-down was opened this evening and Goodnight hasn't been said since.
-    public func isActive(at date: Date, schedule: SleepSchedule, calendar: Calendar) -> Bool {
+    public func isActive(at date: Date, schedule: WeeklySleepSchedule, calendar: Calendar) -> Bool {
         guard let startedAt, startedAt <= date else { return false }
         if let goodnightAt, goodnightAt >= startedAt { return false }
-        guard Self.offersWindDown(in: NowPhase.resolve(date: date, schedule: schedule, calendar: calendar)) else { return false }
-        // This evening's start: the only evening start in the 24 hours up to `date`.
-        let eveningStart = PhaseWindows(schedule: schedule)
-            .nextStart(of: .evening, after: date.addingTimeInterval(-24 * 3600), calendar: calendar)
-        return startedAt >= eveningStart
+        let today = PhaseWindows(weekly: schedule).day(containing: date, calendar: calendar)
+        guard Self.offersWindDown(in: today.phase(at: date)) else { return false }
+        // This evening's start (tonight's schedule: a weekend night's later evening on Fridays).
+        return startedAt >= today.evening
     }
 
     /// Last night's Goodnight, for the morning: the last one, if it was within the 20 hours before `date`.

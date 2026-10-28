@@ -23,10 +23,8 @@ final class FakeHealthAuthorizer: HealthAuthorizing {
     }
 }
 
-/// The M1 sleep categories, which all come from Apple Health (spec D9).
-private let sleepCategories: [RewardCategoryID] = [
-    .nightsTracked, .onTimeBedtimes, .bedtimeRun, .steadyWeeks, .seasonsInRhythm, .steadyMornings, .fullNights,
-]
+/// The sleep category, which comes from Apple Health only (spec D9).
+private let sleepCategories: [RewardCategoryID] = [.restedNights]
 
 @Suite("Apple Health permission")
 @MainActor
@@ -43,7 +41,7 @@ struct HealthPermissionTests {
         for category in sleepCategories {
             #expect(stores.collection.availability(of: category) == .needsAppleHealth, "\(category)")
         }
-        #expect(stores.collection.availability(of: .firstSteps) == .available)
+        #expect(stores.collection.availability(of: .firstLeaf) == .available)
         #expect(!files(in: folder).contains(HealthPermission.file))
     }
 
@@ -58,10 +56,10 @@ struct HealthPermissionTests {
         #expect(stores.collection.buds(at: evening).isEmpty)
         #expect(stores.collection.almostThere(at: evening).isEmpty)
         #expect(stores.collection.nextRungIDs(at: evening).isEmpty)
-        #expect(stores.collection.totals.nightsOnTime == nil && stores.collection.totals.mornings == nil)
+        #expect(stores.collection.totals.restedNights == nil && stores.collection.totals.hoursSaved == nil)
         // Home's row offers the cheapest sleep leaf, with "Turn on Apple Health".
         let prompt = try #require(stores.collection.permissionPrompt(at: evening))
-        #expect(prompt.speciesID == "rubrum")
+        #expect(prompt.speciesID == "saccharinum")                    // Rested nights' first rung
         #expect(prompt.availability == .needsAppleHealth)
         #expect(prompt.estimatedDays == nil)
     }
@@ -81,10 +79,7 @@ struct HealthPermissionTests {
 
         stores.health.apply(to: stores.collection)
         #expect(stores.collection.context.permissions == [.appleHealth])
-        #expect(stores.collection.availability(of: .nightsTracked) == .available)
-        #expect(stores.collection.availability(of: .steadyMornings) == .available)
-        // Full nights wait for a night with asleep time (a Watch or a tracker).
-        #expect(stores.collection.availability(of: .fullNights) == .needsSleepTracker)
+        #expect(stores.collection.availability(of: .restedNights) == .available)
         #expect(stores.collection.nextLeaf(at: at(2026, 10, 10, 21)) != nil)
         #expect(stores.collection.permissionPrompt(at: at(2026, 10, 10, 21)) == nil)
 

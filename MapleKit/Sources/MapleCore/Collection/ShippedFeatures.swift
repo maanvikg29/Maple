@@ -18,14 +18,12 @@ public struct ShippedFeatures: Sendable, Hashable {
         releases.contains(RewardCategoryInfo(category).release)
     }
 
-    /// The focus timer (Rest › Focus, Home's day numeral and "Start focus").
-    public var focus: Bool { releases.contains(.m2) }
-    /// Sleep sounds (Home's night capsule, the Sounds sheet).
-    public var sleepSounds: Bool { releases.contains(.m2) }
-    /// Screen Time: wind-down apps, the shield and their leaves.
-    public var screenTime: Bool { releases.contains(.m3) }
-    /// Morning mood check-ins.
-    public var checkIns: Bool { releases.contains(.m4) }
+    /// The Focus tab, sessions and their leaves (F1).
+    public var focus: Bool { releases.contains(.f1) }
+    /// Sounds (F2).
+    public var sleepSounds: Bool { releases.contains(.f2) }
+    /// Screen Time: blocking and the leaves that need it (F1).
+    public var screenTime: Bool { releases.contains(.f1) }
 }
 
 /// System permissions the member has granted. Categories that need a missing one show "Needs Apple Health" or
@@ -62,12 +60,6 @@ extension LeafAvailability {
             self = .available
         case .appleHealth:
             self = permissions.contains(.appleHealth) ? .available : .needsAppleHealth
-        case .sleepTracker:
-            if !permissions.contains(.appleHealth) {
-                self = .needsAppleHealth
-            } else {
-                self = permissions.contains(.sleepTracker) ? .available : .needsSleepTracker
-            }
         case .screenTime:
             self = permissions.contains(.screenTime) ? .available : .needsScreenTime
         }
@@ -75,8 +67,7 @@ extension LeafAvailability {
 }
 
 extension LeafAvailability {
-    /// A permission is missing that the member can turn on from Maple (Apple Health, Screen Time). A sleep tracker
-    /// is hardware, so `needsSleepTracker` can't be.
+    /// A permission is missing that the member can turn on from Maple (Apple Health, Screen Time).
     public var canBeTurnedOn: Bool {
         self == .needsAppleHealth || self == .needsScreenTime
     }
