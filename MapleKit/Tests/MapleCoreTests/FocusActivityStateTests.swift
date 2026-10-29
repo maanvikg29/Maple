@@ -37,11 +37,19 @@ struct FocusActivityStateTests {
         #expect(state(intention: "   ").intention == nil)
     }
 
-    @Test("A break replaces the line under the timer with when it ends")
+    @Test("A break names the preset and when the break ends, so the line stays true once it has run out")
     func breakLine() {
         let lines = state(breakEnd: at(2026, 10, 23, 14, 28), intention: "Chemistry ch. 4").lines(locale: enGB, calendar: utc)
-        #expect(lines.lockLine == "Break · back at 14:28")
-        #expect(lines.expandedLine == "Break · back at 14:28")
+        #expect(lines.lockLine == "Study · break until 14:28")
+        #expect(lines.expandedLine == "Study · break until 14:28")
+        #expect(lines.breakSpoken == "Study, break until 14:28")
+        #expect(!lines.expandedLine.contains("Chemistry"))
+        let twelveHour = state(breakEnd: at(2026, 10, 23, 14, 28)).lines(locale: enUS, calendar: utc)
+        #expect(twelveHour.lockLine == "Study · break until 2:28 PM")
+        #expect(twelveHour.expandedLine == "Study · break until 2:28 PM")
+        #expect(twelveHour.breakSpoken == "Study, break until 2:28 PM")
+        // Outside a break the lines read as they are shown.
+        #expect(state(intention: "Chemistry ch. 4").lines(locale: enGB, calendar: utc).breakSpoken == nil)
     }
 
     @Test("A plain timer is named as one and never shows a leaf")

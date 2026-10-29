@@ -102,7 +102,7 @@ final class ActivityKitController: LiveActivityController {
         let lines = state.lines(locale: .autoupdatingCurrent, calendar: .autoupdatingCurrent)
         return FocusActivityAttributes.ContentState(
             start: state.start, end: state.plannedEnd, title: lines.title, lockLine: lines.lockLine,
-            expandedLine: lines.expandedLine, completeLine: lines.complete
+            expandedLine: lines.expandedLine, completeLine: lines.complete, breakSpoken: lines.breakSpoken
         )
     }
 

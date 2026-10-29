@@ -6,7 +6,8 @@ import WidgetKit
 /// The running session's Live Activity (F1 design §5.11, §4.7): display only, with no buttons.
 ///
 /// - Lock Screen: the next hours leaf as a skeleton in season tint (never gold), the system timer text over
-///   "until 14:52 · Study", and the ring. A break reads "Break · back at 14:28"; a plain timer has no leaf.
+///   "until 14:52 · Study", and the ring. A break reads "Study · break until 14:28" (read aloud as "Study, break until
+///   14:28"), which stays true once the break has run out; a plain timer has no leaf.
 /// - Compact: the leaf (the ring for a plain timer) and the timer text. Minimal: the ring.
 /// - Expanded: the leaf, the timer text over "Study · Chemistry ch. 4" (the only place the intention shows), the ring.
 ///   Its line may take two lines, so a 40-character intention shows whole; the Lock Screen's stays on one.
@@ -52,7 +53,8 @@ struct FocusLiveActivity: Widget {
                 SessionRing(state: context.state, isStale: context.isStale)
                     .frame(width: 18, height: 18)
                     .accessibilityElement(children: .ignore)
-                    .accessibilityLabel(Text(context.isStale ? context.state.completeLine : context.state.lockLine))
+                    .accessibilityLabel(Text(context.isStale
+                        ? context.state.completeLine : context.state.breakSpoken ?? context.state.lockLine))
             }
             .keylineTint(Color(attributes: context.attributes))
         }
@@ -81,7 +83,7 @@ private struct LockScreenActivity: View {
 }
 
 /// The system timer text (or "Session complete") over a line in secondary: one line, or up to `lineLimit` (the
-/// expanded island's two, which a 40-character intention needs).
+/// expanded island's two, which a 40-character intention needs). A break's line is read as "Study, break until 14:28".
 private struct TimeAndLine: View {
     let state: FocusActivityAttributes.ContentState
     let isStale: Bool
@@ -106,6 +108,7 @@ private struct TimeAndLine: View {
                 .foregroundStyle(ActivityPalette.secondary)
                 .lineLimit(lineLimit)
                 .fixedSize(horizontal: false, vertical: true)
+                .accessibilityLabel(Text(isStale ? state.title : state.breakSpoken ?? line))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

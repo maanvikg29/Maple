@@ -50,6 +50,22 @@ struct LiveActivitySketchTests {
         #expect(drawn.allSatisfy { box.insetBy(dx: -0.01, dy: -0.01).contains($0) })
     }
 
+    @Test("A break's spoken line reaches the widget, and content sent by an earlier build still decodes")
+    func spokenBreak() throws {
+        let start = Date(timeIntervalSince1970: 1_000_000)
+        let content = FocusActivityAttributes.ContentState(
+            start: start, end: start.addingTimeInterval(3000), title: "Study", lockLine: "Study · break until 14:28",
+            expandedLine: "Study · break until 14:28", completeLine: "Session complete", breakSpoken: "Study, break until 14:28"
+        )
+        let decoder = JSONDecoder()
+        #expect(try decoder.decode(FocusActivityAttributes.ContentState.self, from: JSONEncoder().encode(content)) == content)
+        let earlier = try decoder.decode(FocusActivityAttributes.ContentState.self, from: Data(
+            #"{"start":0,"end":3000,"title":"Study","lockLine":"until 14:52 · Study","expandedLine":"Study","completeLine":"Session complete"}"#.utf8
+        ))
+        #expect(earlier.breakSpoken == nil)
+        #expect(earlier.lockLine == "until 14:52 · Study")
+    }
+
     @Test("The Lock Screen tint is the season tint token, for every season")
     @MainActor
     func tints() {

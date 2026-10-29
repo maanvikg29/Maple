@@ -15,20 +15,28 @@ public struct FocusActivityAttributes: ActivityAttributes, Sendable {
         public var end: Date
         /// "Study", or "Plain timer".
         public var title: String
-        /// Under the timer on the Lock Screen: "until 14:52 · Study", or "Break · back at 14:28".
+        /// Under the timer on the Lock Screen: "until 14:52 · Study", or "Study · break until 14:28" during a break,
+        /// which stays true once the break has run out with nothing to update the activity.
         public var lockLine: String
-        /// The expanded view's line: "Study · Chemistry ch. 4", or "Break · back at 14:28".
+        /// The expanded view's line: "Study · Chemistry ch. 4", or "Study · break until 14:28" during a break.
         public var expandedLine: String
         /// Shown once the stale date has passed: "Session complete".
         public var completeLine: String
+        /// During a break, how VoiceOver reads either line: "Study, break until 14:28". Nil outside a break, and in
+        /// content sent by an earlier build, which still decodes.
+        public var breakSpoken: String?
 
-        public init(start: Date, end: Date, title: String, lockLine: String, expandedLine: String, completeLine: String) {
+        public init(
+            start: Date, end: Date, title: String, lockLine: String, expandedLine: String, completeLine: String,
+            breakSpoken: String? = nil
+        ) {
             self.start = start
             self.end = max(start, end)
             self.title = title
             self.lockLine = lockLine
             self.expandedLine = expandedLine
             self.completeLine = completeLine
+            self.breakSpoken = breakSpoken
         }
     }
 

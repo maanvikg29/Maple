@@ -15,7 +15,7 @@ public struct FocusActivityState: Sendable, Hashable {
     public var start: Date
     public var plannedEnd: Date
     public var isPlainTimer: Bool
-    /// When a running break ends ("Break · back at 14:28"); nil outside a break.
+    /// When a running break ends ("Study · break until 14:28"); nil outside a break.
     public var breakEnd: Date?
     /// The session's intention, trimmed and capped at `intentionLimit` characters; nil when there is none.
     public private(set) var intention: String?
@@ -66,26 +66,35 @@ public struct FocusActivityState: Sendable, Hashable {
     public struct Lines: Sendable, Hashable {
         /// "Study", or "Plain timer".
         public var title: String
-        /// Under the timer on the Lock Screen: "until 14:52 · Study"; "Break · back at 14:28" during a break.
+        /// Under the timer on the Lock Screen: "until 14:52 · Study"; "Study · break until 14:28" during a break.
         public var lockLine: String
-        /// The expanded view's line: "Study · Chemistry ch. 4"; "Break · back at 14:28" during a break.
+        /// The expanded view's line: "Study · Chemistry ch. 4"; "Study · break until 14:28" during a break.
         public var expandedLine: String
         /// Once the planned end has passed (the activity is stale): "Session complete".
         public var complete: String
+        /// During a break, how VoiceOver reads both lines: "Study, break until 14:28". Nil outside a break, where the
+        /// lines are read as they are shown.
+        public var breakSpoken: String?
     }
 
     /// The lines in `locale`'s clock style ("14:52", "2:52 PM") and `calendar`'s time zone.
+    ///
+    /// During a break both lines name the session and when its break ends: "Study · break until 14:28". With Maple
+    /// suspended nothing updates the activity as the break runs out, so the line must stay true afterwards, which
+    /// "break until" does (owner, 2026-10-29: F1-27). The intention stays out of it, as on the Lock Screen.
     public func lines(locale: Locale, calendar: Calendar) -> Lines {
         func clock(_ date: Date) -> String {
             HomeFormat.clock(HomeFormat.clockTime(of: date, calendar: calendar), locale: locale)
         }
         let title = isPlainTimer ? "Plain timer" : presetName
-        let breakLine = breakEnd.map { "Break · back at \(clock($0))" }
+        let until = breakEnd.map { "break until \(clock($0))" }
+        let breakLine = until.map { "\(title) · \($0)" }
         return Lines(
             title: title,
             lockLine: breakLine ?? "until \(clock(plannedEnd)) · \(title)",
             expandedLine: breakLine ?? ([title] + [intention].compactMap { $0 }).joined(separator: " · "),
-            complete: "Session complete"
+            complete: "Session complete",
+            breakSpoken: until.map { "\(title), \($0)" }
         )
     }
 }
