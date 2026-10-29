@@ -35,7 +35,9 @@ public struct StartScreenModel: Sendable, Equatable {
     /// This session's length, kept to 20 minutes–3 hours.
     public let minutes: Int
     public let stage: Stage
-    /// The level a session started now uses: a looser change waits for the next Maple day.
+    /// The level that applies to a session started now (`Strictness.applying(to:)`): a looser change waits for the next
+    /// Maple day, and without blocking the start is a plain timer, which is Gentle. Home's Start and the receipt's
+    /// Again read it through this model.
     public let strictness: Strictness
     public let forecast: SessionForecast
     public let readiness: StartReadiness
@@ -90,8 +92,9 @@ public struct StartScreenModel: Sendable, Equatable {
         calendar: Calendar = .current
     ) {
         let minutes = DialLayout.stepped(minutes, by: 0)
-        let strictness = preset.strictness(on: day)
         let canBlock = blocking == .ready
+        // Without blocking, a start here is a plain timer, which is Gentle whatever its preset (owner, 2026-10-29).
+        let strictness = preset.strictness(on: day).applying(to: canBlock ? .blocking : .plainTimer)
         let leaf = progress.flatMap { $0.category == .hoursSaved && $0.state == .locked && $0.remaining > 0 ? $0 : nil }
         let leafName = leaf.flatMap { LeafCatalog.shared.species(id: $0.speciesID)?.displayName }
         let forecast = SessionForecast(

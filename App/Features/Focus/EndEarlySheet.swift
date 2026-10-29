@@ -3,7 +3,8 @@ import MapleCore
 import MapleDesign
 import MapleServices
 
-/// End early, for Gentle and Steady (F1 design §5.6): a sheet over the running session.
+/// End early, for Gentle and Steady (F1 design §5.6), and for every plain timer, which is Gentle whatever its preset: a
+/// sheet over the running session.
 ///
 /// - "End this session?", the minutes saved so far (counted seconds, with this session's provisional time), and the
 ///   primary "Keep going", which cancels at every stage, as swiping the sheet away does.

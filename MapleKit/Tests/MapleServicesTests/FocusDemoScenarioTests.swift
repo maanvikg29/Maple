@@ -238,7 +238,7 @@ struct FocusDemoScenarioTests {
         #expect(stores.focus.presets.lastUsed?.strictness == strictness)
     }
 
-    @Test("End early takes Gentle when asked and never Locked; the emergency release is always Locked")
+    @Test("End early takes Gentle when asked and never Locked, unless it is a plain timer; the emergency release is always Locked")
     func strictnessRules() async throws {
         let gentle = try await demo("-MapleDemoFocus", "endEarly", "-MapleDemoStrictness", "gentle")
         #expect(gentle.focus.sessions.running?.plan.strictness == .gentle)
@@ -248,6 +248,12 @@ struct FocusDemoScenarioTests {
         #expect(emergency.focus.sessions.running?.plan.strictness == .locked)
         let countdown = try await demo("-MapleDemoEndCountdown", "9")
         #expect(countdown.focus.sessions.running?.plan.strictness == .steady)
+        // A plain timer's End early is Gentle's whatever its preset, so a plain one keeps the level asked for.
+        let plain = try await demo("-MapleDemoFocus", "endEarly", "-MapleDemoStrictness", "locked", "-MapleDemoScreenTime", "plain")
+        let running = try #require(plain.focus.sessions.running)
+        #expect(running.plan.kind == .plainTimer)
+        #expect(running.plan.strictness == .locked)
+        #expect(SessionEndPath(running.plan) == .gentle)
     }
 
     @Test("Break: Study at minute 31, a minute into its break, with 4 minutes of it left")

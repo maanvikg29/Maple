@@ -7,7 +7,8 @@ import MapleServices
 /// all apps? Every app Maple is resting opens again now.").
 /// - With no session running, every store is cleared at once (on F1 builds, the preview stores), and the row says so.
 /// - During a session it goes through that strictness level's own end path on the Focus tab, so in Locked it is the
-///   emergency release (`FocusReleaseRouter`, Task 12). Home closes the Profile sheet when the request arrives.
+///   emergency release, and during a plain timer Gentle's End early whatever its preset (`FocusReleaseRouter`, Task
+///   12). Home closes the Profile sheet when the request arrives.
 ///
 /// `SettingsView` shows it once Focus ships, in a build that can block.
 struct ReleaseAllSettingsGroup: View {

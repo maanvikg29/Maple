@@ -1,7 +1,8 @@
 import Foundation
 import MapleFocusCore
 
-/// The way out of a running session, by its strictness (F1 design §5.6, §5.7, §5.12).
+/// The way out of a running session, by the strictness that applies to it (F1 design §5.6, §5.7, §5.12): a plain
+/// timer's is Gentle's whatever its preset (`init(_: FocusPlan)`, owner 2026-10-29).
 public enum SessionEndPath: String, Sendable, Hashable, CaseIterable {
     /// Gentle: "End session", then a 5-second breathing ring.
     case gentle
@@ -218,7 +219,7 @@ public struct RunningSessionModel: Sendable, Equatable {
         timeLine = "\(remaining) left of \(length)"
         firstSessionLine = isFirstSession ? FocusCopy.firstSessionLine : nil
         breakTitle = Self.breakAvailable(session, at: now) ? Self.takeBreakTitle : nil
-        endPath = SessionEndPath(plan.strictness)
+        endPath = SessionEndPath(plan)
 
         let canCount = plan.canCount && !isPlain
         let counted = max(0, time.seconds)
@@ -367,7 +368,7 @@ public struct BreakScreenModel: Sendable, Equatable {
         suggestion = FocusCopy.BreakTime.suggestion(secondsIntoBreak: now.timeIntervalSince(current.start))
         backLine = FocusCopy.BreakTime.line(backAt: backAt, locale: locale, calendar: calendar)
         spoken = FocusCopy.BreakTime.dialLabel(secondsLeft: left, backAt: backAt, locale: locale, calendar: calendar)
-        endPath = SessionEndPath(session.plan.strictness)
+        endPath = SessionEndPath(session.plan)
     }
 
     /// The break ran out on its own (not "Back to studying") in the last 2 seconds, before the planned end: the

@@ -171,8 +171,8 @@ public struct HoldButton: View {
         }
     }
 
-    /// One line, and as many as the words need at accessibility sizes, where "Hold to start as a plain timer" takes
-    /// three (§5.17: no word is cut). The capsule grows to fit (`fixedSize`).
+    /// One line, and as many as the words need at accessibility sizes, where "Hold to start · 1h 30m" can take more
+    /// (§5.17: no word is cut). The capsule grows to fit (`fixedSize`).
     private func labelText(_ text: String, colour: Color) -> some View {
         Text(text)
             .font(MapleFont.buttonLabel)

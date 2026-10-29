@@ -9,7 +9,8 @@ import MapleServices
 ///   and that leaf in the centre; turning it sets this session's length. Under it are the preset chips, "What's this
 ///   for?", the Blocking line and the counts line, then the primary capsule.
 /// - **Locked** starts with a 1.5-second hold, whose progress fills the dial's marks. A plain tap shows "Hold to start.
-///   Locked ends early only by emergency release." for 4 seconds in the counts line's place (§5.2).
+///   Locked ends early only by emergency release." for 4 seconds in the counts line's place (§5.2). A plain timer
+///   locks nothing, so it is Gentle whatever its preset: one tap, and no hint (`Strictness.applying(to:)`).
 /// - **After Start** the capsule reads "Locking 6 apps…" until the store has read the block back. The session's own
 ///   screen then takes over (`FocusView`, with a soft haptic). A block that can't be applied offers the plain timer
 ///   (`PlainTimerReason.lockFailed`); a start the ledger can't record says so.

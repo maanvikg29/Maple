@@ -496,6 +496,32 @@ struct StartScreenModelTests {
         #expect(model(blocking: .notInThisBuild).readiness == .needsStartScreen(.blockingUnavailable))
     }
 
+    @Test("Without blocking a start is a plain timer, so a Locked or Steady preset applies Gentle: one tap, no hold, no hint")
+    func plainTimerStrictness() {
+        for strictness in [Strictness.locked, .steady] {
+            var preset = study
+            preset.strictness = strictness
+            for blocking in [FocusStatus.Blocking.needsPermission, .notInThisBuild] {
+                let start = model(preset: preset, blocking: blocking)
+                #expect(start.strictness == .gentle)
+                #expect(start.primary == .start)
+                #expect(start.capsuleTitle == "Start study · 50m")
+                #expect(start.holdName == nil)
+                #expect(start.plainTapHint == nil)
+                // Home's Start reads the same model.
+                let home = FocusStart(model: start)
+                #expect(home.strictness == .gentle)
+                #expect(!home.needsHold)
+            }
+            // With blocking, the session locks apps: its preset's own strictness applies, Locked's hold included.
+            #expect(model(preset: preset).strictness == strictness)
+        }
+        var locked = study
+        locked.strictness = .locked
+        #expect(model(preset: locked).readiness == .ready(needsHold: true))
+        #expect(ReceiptFlow.again(model(preset: locked).readiness) == .hold)
+    }
+
     @Test("Home's Start is built from the same model, so a hold on one is a hold on the other")
     func homeAgrees() {
         var locked = study

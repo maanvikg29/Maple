@@ -239,6 +239,8 @@ struct FocusDemoScenario {
         verb = options.preset ?? .study
         strictness = switch state {
         case .emergency: .locked
+        // A plain timer's End early is Gentle's whatever its preset (owner, 2026-10-29), so a plain one keeps its level.
+        case .endEarly where Self.timesPlainly(screenTime): options.strictness ?? .steady
         case .endEarly: options.strictness == .gentle ? .gentle : .steady
         // Only Locked has the emergency release.
         case .ended, .endedAway: options.receipt == .emergency ? .locked : options.strictness ?? .steady
@@ -254,7 +256,12 @@ struct FocusDemoScenario {
     var endedOn: FocusDemo.Receipt? { isEnded ? receipt : nil }
     /// Without blocking allowed, a session can only be a plain timer.
     var subjectIsPlain: Bool {
-        endedOn == .plain || [.plain, .unavailable, .notDetermined, .declined, .restricted, .noPasscode].contains(screenTime)
+        endedOn == .plain || Self.timesPlainly(screenTime)
+    }
+
+    /// Blocking isn't allowed, so the scenario's session runs as a plain timer.
+    static func timesPlainly(_ screenTime: FocusDemo.ScreenTime) -> Bool {
+        [.plain, .unavailable, .notDetermined, .declined, .restricted, .noPasscode].contains(screenTime)
     }
     var subjectLosesBlock: Bool { !subjectIsPlain && (screenTime == .revoked || endedOn == .revoked) }
     /// How long before now the subject ended.

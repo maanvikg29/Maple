@@ -16,7 +16,8 @@ import MapleServices
 ///   the member also plays a soft haptic; one that ran out while Maple was away returns to the session quietly.
 /// - Magic Tap moves VoiceOver to the session's controls.
 /// - The way out (Task 12): End early's sheet (Gentle, Steady), or the emergency release in this screen's place
-///   (Locked). Settings' "Release all apps" arrives here during a session (`FocusTabState.releasesAll`).
+///   (Locked). A plain timer locks nothing, so its way out is Gentle's whatever its preset (`SessionEndPath(_:)` on
+///   the plan). Settings' "Release all apps" arrives here during a session (`FocusTabState.releasesAll`).
 struct RunningSessionView: View {
     let sessionID: UUID
 
@@ -116,8 +117,9 @@ struct RunningSessionView: View {
         sessions.running.flatMap { $0.id == sessionID ? $0 : nil }
     }
 
+    /// By the strictness that applies to the session: a plain timer's is Gentle's whatever its preset.
     private var endPath: SessionEndPath {
-        SessionEndPath(session?.plan.strictness ?? .steady)
+        session.map { SessionEndPath($0.plan) } ?? .steady
     }
 
     /// The break while one runs, otherwise the running dial, sampled once a second. Past the planned end it keeps its
@@ -302,7 +304,7 @@ struct RunningSessionView: View {
         }
     }
 
-    /// "End early" or "Emergency release", by the session's strictness.
+    /// "End early" or "Emergency release", by the strictness that applies to the session.
     private func takeEndPath() {
         wake()
         switch endPath {

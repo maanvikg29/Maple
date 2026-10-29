@@ -180,7 +180,7 @@ struct EmergencyReleaseModelTests {
 }
 
 /// Settings' "Release all apps" during a session goes through that session's own way out (F1 design §5.12), which
-/// `FocusReleaseRouter` opens and `RunningSessionView` picks by strictness.
+/// `FocusReleaseRouter` opens and `RunningSessionView` picks by the strictness that applies to it.
 @Suite("Release all path")
 struct ReleaseAllPathTests {
     @Test("Each strictness's way out: Gentle and Steady end early, Locked is the emergency release")
@@ -193,8 +193,19 @@ struct ReleaseAllPathTests {
             script.after(5, .shieldApplied)
             let running = try #require(script.record)
             #expect(!running.isEnded)
-            #expect(SessionEndPath(running.plan.strictness) == path)
-            #expect(SessionEndPath(running.plan.strictness).reason == reason)
+            #expect(SessionEndPath(running.plan) == path)
+            #expect(SessionEndPath(running.plan).reason == reason)
+        }
+    }
+
+    @Test("During a plain timer, whatever its preset's strictness, the way out is Gentle's End early")
+    func plainTimer() throws {
+        for strictness in Strictness.allCases {
+            let plan = FocusFixtures.plan(strictness: strictness, kind: .plainTimer, selection: nil)
+            let running = try #require(SessionScript(start: at(2026, 10, 23, 14), plan: plan).record)
+            #expect(!running.isEnded)
+            #expect(SessionEndPath(running.plan) == .gentle)
+            #expect(SessionEndPath(running.plan).reason == .endedEarly)
         }
     }
 }

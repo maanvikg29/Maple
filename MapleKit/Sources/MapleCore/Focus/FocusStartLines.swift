@@ -39,8 +39,6 @@ public struct FocusStartLines: Sendable, Equatable {
     public static let title = "Focus"
     /// The ledger couldn't record the start, so nothing started and the block was lifted.
     public static let couldntStart = "Couldn't start the session. Try again in a moment."
-    /// Locked's capsule after a lock that failed: still a hold, as every Locked start is (§5.2).
-    public static let holdToStartPlainTimer = "Hold to start as a plain timer"
     /// The new-preset chip at default sizes; it reads `FocusCopy.newPreset` aloud and at accessibility sizes.
     public static let addChip = "+"
 
@@ -77,7 +75,9 @@ public struct FocusStartLines: Sendable, Equatable {
     public init(model: StartScreenModel, mode: Mode, showsHoldHint: Bool = false, notice: String? = nil, locale: Locale = .current) {
         // A minimised session's screen is the model's own: "Return to session", with nothing under the dial.
         let effective: Mode = model.stage == .running ? .blocking : mode
-        let locked = model.strictness == .locked
+        // The strictness that applies to this start (`Strictness.applying(to:)`): a plain timer locks nothing, so it is
+        // Gentle whatever its preset, with no hold and no Locked line (owner, 2026-10-29).
+        let holds = model.strictness.applying(to: effective == .blocking ? .blocking : .plainTimer) == .locked
         let primary: StartScreenModel.Primary
         let capsuleTitle: String
         // "Start study · 50m" and its plain-timer twin carry a length; "Start as a plain timer" doesn't.
@@ -88,25 +88,19 @@ public struct FocusStartLines: Sendable, Equatable {
             capsuleTitle = model.capsuleTitle
             startHasLength = true
         case .plainTimer:
-            // A plain timer needs no apps, so it never asks for them; Locked still needs a hold.
-            primary = model.primary == .locking ? .locking : locked ? .holdToStart : .start
-            capsuleTitle = locked
+            // A plain timer needs no apps, so it never asks for them.
+            primary = model.primary == .locking ? .locking : holds ? .holdToStart : .start
+            capsuleTitle = holds
                 ? FocusCopy.holdToStart(minutes: model.minutes) : "\(model.preset.verb.startTitle) · \(model.lengthText)"
             startHasLength = true
         case .lockFailed:
-            primary = model.primary == .locking ? .locking : locked ? .holdToStart : .start
-            capsuleTitle = locked ? Self.holdToStartPlainTimer : FocusCopy.startPlainTimer
+            primary = model.primary == .locking ? .locking : holds ? .holdToStart : .start
+            capsuleTitle = holds ? FocusCopy.holdToStart(minutes: model.minutes) : FocusCopy.startPlainTimer
             startHasLength = false
         }
         self.primary = primary
         self.capsuleTitle = capsuleTitle
-        if primary == .holdToStart {
-            let length = FocusTimeText.spokenLength(minutes: model.minutes, locale: locale)
-            holdName = effective == .lockFailed
-                ? "\(Self.holdToStartPlainTimer), Locked \(length)" : FocusCopy.holdToStartName(minutes: model.minutes, locale: locale)
-        } else {
-            holdName = nil
-        }
+        holdName = primary == .holdToStart ? FocusCopy.holdToStartName(minutes: model.minutes, locale: locale) : nil
         if let holdName {
             capsuleSpoken = holdName
         } else if primary == .start, startHasLength {

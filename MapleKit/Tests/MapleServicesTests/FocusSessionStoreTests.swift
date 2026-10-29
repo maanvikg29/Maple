@@ -590,6 +590,22 @@ struct FocusSessionStoreTests {
         #expect(h.ledger.events.contains { $0.kind == .shieldCleared(.releaseAll) })
     }
 
+    @Test("During a plain timer of a Locked preset, Gentle's way out applies, and Release all apps then ends it")
+    func releaseAllPlainTimer() async {
+        let h = Harness()
+        var request = h.request(plain: true)
+        request.preset.strictness = .locked
+        _ = await h.store.start(request)
+        #expect(h.store.running?.plan.strictness == .locked)
+        #expect(h.store.running?.plan.appliedStrictness == .gentle)
+        h.advance(minutes: 10)
+        await h.store.releaseAll()
+        #expect(h.store.running == nil)
+        #expect(h.store.lastEnded?.endReason == .releaseAll)
+        #expect(h.blocking.store == .empty)
+        #expect(h.collection.focus.totalSeconds == 0)
+    }
+
     @Test("One locked break, inside the planned length")
     func breaks() async {
         let h = Harness()

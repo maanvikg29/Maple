@@ -84,14 +84,24 @@ struct FocusStartLinesTests {
         #expect(noApps.primary == .start)
         #expect(noApps.capsuleTitle == "Start study · 50m")
 
-        // Locked never starts with one tap, plain timer or not.
-        let locked = FocusStartLines(model: model(strictness: .locked, blocking: .needsPermission), mode: .plainTimer, locale: enGB)
-        #expect(locked.primary == .holdToStart)
-        #expect(locked.capsuleTitle == "Hold to start · 50m")
-        #expect(locked.holdName == "Hold to start, Locked 50 minutes")
+        // A plain timer locks nothing, so it is Gentle whatever its preset: one tap starts it, with no hold and no
+        // Locked line, in a build that can block and in one that can't.
+        for blocking in [FocusStatus.Blocking.needsPermission, .notInThisBuild] {
+            for strictness in [Strictness.locked, .steady] {
+                let plain = FocusStartLines(
+                    model: model(strictness: strictness, blocking: blocking), mode: .plainTimer, showsHoldHint: true, locale: enGB
+                )
+                #expect(plain.primary == .start)
+                #expect(plain.capsuleTitle == "Start study · 50m")
+                #expect(plain.capsuleSpoken == "Start study, 50 minutes")
+                #expect(plain.holdName == nil)
+                #expect(plain.detailLine == nil)
+                #expect(plain.plainLine == "Plain timer · apps aren't locked")
+            }
+        }
     }
 
-    @Test("A lock that failed offers the plain timer, as a hold for Locked")
+    @Test("A lock that failed offers the plain timer, which starts with one tap whatever the preset's strictness")
     func lockFailed() {
         let lines = FocusStartLines(model: model(), mode: .lockFailed, locale: enGB)
         #expect(lines.detailLine == "Couldn't lock your apps · Start as a plain timer?")
@@ -103,10 +113,15 @@ struct FocusStartLinesTests {
         #expect(lines.startsPlainTimer)
         #expect(!lines.marksLeaf)
 
-        let locked = FocusStartLines(model: model(strictness: .locked), mode: .lockFailed, locale: enGB)
-        #expect(locked.primary == .holdToStart)
-        #expect(locked.capsuleTitle == "Hold to start as a plain timer")
-        #expect(locked.holdName == "Hold to start as a plain timer, Locked 50 minutes")
+        // The start it offers is a plain timer, so Locked's hold doesn't apply to it, nor its line.
+        let locked = FocusStartLines(model: model(strictness: .locked), mode: .lockFailed, showsHoldHint: true, locale: enGB)
+        #expect(locked.primary == .start)
+        #expect(locked.capsuleTitle == "Start as a plain timer")
+        #expect(locked.capsuleSpoken == "Start as a plain timer")
+        #expect(locked.holdName == nil)
+        #expect(locked.detailLine == "Couldn't lock your apps · Start as a plain timer?")
+        // A blocking start of the same preset is still a hold.
+        #expect(FocusStartLines(model: model(strictness: .locked), mode: .blocking, locale: enGB).primary == .holdToStart)
     }
 
     @Test("A start the ledger couldn't record says so, under the hint and over everything else")

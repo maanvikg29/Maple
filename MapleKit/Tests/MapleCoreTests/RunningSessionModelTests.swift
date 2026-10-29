@@ -342,6 +342,31 @@ struct RunningSessionModelTests {
         #expect(RunningSessionModel.minimiseLabel == "Minimise session")
     }
 
+    @Test("The strictness that applies: a plain timer's is Gentle, a session that locks apps keeps its own")
+    func appliedStrictness() throws {
+        for strictness in Strictness.allCases {
+            #expect(strictness.applying(to: .plainTimer) == .gentle)
+            #expect(strictness.applying(to: .blocking) == strictness)
+            #expect(try record(strictness: strictness, kind: .plainTimer).plan.appliedStrictness == .gentle)
+            #expect(try record(strictness: strictness).plan.appliedStrictness == strictness)
+        }
+    }
+
+    @Test("A plain timer locks nothing, so it ends early as Gentle does, whatever its preset's strictness")
+    func plainTimerEndsFreely() throws {
+        for strictness in Strictness.allCases {
+            let plain = try record(strictness: strictness, kind: .plainTimer)
+            let screen = model(plain, at: 18)
+            #expect(screen.endPath == .gentle)
+            #expect(screen.endPath.title == "End early")
+            #expect(screen.endPath.reason == .endedEarly)
+            #expect(SessionEndPath(plain.plan) == .gentle)
+        }
+        // Sessions that lock apps are unchanged.
+        #expect(model(try record(strictness: .locked), at: 18).endPath == .emergency)
+        #expect(SessionEndPath(try record(strictness: .steady).plan) == .steady)
+    }
+
     @Test("Only the member's first session ever shows the first-session line")
     func firstSession() throws {
         let session = try record()
