@@ -10,6 +10,9 @@ import MapleServices
 ///   this build can't block.
 /// - A card with the state's title and line (`FocusCopy.card`), and "Turn on Screen Time" where Maple can ask. Under
 ///   them, "Use a plain timer · it won't count" opens the start screen as a plain timer (`PlainTimerReason.chosen`).
+///   A build that can never block remembers that choice (`AppSettings.choosePlainTimer(capability:)`), so after the
+///   first time its Focus tab goes straight to the plain timer's start screen; a build that can block asks again
+///   after each start.
 ///
 /// "Turn on Screen Time" asks once (`FocusSessionStore.requestAuthorization()`). When Screen Time allows Maple, the
 /// store's probe changes and `FocusView` shows the start screen. Every "Turn on Screen Time" elsewhere in the app
@@ -81,6 +84,8 @@ struct NeedsScreenTimeView: View {
             }
             TextLink(model.plainTimerLink, chevron: false) {
                 tab.plainTimer = .chosen
+                // A build that can never block remembers it, so its card doesn't come before every session.
+                settings.choosePlainTimer(capability: sessions.blocking.capability)
             }
         }
         .multilineTextAlignment(.center)

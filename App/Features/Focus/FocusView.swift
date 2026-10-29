@@ -13,7 +13,9 @@ import MapleServices
 /// - A running session shows its screen (its break while one runs), or the start screen's running state once
 ///   minimised.
 /// - Otherwise an unseen receipt (`ReceiptPicker.pending`, P5) comes first, then Needs Screen Time while blocking
-///   isn't available (until the member picks the plain timer), then the start screen.
+///   isn't available (until the member picks the plain timer), then the start screen. A build that can never block
+///   remembers the plain timer once picked, so from then on its Focus tab goes straight to the plain timer's start
+///   screen; a build that can block asks again after each start, since Screen Time may be turned on (owner, 2026-10-29).
 ///
 /// Cross-tab requests arrive through `AppRouter.focusRequest` and are applied once. The tab's own choices live in
 /// `FocusTabState`, which every Focus screen reads from the environment, and its one sheet is `FocusTabState.sheet`.
@@ -36,7 +38,8 @@ struct FocusView: View {
         let route = FocusRoute.resolve(
             isLoaded: sessions.isLoaded && sessions.isLedgerReadable, running: sessions.running,
             receipt: tab.shownReceipt ?? pending?.id,
-            isMinimised: tab.isMinimised, canBlock: canBlock, usesPlainTimer: tab.plainTimer != nil, now: now
+            isMinimised: tab.isMinimised, canBlock: canBlock,
+            usesPlainTimer: tab.plainTimer(settings: settings, capability: sessions.blocking.capability) != nil, now: now
         )
         // Read, so a tick reads the route again.
         let _ = tick
@@ -105,7 +108,8 @@ struct FocusView: View {
         tab.shownReceipt = id
     }
 
-    /// A session starting clears the last receipt and the plain-timer choice; one ending or being replaced leaves
+    /// A session starting clears the last receipt and this start's plain-timer choice (one a build that can never block
+    /// remembers stays in `AppSettings`); one ending or being replaced leaves
     /// nothing minimised. (At launch the first replay finds the running session: a minimised state set for a DEBUG
     /// launch survives that.)
     private func sessionChanged(from old: UUID?, to new: UUID?) {
@@ -179,7 +183,8 @@ final class FocusTabState {
     var hasTurnedDial = false
     /// ⌄ on the running session: the start screen shows the session's running state (§5.1).
     var isMinimised = false
-    /// The member is starting a plain timer instead of a blocking session, and why; nil for a blocking session.
+    /// The member is starting a plain timer instead of a blocking session, and why; nil for a blocking session. A start
+    /// clears it; a choice that a build that can never block remembers is `AppSettings`' (`plainTimer(settings:capability:)`).
     var plainTimer: PlainTimerReason?
     /// The receipt on screen, kept until Done even once it is marked seen.
     var shownReceipt: UUID?
@@ -189,6 +194,13 @@ final class FocusTabState {
     var lastStarted: UUID?
     /// Settings' "Release all apps" arrived during a session: the session screen opens its way out and clears this.
     var releasesAll = false
+
+    /// Why the start screen starts a plain timer now: the tab's own choice since the last start, else the plain timer
+    /// that a build that can never block remembers (`AppSettings.opensPlainTimer(capability:)`, owner 2026-10-29); nil
+    /// for a blocking session.
+    func plainTimer(settings: AppSettings, capability: BlockingCapability) -> PlainTimerReason? {
+        plainTimer ?? (settings.opensPlainTimer(capability: capability) ? .chosen : nil)
+    }
 }
 
 /// Why the start screen starts a plain timer (§5.1, §5.3).

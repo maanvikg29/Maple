@@ -84,6 +84,11 @@ struct FocusDemoArgumentTests {
         #expect(reveal.focusSheet == nil)
         #expect(!reveal.isActive)
         #expect(DemoLaunchOptions(arguments: ["-MapleDemoPresent", "endEarly"]).focusSheet == nil)
+        // -MapleDemoPlainTimerChosen is a Focus flag: YES, true or 1, in any case.
+        let chosen = DemoLaunchOptions(arguments: ["-MapleDemoPlainTimerChosen", "yes"])
+        #expect(chosen.plainTimerChosen && chosen.hasFocusArguments && chosen.isActive)
+        #expect(!DemoLaunchOptions(arguments: ["-MapleDemoPlainTimerChosen", "no"]).plainTimerChosen)
+        #expect(!none.plainTimerChosen)
         // A Focus argument alone is a demo launch on the demo collection, unless it is a fresh first run.
         let focus = DemoLaunchOptions(arguments: ["-MapleDemoFocus", "running"])
         #expect(focus.isActive && focus.usesDemoCollection)

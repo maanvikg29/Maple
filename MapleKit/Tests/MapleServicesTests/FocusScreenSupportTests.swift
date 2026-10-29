@@ -443,6 +443,41 @@ struct FocusSettingsTests {
         #expect(try decoder.decode(SettingsSnapshot.self, from: JSONEncoder().encode(full)) == full)
     }
 
+    @Test("A build that can never block remembers the plain timer once chosen, across launches; one that can block never does")
+    func plainTimerRemembered() throws {
+        let url = try temporaryDirectory().appendingPathComponent(AppSettings.file)
+        let free = AppSettings(storage: JSONStorage(.file(url)), regionCode: "GB")
+        #expect(!free.plainTimerChosen)
+        #expect(!free.opensPlainTimer(capability: .unavailableInBuild))
+        free.choosePlainTimer(capability: .unavailableInBuild)
+        #expect(free.plainTimerChosen)
+        #expect(free.opensPlainTimer(capability: .unavailableInBuild))
+        let relaunched = AppSettings(storage: JSONStorage(.file(url)), regionCode: "GB")
+        #expect(relaunched.opensPlainTimer(capability: .unavailableInBuild))
+        // A build that can block ignores a saved choice: Screen Time may be turned on there.
+        #expect(!relaunched.opensPlainTimer(capability: .screenTime))
+        #expect(!relaunched.opensPlainTimer(capability: .preview))
+
+        let paidURL = try temporaryDirectory().appendingPathComponent(AppSettings.file)
+        let paid = AppSettings(storage: JSONStorage(.file(paidURL)), regionCode: "GB")
+        paid.choosePlainTimer(capability: .screenTime)
+        paid.choosePlainTimer(capability: .preview)
+        #expect(!paid.plainTimerChosen)
+        #expect(!AppSettings(storage: JSONStorage(.file(paidURL)), regionCode: "GB").plainTimerChosen)
+    }
+
+    @Test("Existing members' settings read as no plain timer chosen; an odd value too")
+    func plainTimerTolerant() throws {
+        let decoder = JSONDecoder()
+        let older = try decoder.decode(SettingsSnapshot.self, from: Data(#"{"version":1,"hasStartedFocus":true}"#.utf8))
+        #expect(!older.plainTimerChosen)
+        #expect(older.hasStartedFocus)
+        let odd = try decoder.decode(SettingsSnapshot.self, from: Data(#"{"plainTimerChosen":"yes"}"#.utf8))
+        #expect(!odd.plainTimerChosen)
+        let chosen = SettingsSnapshot(plainTimerChosen: true)
+        #expect(try decoder.decode(SettingsSnapshot.self, from: JSONEncoder().encode(chosen)) == chosen)
+    }
+
     @Test("A Focus demo's settings follow its scenario; other demos copy the member's; none writes the member's file")
     func demo() throws {
         let folder = try temporaryDirectory()
@@ -468,6 +503,13 @@ struct FocusSettingsTests {
         #expect(settings("-MapleDemoReceipt", "leaf").hasStartedFocus)
         #expect(!settings("-MapleDemoFresh", "YES", "-MapleDemoFocus", "idle").hasStartedFocus)
         #expect(!settings("-MapleDemoFresh", "YES").hasStartedFocus)
+
+        // -MapleDemoPlainTimerChosen: the plain timer chosen once before, which a free build remembers.
+        #expect(!idle.plainTimerChosen)
+        let remembered = settings("-MapleDemoScreenTime", "unavailable", "-MapleDemoPlainTimerChosen", "YES")
+        #expect(remembered.opensPlainTimer(capability: .unavailableInBuild))
+        #expect(settings("-MapleDemoPlainTimerChosen", "YES").plainTimerChosen)
+        #expect(!settings("-MapleDemoScreenTime", "unavailable").plainTimerChosen)
 
         let other = settings("-MapleDemoSpecies", "10")
         #expect(other.snapshot == member)

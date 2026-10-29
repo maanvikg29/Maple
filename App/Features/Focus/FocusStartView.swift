@@ -13,8 +13,8 @@ import MapleServices
 /// - **After Start** the capsule reads "Locking 6 apps…" until the store has read the block back. The session's own
 ///   screen then takes over (`FocusView`, with a soft haptic). A block that can't be applied offers the plain timer
 ///   (`PlainTimerReason.lockFailed`); a start the ledger can't record says so.
-/// - **A plain timer** (`PlainTimerReason.chosen`, from Needs Screen Time) replaces the Blocking line with "Plain timer
-///   · apps aren't locked", and shows no leaf and no counts line.
+/// - **A plain timer** (`PlainTimerReason.chosen`, from Needs Screen Time, or remembered by a build that can never
+///   block) replaces the Blocking line with "Plain timer · apps aren't locked", and shows no leaf and no counts line.
 /// - **Minimised** (`minimised`): the dial is live and can't be turned, the chips and lines are hidden, and the capsule
 ///   reads "Return to session".
 ///
@@ -270,8 +270,9 @@ struct FocusStartView: View {
 
     // MARK: Actions
 
+    /// How the next start runs: the tab's plain-timer choice, or the one a build that can never block remembers.
     private var mode: FocusStartLines.Mode {
-        switch tab.plainTimer {
+        switch tab.plainTimer(settings: settings, capability: sessions.blocking.capability) {
         case nil: .blocking
         case .chosen: .plainTimer
         case .lockFailed: .lockFailed

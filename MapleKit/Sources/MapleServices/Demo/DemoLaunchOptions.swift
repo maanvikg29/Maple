@@ -71,6 +71,9 @@ nonisolated public struct DemoLaunchOptions: Sendable, Equatable {
     public var endCountdown: Int?
     /// `-MapleDemoFinishAt <s>`: the receipt's finish (or an emergency release's breath) frozen that many seconds in.
     public var finishAt: Double?
+    /// `-MapleDemoPlainTimerChosen YES`: the member chose "Use a plain timer" before, which a build that can never block
+    /// remembers (`AppSettings.plainTimerChosen`).
+    public var plainTimerChosen = false
 
     public init() {}
 
@@ -136,6 +139,7 @@ nonisolated public struct DemoLaunchOptions: Sendable, Equatable {
         holdAt = number("MapleDemoHoldAt").map { min(1, max(0, $0)) }
         endCountdown = count("MapleDemoEndCountdown", max: 15)
         finishAt = number("MapleDemoFinishAt").map { max(0, $0) }
+        plainTimerChosen = flag("MapleDemoPlainTimerChosen")
     }
 
     /// The saved weekly schedule these arguments make from `saved` (the demo's own, or the member's): the
@@ -187,7 +191,7 @@ nonisolated public struct DemoLaunchOptions: Sendable, Equatable {
     public var hasFocusArguments: Bool {
         ship != nil || focus != nil || focusAt != nil || strictness != nil || screenTime != nil || receipt != nil
             || saved != nil || liveActivity != nil || focusSheet != nil || preset != nil || intention != nil
-            || holdAt != nil || endCountdown != nil || finishAt != nil
+            || holdAt != nil || endCountdown != nil || finishAt != nil || plainTimerChosen
     }
 
     /// A deterministic demo collection replaces the member's own: asked for, or a Focus demo (whose scenarios need a

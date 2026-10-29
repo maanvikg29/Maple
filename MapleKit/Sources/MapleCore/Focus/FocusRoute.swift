@@ -30,7 +30,8 @@ public enum FocusRoute: Sendable, Hashable {
     ///   - running: The store's running session.
     ///   - receipt: The receipt on screen, else the one to show (`ReceiptPicker.pending`); nil for none.
     ///   - canBlock: The build can block and Screen Time allows it.
-    ///   - usesPlainTimer: The member chose the plain timer (or took it after a failed lock).
+    ///   - usesPlainTimer: The member chose the plain timer (or took it after a failed lock), or a build that can never
+    ///     block remembers choosing it (`AppSettings.opensPlainTimer(capability:)`).
     public static func resolve(
         isLoaded: Bool, running: SessionRecord?, receipt: UUID?, isMinimised: Bool, canBlock: Bool, usesPlainTimer: Bool,
         now: Date
