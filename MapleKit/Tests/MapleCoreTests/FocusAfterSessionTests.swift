@@ -129,13 +129,15 @@ struct ReceiptModelTests {
         }
     }
 
+    /// - Parameter shownOn: The Maple day the receipt is shown on; nil is the session's own.
     private func receipt(
         _ ended: Ended, unlocks: [LeafUnlock] = [], held: Bool = false, next: LeafProgress? = ReceiptModelTests.fieldMaple,
-        today: Int = 130 * 60, reflection: Reflection? = nil, now: Date? = nil
+        today: Int = 130 * 60, shownOn: LocalDay? = nil, reflection: Reflection? = nil, now: Date? = nil
     ) -> ReceiptModel {
         ReceiptModel(
             session: ended.session, credit: ended.credit, unlocks: unlocks, heldUntilMorning: held, next: next, todaySeconds: today,
-            reflection: reflection, now: now ?? ended.session.endedAt ?? ended.session.plannedEnd, locale: enGB, calendar: utc
+            today: shownOn ?? ended.session.plan.day, reflection: reflection,
+            now: now ?? ended.session.endedAt ?? ended.session.plannedEnd, locale: enGB, calendar: utc
         )
     }
 
@@ -168,6 +170,27 @@ struct ReceiptModelTests {
         #expect(model.choices.allSatisfy { !$0.isSelected })
         #expect(model.again == "Again · 50m")
         #expect(FocusCopy.done == "Done")
+    }
+
+    @Test("Shown on a later Maple day, the caption says that day, with that day's total: as shown, read aloud and at large sizes")
+    func thatDay() throws {
+        let done = try clean()
+        let nextDay = LocalDay(year: 2026, month: 10, day: 24)
+        let model = receipt(done, shownOn: nextDay, now: at(2026, 10, 24, 8, 30))
+        #expect(model.caption == "saved · 2h 10m that day")
+        #expect(model.timeLine == "50m saved · 2h 10m that day")
+        #expect(model.dialLabel == "50 minutes saved. \(HomeFormat.spokenDuration(minutes: 130, locale: enGB)) that day.")
+        #expect(model.dialLabel.hasPrefix("50 minutes saved. 2 hours"))
+        #expect(!model.dialLabel.contains("today"))
+        // Under a minute saved that day.
+        let none = receipt(done, today: 30, shownOn: nextDay)
+        #expect(none.caption == "saved · none that day")
+        #expect(none.timeLine == "50m saved · none that day")
+        #expect(none.dialLabel == "50 minutes saved. None that day.")
+        // Today's receipts keep "today".
+        #expect(receipt(done).caption == "saved · 2h 10m today")
+        #expect(receipt(done, shownOn: LocalDay(year: 2026, month: 10, day: 23)).timeLine == "50m saved · 2h 10m today")
+        #expect(receipt(done, today: 30).caption == "saved · none yet today")
     }
 
     @Test("Without a break the breakdown is Locked the whole time; a chosen reflection is marked")
@@ -388,7 +411,7 @@ struct ReceiptModelTests {
         #expect(model.marks == Array(repeating: .lit, count: 10) + Array(repeating: .gap, count: 40))
         let twelveHour = ReceiptModel(
             session: revoked.session, credit: revoked.credit, unlocks: [], heldUntilMorning: false, next: nil, todaySeconds: 600,
-            reflection: nil, now: at(2026, 10, 23, 14, 50), locale: enUS, calendar: utc
+            today: revoked.session.plan.day, reflection: nil, now: at(2026, 10, 23, 14, 50), locale: enUS, calendar: utc
         )
         #expect(twelveHour.breakdown == "Couldn't confirm the block after 2:10 PM")
     }

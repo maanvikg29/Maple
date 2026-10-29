@@ -85,7 +85,8 @@ public struct ReceiptModel: Sendable, Equatable {
     /// "50m": counted minutes, or the minutes focused when the session couldn't count.
     public let numeral: String
     public let numeralParts: [NumeralPart]
-    /// "saved · 2h 10m today".
+    /// "saved · 2h 10m today", or "saved · 2h 10m that day" with that day's total when the session's Maple day is earlier
+    /// than the one the receipt is shown on (F1-31).
     public let caption: String
     /// The numeral and caption as one line, repeated under the dial at accessibility sizes, where the numeral stops
     /// growing (§5.17): "50m saved · 2h 10m today"; a caption that starts its own sentence follows a dot.
@@ -109,7 +110,8 @@ public struct ReceiptModel: Sendable, Equatable {
     public let endedLine: String?
     public let layout: DialLayout
     public let marks: [MarkState]
-    /// The receipt dial's VoiceOver label (§4.9): "50 minutes saved. 2 hours, 10 minutes today."
+    /// The receipt dial's VoiceOver label (§4.9): "50 minutes saved. 2 hours, 10 minutes today." ("… that day." the next
+    /// day).
     public let dialLabel: String
     /// "How did it go?"; nil after an emergency release.
     public let reflectionPrompt: String?
@@ -126,11 +128,14 @@ public struct ReceiptModel: Sendable, Equatable {
     ///   - heldUntilMorning: The one opened leaf is held until morning (F1-12).
     ///   - next: The next hours leaf after this session's credit, for "Field maple · 1h 10m to go".
     ///   - todaySeconds: Seconds saved on the session's Maple day, this session included.
+    ///   - today: The Maple day the receipt is shown on (`focusWindow(at: now, context:).day`). A session from an
+    ///     earlier one reads "that day" instead of "today" (F1-31).
     ///   - reflection: The answer to "How did it go?" so far.
     ///   - now: Trusted time.
     public init(
         session: SessionRecord, credit: SessionCredit?, unlocks: [LeafUnlock], heldUntilMorning: Bool, next: LeafProgress?,
-        todaySeconds: Int, reflection: Reflection?, now: Date, locale: Locale = .current, calendar: Calendar = .current
+        todaySeconds: Int, today: LocalDay, reflection: Reflection?, now: Date, locale: Locale = .current,
+        calendar: Calendar = .current
     ) {
         let plan = session.plan
         let counts = plan.canCount
@@ -175,6 +180,8 @@ public struct ReceiptModel: Sendable, Equatable {
         }
 
         let shown = counts ? counted / 60 : focused
+        // Shown the next day: the caption's total is that day's, so it says so (F1-31).
+        let earlierDay = plan.day < today
         numeral = FocusTimeText.length(minutes: shown)
         numeralParts = HomeFormat.durationParts(minutes: shown)
         if ending == .emergency {
@@ -183,8 +190,10 @@ public struct ReceiptModel: Sendable, Equatable {
             caption = "focused · not counted toward leaves"
         } else if !counts {
             caption = "Not counted · add an app to count"
+        } else if todaySeconds >= 60 {
+            caption = "saved · \(HomeFormat.duration(minutes: todaySeconds / 60)) \(Self.dayWord(earlierDay))"
         } else {
-            caption = todaySeconds >= 60 ? "saved · \(HomeFormat.duration(minutes: todaySeconds / 60)) today" : "saved · none yet today"
+            caption = earlierDay ? "saved · none that day" : "saved · none yet today"
         }
         timeLine = caption.first?.isUppercase == true ? "\(numeral) · \(caption)" : "\(numeral) \(caption)"
         let line = Self.leafLine(counts: counts, ending: ending, unlocks: unlocks, held: heldUntilMorning, next: next, locale: locale)
@@ -219,9 +228,10 @@ public struct ReceiptModel: Sendable, Equatable {
 
         let spokenShown = HomeFormat.spokenDuration(minutes: shown, locale: locale)
         if counts {
-            let today = todaySeconds >= 60
-                ? "\(HomeFormat.spokenDuration(minutes: todaySeconds / 60, locale: locale)) today." : "None yet today."
-            dialLabel = "\(spokenShown) saved. \(today)"
+            let dayTotal = todaySeconds >= 60
+                ? "\(HomeFormat.spokenDuration(minutes: todaySeconds / 60, locale: locale)) \(Self.dayWord(earlierDay))."
+                : earlierDay ? "None that day." : "None yet today."
+            dialLabel = "\(spokenShown) saved. \(dayTotal)"
         } else {
             dialLabel = "\(spokenShown) focused. Not counted toward leaves."
         }
@@ -241,6 +251,11 @@ public struct ReceiptModel: Sendable, Equatable {
     }
 
     // MARK: Private
+
+    /// The caption's day: "today", or "that day" for a session from an earlier Maple day (F1-31).
+    private static func dayWord(_ earlierDay: Bool) -> String {
+        earlierDay ? "that day" : "today"
+    }
 
     /// The leaf line's two tones, its spoken form, and whether it says a leaf is yours.
     private struct LeafLine {
