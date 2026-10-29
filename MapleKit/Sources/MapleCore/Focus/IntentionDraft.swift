@@ -1,7 +1,7 @@
 import Foundation
 
-/// "What's this for?" as it is typed (F1 design §5.16): at most 60 characters, Return saves it trimmed, and a cleared
-/// field removes the intention.
+/// "What's this for?" as it is typed (F1 design §5.16): at most 60 characters, Return saves it trimmed, a cleared
+/// field removes the intention, and closing the entry without Return saves what Return would.
 public struct IntentionDraft: Sendable, Equatable {
     public private(set) var text: String
 
@@ -21,6 +21,10 @@ public struct IntentionDraft: Sendable, Equatable {
 
     /// What Return saves: trimmed, or nil (no intention) for a blank field.
     public var saved: String? { RecentIntentions.normalized(text) }
+
+    /// What closing the entry without Return saves (a swipe down, or a tap outside): exactly what Return saves, so
+    /// typed words are never lost (owner, 2026-10-29: F1-28).
+    public var savedOnDismiss: String? { saved }
 
     public var isCleared: Bool { saved == nil }
 }

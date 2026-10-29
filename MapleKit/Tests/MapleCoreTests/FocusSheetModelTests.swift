@@ -220,6 +220,23 @@ struct IntentionDraftTests {
         #expect(IntentionDraft("Essay").text == "Essay")
     }
 
+    @Test("Swiped away or tapped outside without Return, the field saves what Return would: trimmed, at most 60, none when blank")
+    func dismissedWithoutReturn() {
+        var draft = IntentionDraft("Essay")
+        // Opened and closed again untouched: the intention it opened with.
+        #expect(draft.savedOnDismiss == "Essay")
+        draft.type("  Chemistry ch. 4  ")
+        #expect(draft.savedOnDismiss == "Chemistry ch. 4")
+        #expect(draft.savedOnDismiss == draft.saved)
+        draft.type(String(repeating: "b", count: 70))
+        #expect(draft.savedOnDismiss == String(repeating: "b", count: RecentIntentions.maximumLength))
+        draft.type("   ")
+        #expect(draft.savedOnDismiss == nil)
+        // A field that was cleared has already removed the intention; closing it keeps it removed.
+        draft.type("")
+        #expect(draft.isCleared && draft.savedOnDismiss == nil)
+    }
+
     @Test("A field that wraps (accessibility sizes) gets Return as a newline: it isn't kept, and it saves")
     func returnInAWrappingField() {
         var draft = IntentionDraft("Chemistry")
