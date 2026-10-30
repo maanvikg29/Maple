@@ -62,6 +62,22 @@ nonisolated public enum FocusDemo {
         case typical, capped, empty
     }
 
+    /// `-MapleDemoReceiptTimes`: when the receipt's session ended, and when the receipt shows.
+    nonisolated public struct ReceiptTimes: Sendable, Equatable {
+        public var ended: ClockTime
+        public var shown: ClockTime
+
+        public init(ended: ClockTime, shown: ClockTime) {
+            self.ended = ended
+            self.shown = shown
+        }
+
+        /// How long before it shows the session ended: `ended` is on the day before when it is the later time.
+        public var endedAgo: TimeInterval {
+            TimeInterval((shown.minutesSinceMidnight - ended.minutesSinceMidnight + 24 * 60) % (24 * 60) * 60)
+        }
+    }
+
     /// `-MapleDemoLiveActivity`.
     nonisolated public enum LiveActivity: String, Sendable, CaseIterable {
         case running
@@ -210,6 +226,10 @@ struct FocusDemoScenario {
     let strictness: Strictness
     let focusAt: Int?
     let intention: String?
+    /// `-MapleDemoReceiptTimes`, for a session that has ended.
+    let receiptTimes: FocusDemo.ReceiptTimes?
+    /// `-MapleDemoPresetName`: the selected preset's name.
+    let presetName: String?
 
     init(_ options: DemoLaunchOptions) {
         var asked = options.focus
@@ -220,7 +240,7 @@ struct FocusDemoScenario {
             case .ended: .ended
             }
         }
-        if asked == nil, options.receipt != nil || options.finishAt != nil { asked = .ended }
+        if asked == nil, options.receipt != nil || options.finishAt != nil || options.receiptTimes != nil { asked = .ended }
         if asked == nil, options.endCountdown != nil { asked = .endEarly }
         if asked == nil, options.screenTime == .revoked || options.screenTime == .plain { asked = .running }
         let state = asked ?? .idle
@@ -248,6 +268,8 @@ struct FocusDemoScenario {
         }
         focusAt = options.focusAt
         intention = options.intention ?? Self.intention
+        receiptTimes = options.receiptTimes
+        presetName = options.presetName
     }
 
     var isRunning: Bool { [.running, .dimmed, .breakTime, .minimised, .endEarly, .emergency].contains(state) }
@@ -265,14 +287,19 @@ struct FocusDemoScenario {
     }
     var subjectLosesBlock: Bool { !subjectIsPlain && (screenTime == .revoked || endedOn == .revoked) }
     /// How long before now the subject ended.
-    var endedFor: TimeInterval { state == .endedAway ? 2 * 3600 : 5 }
+    var endedFor: TimeInterval { receiptTimes?.endedAgo ?? (state == .endedAway ? 2 * 3600 : 5) }
     var subjectMinutes: Int { FocusPreset.defaults(appSetID: nil).first { $0.verb == verb }?.minutes ?? 50 }
 
     // MARK: The collection and the clock
 
-    /// Where the demo clock starts: the asked-for phase, or the moment the scenario needs: the Day, where a session
-    /// counts; after tonight's bedtime for the bedtime receipt; wind-down for a leaf held until morning.
+    /// Where the demo clock starts: when `-MapleDemoReceiptTimes` shows the receipt, the asked-for phase, or the moment
+    /// the scenario needs: the Day, where a session counts; after tonight's bedtime for the bedtime receipt; wind-down for
+    /// a leaf held until morning.
     func start(phase: NowPhase?, day: Date, windows: PhaseWindows, calendar: Calendar) -> Date {
+        if isEnded, let shown = receiptTimes?.shown,
+           let date = calendar.date(bySettingHour: shown.hour, minute: shown.minute, second: 0, of: day) {
+            return date
+        }
         if let phase { return windows.sampleDate(in: phase, onDayOf: day, calendar: calendar) }
         switch endedOn {
         case .bedtime?:
@@ -317,6 +344,7 @@ struct FocusDemoScenario {
         var presets = FocusPreset.defaults(appSetID: AppSet.distractionsID)
         let index = presets.firstIndex { $0.verb == verb } ?? 0
         presets[index].strictness = strictness
+        if let presetName { presets[index].name = presetName }
         return PresetsFile(presets: presets, lastUsedID: state == .first ? nil : presets[index].id)
     }
 

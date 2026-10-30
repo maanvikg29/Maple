@@ -34,6 +34,9 @@ struct LiveActivityDemoTests {
         #expect(state.breakEnd == at(2026, 10, 23, 14, 24))
         #expect(state.intention == "Essay plan")
         #expect(FocusDemo.LiveActivity.running.state(options: options(["-MapleDemoIntention", ""]), now: now).intention == nil)
+        let named = options(["-MapleDemoPresetName", "Organic chemistry review"])
+        #expect(FocusDemo.LiveActivity.breakTime.state(options: named, now: now).presetName == "Organic chemistry review")
+        #expect(FocusDemo.LiveActivity.ended.state(options: named, now: now).presetName == "Organic chemistry review")
     }
 
     @Test("A plain timer has no leaf; ended goes stale 8 seconds after launch; every launch is a new session")

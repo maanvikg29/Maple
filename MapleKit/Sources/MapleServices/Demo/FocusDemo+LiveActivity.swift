@@ -13,11 +13,13 @@ extension FocusDemo.LiveActivity {
     /// - `ended` reaches its planned end `endsAfter` seconds after launch, so a later screenshot reads
     ///   "Session complete".
     /// - The intention is `-MapleDemoIntention` ("" for none), or "Chemistry ch. 4".
+    /// - The name is `-MapleDemoPresetName`, or the preset's own.
     /// - Each launch is a new session (`session`), so an activity an earlier launch left is ended, never reused with
     ///   its old leaf and tint.
     public func state(options: DemoLaunchOptions, now: Date, session: UUID = UUID()) -> FocusActivityState {
         let presets = FocusPreset.defaults(appSetID: nil)
         let preset = presets.first { $0.verb == (options.preset ?? .study) } ?? presets[0]
+        let name = options.presetName ?? preset.name
         let length = TimeInterval(preset.minutes * 60)
         let intention = options.intention ?? Self.intention
         switch self {
@@ -25,14 +27,14 @@ extension FocusDemo.LiveActivity {
             let minutesIn = min(max(options.focusAt ?? (self == .breakTime ? 31 : 18), 0), preset.minutes - 1)
             let start = now.addingTimeInterval(-TimeInterval(minutesIn * 60))
             return FocusActivityState(
-                sessionID: session, presetName: preset.name, start: start, plannedEnd: start.addingTimeInterval(length),
+                sessionID: session, presetName: name, start: start, plannedEnd: start.addingTimeInterval(length),
                 isPlainTimer: self == .plain, breakEnd: self == .breakTime ? now.addingTimeInterval(4 * 60) : nil,
                 intention: intention
             )
         case .ended:
             let end = now.addingTimeInterval(Self.endsAfter)
             return FocusActivityState(
-                sessionID: session, presetName: preset.name, start: end.addingTimeInterval(-length), plannedEnd: end,
+                sessionID: session, presetName: name, start: end.addingTimeInterval(-length), plannedEnd: end,
                 isPlainTimer: false, intention: intention
             )
         }

@@ -35,6 +35,27 @@ struct FocusDemoArgumentTests {
         #expect(options.usesDemoCollection)
     }
 
+    @Test("-MapleDemoReceiptTimes reads two clock times, and how long before the second the first was")
+    func receiptTimes() {
+        let options = DemoLaunchOptions(arguments: ["-MapleDemoReceiptTimes", "21:30-09:30"])
+        #expect(options.receiptTimes == FocusDemo.ReceiptTimes(ended: ClockTime(hour: 21, minute: 30), shown: ClockTime(hour: 9, minute: 30)))
+        #expect(options.receiptTimes?.endedAgo == TimeInterval(12 * 3600))
+        #expect(options.hasFocusArguments)
+        #expect(DemoLaunchOptions(arguments: ["-MapleDemoReceiptTimes", "23:10-23:11"]).receiptTimes?.endedAgo == 60)
+        #expect(DemoLaunchOptions(arguments: ["-MapleDemoReceiptTimes", "23:10"]).receiptTimes == nil)
+        #expect(DemoLaunchOptions(arguments: ["-MapleDemoReceiptTimes", "25:00-23:11"]).receiptTimes == nil)
+        #expect(!DemoLaunchOptions(arguments: ["-MapleDemoReceiptTimes", "nonsense"]).hasFocusArguments)
+    }
+
+    @Test("-MapleDemoPresetName is the selected preset's name, at most the 24 characters a member can type")
+    func presetName() {
+        let options = DemoLaunchOptions(arguments: ["-MapleDemoPresetName", "Organic chemistry review"])
+        #expect(options.presetName == "Organic chemistry review")
+        #expect(options.hasFocusArguments)
+        let long = DemoLaunchOptions(arguments: ["-MapleDemoPresetName", String(repeating: "a", count: 30)])
+        #expect(long.presetName == String(repeating: "a", count: FocusPreset.nameLimit))
+    }
+
     @Test("The values are the ones docs/debug-launch-arguments.md lists, read in any case")
     func rawValues() {
         #expect(FocusDemo.State.allCases.map(\.rawValue) == [

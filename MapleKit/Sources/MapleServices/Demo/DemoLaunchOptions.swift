@@ -71,6 +71,10 @@ nonisolated public struct DemoLaunchOptions: Sendable, Equatable {
     public var endCountdown: Int?
     /// `-MapleDemoFinishAt <s>`: the receipt's finish (or an emergency release's breath) frozen that many seconds in.
     public var finishAt: Double?
+    /// `-MapleDemoReceiptTimes 23:10-23:11`: the receipt's session ended at the first time and it shows at the second.
+    public var receiptTimes: FocusDemo.ReceiptTimes?
+    /// `-MapleDemoPresetName <text>`: the selected preset's name, at most the 24 characters a member can type.
+    public var presetName: String?
     /// `-MapleDemoPlainTimerChosen YES`: the member chose "Use a plain timer" before, which a build that can never block
     /// remembers (`AppSettings.plainTimerChosen`).
     public var plainTimerChosen = false
@@ -139,6 +143,11 @@ nonisolated public struct DemoLaunchOptions: Sendable, Equatable {
         holdAt = number("MapleDemoHoldAt").map { min(1, max(0, $0)) }
         endCountdown = count("MapleDemoEndCountdown", max: 15)
         finishAt = number("MapleDemoFinishAt").map { max(0, $0) }
+        receiptTimes = value("MapleDemoReceiptTimes").flatMap { text in
+            let times = Self.clockTimes(from: text)
+            return times.count == 2 ? FocusDemo.ReceiptTimes(ended: times[0], shown: times[1]) : nil
+        }
+        presetName = value("MapleDemoPresetName").map { String($0.prefix(FocusPreset.nameLimit)) }
         plainTimerChosen = flag("MapleDemoPlainTimerChosen")
     }
 
@@ -171,15 +180,20 @@ nonisolated public struct DemoLaunchOptions: Sendable, Equatable {
     /// "00:30-08:30" or "00:30-08:30/60"; nil when malformed. Wind-down defaults to the standard 45 minutes.
     static func schedule(from text: String) -> SleepSchedule? {
         let parts = text.split(separator: "/")
-        let times = parts.first?.split(separator: "-").compactMap { clock -> ClockTime? in
-            let fields = clock.split(separator: ":").compactMap { Int($0) }
-            guard fields.count == 2, (0..<24).contains(fields[0]), (0..<60).contains(fields[1]) else { return nil }
-            return ClockTime(hour: fields[0], minute: fields[1])
-        } ?? []
+        let times = parts.first.map { clockTimes(from: String($0)) } ?? []
         guard times.count == 2, parts.count <= 2 else { return nil }
         let windDown = parts.count == 2 ? Int(parts[1]) : SleepSchedule.standard.windDownMinutes
         guard let windDown, (0...180).contains(windDown) else { return nil }
         return SleepSchedule(bedtime: times[0], wake: times[1], windDownMinutes: windDown)
+    }
+
+    /// The times in "00:30-08:30" that can be read.
+    private static func clockTimes(from text: String) -> [ClockTime] {
+        text.split(separator: "-").compactMap { clock in
+            let fields = clock.split(separator: ":").compactMap { Int($0) }
+            guard fields.count == 2, (0..<24).contains(fields[0]), (0..<60).contains(fields[1]) else { return nil }
+            return ClockTime(hour: fields[0], minute: fields[1])
+        }
     }
 
     /// The arguments this process was launched with.
@@ -191,7 +205,8 @@ nonisolated public struct DemoLaunchOptions: Sendable, Equatable {
     public var hasFocusArguments: Bool {
         ship != nil || focus != nil || focusAt != nil || strictness != nil || screenTime != nil || receipt != nil
             || saved != nil || liveActivity != nil || focusSheet != nil || preset != nil || intention != nil
-            || holdAt != nil || endCountdown != nil || finishAt != nil || plainTimerChosen
+            || holdAt != nil || endCountdown != nil || finishAt != nil || receiptTimes != nil || presetName != nil
+            || plainTimerChosen
     }
 
     /// A deterministic demo collection replaces the member's own: asked for, or a Focus demo (whose scenarios need a

@@ -319,6 +319,35 @@ struct FocusDemoScenarioTests {
         #expect(stores.credit(ended.id)?.seconds == 50 * 60)
     }
 
+    @Test("-MapleDemoReceiptTimes places a receipt: ended at the first time, shown at the second, the day before when the first is later")
+    func receiptTimes() async throws {
+        // Just past a 23:00 bedtime: started 22:20, so it counted the 40 minutes up to bedtime.
+        let evening = try await demo("-MapleDemoReceiptTimes", "23:10-23:11", "-MapleDemoSaved", "empty")
+        #expect(near(evening.now, at(2026, 10, 23, 23, 11)))
+        let late = try #require(evening.focus.sessions.lastEnded)
+        #expect(late.id == FocusDemo.subjectID)
+        #expect(late.plan.day == LocalDay(year: 2026, month: 10, day: 23))
+        #expect(near(late.plannedEnd, at(2026, 10, 23, 23, 10)))
+        #expect(evening.credit(late.id)?.seconds == 40 * 60)
+        // The next morning: the session is the evening before's, whole.
+        let morning = try await demo("-MapleDemoReceiptTimes", "21:30-09:30", "-MapleDemoSaved", "empty")
+        #expect(near(morning.now, at(2026, 10, 23, 9, 30)))
+        let lastNight = try #require(morning.focus.sessions.lastEnded)
+        #expect(lastNight.plan.day == LocalDay(year: 2026, month: 10, day: 22))
+        #expect(near(lastNight.plannedEnd, at(2026, 10, 22, 21, 30)))
+        #expect(morning.credit(lastNight.id)?.seconds == 50 * 60)
+        // It wins over the phase, and asks nothing of a session that hasn't ended.
+        #expect(near(try await demo("-MapleDemoReceiptTimes", "23:10-23:11", "-MapleDemoPhase", "day").now, at(2026, 10, 23, 23, 11)))
+        #expect(near(try await demo("-MapleDemoFocus", "running", "-MapleDemoReceiptTimes", "23:10-23:11").now, at(2026, 10, 23, 15, 7)))
+    }
+
+    @Test("-MapleDemoPresetName names the selected preset, in the stores and on the session")
+    func presetName() async throws {
+        let stores = try await demo("-MapleDemoFocus", "running", "-MapleDemoPresetName", "Organic chemistry review")
+        #expect(stores.focus.presets.lastUsed?.name == "Organic chemistry review")
+        #expect(stores.focus.sessions.running?.plan.presetName == "Organic chemistry review")
+    }
+
     @Test("First: nothing ever focused: no sessions, no streak, no focus leaf, no last-used preset")
     func first() async throws {
         let stores = try await demo("-MapleDemoFocus", "first")
