@@ -82,8 +82,8 @@ UDID=$(xcrun simctl list devices available \
 [[ -n $UDID ]] || fail 2 "no available simulator named \"$SIMULATOR\" (see xcrun simctl list devices available)"
 xcrun simctl bootstatus "$UDID" -b > /dev/null || fail 2 "\"$SIMULATOR\" didn't boot"
 xcrun simctl install "$UDID" "$APP" || fail 2 "couldn't install $APP"
-xcrun simctl terminate "$UDID" "$BUNDLE_ID" > /dev/null 2>&1 || true
-xcrun simctl launch "$UDID" "$BUNDLE_ID" "${LAUNCH_ARGS[@]}" > /dev/null || fail 2 "couldn't launch $BUNDLE_ID"
+# One step, so a background launch can't slip in between and take the arguments' place.
+xcrun simctl launch --terminate-running-process "$UDID" "$BUNDLE_ID" "${LAUNCH_ARGS[@]}" > /dev/null || fail 2 "couldn't launch $BUNDLE_ID"
 sleep "$WAIT"
 xcrun simctl io "$UDID" screenshot "$OUT/$NAME.png" > /dev/null 2>&1 || fail 2 "couldn't save $OUT/$NAME.png"
 print -r -- "$OUT/$NAME.png"
