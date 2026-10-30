@@ -126,7 +126,7 @@ F1-27 to F1-31 are the owner's own, from 2026-10-29, answering questions the F1b
 | F1-28 | An intention typed and then swiped away | **Saved, exactly as Return saves it:** trimmed, at most 60 characters, and a blank field means no intention. A field that was cleared still removes the intention at once (§5.16). Owner, 2026-10-29. |
 | F1-29 | The plain timer in a build that can't block | **Remembered.** In a build that can never block, the member's first "Use a plain timer · it won't count" is saved in Settings, and from then on the Focus tab goes straight to the plain timer's start screen, which keeps its "Plain timer · apps aren't locked" line. A build that can block still asks again after each start, because Screen Time may be turned on (§1.1, §5.3). Owner, 2026-10-29. |
 | F1-30 | A plain timer's strictness | **Gentle, whatever its preset.** A plain timer locks nothing, so Locked's and Steady's exit costs mean nothing for it: it starts with one tap and no hold, the start screen shows no Locked line, and End early is Gentle's, with no emergency release and no 15-second countdown. Sessions that lock apps are unchanged (§5.2, §5.6, §5.7, §5.12, §5.13). Owner, 2026-10-29. |
-| F1-31 | A receipt shown the next day | **"saved · 2h 10m that day"**, with that day's total, when the session ended on an earlier Maple day than today. Today's receipts keep "today" (§5.8). Owner, 2026-10-29. |
+| F1-31 | A receipt shown the next day | **"saved · 2h 10m that day"**, with that day's total, only when the session's Maple day is earlier than the shown day and the shown day's window has opened (wake − 60). Between bedtime and that moment it still says "today". Today's receipts keep "today" (§5.8). Owner, 2026-10-29. |
 
 ## 3. Counting rules
 The focus spec's R1 to R14 stand, with the changes below made in place there. F1a implements §3.1 to §3.5 exactly.
@@ -451,7 +451,7 @@ Every screen has a DEBUG launch argument (§8.2). The mockup page shows §5.1 to
 ### 5.8 Receipt (the session's final frame)
 - **Header:** "Study · Chemistry ch. 4" over "Apps open again". There is no ⌄ on the receipt.
 - **The finish (§4.6),** then:
-  - "50m", captioned "saved · 2h 10m today". When the session ended on an earlier Maple day than today (a receipt shown the next day), it reads "saved · 2h 10m that day", with that day's total (F1-31); VoiceOver reads "2 hours, 10 minutes that day", and the large-text line under the dial matches;
+  - "50m", captioned "saved · 2h 10m today". When the session's Maple day is earlier than the shown day and the shown day's window has opened (wake − 60), it reads "saved · 2h 10m that day", with that day's total (F1-31); VoiceOver reads "2 hours, 10 minutes that day", and the large-text line under the dial matches. Between bedtime and that moment it still says "today", so a finish past bedtime or a receipt opened in the small hours keeps it;
   - the leaf line (below);
   - the breakdown, "Locked the whole time · 1 break";
   - an optional one-tap "How did it go?" (All done · Partly · Not yet);

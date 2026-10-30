@@ -86,7 +86,8 @@ public struct ReceiptModel: Sendable, Equatable {
     public let numeral: String
     public let numeralParts: [NumeralPart]
     /// "saved · 2h 10m today", or "saved · 2h 10m that day" with that day's total when the session's Maple day is earlier
-    /// than the one the receipt is shown on (F1-31).
+    /// than the one the member is living in as the receipt shows: from the next window's opening, not from bedtime
+    /// (F1-31).
     public let caption: String
     /// The numeral and caption as one line, repeated under the dial at accessibility sizes, where the numeral stops
     /// growing (§5.17): "50m saved · 2h 10m today"; a caption that starts its own sentence follows a dot.
@@ -128,8 +129,8 @@ public struct ReceiptModel: Sendable, Equatable {
     ///   - heldUntilMorning: The one opened leaf is held until morning (F1-12).
     ///   - next: The next hours leaf after this session's credit, for "Field maple · 1h 10m to go".
     ///   - todaySeconds: Seconds saved on the session's Maple day, this session included.
-    ///   - today: The Maple day the receipt is shown on (`focusWindow(at: now, context:).day`). A session from an
-    ///     earlier one reads "that day" instead of "today" (F1-31).
+    ///   - today: The Maple day the member is living in as the receipt shows (`CollectionSnapshot.livingDay(at:context:)`).
+    ///     A session from an earlier one reads "that day" instead of "today" (F1-31).
     ///   - reflection: The answer to "How did it go?" so far.
     ///   - now: Trusted time.
     public init(
@@ -180,7 +181,7 @@ public struct ReceiptModel: Sendable, Equatable {
         }
 
         let shown = counts ? counted / 60 : focused
-        // Shown the next day: the caption's total is that day's, so it says so (F1-31).
+        // Shown once the next day has opened: the caption's total is that day's, so it says so (F1-31).
         let earlierDay = plan.day < today
         numeral = FocusTimeText.length(minutes: shown)
         numeralParts = HomeFormat.durationParts(minutes: shown)

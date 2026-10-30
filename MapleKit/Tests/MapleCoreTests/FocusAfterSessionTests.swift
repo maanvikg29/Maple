@@ -527,6 +527,134 @@ struct ReceiptModelTests {
     }
 }
 
+/// When a receipt says "that day" (F1-31): only once the session's Maple day is earlier than the day the member is
+/// still living in, which moves on when the next window opens (wake − 60), never at bedtime. On the standard schedule
+/// bedtime is 23:00 and wake 07:00, so a window opens at 06:00.
+@Suite("A receipt's day")
+struct ReceiptDayTests {
+    private let context = CollectionContext(schedule: .standard, permissions: [.appleHealth], calendar: utc, hemisphere: .northern)
+    private let snapshot = CollectionSnapshot.empty(profileID: UUID(), createdAt: at(2026, 10, 1))
+
+    /// A session on `plan`'s frozen day and window, as `FocusSessionStore.start` freezes them at `start`, that ran `minutes`.
+    private func ended(from start: Date, minutes: Int) throws -> (session: SessionRecord, credit: SessionCredit) {
+        let frozen = snapshot.focusWindow(at: start, context: context)
+        let plan = FocusFixtures.plan(minutes: minutes, day: frozen.day.description, window: frozen.window)
+        let script = SessionScript(start: start, plan: plan)
+        script.write(.shieldApplied)
+        script.after(TimeInterval(minutes * 60), .sessionEnded(.completed, verified: true))
+        let session = try #require(script.record)
+        let credit = try #require(HoursCredit.credit([session], crediting: [.live], now: script.time.now).first)
+        return (session: session, credit: credit)
+    }
+
+    /// The receipt as `ReceiptView` builds it: `today` is the day the member is living in at `shown`.
+    private func receipt(_ ended: (session: SessionRecord, credit: SessionCredit), shown: Date, todaySeconds: Int? = nil) -> ReceiptModel {
+        ReceiptModel(
+            session: ended.session, credit: ended.credit, unlocks: [], heldUntilMorning: false, next: nil,
+            todaySeconds: todaySeconds ?? ended.credit.seconds, today: snapshot.livingDay(at: shown, context: context),
+            reflection: nil, now: shown, locale: enGB, calendar: utc
+        )
+    }
+
+    /// 22:20 to 23:10 on the 23rd: its last 10 minutes are past bedtime, so it counts 40.
+    private func eveningSession() throws -> (session: SessionRecord, credit: SessionCredit) {
+        try ended(from: at(2026, 10, 23, 22, 20), minutes: 50)
+    }
+
+    @Test("Its finish, past bedtime on its own evening, says today, as read aloud and at large sizes")
+    func justAfterBedtime() throws {
+        let evening = try eveningSession()
+        #expect(evening.session.plan.day == LocalDay(year: 2026, month: 10, day: 23))
+        let model = receipt(evening, shown: at(2026, 10, 23, 23, 10))
+        #expect(model.playsFinish)
+        #expect(model.numeral == "40m")
+        #expect(model.caption == "saved · 40m today")
+        #expect(model.timeLine == "40m saved · 40m today")
+        #expect(model.dialLabel == "40 minutes saved. 40 minutes today.")
+    }
+
+    @Test("Opened in the small hours, before the next window opens, it still says today")
+    func smallHours() throws {
+        let model = receipt(try eveningSession(), shown: at(2026, 10, 24, 0, 30))
+        #expect(model.caption == "saved · 40m today")
+        #expect(model.timeLine == "40m saved · 40m today")
+        #expect(model.dialLabel == "40 minutes saved. 40 minutes today.")
+    }
+
+    @Test("One second before the next window opens it says today; at that moment it says that day")
+    func theWindowOpening() throws {
+        let evening = try eveningSession()
+        let opens = snapshot.focusWindow(at: at(2026, 10, 24, 12), context: context).window.start
+        #expect(opens == at(2026, 10, 24, 6))
+        #expect(receipt(evening, shown: opens.addingTimeInterval(-1)).caption == "saved · 40m today")
+        let atOpening = receipt(evening, shown: opens)
+        #expect(atOpening.caption == "saved · 40m that day")
+        #expect(atOpening.timeLine == "40m saved · 40m that day")
+        #expect(atOpening.dialLabel == "40 minutes saved. 40 minutes that day.")
+    }
+
+    @Test("Mid-morning the next day it says that day")
+    func midMorning() throws {
+        let model = receipt(try eveningSession(), shown: at(2026, 10, 24, 10, 30))
+        #expect(model.caption == "saved · 40m that day")
+        #expect(model.timeLine == "40m saved · 40m that day")
+        #expect(model.dialLabel == "40 minutes saved. 40 minutes that day.")
+    }
+
+    @Test("A session started inside the sleep window belongs to the next day, so it says today that night and that morning")
+    func startedAfterBedtime() throws {
+        let late = try ended(from: at(2026, 10, 23, 23, 20), minutes: 25)
+        #expect(late.session.plan.day == LocalDay(year: 2026, month: 10, day: 24))
+        #expect(late.credit.seconds == 0)
+        #expect(receipt(late, shown: at(2026, 10, 23, 23, 55)).caption == "saved · none yet today")
+        #expect(receipt(late, shown: at(2026, 10, 24, 7)).caption == "saved · none yet today")
+        #expect(receipt(late, shown: at(2026, 10, 24, 7), todaySeconds: 3600).caption == "saved · 1h today")
+    }
+
+    @Test("The none caption follows the same rule")
+    func noneCaption() throws {
+        let evening = try eveningSession()
+        for shown in [at(2026, 10, 23, 23, 10), at(2026, 10, 24, 0, 30), at(2026, 10, 24, 5, 59, 59)] {
+            let model = receipt(evening, shown: shown, todaySeconds: 30)
+            #expect(model.caption == "saved · none yet today")
+            #expect(model.timeLine == "40m saved · none yet today")
+            #expect(model.dialLabel == "40 minutes saved. None yet today.")
+        }
+        for shown in [at(2026, 10, 24, 6), at(2026, 10, 24, 10, 30)] {
+            let model = receipt(evening, shown: shown, todaySeconds: 30)
+            #expect(model.caption == "saved · none that day")
+            #expect(model.timeLine == "40m saved · none that day")
+            #expect(model.dialLabel == "40 minutes saved. None that day.")
+        }
+    }
+
+    @Test("The day being lived in moves on when the next window opens: an hour before wake, or later after a short night")
+    func livingDay() {
+        let friday = LocalDay(year: 2026, month: 10, day: 23), saturday = LocalDay(year: 2026, month: 10, day: 24)
+        func day(_ date: Date, bedtime: ClockTime = SleepSchedule.standard.bedtime, wake: ClockTime = SleepSchedule.standard.wake) -> LocalDay {
+            let schedule = SleepSchedule(bedtime: bedtime, wake: wake, windDownMinutes: 45)
+            let context = CollectionContext(schedule: .everyNight(schedule), permissions: [], calendar: utc, hemisphere: .northern)
+            return snapshot.livingDay(at: date, context: context)
+        }
+        // 23:00 to 07:00: the window opens at 06:00.
+        #expect(day(at(2026, 10, 23, 6)) == friday)
+        #expect(day(at(2026, 10, 23, 22, 59)) == friday)
+        #expect(day(at(2026, 10, 23, 23)) == friday)
+        #expect(day(at(2026, 10, 24, 5, 59, 59)) == friday)
+        #expect(day(at(2026, 10, 24, 6)) == saturday)
+        // Bed after midnight, 00:30 to 08:30: the same evening's window runs past midnight, and the next opens at 07:30.
+        let lateBed = ClockTime(hour: 0, minute: 30), lateWake = ClockTime(hour: 8, minute: 30)
+        #expect(day(at(2026, 10, 24, 0, 15), bedtime: lateBed, wake: lateWake) == friday)
+        #expect(day(at(2026, 10, 24, 0, 45), bedtime: lateBed, wake: lateWake) == friday)
+        #expect(day(at(2026, 10, 24, 7, 29, 59), bedtime: lateBed, wake: lateWake) == friday)
+        #expect(day(at(2026, 10, 24, 7, 30), bedtime: lateBed, wake: lateWake) == saturday)
+        // A night under 6 hours, 03:00 to 07:00: wake moves to 09:00, so the window opens at 08:00.
+        let shortBed = ClockTime(hour: 3), shortWake = ClockTime(hour: 7)
+        #expect(day(at(2026, 10, 24, 7, 30), bedtime: shortBed, wake: shortWake) == friday)
+        #expect(day(at(2026, 10, 24, 8), bedtime: shortBed, wake: shortWake) == saturday)
+    }
+}
+
 @Suite("Saved today")
 struct SavedTodayModelTests {
     private let today = LocalDay(year: 2026, month: 10, day: 23)

@@ -9,9 +9,9 @@ import MapleServices
 ///   (`ReceiptModel.playsFinish`, decided once at `shownAt`): the counted marks sweep gold (or every mark white when
 ///   nothing counted), an opened leaf grows into the centre, the glow pulses, a ring ripples out, the numeral, the
 ///   leaf line, then Done and Again fade in, and a soft impact plays. Later, the final frame shows still.
-/// - "50m" over "saved · 2h 10m today" ("… that day" for a session from an earlier Maple day, shown the next day,
-///   F1-31); tapping the dial (its numeral) opens Saved today. At accessibility sizes the two repeat as one line under
-///   the dial, "50m saved · 2h 10m today" (§5.17).
+/// - "50m" over "saved · 2h 10m today" ("… that day" for a session from an earlier Maple day, once the next day's window
+///   has opened, F1-31); tapping the dial (its numeral) opens Saved today. At accessibility sizes the two repeat as one
+///   line under the dial, "50m saved · 2h 10m today" (§5.17).
 /// - The leaf line, the breakdown, "How did it go?" (All done · Partly · Not yet), Done, and "Again · 50m", which
 ///   follows start readiness: one tap, a hold in Locked, or the start screen when it has something to say.
 /// - An emergency release shows §5.7's breath and ended state instead (`EmergencyReleaseView`).
@@ -88,8 +88,8 @@ struct ReceiptView: View {
                 unlocks, schedule: collection.schedule, calendar: collection.context.calendar, at: shownAt
             ),
             next: next, todaySeconds: collection.focus.seconds(on: session.plan.day),
-            // The Maple day it is shown on: a session from an earlier one reads "that day" (F1-31).
-            today: collection.snapshot.focusWindow(at: shownAt, context: collection.context).day, reflection: session.reflection,
+            // The Maple day the member is still living in: a session from an earlier one reads "that day" (F1-31).
+            today: collection.snapshot.livingDay(at: shownAt, context: collection.context), reflection: session.reflection,
             now: shownAt, locale: locale, calendar: collection.context.calendar
         )
         if model.ending == .emergency {

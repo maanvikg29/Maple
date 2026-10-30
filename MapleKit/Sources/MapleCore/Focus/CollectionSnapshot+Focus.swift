@@ -7,6 +7,14 @@ extension CollectionSnapshot {
     public func focusWindow(at start: Date, context: CollectionContext) -> (day: LocalDay, window: AwakeWindow) {
         AwakeWindow.frozen(at: start, schedule: { nights.schedule(for: $0, current: context.schedule) }, calendar: context.calendar)
     }
+
+    /// The Maple day the member is still living in at `date`: `focusWindow`'s day, or the day before it until that day's
+    /// window opens (wake − 60). A session starting after bedtime belongs to the next day, but the member's evening
+    /// isn't over until then, so a receipt says "that day" only from that moment (F1-31).
+    public func livingDay(at date: Date, context: CollectionContext) -> LocalDay {
+        let frozen = focusWindow(at: date, context: context)
+        return date < frozen.window.start ? frozen.day.adding(days: -1, calendar: context.calendar) : frozen.day
+    }
 }
 
 extension CollectionSnapshot {
