@@ -477,7 +477,7 @@ Every screen has a DEBUG launch argument (§8.2). The mockup page shows §5.1 to
   - **Plain timer:** lit marks and "50m focused · not counted toward leaves".
   - **Lost confirmation:** "Couldn't confirm the block after 14:10".
   - **After bedtime:** "After bedtime · this didn't count".
-  - **Over the cap:** "Over today's 6h · this didn't add".
+  - **Over the cap:** "Over today's 6h · this didn't add" ("Over that day's 6h · this didn't add" when the caption says "that day", F1-31).
 - **The end notification** opens this receipt when tapped.
 - **The reflection carries forward.** "Partly" or "Not yet" puts that intention first among the next start's chips, and "All done" drops it.
 

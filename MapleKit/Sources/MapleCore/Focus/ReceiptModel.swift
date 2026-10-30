@@ -205,8 +205,12 @@ public struct ReceiptModel: Sendable, Equatable {
         leafOpened = unlocks.contains { RewardCatalog.shared.reward(forSpecies: $0.speciesID)?.categoryID == .hoursSaved }
         if counts && ending != .emergency {
             let stretches = credit?.stretches ?? []
-            breakdown = Self.breakdown(session, stretches: stretches, counted: counted, spoken: false, locale: locale, calendar: calendar)
-            breakdownSpoken = Self.breakdown(session, stretches: stretches, counted: counted, spoken: true, locale: locale, calendar: calendar)
+            breakdown = Self.breakdown(
+                session, stretches: stretches, counted: counted, earlierDay: earlierDay, spoken: false, locale: locale, calendar: calendar
+            )
+            breakdownSpoken = Self.breakdown(
+                session, stretches: stretches, counted: counted, earlierDay: earlierDay, spoken: true, locale: locale, calendar: calendar
+            )
         } else {
             breakdown = nil
             breakdownSpoken = nil
@@ -301,8 +305,10 @@ public struct ReceiptModel: Sendable, Equatable {
 
     /// One line: lost proof first; otherwise the uncounted rule with the most time, or "Locked the whole time".
     /// `spoken` gives VoiceOver's form: lengths in words ("45 minutes", "6 hours"), and a comma for each "·".
+    /// `earlierDay`: the cap is "that day's", as the caption says (F1-31).
     private static func breakdown(
-        _ session: SessionRecord, stretches: [CreditStretch], counted: Int, spoken: Bool, locale: Locale, calendar: Calendar
+        _ session: SessionRecord, stretches: [CreditStretch], counted: Int, earlierDay: Bool, spoken: Bool, locale: Locale,
+        calendar: Calendar
     ) -> String {
         if session.lostAt != nil {
             let checkpoint = session.lastCheckpoint ?? session.countdownStart
@@ -312,7 +318,7 @@ public struct ReceiptModel: Sendable, Equatable {
         func length(_ minutes: Int) -> String {
             spoken ? FocusTimeText.spokenLength(minutes: minutes, locale: locale) : HomeFormat.duration(minutes: minutes)
         }
-        let cap = spoken ? length(HoursCredit.dailyCap / 60) : "\(HoursCredit.dailyCap / 3600)h"
+        let cap = "\(earlierDay ? "that day's" : "today's") \(spoken ? length(HoursCredit.dailyCap / 60) : "\(HoursCredit.dailyCap / 3600)h")"
         let breaks = session.breaks.count
         func withBreaks(_ line: String) -> String {
             breaks == 0 ? line : "\(line)\(dot) \(breaks) \(breaks == 1 ? "break" : "breaks")"
@@ -328,7 +334,7 @@ public struct ReceiptModel: Sendable, Equatable {
         if counted == 0 {
             switch rule {
             case .afterBedtime, .beforeMorning: return "After bedtime\(dot) this didn't count"
-            case .dailyCap: return "Over today's \(cap)\(dot) this didn't add"
+            case .dailyCap: return "Over \(cap)\(dot) this didn't add"
             case .override: return "Unlocked the whole time\(dot) this didn't count"
             default: return "\(CreditWords.reason(rule))\(dot) this didn't count"
             }
@@ -339,7 +345,7 @@ public struct ReceiptModel: Sendable, Equatable {
         case .override: return withBreaks("\(kept) locked\(dot) \(amount) unlocked, not counted")
         case .afterBedtime: return withBreaks("\(kept) counted\(dot) \(amount) after bedtime")
         case .beforeMorning: return withBreaks("\(kept) counted\(dot) \(amount) before morning")
-        case .dailyCap: return withBreaks("\(kept) counted\(dot) \(amount) over today's \(cap)")
+        case .dailyCap: return withBreaks("\(kept) counted\(dot) \(amount) over \(cap)")
         case .overlap: return withBreaks("\(kept) counted\(dot) \(amount) overlapped another session")
         default: return withBreaks("\(kept) counted\(dot) \(amount) unconfirmed")
         }

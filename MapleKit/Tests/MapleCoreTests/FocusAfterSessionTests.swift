@@ -451,6 +451,44 @@ struct ReceiptModelTests {
         #expect(capped.marks == Array(repeating: .lit, count: 10) + Array(repeating: .gap, count: 40))
     }
 
+    @Test("Over the cap, shown the next day: the breakdown says that day's 6h, as shown and read aloud; the large-text line is the caption's")
+    func overCapThatDay() throws {
+        let nextDay = LocalDay(year: 2026, month: 10, day: 24)
+        let day = FocusDay(at(2026, 10, 23, 8))
+        day.session(minutes: 180)
+        day.at(at(2026, 10, 23, 11, 30))
+        day.session(minutes: 180)
+        day.at(at(2026, 10, 23, 15))
+        let third = day.session(minutes: 50)
+        let thirdSession = try #require(day.ledger.sessions().first { $0.id == third })
+        let thirdCredit = try #require(day.credits().first { $0.id == third })
+        let model = receipt((session: thirdSession, credit: thirdCredit), today: HoursCredit.dailyCap, shownOn: nextDay)
+        #expect(model.breakdown == "Over that day's 6h · this didn't add")
+        #expect(model.breakdownSpoken == "Over that day's 6 hours, this didn't add")
+        #expect(model.caption == "saved · 6h that day")
+        #expect(model.timeLine == "0m saved · 6h that day")
+
+        let partial = FocusDay(at(2026, 10, 23, 8))
+        partial.session(minutes: 180)
+        partial.at(at(2026, 10, 23, 11, 30))
+        partial.session(minutes: 170)
+        partial.at(at(2026, 10, 23, 15))
+        let last = partial.session(minutes: 50)
+        let lastSession = try #require(partial.ledger.sessions().first { $0.id == last })
+        let lastCredit = try #require(partial.credits().first { $0.id == last })
+        let capped = receipt((session: lastSession, credit: lastCredit), today: HoursCredit.dailyCap, shownOn: nextDay)
+        #expect(capped.breakdown == "10m counted · 40m over that day's 6h")
+        #expect(capped.breakdownSpoken == "10 minutes counted, 40 minutes over that day's 6 hours")
+        #expect(capped.timeLine == "10m saved · 6h that day")
+
+        // Today's receipts are unchanged.
+        let today = receipt((session: lastSession, credit: lastCredit), today: HoursCredit.dailyCap)
+        #expect(today.breakdown == "10m counted · 40m over today's 6h")
+        #expect(today.breakdownSpoken == "10 minutes counted, 40 minutes over today's 6 hours")
+        #expect(receipt((session: thirdSession, credit: thirdCredit), today: HoursCredit.dailyCap).breakdownSpoken
+            == "Over today's 6 hours, this didn't add")
+    }
+
     @Test("Gold only over counted marks: a session that counted under one mark finishes in white")
     func goldNeedsALitMark() throws {
         // Two sessions use all but 30 seconds of the day's 6h, so the third counts 30 seconds and then hits the cap.
