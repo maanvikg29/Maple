@@ -108,7 +108,7 @@ private struct TimeAndLine: View {
                 .foregroundStyle(ActivityPalette.secondary)
                 .lineLimit(lineLimit)
                 // A break's time comes last and is why the line is there, so a long name gives way first.
-                .truncationMode(state.breakSpoken == nil ? .tail : .middle)
+                .truncationMode(!isStale && state.breakSpoken != nil ? .middle : .tail)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityLabel(Text(isStale ? state.title : state.breakSpoken ?? line))
         }
