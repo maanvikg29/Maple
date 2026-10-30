@@ -221,6 +221,8 @@ struct RunningSessionModelTests {
         #expect(lost.centreLeaf == nil)
         #expect(lost.leafLine == nil)
         #expect(lost.leafMinute == nil)
+        // Lost its block, a Locked session that locks apps still ends through the emergency release (owner, 2026-10-30).
+        #expect(model(try record(strictness: .locked) { $0.after(10 * 60, .shieldLost) }, at: 18, counted: 10 * 60, display: 10 * 60).endPath == .emergency)
         let allEarned = model(try record(), at: 18, leaf: nil)
         #expect(allEarned.centreLeaf == nil)
         #expect(allEarned.leafLine == nil)

@@ -4,8 +4,8 @@ import MapleServices
 /// Settings' "Release all apps", once its confirmation ("Release all apps? Every app Maple is resting opens again
 /// now.", `FocusCopy.ReleaseAll`) is accepted (F1 design §5.12). Task 17's Settings row calls it.
 ///
-/// - With no session running it clears every store now (`FocusSessionStore.releaseAll()`; on F1 builds, the preview
-///   stores) and returns true.
+/// - With no session running it clears every store now (`FocusSessionStore.releaseAllUnlessRunning()`; on F1 builds, the
+///   preview stores) and returns true.
 /// - During a session it goes through that strictness level's own way out first and returns false: the Focus tab
 ///   opens on End early (Gentle, Steady, and every plain timer, which is Gentle whatever its preset) or the emergency
 ///   release (Locked), through `FocusRequest.releaseAll`.
@@ -17,12 +17,8 @@ import MapleServices
 
     /// - Returns: True when every store was cleared now; false when the session's way out was opened instead.
     @discardableResult func releaseAll(from sessions: FocusSessionStore) async -> Bool {
-        await sessions.refresh()
-        guard let running = sessions.running, !running.isEnded else {
-            await sessions.releaseAll()
-            return true
-        }
-        router.showFocus(.releaseAll)
-        return false
+        let released = await sessions.releaseAllUnlessRunning()
+        if !released { router.showFocus(.releaseAll) }
+        return released
     }
 }

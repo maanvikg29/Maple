@@ -590,7 +590,7 @@ struct FocusSessionStoreTests {
         #expect(h.ledger.events.contains { $0.kind == .shieldCleared(.releaseAll) })
     }
 
-    @Test("During a plain timer of a Locked preset, Gentle's way out applies, and Release all apps then ends it")
+    @Test("During a plain timer of a Locked preset, Settings' Release all apps opens Gentle's way out, and completing it ends the session")
     func releaseAllPlainTimer() async {
         let h = Harness()
         var request = h.request(plain: true)
@@ -599,11 +599,46 @@ struct FocusSessionStoreTests {
         #expect(h.store.running?.plan.strictness == .locked)
         #expect(h.store.running?.plan.appliedStrictness == .gentle)
         h.advance(minutes: 10)
+        // Settings' path (`FocusReleaseRouter`): nothing ends yet, and the way out that opens is Gentle's End early, as
+        // `RunningSessionView` picks it.
+        #expect(await !h.store.releaseAllUnlessRunning())
+        #expect(h.store.lastEnded == nil)
+        #expect(h.store.running.map { SessionEndPath($0.plan) } == .gentle)
+        // That End early completed: the view's `endEarlyDismissed` asks the store to clear everything.
         await h.store.releaseAll()
         #expect(h.store.running == nil)
         #expect(h.store.lastEnded?.endReason == .releaseAll)
         #expect(h.blocking.store == .empty)
         #expect(h.collection.focus.totalSeconds == 0)
+    }
+
+    @Test("Settings' Release all apps sends a running session to its way out, and otherwise clears every store at once")
+    func releaseAllFromSettings() async {
+        // A session that locks apps: its block stays until its own way out completes.
+        let running = Harness()
+        _ = await running.store.start(running.request())
+        running.advance(minutes: 10)
+        #expect(await !running.store.releaseAllUnlessRunning())
+        #expect(running.store.running != nil)
+        #expect(running.store.lastEnded == nil)
+        #expect(running.blocking.store != .empty)
+
+        // One that has just reached its planned end is never sent through a way out: the refresh ends it first.
+        let reached = Harness()
+        _ = await reached.store.start(reached.request())
+        reached.advance(minutes: 51)
+        #expect(await reached.store.releaseAllUnlessRunning())
+        #expect(reached.store.running == nil)
+        #expect(reached.store.lastEnded?.endReason == .completed)
+        #expect(reached.blocking.store == .empty)
+
+        // Nothing running: a block left behind is cleared now.
+        let idle = Harness()
+        _ = await idle.blocking.perform(.apply(session: UUID()), selection: Data("six".utf8))
+        #expect(idle.blocking.store != .empty)
+        #expect(await idle.store.releaseAllUnlessRunning())
+        #expect(idle.blocking.store == .empty)
+        #expect(idle.store.lastEnded == nil)
     }
 
     @Test("One locked break, inside the planned length")

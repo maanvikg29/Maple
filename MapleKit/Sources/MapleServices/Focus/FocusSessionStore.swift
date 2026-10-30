@@ -224,6 +224,17 @@ public final class FocusSessionStore {
         }
     }
 
+    /// Settings › Release all apps, once its confirmation is accepted (F1 design §5.12). It refreshes first, so a session
+    /// that has just reached its planned end isn't sent through a way out.
+    /// - Returns: True when every store was cleared now; false when a session is running, so nothing has changed yet: its
+    ///   own way out opens first (`SessionEndPath`), and completing that calls `releaseAll()`.
+    public func releaseAllUnlessRunning() async -> Bool {
+        await refresh()
+        if let running, !running.isEnded { return false }
+        await releaseAll()
+        return true
+    }
+
     /// Starts the preset's one locked break, cut short at the planned end (F1-11). The block is read back first.
     /// - Returns: False when there is no break to take, or it couldn't be recorded.
     public func startBreak() async -> Bool {
