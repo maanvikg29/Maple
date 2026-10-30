@@ -219,8 +219,8 @@ enum FocusTabSheet: Identifiable, Hashable {
     case preset(UUID?)
     /// "What's this for?" (§5.16).
     case intention
-    /// Tapping the receipt's numeral (§5.9).
-    case saved
+    /// Tapping the receipt's numeral (§5.9), on the day of the total it showed; nil for today.
+    case saved(LocalDay?)
     /// The streak sheet (§5.15).
     case streak
 

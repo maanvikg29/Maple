@@ -32,7 +32,7 @@ enum FocusDemoPresenter {
         switch sheet {
         case .blocking: .blocking
         case .preset: .preset(tab.selectedPresetID ?? presets.lastUsed?.id)
-        case .saved: .saved
+        case .saved: .saved(nil)
         case .streak: .streak
         case .intention: .intention
         }

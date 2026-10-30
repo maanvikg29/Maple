@@ -482,7 +482,7 @@ Every screen has a DEBUG launch argument (§8.2). The mockup page shows §5.1 to
 - **The reflection carries forward.** "Partly" or "Not yet" puts that intention first among the next start's chips, and "All done" drops it.
 
 ### 5.9 Saved today
-As in focus spec §3.3. Its reasons come from the rule ids in §3.3, with "Couldn't confirm the block" in place of "Protection was off". Its day is the same one the receipt's "today" means (F1-31): between bedtime and the next day's window opening, it is still the day that just ended.
+As in focus spec §3.3. Its reasons come from the rule ids in §3.3, with "Couldn't confirm the block" in place of "Protection was off". A receipt saying "today" opens it on the day of the total it showed (F1-31); from a receipt saying "that day", or from Home, it opens on today.
 
 ### 5.10 Home
 As in focus spec §6, with these details:

@@ -10,7 +10,7 @@ import MapleServices
 /// - `.preset(id)`: that preset's editor, or a new preset's for nil. A saved preset becomes the selected one, and a
 ///   deleted one stops being it; either way the turned length goes, so the start screen shows the preset's own;
 /// - `.intention`: the tab's "What's this for?";
-/// - `.saved` and `.streak`: as from Home.
+/// - `.saved`: as from Home, on the receipt's day when it gives one; `.streak`: as from Home.
 struct FocusTabSheetContent: View {
     @Environment(CollectionStore.self) private var collection
     @Environment(FocusSessionStore.self) private var sessions
@@ -23,8 +23,8 @@ struct FocusTabSheetContent: View {
     var body: some View {
         @Bindable var tab = tab
         switch sheet {
-        case .saved:
-            SavedTodaySheet()
+        case .saved(let day):
+            SavedTodaySheet(day: day)
         case .streak:
             StreakSheet()
         case .blocking:

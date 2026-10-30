@@ -89,6 +89,9 @@ public struct ReceiptModel: Sendable, Equatable {
     /// than the one the member is living in as the receipt shows: from the next window's opening, not from bedtime
     /// (F1-31).
     public let caption: String
+    /// The day Saved today opens on from the numeral: the day of the caption's total while the caption says "today", so
+    /// the two agree whatever the clock has done since (§5.9). Nil for one saying "that day", which opens on today.
+    public let savedTodayDay: LocalDay?
     /// The numeral and caption as one line, repeated under the dial at accessibility sizes, where the numeral stops
     /// growing (§5.17): "50m saved · 2h 10m today"; a caption that starts its own sentence follows a dot.
     public let timeLine: String
@@ -183,6 +186,7 @@ public struct ReceiptModel: Sendable, Equatable {
         let shown = counts ? counted / 60 : focused
         // Shown once the next day has opened: the caption's total is that day's, so it says so (F1-31).
         let earlierDay = plan.day < today
+        savedTodayDay = earlierDay ? nil : plan.day
         numeral = FocusTimeText.length(minutes: shown)
         numeralParts = HomeFormat.durationParts(minutes: shown)
         if ending == .emergency {

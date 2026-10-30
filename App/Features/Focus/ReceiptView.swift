@@ -198,12 +198,12 @@ struct ReceiptView: View {
         }
         .finishing(finish)
         .contentShape(Circle())
-        .onTapGesture(perform: openSavedToday)
+        .onTapGesture { openSavedToday(model) }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(model.dialLabel))
         .accessibilityHint(Text(FocusSheetCopy.savedTodayHint))
         .accessibilityAddTraits(.isButton)
-        .accessibilityAction(.default, openSavedToday)
+        .accessibilityAction(.default) { openSavedToday(model) }
     }
 
     /// "How did it go?" with one tap: All done · Partly · Not yet. "Partly" and "Not yet" put the intention first
@@ -318,8 +318,8 @@ struct ReceiptView: View {
         isSettled = true
     }
 
-    private func openSavedToday() {
-        tab.sheet = .saved
+    private func openSavedToday(_ model: ReceiptModel) {
+        tab.sheet = .saved(model.savedTodayDay)
     }
 
     private func reflect(_ reflection: Reflection) {

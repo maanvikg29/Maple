@@ -649,6 +649,18 @@ struct ReceiptDayTests {
         #expect(receipt(late, shown: at(2026, 10, 24, 7), todaySeconds: 3600).caption == "saved · 1h today")
     }
 
+    @Test("A receipt saying today opens Saved today on the day of its total; one saying that day leaves it on today")
+    func savedTodayDay() throws {
+        let evening = try eveningSession()
+        let day = LocalDay(year: 2026, month: 10, day: 23)
+        #expect(receipt(evening, shown: at(2026, 10, 23, 23, 10)).savedTodayDay == day)
+        #expect(receipt(evening, shown: at(2026, 10, 24, 5, 59, 59)).savedTodayDay == day)
+        #expect(receipt(evening, shown: at(2026, 10, 24, 6)).savedTodayDay == nil)
+        // Started after bedtime, it belongs to the next day: Saved today lists it, not the evening before it.
+        let late = try ended(from: at(2026, 10, 23, 23, 20), minutes: 25)
+        #expect(receipt(late, shown: at(2026, 10, 23, 23, 55)).savedTodayDay == LocalDay(year: 2026, month: 10, day: 24))
+    }
+
     @Test("The none caption follows the same rule")
     func noneCaption() throws {
         let evening = try eveningSession()
