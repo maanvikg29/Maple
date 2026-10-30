@@ -75,9 +75,6 @@ public struct FocusStartLines: Sendable, Equatable {
     public init(model: StartScreenModel, mode: Mode, showsHoldHint: Bool = false, notice: String? = nil, locale: Locale = .current) {
         // A minimised session's screen is the model's own: "Return to session", with nothing under the dial.
         let effective: Mode = model.stage == .running ? .blocking : mode
-        // The strictness that applies to this start (`Strictness.applying(to:)`): a plain timer locks nothing, so it is
-        // Gentle whatever its preset, with no hold and no Locked line (owner, 2026-10-29).
-        let holds = model.strictness.applying(to: effective == .blocking ? .blocking : .plainTimer) == .locked
         let primary: StartScreenModel.Primary
         let capsuleTitle: String
         // "Start study · 50m" and its plain-timer twin carry a length; "Start as a plain timer" doesn't.
@@ -88,14 +85,15 @@ public struct FocusStartLines: Sendable, Equatable {
             capsuleTitle = model.capsuleTitle
             startHasLength = true
         case .plainTimer:
-            // A plain timer needs no apps, so it never asks for them.
-            primary = model.primary == .locking ? .locking : holds ? .holdToStart : .start
-            capsuleTitle = holds
-                ? FocusCopy.holdToStart(minutes: model.minutes) : "\(model.preset.verb.startTitle) · \(model.lengthText)"
+            // A plain timer needs no apps, so it never asks for them. It locks nothing, so it is Gentle whatever its preset
+            // (`Strictness.applying(to:)`): one tap, with no hold and no Locked line (owner, 2026-10-29).
+            primary = model.primary == .locking ? .locking : .start
+            capsuleTitle = "\(model.preset.verb.startTitle) · \(model.lengthText)"
             startHasLength = true
         case .lockFailed:
-            primary = model.primary == .locking ? .locking : holds ? .holdToStart : .start
-            capsuleTitle = holds ? FocusCopy.holdToStart(minutes: model.minutes) : FocusCopy.startPlainTimer
+            // What it offers is a plain timer, so it starts as one does.
+            primary = model.primary == .locking ? .locking : .start
+            capsuleTitle = FocusCopy.startPlainTimer
             startHasLength = false
         }
         self.primary = primary
