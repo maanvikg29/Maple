@@ -7,9 +7,10 @@ import MapleServices
 /// time beside it that didn't count, greyed, and why ("Unlocked 5 min", "After bedtime", "Over today's 6h",
 /// "Couldn't confirm the block"), then how counting works. Opened from Home's numeral and the receipt's.
 ///
-/// Today is the Maple day whose awake window holds the session store's trusted now, and each session's credit is the
-/// store's own (`credit(for:)`), so caps and overlaps count as they do everywhere else. `.medium`, lifting to
-/// `.large`; `.large` at accessibility sizes.
+/// Today is the Maple day the member is still living in at the session store's trusted now (`livingDay`), so a receipt
+/// finishing past bedtime opens the total it just showed, and each session's credit is the store's own
+/// (`credit(for:)`), so caps and overlaps count as they do everywhere else. `.medium`, lifting to `.large`; `.large` at
+/// accessibility sizes.
 struct SavedTodaySheet: View {
     @Environment(\.theme) private var theme
     @Environment(\.locale) private var locale
@@ -29,7 +30,7 @@ struct SavedTodaySheet: View {
 
     private func model() -> SavedTodayModel {
         let now = sessions.now
-        let today = collection.snapshot.focusWindow(at: now, context: collection.context).day
+        let today = collection.snapshot.livingDay(at: now, context: collection.context)
         let todays = sessions.sessions.filter { $0.plan.day == today }
         return SavedTodayModel(
             credits: todays.compactMap { sessions.credit(for: $0.id) }, sessions: todays, day: today, now: now,
