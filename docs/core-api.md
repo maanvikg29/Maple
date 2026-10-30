@@ -260,7 +260,8 @@ store.running                                           // the running session (
 store.displayCredit(at: now)                            // today, yesterday and total seconds: counted plus provisional
 await store.end(.endedEarly)                            // or .emergencyRelease; .completed happens on refresh at the planned end
 await store.startBreak(); await store.endBreak()        // one locked break, inside the planned length
-await store.releaseAll()                                // Settings › Release all apps
+await store.releaseAllUnlessRunning()                   // Settings › Release all apps, confirmed: false means a session runs, so its way out opens first
+await store.releaseAll()                                // clears every store and ends a running session's credit, as that way out completes
 await store.reflect(.partly, on: id)                    // the receipt's "How did it go?"
 ```
 
