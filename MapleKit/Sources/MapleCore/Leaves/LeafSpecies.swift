@@ -74,6 +74,26 @@ public struct LeafSpecies: Codable, Sendable, Hashable, Identifiable {
     public let autumn: AutumnColor
     public let confidence: Confidence
     public let note: String
+    /// The species' IUCN Red List assessment, when the Red List of Maples (or the IUCN) has one Maple could check;
+    /// nil otherwise. Data: docs/design/iucn-maples.json.
+    public let conservation: Conservation?
+
+    public struct Conservation: Codable, Sendable, Hashable {
+        public let category: RedListCategory
+        /// The year of the assessment.
+        public let year: Int
+        /// The page that states it.
+        public let source: String
+        /// One short sourced fact, e.g. "Fewer than 500 wild trees".
+        public let note: String?
+
+        public init(category: RedListCategory, year: Int, source: String, note: String?) {
+            self.category = category
+            self.year = year
+            self.source = source
+            self.note = note
+        }
+    }
 
     /// The English name when there is one, otherwise the scientific name.
     public var displayName: String {
@@ -96,6 +116,25 @@ public struct LeafSpecies: Codable, Sendable, Hashable, Identifiable {
     public var restingTiltDegrees: Double {
         (StableHash.unitInterval(id + "r") - 0.5) * 16
     }
+}
+
+/// IUCN Red List categories Maple shows.
+public enum RedListCategory: String, Codable, Sendable, CaseIterable {
+    case cr = "CR", en = "EN", vu = "VU", nt = "NT", lc = "LC", dd = "DD"
+
+    public var displayName: String {
+        switch self {
+        case .cr: "Critically endangered"
+        case .en: "Endangered"
+        case .vu: "Vulnerable"
+        case .nt: "Near threatened"
+        case .lc: "Least concern"
+        case .dd: "Data deficient"
+        }
+    }
+
+    /// Critically endangered, Endangered or Vulnerable.
+    public var isThreatened: Bool { self == .cr || self == .en || self == .vu }
 }
 
 /// The FNV-1a hash the original JavaScript generator used, so per-species variation matches exactly.

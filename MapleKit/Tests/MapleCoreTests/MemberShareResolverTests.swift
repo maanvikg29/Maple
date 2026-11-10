@@ -12,7 +12,7 @@ struct MemberShareResolverTests {
     }
 
     private func share(
-        _ species: String = "rubrum", counts: LeafShareCounts?, fetchedAt: Date? = nil, fetching: Bool = false,
+        _ species: String = "saccharinum", counts: LeafShareCounts?, fetchedAt: Date? = nil, fetching: Bool = false,
         failed: Bool = false, features: ShippedFeatures = .current
     ) -> MemberShare {
         MemberShareResolver(features: features, locale: en).share(
@@ -38,14 +38,14 @@ struct MemberShareResolverTests {
     @Test("Under 1,000 members: no percentage, with the count when published")
     func threshold() {
         #expect(share(counts: counts(members: nil)) == .notEnoughMembers(soFar: nil))
-        #expect(share(counts: counts(members: 640, ["rubrum": 300])) == .notEnoughMembers(soFar: 640))
-        #expect(share(counts: counts(members: 999, ["rubrum": 300])) == .notEnoughMembers(soFar: 999))
-        #expect(share(counts: counts(members: 1_000, ["rubrum": 300])) == .value(display: "30%", asOf: now))
+        #expect(share(counts: counts(members: 640, ["saccharinum": 300])) == .notEnoughMembers(soFar: 640))
+        #expect(share(counts: counts(members: 999, ["saccharinum": 300])) == .notEnoughMembers(soFar: 999))
+        #expect(share(counts: counts(members: 1_000, ["saccharinum": 300])) == .value(display: "30%", asOf: now))
     }
 
     @Test("Fresh under 48 hours, stale after")
     func freshness() {
-        let data = counts(members: 12_400, ["rubrum": 2_728])
+        let data = counts(members: 12_400, ["saccharinum": 2_728])
         #expect(share(counts: data, fetchedAt: now.addingTimeInterval(-47 * 3600)) == .value(display: "22%", asOf: now.addingTimeInterval(-47 * 3600)))
         let old = now.addingTimeInterval(-49 * 3600)
         #expect(share(counts: data, fetchedAt: old) == .stale(display: "22%", asOf: old))
@@ -61,10 +61,10 @@ struct MemberShareResolverTests {
 
     @Test("Values use the Wilson interval and the formatter")
     func values() {
-        #expect(share(counts: counts(members: 1_200, ["rubrum": 3])) == .value(display: "Under 1%", asOf: now))
-        #expect(share(counts: counts(members: 12_400, ["rubrum": 12_400])) == .value(display: "Over 99%", asOf: now))
+        #expect(share(counts: counts(members: 1_200, ["saccharinum": 3])) == .value(display: "Under 1%", asOf: now))
+        #expect(share(counts: counts(members: 12_400, ["saccharinum": 12_400])) == .value(display: "Over 99%", asOf: now))
         let estimate = MemberShareResolver(features: .current, locale: en)
-            .estimate(for: "rubrum", counts: counts(members: 12_400, ["rubrum": 2_728]))
+            .estimate(for: "saccharinum", counts: counts(members: 12_400, ["saccharinum": 2_728]))
         #expect(estimate.map { abs($0.percent - 22) < 1e-9 } == true)
     }
 }

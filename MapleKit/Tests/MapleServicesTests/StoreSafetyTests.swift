@@ -23,7 +23,7 @@ struct StoreSafetyTests {
     private func savedCollection(in folder: URL) -> CollectionSnapshot {
         let store = CollectionStore(storage: JSONStorage(.file(folder.appendingPathComponent(MapleStores.collectionFile))),
                                     context: testContext, now: at(2026, 10, 1, 21))
-        store.raise(.firstSteps, to: 1, at: at(2026, 10, 1, 21))
+        store.raise(.firstLeaf, to: 1, at: at(2026, 10, 1, 21))
         store.openReveals(at: at(2026, 10, 1, 21, 5))
         return store.snapshot
     }
@@ -42,7 +42,7 @@ struct StoreSafetyTests {
         #expect(store.snapshot.profileID != real.profileID)
         #expect(files(in: folder) == [MapleStores.collectionFile])          // nothing set aside
         // A change while it is still unreadable never reaches the disk.
-        store.record([.nightsTracked: 1], at: at(2026, 10, 9, 4))
+        store.record([.restedNights: 1], at: at(2026, 10, 9, 4))
         #expect(!store.reloadIfUnavailable())
 
         try unlock(url)
@@ -86,7 +86,7 @@ struct StoreSafetyTests {
         let collection = CollectionStore(storage: JSONStorage(.memory), context: testContext, now: at(2026, 10, 1, 21))
         let scheduleURL = folder.appendingPathComponent(MapleStores.scheduleFile)
         let mine = SleepSchedule(bedtime: ClockTime(hour: 22, minute: 30), wake: ClockTime(hour: 6, minute: 30), windDownMinutes: 30)
-        JSONStorage<SavedSchedule>(.file(scheduleURL)).save(SavedSchedule(schedule: mine, savedAt: at(2026, 10, 1, 21)))
+        JSONStorage<SavedSchedule>(.file(scheduleURL)).save(SavedSchedule(schedule: .everyNight(mine), savedAt: at(2026, 10, 1, 21)))
         let settingsURL = folder.appendingPathComponent(AppSettings.file)
         let settings = AppSettings(storage: JSONStorage(.file(settingsURL)), regionCode: "GB")
         settings.sleepGoalMinutes = 8 * 60
@@ -103,7 +103,7 @@ struct StoreSafetyTests {
         try unlock(scheduleURL)
         try unlock(settingsURL)
         #expect(schedules.reloadIfUnavailable())
-        #expect(schedules.schedule == mine && collection.schedule == mine)
+        #expect(schedules.schedule == mine && collection.schedule == .everyNight(mine))
         #expect(lockedSettings.reloadIfUnavailable())
         #expect(lockedSettings.sleepGoalMinutes == 8 * 60)
         #expect(AppSettings(storage: JSONStorage(.file(settingsURL)), regionCode: "GB").sleepGoalMinutes == 8 * 60)
@@ -140,7 +140,7 @@ struct StoreSafetyTests {
         #expect(!store.isAvailable)
         #expect(!store.hasPlantedMaple)
         // The first run resuming before the first unlock never creates the missing file.
-        store.raise(.firstSteps, to: 1, at: at(2026, 10, 9, 4))
+        store.raise(.firstLeaf, to: 1, at: at(2026, 10, 9, 4))
         #expect(!store.reloadIfUnavailable())
         #expect(files(in: folder) == ["collection.damaged-1790000000.json"])
 
@@ -203,20 +203,23 @@ struct StoreSafetyTests {
         var context = testContext
         context.permissions = [.appleHealth]
         let store = CollectionStore(storage: JSONStorage(.file(url)), context: context, now: at(2026, 10, 1, 21))
-        let night = SleepNightObservation(onset: at(2026, 10, 1, 22, 55), finalWake: at(2026, 10, 2, 7), asleepMinutes: 460,
-                                          source: .watchOrTracker, calendar: utc)
+        let nights = (1...3).map { day in
+            SleepNightObservation(onset: at(2026, 10, day, 22, 55), finalWake: at(2026, 10, day + 1, 7), asleepMinutes: 460,
+                                  source: .watchOrTracker, calendar: utc)
+        }
+        let night = nights[0]
         #expect(store.recordSleep([night], at: at(2026, 10, 2, 7, 10)).isEmpty)       // not planted yet
         #expect(store.snapshot.counters.isEmpty)
-        store.raise(.firstSteps, to: 1, at: at(2026, 10, 1, 21))
+        store.raise(.firstLeaf, to: 1, at: at(2026, 10, 1, 21))
         store.openReveals(at: at(2026, 10, 1, 21, 5))
         #expect(store.recordSleep([night], at: at(2026, 10, 2, 3)).isEmpty)            // the morning hasn't started
-        let unlocked = store.recordSleep([night], at: at(2026, 10, 2, 7, 10))
-        #expect(unlocked.count == 2)
-        #expect(store.revealable(at: at(2026, 10, 2, 7, 10)).count == 2)
-        #expect(store.currentBedtimeRun == 1)
+        let unlocked = store.recordSleep(nights, at: at(2026, 10, 4, 7, 10))
+        #expect(unlocked.map(\.speciesID) == ["saccharinum"])                           // three rested nights
+        #expect(store.revealable(at: at(2026, 10, 4, 7, 10)).count == 1)
+        #expect(store.snapshot.nights.run == 3)
 
         let reloaded = CollectionStore(storage: JSONStorage(.file(url)), context: context)
         #expect(reloaded.snapshot == store.snapshot)
-        #expect(reloaded.recordSleep([night], at: at(2026, 10, 2, 9)).isEmpty)
+        #expect(reloaded.recordSleep(nights, at: at(2026, 10, 4, 9)).isEmpty)
     }
 }

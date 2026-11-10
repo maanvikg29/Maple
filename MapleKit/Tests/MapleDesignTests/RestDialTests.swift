@@ -98,7 +98,7 @@ struct RestDialTests {
         let night = RestCopy.bedsideLine(at: try at(1, 30), schedule: .standard, calendar: calendar, locale: h24)
         #expect(night.text == "Wake-up at 07:00")
         // After midnight, before a 00:30 bedtime, it still counts down.
-        let beforeLateBed = RestCopy.bedsideLine(at: try at(0, 10), schedule: late, calendar: calendar, locale: h24)
+        let beforeLateBed = RestCopy.bedsideLine(at: try at(0, 10), schedule: .everyNight(late), calendar: calendar, locale: h24)
         #expect(beforeLateBed.text == "20m until bed")
         #expect(RestCopy.phoneDown(at: ClockTime(hour: 23, minute: 4), locale: h12) == "Phone down at 11:04 PM")
     }

@@ -5,8 +5,6 @@ import Foundation
 /// Candidates are each available category's lowest locked rung. Estimates come from `LeafProgress.estimatedDays`
 /// (the 14-day rate, or the design pace when the rate is zero), so a new member is pointed at first rungs.
 public struct NextLeafPicker: Sendable {
-    /// A phase's own leaves win only when they are this close.
-    public static let preferenceWindowDays = 7.0
     /// "Almost there" shows leaves within this many days.
     public static let almostThereWindowDays = 60.0
     public static let almostThereLimit = 6
@@ -24,23 +22,27 @@ public struct NextLeafPicker: Sendable {
         candidates = Self.lockedAvailable(progress).filter { seen.insert($0.category).inserted }
     }
 
-    /// Home's next leaf: a pinned leaf while it is locked and available; otherwise the phase's own leaves when one is
-    /// within a week; otherwise the closest leaf.
-    public func next(phase: NowPhase, pinned: String?) -> LeafProgress? {
+    /// What Home may pick from: every candidate, except that once any focus category has shipped, Rested nights is
+    /// left out (focus spec §4.1, §4.5: sleep is never Home's automatic next leaf in a focus build).
+    public var homeCandidates: [LeafProgress] {
+        let focusShipped = progress.contains { $0.category != .restedNights && $0.category != .firstLeaf && $0.availability != .dormant }
+        return focusShipped ? candidates.filter { $0.category != .restedNights } : candidates
+    }
+
+    /// Home's next leaf (focus spec §4.5): a pinned leaf while it is locked and available; otherwise the lowest
+    /// hours-saved rung; otherwise the closest of Home's candidates.
+    public func next(pinned: String?) -> LeafProgress? {
         if let pinned, let leaf = progress.first(where: { $0.speciesID == pinned }), leaf.state == .locked, leaf.availability == .available {
             return leaf
         }
-        let preferred = candidates.filter { RewardCategoryInfo($0.category).timeOfDay == phase.leafPreference }
-        if let best = Self.sorted(preferred).first, (best.estimatedDays ?? .infinity) <= Self.preferenceWindowDays {
-            return best
-        }
-        return Self.sorted(candidates).first
+        if let hours = homeCandidates.first(where: { $0.category == .hoursSaved }) { return hours }
+        return Self.sorted(homeCandidates).first
     }
 
     /// The tree's buds: the 3 closest candidates, always including Home's next leaf, which comes first.
-    public func buds(phase: NowPhase, pinned: String?) -> [LeafProgress] {
+    public func buds(pinned: String?) -> [LeafProgress] {
         let closest = Array(Self.sorted(candidates).prefix(Self.budCount))
-        guard let next = next(phase: phase, pinned: pinned) else { return closest }
+        guard let next = next(pinned: pinned) else { return closest }
         let others = closest.filter { $0.speciesID != next.speciesID }
         return [next] + others.prefix(Self.budCount - 1)
     }
@@ -55,11 +57,11 @@ public struct NextLeafPicker: Sendable {
     /// earnable, by its category's design pace (the member has no pace there yet). Ties go to canonical order.
     ///
     /// D9 keeps these leaves out of the next leaf, buds, Almost there and pacing, so this is not a next leaf: Home
-    /// shows it as the next-leaf row's needs-permission variant ("Needs Apple Health", with "Turn on Apple Health")
+    /// shows it as the next-leaf row's needs-permission variant ("Needs Screen Time", with "Turn on Screen Time")
     /// rather than leave the row empty. Nil while any leaf can be earned, and for what Maple can't turn on (a sleep
     /// tracker is hardware).
     public func permissionPrompt() -> LeafProgress? {
-        guard candidates.isEmpty else { return nil }
+        guard homeCandidates.isEmpty else { return nil }
         var seen = Set<RewardCategoryID>()
         let blocked = progress
             .filter { $0.state == .locked && $0.availability.canBeTurnedOn }
@@ -105,17 +107,6 @@ public struct NextLeafPicker: Sendable {
             if a.fraction != b.fraction { return a.fraction > b.fraction }
             if a.categoryOrder != b.categoryOrder { return a.categoryOrder < b.categoryOrder }
             return a.threshold < b.threshold
-        }
-    }
-}
-
-extension NowPhase {
-    /// Which leaves Home prefers in this phase (spec §3.5): evening, wind-down and night prefer night leaves.
-    public var leafPreference: RewardTimeOfDay {
-        switch self {
-        case .morning: .morning
-        case .day: .day
-        case .evening, .windDown, .night: .night
         }
     }
 }

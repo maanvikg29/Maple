@@ -113,7 +113,7 @@ struct SleepScheduleTests {
 
     @Test("Progress clamps to its threshold")
     func progress() {
-        let progress = LeafProgress(speciesID: "x", category: .nightsTracked, threshold: 3, tier: .common, current: 5,
+        let progress = LeafProgress(speciesID: "x", category: .restedNights, threshold: 3, tier: .common, current: 5,
                                     availability: .available, state: .locked, estimatedDays: nil)
         #expect(progress.fraction == 1)
         #expect(progress.remaining == 0)

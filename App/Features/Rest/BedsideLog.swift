@@ -26,7 +26,7 @@ final class BedsideLog {
     }
 
     /// Wind-down mode opened (recorded only in the evening and wind-down phases).
-    func startWindDown(at date: Date, schedule: SleepSchedule, calendar: Calendar) {
+    func startWindDown(at date: Date, schedule: WeeklySleepSchedule, calendar: Calendar) {
         update { session in session.start(at: date, schedule: schedule, calendar: calendar) }
     }
 
@@ -35,7 +35,7 @@ final class BedsideLog {
         update { $0.sayGoodnight(at: date) }
     }
 
-    func isWindDownActive(at date: Date, schedule: SleepSchedule, calendar: Calendar) -> Bool {
+    func isWindDownActive(at date: Date, schedule: WeeklySleepSchedule, calendar: Calendar) -> Bool {
         session.isActive(at: date, schedule: schedule, calendar: calendar)
     }
 

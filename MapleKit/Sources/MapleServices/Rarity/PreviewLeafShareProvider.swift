@@ -21,7 +21,7 @@ nonisolated public struct PreviewLeafShareProvider: LeafShareProvider {
         for rung in RewardCatalog.shared.assignments {
             var rng = SplitMix64(seed: SplitMix64.derive(0x5EED_0F_1EAF, rung.speciesID))
             let range: ClosedRange<Double> = switch rung.tier {
-            case .firstSteps where rung.categoryID == .firstSteps: 0.92...0.94
+            case .firstSteps where rung.categoryID == .firstLeaf: 0.92...0.94
             case .firstSteps: 0.55...0.85
             case .common: 0.18...0.50
             case .uncommon: 0.04...0.16

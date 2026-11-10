@@ -1,0 +1,1591 @@
+{
+ "categories": [
+  {
+   "id": "first_steps",
+   "name": "First steps",
+   "metric": "One-time: the first sleep schedule (target bedtime, wake time, wind-down length) saved in onboarding or Settings. Counts once, ever.",
+   "unit": "step",
+   "data_source": "SwiftData SleepSchedule (synced store)",
+   "available_from": "M1",
+   "ladder": [
+    1
+   ]
+  },
+  {
+   "id": "nights_tracked",
+   "name": "Nights tracked",
+   "metric": "Distinct nights after setup with a main sleep episode of at least 3 h from an accepted source. Source ladder, best available per night: (A) asleep stages from Apple Watch or an allow-listed hardware tracker (HKSource/HKDevice); (B) asleep samples from other apps (counted for leaves but excluded from rarity reporting); (C) iPhone 'In Bed' samples from Apple's Sleep schedule, labelled 'estimated from iPhone'. Samples marked HKMetadataKeyWasUserEntered never count. A night runs 18:00 to 18:00 local and belongs to the evening. The main episode is the longest cluster of samples, with gaps under 60 min merged; naps are ignored. The install night counts if setup finished before the episode began. Each night is evaluated provisionally the next morning and re-evaluated for 72 h as late Watch data syncs; results can only upgrade. The counter is a high-water mark. At most 1 per night.",
+   "unit": "nights",
+   "data_source": "HealthKit sleepAnalysis → MapleCore SleepSourceResolver + night grouping → SleepNightSummary + per-category high-water marks (localHealth store, device-only)",
+   "available_from": "M1",
+   "ladder": [
+    1,
+    3,
+    7,
+    14,
+    30,
+    60,
+    100,
+    160,
+    240,
+    330,
+    440,
+    560
+   ]
+  },
+  {
+   "id": "on_time_bedtimes",
+   "name": "On-time bedtimes",
+   "metric": "Tracked nights whose sleep onset falls between target bedtime − 2 h and target bedtime + 30 min. Onset is the start of the main episode's first asleep block of 20 min or more (sources A/B), or in-bed start for source C (estimated from iPhone, which in practice means the phone was put down by then). Onset more than 2 h early (for example when ill) is 'early': neutral, never counted against you. The target is the schedule in force at 18:00 that evening, with weekday and weekend schedules respected. The very first schedule applies immediately if saved at least 30 min before its bedtime. At most 1 per night; cumulative.",
+   "unit": "nights",
+   "data_source": "HealthKit onset (or iPhone in-bed start) vs SleepSchedule (MapleCore schedule maths)",
+   "available_from": "M1",
+   "ladder": [
+    1,
+    3,
+    7,
+    14,
+    21,
+    30,
+    45,
+    65,
+    90,
+    120,
+    160,
+    210,
+    270,
+    350,
+    460
+   ]
+  },
+  {
+   "id": "bedtime_run",
+   "name": "Bedtime runs",
+   "metric": "On-time nights in your current run. The run continues while at least 5 of every 7 nights are on time: up to 2 slips (late or untracked) in any rolling 7 nights add 0 and are forgiven, and a 3rd slip within 7 nights ends the run. Untracked nights count as slips, so taking the Watch off never helps; early nights are neutral. A leaf unlocks when the live run reaches its threshold. The progress bar shows the live run, with your best run as a quiet 'best: 13' marker. Capped at 30. Run leaves are never auto-picked as the home 'next leaf' (the run appears as its own line); a user can pin one.",
+   "unit": "nights in a run",
+   "data_source": "Derived from on_time_bedtimes night results (MapleCore LeafEngine)",
+   "available_from": "M1",
+   "ladder": [
+    3,
+    7,
+    14,
+    21,
+    30
+   ]
+  },
+  {
+   "id": "steady_weeks",
+   "name": "Steady weeks",
+   "metric": "Calendar weeks (using the locale's first weekday) with at least 5 on-time bedtimes, counted when the week closes. Early and untracked nights are neutral. Cumulative.",
+   "unit": "weeks",
+   "data_source": "Derived from on_time_bedtimes (MapleCore LeafEngine)",
+   "available_from": "M1",
+   "ladder": [
+    1,
+    3,
+    6,
+    10,
+    15,
+    21,
+    28,
+    36,
+    44,
+    52,
+    60,
+    67,
+    74
+   ]
+  },
+  {
+   "id": "seasons_in_rhythm",
+   "name": "Seasons in rhythm",
+   "metric": "Meteorological seasons for your hemisphere that close with at least 8 steady weeks. North: spring Mar–May, summer Jun–Aug, autumn Sep–Nov, winter Dec–Feb; flipped for the south. The hemisphere comes from region or time zone and is editable. A week belongs to the season that contains its Thursday. A season counts when its last week closes, and a season joined partway still counts if it reaches 8. Cumulative.",
+   "unit": "seasons",
+   "data_source": "Derived from steady_weeks + MapleCore Season (hemisphere-aware)",
+   "available_from": "M1",
+   "ladder": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ]
+  },
+  {
+   "id": "steady_mornings",
+   "name": "Steady mornings",
+   "metric": "Mornings whose final wake falls within ±30 min of that day's target wake time. Final wake is the end of the main episode's last asleep block (sources A/B), or in-bed end for source C. At most 1 per day; cumulative.",
+   "unit": "mornings",
+   "data_source": "HealthKit final wake (or iPhone in-bed end) vs SleepSchedule",
+   "available_from": "M1",
+   "ladder": [
+    3,
+    10,
+    20,
+    40,
+    60,
+    85,
+    115,
+    155,
+    220,
+    320,
+    420
+   ]
+  },
+  {
+   "id": "full_nights",
+   "name": "Full nights",
+   "metric": "Tracked nights whose main episode has total asleep time of at least your sleep need − 30 min. Sleep need is set in onboarding (default 7 h 30 min, adjustable 7–9 h). Naps and extra hours add nothing. Needs asleep-stage data (sources A/B). With iPhone in-bed data only, these 10 leaves show 'Needs Apple Watch or a sleep tracker' and are left out of that member's tree stage, next-leaf choice and rarity reporting.",
+   "unit": "nights",
+   "data_source": "HealthKit sleepAnalysis asleep duration (SleepNightSummary) vs Profile sleep need",
+   "available_from": "M1",
+   "ladder": [
+    3,
+    12,
+    25,
+    40,
+    60,
+    90,
+    130,
+    190,
+    270,
+    370
+   ]
+  },
+  {
+   "id": "focus_hours",
+   "name": "Focus hours",
+   "metric": "Credited minutes from in-app focus sessions. Each session needs a planned length of 10–90 min and is timed with a monotonic clock (ContinuousClock), so changing the device clock does nothing. If ended by a tap (in the app, a Live Activity or a notification) before or within 10 min after the planned end, it is credited the time focused, up to the planned length. If it isn't confirmed within 10 min, credit is capped at 25 min. Sessions under 10 min credit nothing, and minutes inside your wind-down or sleep window never count. Caps: 3 h per day and 10 h per calendar week. From M3, sessions with Screen Time blocking count in full and unblocked sessions count at half rate here; focus days and focus weeks still count them fully. Stored as minutes, shown as whole hours.",
+   "unit": "hours",
+   "data_source": "FocusSession records (synced store); from M3 the blocking flag from ManagedSettings",
+   "available_from": "M2",
+   "ladder": [
+    4,
+    18,
+    35,
+    55,
+    80,
+    105,
+    135,
+    170,
+    210
+   ]
+  },
+  {
+   "id": "focus_days",
+   "name": "Focus days",
+   "metric": "Calendar days with at least one focus session that credits 25 min or more on its own (same session rules as focus hours). At most 1 per day; cumulative.",
+   "unit": "days",
+   "data_source": "FocusSession records (synced store)",
+   "available_from": "M2",
+   "ladder": [
+    1,
+    14,
+    28,
+    45,
+    65,
+    95,
+    140,
+    200
+   ]
+  },
+  {
+   "id": "focus_weeks",
+   "name": "Focus weeks",
+   "metric": "Calendar weeks with at least 3 focus days, counted when the week closes. At most 1 per week, so even a full-time focuser can climb at most one rung step per week. Cumulative.",
+   "unit": "weeks",
+   "data_source": "Derived from focus_days (MapleCore LeafEngine)",
+   "available_from": "M2",
+   "ladder": [
+    4,
+    9,
+    15,
+    22,
+    32,
+    44,
+    56,
+    68
+   ]
+  },
+  {
+   "id": "sound_winddowns",
+   "name": "Sound wind-downs",
+   "metric": "Nights where a Maple sleep sound played for at least 15 min, starting between wind-down start and target bedtime + 30 min, and the same night was on time (or, from M3, the wind-down was scroll-free). Longer or louder playback adds nothing. Revealed the next morning. At most 1 per night.",
+   "unit": "nights",
+   "data_source": "AudioMixer session log (local) + on_time_bedtimes / scroll-free night result (localHealth store)",
+   "available_from": "M2",
+   "ladder": [
+    5,
+    15,
+    30,
+    50,
+    80,
+    130
+   ]
+  },
+  {
+   "id": "scroll_free_winddowns",
+   "name": "Scroll-free wind-downs",
+   "metric": "Wind-down windows (wind-down start to target bedtime) that were monitored from their start by Maple's rolling DeviceActivity schedule, ended, and had no 5-min usage-threshold event for your wind-down apps. The selection must count for leaves: at least one category token (Social and Entertainment are preselected), or at least 3 apps whose combined daytime use reached 10 min on 3 of the previous 14 days (from a daytime threshold event). Selection changes apply after 7 days. A window with a missing start or end callback is neutral. At most 1 per night.",
+   "unit": "nights",
+   "data_source": "DeviceActivityMonitor extension (one rolling activity per window type, re-armed in intervalDidEnd) → App Group EventStore",
+   "available_from": "M3",
+   "ladder": [
+    3,
+    12,
+    25,
+    40,
+    55,
+    75,
+    100,
+    130,
+    170,
+    215,
+    270,
+    340
+   ]
+  },
+  {
+   "id": "phone_free_mornings",
+   "name": "Phone-free mornings",
+   "metric": "Mornings where your final wake fell between target wake − 30 min and target wake + 15 min (otherwise the morning is neutral and counts nothing), and your morning apps had less than 2 min of use before final wake + 30 min. Measured by one rolling DeviceActivity window from target wake − 30 min to target wake + 45 min, with a 2-min threshold event whose time is recorded and compared with HealthKit's final wake. The same 'counts for leaves' selection rule applies. Alarms, music, maps and phone calls are always allowed. Maple's own reveal stays closed until 30 min after wake, so Maple never competes with this window. At most 1 per day.",
+   "unit": "mornings",
+   "data_source": "DeviceActivityMonitor morning window → App Group EventStore + HealthKit final wake",
+   "available_from": "M3",
+   "ladder": [
+    5,
+    15,
+    30,
+    50,
+    75,
+    105,
+    140,
+    180,
+    220
+   ]
+  },
+  {
+   "id": "bedtime_shield_kept",
+   "name": "Shield nights",
+   "metric": "Nights where the bedtime shield (ManagedSettings) was active from target bedtime to the end of its schedule, over a selection that counts for leaves, and you never took 'five more minutes' or turned blocking off (ShieldAction logs every unlock). Nights when the shield's selection was edited that day are excluded. At most 1 per night.",
+   "unit": "nights",
+   "data_source": "ManagedSettings schedule + ShieldAction extension events → App Group EventStore",
+   "available_from": "M3",
+   "ladder": [
+    7,
+    20,
+    40,
+    65,
+    95,
+    130,
+    175,
+    230
+   ]
+  },
+  {
+   "id": "reflection_weeks",
+   "name": "Reflection weeks",
+   "metric": "Calendar weeks with mood-and-energy check-ins saved on at least 3 different days, counted when the week closes. Every mood counts the same. This replaces daily mood check-ins, so there is no daily tap habit to keep up. Cumulative.",
+   "unit": "weeks",
+   "data_source": "Mood/energy check-in records (device-only store; health-adjacent)",
+   "available_from": "M4",
+   "ladder": [
+    3,
+    8,
+    14,
+    22,
+    33,
+    46
+   ]
+  },
+  {
+   "id": "caffeine_curfew",
+   "name": "Caffeine curfew",
+   "metric": "Days with a habit-journal entry recording no caffeine after your curfew (default 8 h before target bedtime, adjustable 6–10 h). Only journaled days are evaluated, and logging late caffeine simply adds nothing. Evaluated the next morning. At most 1 per day.",
+   "unit": "days",
+   "data_source": "Habit & caffeine journal entries (device-only store)",
+   "available_from": "M4",
+   "ladder": [
+    7,
+    20,
+    45,
+    90,
+    160
+   ]
+  },
+  {
+   "id": "wind_down_rituals",
+   "name": "Wind-down rituals",
+   "metric": "Evenings with a completed wind-down ritual of at least 3 min (breathing, meditation or a journaling prompt), started within 2 h before target bedtime. Revealed the next morning. At most 1 per evening.",
+   "unit": "evenings",
+   "data_source": "Ritual session records (synced store)",
+   "available_from": "M6",
+   "ladder": [
+    5,
+    15,
+    30,
+    50,
+    80,
+    115,
+    160
+   ]
+  },
+  {
+   "id": "community_challenges",
+   "name": "Community challenges",
+   "metric": "Completed opt-in community challenges. Up to two are offered each month (for example 'fall asleep on time 12 nights in November' or 'six scroll-free wind-downs this month'). Each is built only from the capped categories above, can be done solo, and is evaluated on device; nothing about you is uploaded. Cumulative.",
+   "unit": "challenges",
+   "data_source": "Challenge definitions read from the CloudKit public database; completion evaluated on device by LeafEngine (synced store)",
+   "available_from": "M9",
+   "ladder": [
+    1,
+    3,
+    6,
+    10
+   ]
+  }
+ ],
+ "assignments": [
+  {
+   "species_id": "saccharum",
+   "category_id": "first_steps",
+   "threshold": 1,
+   "unlock_text": "Set your sleep schedule",
+   "tier": "first-steps",
+   "rationale": "Sugar maple, the maple-syrup tree of eastern North America and Maple's emblem (k). The most iconic leaf arrives the moment someone commits to a bedtime. Unlocks at setup."
+  },
+  {
+   "species_id": "rubrum",
+   "category_id": "nights_tracked",
+   "threshold": 1,
+   "unlock_text": "Track your first night of sleep",
+   "tier": "first-steps",
+   "rationale": "Red maple, the most common native tree in eastern North America (k). The commonest leaf for the most basic first step, pairing with Sugar maple as the opening duo. Sim median: first morning."
+  },
+  {
+   "species_id": "saccharinum",
+   "category_id": "nights_tracked",
+   "threshold": 3,
+   "unlock_text": "Track 3 nights of sleep",
+   "tier": "first-steps",
+   "rationale": "Silver maple, a very widely planted street tree (k). Familiar and easy. Sim median day 3."
+  },
+  {
+   "species_id": "nigrum",
+   "category_id": "nights_tracked",
+   "threshold": 7,
+   "unlock_text": "Track 7 nights of sleep",
+   "tier": "first-steps",
+   "rationale": "Black maple, sugar maple's close cousin (k). A well-known North American leaf for the first week. Sim median day 7."
+  },
+  {
+   "species_id": "pycnanthum",
+   "category_id": "nights_tracked",
+   "threshold": 14,
+   "unlock_text": "Track 14 nights of sleep",
+   "tier": "common",
+   "rationale": "Japanese red maple, the Asian sister species of the red maple (k). It echoes the first-night leaf at two weeks. Sim median day 15."
+  },
+  {
+   "species_id": "negundo",
+   "category_id": "nights_tracked",
+   "threshold": 30,
+   "unlock_text": "Track 30 nights of sleep",
+   "tier": "common",
+   "rationale": "Box elder has the catalogue's only pinnate leaf and often fools people into thinking it is an ash (k). A distinctive form for a month of tracking. Sim median day 32."
+  },
+  {
+   "species_id": "floridanum",
+   "category_id": "nights_tracked",
+   "threshold": 60,
+   "unlock_text": "Track 60 nights of sleep",
+   "tier": "uncommon",
+   "rationale": "Florida maple, a regional sugar-maple relative from the SE United States (k). Sim median day 64."
+  },
+  {
+   "species_id": "grandidentatum",
+   "category_id": "nights_tracked",
+   "threshold": 100,
+   "unlock_text": "Track 100 nights of sleep",
+   "tier": "uncommon",
+   "rationale": "Bigtooth maple of the western US and northern Mexico (k), for the round 100-night mark. Sim median day 107."
+  },
+  {
+   "species_id": "leucoderme",
+   "category_id": "nights_tracked",
+   "threshold": 160,
+   "unlock_text": "Track 160 nights of sleep",
+   "tier": "uncommon",
+   "rationale": "Chalk maple, a small, little-grown SE US understory tree (k). Sim median day 172."
+  },
+  {
+   "species_id": "zarei",
+   "category_id": "nights_tracked",
+   "threshold": 240,
+   "unlock_text": "Track 240 nights of sleep",
+   "tier": "rare",
+   "rationale": "An Iranian species known only from its range, drawn as a placeholder leaf (u) and shown as an approximate pressed specimen. Mid-ladder, on a different ladder from the other Monspessulana look-alikes. Sim median day 258."
+  },
+  {
+   "species_id": "binzayedii",
+   "category_id": "nights_tracked",
+   "threshold": 330,
+   "unlock_text": "Track 330 nights of sleep",
+   "tier": "rare",
+   "rationale": "Described only in 2017 from cloud forest in Jalisco, western Mexico. Little studied (i), so it is shown as approximate. Sim median day 355."
+  },
+  {
+   "species_id": "skutchii",
+   "category_id": "nights_tracked",
+   "threshold": 440,
+   "unlock_text": "Track 440 nights of sleep",
+   "tier": "rare",
+   "rationale": "Skutch's maple, a rare cloud-forest sugar maple of Mexico and Guatemala (k). Sim median day 472."
+  },
+  {
+   "species_id": "yangbiense",
+   "category_id": "nights_tracked",
+   "threshold": 560,
+   "unlock_text": "Track 560 nights of sleep",
+   "tier": "legendary",
+   "rationale": "Yangbi maple: only a handful of wild trees are known (k). The Lifetime leaf for the most basic habit, showing up night after night. 560 nights is a hard floor of about 18 months. Sim median day 601."
+  },
+  {
+   "species_id": "palmatum",
+   "category_id": "on_time_bedtimes",
+   "threshold": 1,
+   "unlock_text": "Fall asleep on time for the first time",
+   "tier": "first-steps",
+   "rationale": "Japanese maple, the world's best-loved garden maple, with over a thousand cultivars (k). The core habit gets the most iconic leaf. Sim median: first morning."
+  },
+  {
+   "species_id": "japonicum",
+   "category_id": "on_time_bedtimes",
+   "threshold": 3,
+   "unlock_text": "Fall asleep on time 3 nights",
+   "tier": "first-steps",
+   "rationale": "Fullmoon maple: a moonlit name for a bedtime leaf, and a famous 9-lobed garden tree (k). Sim median day 4."
+  },
+  {
+   "species_id": "pseudosieboldianum",
+   "category_id": "on_time_bedtimes",
+   "threshold": 7,
+   "unlock_text": "Fall asleep on time 7 nights",
+   "tier": "common",
+   "rationale": "Korean maple, a popular, hardy garden tree with 9 lobes (k). Sim median day 9."
+  },
+  {
+   "species_id": "sieboldianum",
+   "category_id": "on_time_bedtimes",
+   "threshold": 14,
+   "unlock_text": "Fall asleep on time 14 nights",
+   "tier": "common",
+   "rationale": "Siebold's maple, a classic 9-lobed Japanese garden species (k), for two weeks of bedtimes. Sim median day 17."
+  },
+  {
+   "species_id": "circinatum",
+   "category_id": "on_time_bedtimes",
+   "threshold": 21,
+   "unlock_text": "Fall asleep on time 21 nights",
+   "tier": "common",
+   "rationale": "Vine maple, the Pacific Northwest's own round, 9-lobed 'Japanese maple' (k). Sim median day 26."
+  },
+  {
+   "species_id": "oliverianum",
+   "category_id": "on_time_bedtimes",
+   "threshold": 30,
+   "unlock_text": "Fall asleep on time 30 nights",
+   "tier": "common",
+   "rationale": "Oliver's maple, cultivated but much less known (k). A month of on-time nights. Sim median day 37."
+  },
+  {
+   "species_id": "tutcheri",
+   "category_id": "on_time_bedtimes",
+   "threshold": 45,
+   "unlock_text": "Fall asleep on time 45 nights",
+   "tier": "uncommon",
+   "rationale": "Tutcher's maple from SE China and Taiwan, rarely grown (k). Sim median day 56."
+  },
+  {
+   "species_id": "campbellii",
+   "category_id": "on_time_bedtimes",
+   "threshold": 65,
+   "unlock_text": "Fall asleep on time 65 nights",
+   "tier": "uncommon",
+   "rationale": "Campbell's maple, from the eastern Himalaya to Vietnam (k). Sim median day 81."
+  },
+  {
+   "species_id": "pubinerve",
+   "category_id": "on_time_bedtimes",
+   "threshold": 90,
+   "unlock_text": "Fall asleep on time 90 nights",
+   "tier": "uncommon",
+   "rationale": "An eastern Chinese Palmata maple (i), shown as approximate. Sim median day 112."
+  },
+  {
+   "species_id": "kuomeii",
+   "category_id": "on_time_bedtimes",
+   "threshold": 120,
+   "unlock_text": "Fall asleep on time 120 nights",
+   "tier": "uncommon",
+   "rationale": "A Yunnan Palmata maple (i), shown as approximate. Sim median day 150."
+  },
+  {
+   "species_id": "shirasawanum",
+   "category_id": "on_time_bedtimes",
+   "threshold": 160,
+   "unlock_text": "Fall asleep on time 160 nights",
+   "tier": "rare",
+   "rationale": "Shirasawa's maple has 11 lobes, the most of any leaf in the catalogue (k). A standout form for 160 on-time nights. Sim median day 200."
+  },
+  {
+   "species_id": "duplicatoserratum",
+   "category_id": "on_time_bedtimes",
+   "threshold": 210,
+   "unlock_text": "Fall asleep on time 210 nights",
+   "tier": "rare",
+   "rationale": "A Taiwan endemic with double-toothed, 7-lobed leaves. Little studied (i), shown as approximate. Sim median day 262."
+  },
+  {
+   "species_id": "robustum",
+   "category_id": "on_time_bedtimes",
+   "threshold": 270,
+   "unlock_text": "Fall asleep on time 270 nights",
+   "tier": "rare",
+   "rationale": "Known mostly from herbarium sheets in central China (i), shown as approximate. Sim median day 338."
+  },
+  {
+   "species_id": "fenzelianum",
+   "category_id": "on_time_bedtimes",
+   "threshold": 350,
+   "unlock_text": "Fall asleep on time 350 nights",
+   "tier": "rare",
+   "rationale": "Fenzl's maple, from northern Vietnam and southern China, is little studied (i) and shown as approximate. Sim median day 438."
+  },
+  {
+   "species_id": "amamiense",
+   "category_id": "on_time_bedtimes",
+   "threshold": 460,
+   "unlock_text": "Fall asleep on time 460 nights",
+   "tier": "legendary",
+   "rationale": "Amami maple, known from a single hillside on one island (k). The Lifetime leaf of the core habit. Sim median day 575."
+  },
+  {
+   "species_id": "maximowiczianum",
+   "category_id": "bedtime_run",
+   "threshold": 3,
+   "unlock_text": "Reach a 3-night bedtime run (2 slips a week are fine)",
+   "tier": "first-steps",
+   "rationale": "Nikko maple's three-leaflet leaf mirrors the first 3-night run. Crimson autumn colour (k). Sim median day 4."
+  },
+  {
+   "species_id": "triflorum",
+   "category_id": "bedtime_run",
+   "threshold": 7,
+   "unlock_text": "Reach a 7-night bedtime run (2 slips a week are fine)",
+   "tier": "common",
+   "rationale": "Three-flowered maple, prized for its autumn colour (k). Its trifoliate leaf carries the theme to a 7-night run. Sim median day 9."
+  },
+  {
+   "species_id": "mandshuricum",
+   "category_id": "bedtime_run",
+   "threshold": 14,
+   "unlock_text": "Reach a 14-night bedtime run (2 slips a week are fine)",
+   "tier": "common",
+   "rationale": "Manchurian maple, a documented trifoliate (k), for a 14-night run. Sim median day 18."
+  },
+  {
+   "species_id": "cissifolium",
+   "category_id": "bedtime_run",
+   "threshold": 21,
+   "unlock_text": "Reach a 21-night bedtime run (2 slips a week are fine)",
+   "tier": "common",
+   "rationale": "Ivy-leaved maple, a distinctive Japanese trifoliate (k), for a 21-night run. Sim median day 37."
+  },
+  {
+   "species_id": "henryi",
+   "category_id": "bedtime_run",
+   "threshold": 30,
+   "unlock_text": "Reach a 30-night bedtime run (2 slips a week are fine)",
+   "tier": "uncommon",
+   "rationale": "Henry's maple, the last trifoliate on the ladder (k). Runs now top out at 30 nights, so this leaf rewards a habit rather than luck: sim median day 65, p90 day 161 (the draft's 60-night run had p90 day 775). Seasoned rather than Lifetime because it arrives within months."
+  },
+  {
+   "species_id": "sempervirens",
+   "category_id": "steady_weeks",
+   "threshold": 1,
+   "unlock_text": "Have a steady week: 5 on-time nights in one week",
+   "tier": "common",
+   "rationale": "Cretan maple. Sempervirens means 'always green', so it opens the evergreen line with the first steady week (k). Sim median day 9."
+  },
+  {
+   "species_id": "obtusifolium",
+   "category_id": "steady_weeks",
+   "threshold": 3,
+   "unlock_text": "Have 3 steady weeks (5 on-time nights in a week)",
+   "tier": "common",
+   "rationale": "Syrian maple, a documented evergreen of Cyprus and the Levant (k). Sim median day 23."
+  },
+  {
+   "species_id": "paxii",
+   "category_id": "steady_weeks",
+   "threshold": 6,
+   "unlock_text": "Have 6 steady weeks (5 on-time nights in a week)",
+   "tier": "uncommon",
+   "rationale": "Pax's maple, one of the few lobed evergreens (k). Sim median day 51."
+  },
+  {
+   "species_id": "oblongum",
+   "category_id": "steady_weeks",
+   "threshold": 10,
+   "unlock_text": "Have 10 steady weeks (5 on-time nights in a week)",
+   "tier": "uncommon",
+   "rationale": "Himalayan maple, a widespread, documented evergreen across three regions (k). Sim median day 86."
+  },
+  {
+   "species_id": "crassum",
+   "category_id": "steady_weeks",
+   "threshold": 15,
+   "unlock_text": "Have 15 steady weeks (5 on-time nights in a week)",
+   "tier": "uncommon",
+   "rationale": "A Yunnan evergreen (i), shown as approximate. Sim median day 121."
+  },
+  {
+   "species_id": "cordatum",
+   "category_id": "steady_weeks",
+   "threshold": 21,
+   "unlock_text": "Have 21 steady weeks (5 on-time nights in a week)",
+   "tier": "uncommon",
+   "rationale": "An evergreen from central and southern China (i), shown as approximate. Sim median day 170."
+  },
+  {
+   "species_id": "hilaense",
+   "category_id": "steady_weeks",
+   "threshold": 28,
+   "unlock_text": "Have 28 steady weeks (5 on-time nights in a week)",
+   "tier": "rare",
+   "rationale": "An evergreen endemic to Guizhou (i), shown as approximate. Sim median day 226."
+  },
+  {
+   "species_id": "paihengii",
+   "category_id": "steady_weeks",
+   "threshold": 36,
+   "unlock_text": "Have 36 steady weeks (5 on-time nights in a week)",
+   "tier": "rare",
+   "rationale": "A Yunnan evergreen (i), shown as approximate. Moved here from the draft's 40-night run, so it rewards cumulative consistency rather than an unbroken streak. Sim median day 296."
+  },
+  {
+   "species_id": "chiangdaoense",
+   "category_id": "steady_weeks",
+   "threshold": 44,
+   "unlock_text": "Have 44 steady weeks (5 on-time nights in a week)",
+   "tier": "rare",
+   "rationale": "An evergreen known from one Thai mountain, Doi Chiang Dao, drawn as a placeholder (u) with the pressed-specimen treatment. Moved off the run ladder and off a top rung. Sim median day 359."
+  },
+  {
+   "species_id": "wangchii",
+   "category_id": "steady_weeks",
+   "threshold": 52,
+   "unlock_text": "Have 52 steady weeks (5 on-time nights in a week)",
+   "tier": "rare",
+   "rationale": "A Guangxi evergreen (i), shown as approximate. Moved from the run ladder to cumulative consistency. Sim median day 422."
+  },
+  {
+   "species_id": "pubipetiolatum",
+   "category_id": "steady_weeks",
+   "threshold": 60,
+   "unlock_text": "Have 60 steady weeks (5 on-time nights in a week)",
+   "tier": "rare",
+   "rationale": "A Yunnan evergreen (i), shown as approximate. Sim median day 492."
+  },
+  {
+   "species_id": "lucidum",
+   "category_id": "steady_weeks",
+   "threshold": 67,
+   "unlock_text": "Have 67 steady weeks (5 on-time nights in a week)",
+   "tier": "rare",
+   "rationale": "A glossy-leaved southern Chinese evergreen (i), shown as approximate. Sim median day 548."
+  },
+  {
+   "species_id": "laevigatum",
+   "category_id": "steady_weeks",
+   "threshold": 74,
+   "unlock_text": "Have 74 steady weeks (5 on-time nights in a week)",
+   "tier": "legendary",
+   "rationale": "Smoothbark maple, a documented evergreen from the Himalaya to Indochina (k). The Lifetime top of steady weeks: at least 74 weeks, about 17 months even for a perfect sleeper. Sim median day 604."
+  },
+  {
+   "species_id": "fabri",
+   "category_id": "seasons_in_rhythm",
+   "threshold": 1,
+   "unlock_text": "Have 8 steady weeks in one season (counts when the season ends)",
+   "tier": "uncommon",
+   "rationale": "Faber's maple, the best-documented evergreen of its series (k), for the first full season in rhythm. Sim median day 142 for an October start, because the first countable season is winter."
+  },
+  {
+   "species_id": "kwangnanense",
+   "category_id": "seasons_in_rhythm",
+   "threshold": 2,
+   "unlock_text": "Have 8 steady weeks in 2 seasons",
+   "tier": "rare",
+   "rationale": "A Yunnan evergreen (i), shown as approximate. A second season in rhythm. Sim median day 233."
+  },
+  {
+   "species_id": "oligocarpum",
+   "category_id": "seasons_in_rhythm",
+   "threshold": 3,
+   "unlock_text": "Have 8 steady weeks in 3 seasons",
+   "tier": "rare",
+   "rationale": "A Guangxi evergreen (i), shown as approximate. A third season. Sim median day 324."
+  },
+  {
+   "species_id": "coriaceifolium",
+   "category_id": "seasons_in_rhythm",
+   "threshold": 4,
+   "unlock_text": "Have 8 steady weeks in 4 seasons",
+   "tier": "rare",
+   "rationale": "Leatherleaf maple, a tough, documented evergreen (k). Four seasons in rhythm: a full year. Sim median day 415."
+  },
+  {
+   "species_id": "shenzhenensis",
+   "category_id": "seasons_in_rhythm",
+   "threshold": 5,
+   "unlock_text": "Have 8 steady weeks in 5 seasons",
+   "tier": "rare",
+   "rationale": "An evergreen known only from Shenzhen, drawn as a placeholder (u). Moved here from the community-challenge top, so all 24 evergreens now sit on consistency ladders. Sim median day 506."
+  },
+  {
+   "species_id": "laurinum",
+   "category_id": "seasons_in_rhythm",
+   "threshold": 6,
+   "unlock_text": "Have 8 steady weeks in 6 seasons",
+   "tier": "legendary",
+   "rationale": "The only maple whose wild range crosses the equator, so it lives in both hemispheres' seasons (k). The Lifetime sixth season. Sim median day 597."
+  },
+  {
+   "species_id": "campestre",
+   "category_id": "steady_mornings",
+   "threshold": 3,
+   "unlock_text": "Wake within 30 minutes of your wake-up time on 3 mornings",
+   "tier": "first-steps",
+   "rationale": "Field maple, Britain's only native maple and a common hedgerow tree (k). A familiar leaf for the first steady mornings. Sim median day 4."
+  },
+  {
+   "species_id": "tataricum",
+   "category_id": "steady_mornings",
+   "threshold": 10,
+   "unlock_text": "Wake within 30 minutes of your wake-up time on 10 mornings",
+   "tier": "common",
+   "rationale": "Tatar maple, which includes the Amur maple. Hardy and planted from SE Europe to East Asia (k). Sim median day 14."
+  },
+  {
+   "species_id": "glabrum",
+   "category_id": "steady_mornings",
+   "threshold": 20,
+   "unlock_text": "Wake within 30 minutes of your wake-up time on 20 mornings",
+   "tier": "common",
+   "rationale": "Rocky Mountain maple (k): mountain dawns for steady mornings. Sim median day 28."
+  },
+  {
+   "species_id": "spicatum",
+   "category_id": "steady_mornings",
+   "threshold": 40,
+   "unlock_text": "Wake within 30 minutes of your wake-up time on 40 mornings",
+   "tier": "uncommon",
+   "rationale": "Mountain maple of eastern North America (k). Sim median day 56."
+  },
+  {
+   "species_id": "ukurunduense",
+   "category_id": "steady_mornings",
+   "threshold": 60,
+   "unlock_text": "Wake within 30 minutes of your wake-up time on 60 mornings",
+   "tier": "uncommon",
+   "rationale": "Ukurundu maple of NE Asia and Japan (k). Sim median day 85."
+  },
+  {
+   "species_id": "sycopseoides",
+   "category_id": "steady_mornings",
+   "threshold": 85,
+   "unlock_text": "Wake within 30 minutes of your wake-up time on 85 mornings",
+   "tier": "uncommon",
+   "rationale": "A little-studied unlobed species from Guangxi and Guizhou (i), shown as approximate. Sim median day 120."
+  },
+  {
+   "species_id": "albopurpurascens",
+   "category_id": "steady_mornings",
+   "threshold": 115,
+   "unlock_text": "Wake within 30 minutes of your wake-up time on 115 mornings",
+   "tier": "uncommon",
+   "rationale": "A Taiwan evergreen (i), shown as approximate. It stays green for long-run morning consistency. Sim median day 163."
+  },
+  {
+   "species_id": "iranicum",
+   "category_id": "steady_mornings",
+   "threshold": 155,
+   "unlock_text": "Wake within 30 minutes of your wake-up time on 155 mornings",
+   "tier": "rare",
+   "rationale": "From northern Iran, drawn as a placeholder (u) and shown as a pressed specimen. The five Monspessulana look-alike placeholders are now on five different ladders. Sim median day 220."
+  },
+  {
+   "species_id": "yinkunii",
+   "category_id": "steady_mornings",
+   "threshold": 220,
+   "unlock_text": "Wake within 30 minutes of your wake-up time on 220 mornings",
+   "tier": "rare",
+   "rationale": "A Hunan evergreen (i), shown as approximate. Sim median day 312."
+  },
+  {
+   "species_id": "poliophyllum",
+   "category_id": "steady_mornings",
+   "threshold": 320,
+   "unlock_text": "Wake within 30 minutes of your wake-up time on 320 mornings",
+   "tier": "rare",
+   "rationale": "A Guizhou evergreen (i), shown as approximate. Sim median day 455."
+  },
+  {
+   "species_id": "nipponicum",
+   "category_id": "steady_mornings",
+   "threshold": 420,
+   "unlock_text": "Wake within 30 minutes of your wake-up time on 420 mornings",
+   "tier": "legendary",
+   "rationale": "Nippon maple, a rarely grown Japanese species (k). 'Nippon' means 'origin of the sun', a fitting Lifetime top for steady mornings. Sim median day 595."
+  },
+  {
+   "species_id": "pseudoplatanus",
+   "category_id": "full_nights",
+   "threshold": 3,
+   "unlock_text": "Get your full night's sleep 3 times",
+   "tier": "first-steps",
+   "rationale": "Sycamore maple, one of Europe's most familiar broad-leaved trees (k). Sim median day 4."
+  },
+  {
+   "species_id": "velutinum",
+   "category_id": "full_nights",
+   "threshold": 12,
+   "unlock_text": "Get your full night's sleep 12 times",
+   "tier": "common",
+   "rationale": "Velvet maple of the Caucasus and northern Iran (k): soft, broad leaves for full nights. Sim median day 18."
+  },
+  {
+   "species_id": "macrophyllum",
+   "category_id": "full_nights",
+   "threshold": 25,
+   "unlock_text": "Get your full night's sleep 25 times",
+   "tier": "common",
+   "rationale": "Bigleaf maple has the largest leaves of any maple, sometimes over 30 cm across (k). A famous big leaf, early in the full-nights ladder. Sim median day 38."
+  },
+  {
+   "species_id": "sosnowskyi",
+   "category_id": "full_nights",
+   "threshold": 40,
+   "unlock_text": "Get your full night's sleep 40 times",
+   "tier": "uncommon",
+   "rationale": "Sosnowsky's maple, a little-studied Georgian endemic (i), shown as approximate. Sim median day 61."
+  },
+  {
+   "species_id": "chunii",
+   "category_id": "full_nights",
+   "threshold": 60,
+   "unlock_text": "Get your full night's sleep 60 times",
+   "tier": "uncommon",
+   "rationale": "A little-studied southern Chinese species (i), shown as approximate. Sim median day 92."
+  },
+  {
+   "species_id": "yui",
+   "category_id": "full_nights",
+   "threshold": 90,
+   "unlock_text": "Get your full night's sleep 90 times",
+   "tier": "uncommon",
+   "rationale": "A Gansu species (i), shown as approximate. Sim median day 138."
+  },
+  {
+   "species_id": "mazandaranicum",
+   "category_id": "full_nights",
+   "threshold": 130,
+   "unlock_text": "Get your full night's sleep 130 times",
+   "tier": "rare",
+   "rationale": "Known only from Mazandaran, Iran, drawn as a placeholder (u). Moved off the phone-free top. Sim median day 199."
+  },
+  {
+   "species_id": "erythranthum",
+   "category_id": "full_nights",
+   "threshold": 190,
+   "unlock_text": "Get your full night's sleep 190 times",
+   "tier": "rare",
+   "rationale": "An evergreen from Laos and Vietnam (i), shown as approximate. It stays green for long-run rest. Sim median day 291."
+  },
+  {
+   "species_id": "sino-oblongum",
+   "category_id": "full_nights",
+   "threshold": 270,
+   "unlock_text": "Get your full night's sleep 270 times",
+   "tier": "rare",
+   "rationale": "A southern Chinese evergreen (i), shown as approximate. Sim median day 414."
+  },
+  {
+   "species_id": "okamotoanum",
+   "category_id": "full_nights",
+   "threshold": 370,
+   "unlock_text": "Get your full night's sleep 370 times",
+   "tier": "legendary",
+   "rationale": "Grows only on Ulleungdo island, Korea (k). The Lifetime top of full nights. Needs asleep-stage data (Apple Watch or a sleep tracker). Sim median day 567."
+  },
+  {
+   "species_id": "platanoides",
+   "category_id": "focus_hours",
+   "threshold": 4,
+   "unlock_text": "Focus for 4 hours",
+   "tier": "first-steps",
+   "rationale": "Norway maple, among the most planted trees in Europe and North America (k). Instantly familiar for the first 4 hours of focus. Sim median day 7."
+  },
+  {
+   "species_id": "truncatum",
+   "category_id": "focus_hours",
+   "threshold": 18,
+   "unlock_text": "Focus for 18 hours",
+   "tier": "common",
+   "rationale": "Shandong maple, a popular street and bonsai tree (k). Sim median day 33."
+  },
+  {
+   "species_id": "acutum",
+   "category_id": "focus_hours",
+   "threshold": 35,
+   "unlock_text": "Focus for 35 hours",
+   "tier": "uncommon",
+   "rationale": "An eastern Chinese Norway-maple relative (i), shown as approximate. Sim median day 64."
+  },
+  {
+   "species_id": "amplum",
+   "category_id": "focus_hours",
+   "threshold": 55,
+   "unlock_text": "Focus for 55 hours",
+   "tier": "uncommon",
+   "rationale": "Broad maple (k): a broad, steady canopy for 55 hours. Sim median day 100."
+  },
+  {
+   "species_id": "orthocampestre",
+   "category_id": "focus_hours",
+   "threshold": 80,
+   "unlock_text": "Focus for 80 hours",
+   "tier": "uncommon",
+   "rationale": "Split from field maple in 2014 using DNA evidence (i), shown as approximate. A story leaf for 80 hours. Sim median day 146."
+  },
+  {
+   "species_id": "longipes",
+   "category_id": "focus_hours",
+   "threshold": 105,
+   "unlock_text": "Focus for 105 hours",
+   "tier": "rare",
+   "rationale": "A central Chinese Norway-maple relative (i), shown as approximate. Sim median day 192."
+  },
+  {
+   "species_id": "fulvescens",
+   "category_id": "focus_hours",
+   "threshold": 135,
+   "unlock_text": "Focus for 135 hours",
+   "tier": "rare",
+   "rationale": "A western Chinese species (i), shown as approximate. Sim median day 248."
+  },
+  {
+   "species_id": "shenkanense",
+   "category_id": "focus_hours",
+   "threshold": 170,
+   "unlock_text": "Focus for 170 hours",
+   "tier": "rare",
+   "rationale": "A western Chinese species (i), shown as approximate. Sim median day 312."
+  },
+  {
+   "species_id": "lobelii",
+   "category_id": "focus_hours",
+   "threshold": 210,
+   "unlock_text": "Focus for 210 hours",
+   "tier": "legendary",
+   "rationale": "Lobel's maple from southern Italy grows tall, narrow and straight up (k): focus made visible. The Lifetime top at 210 hours; with the 10 h/week cap it takes at least 21 weeks. Sim median day 386."
+  },
+  {
+   "species_id": "buergerianum",
+   "category_id": "focus_days",
+   "threshold": 1,
+   "unlock_text": "Focus for 25 minutes in one session",
+   "tier": "first-steps",
+   "rationale": "Trident maple is a favourite for bonsai, an art of patient daily attention (k). The leaf for the first 25-minute session. Sim median: day 1."
+  },
+  {
+   "species_id": "argutum",
+   "category_id": "focus_days",
+   "threshold": 14,
+   "unlock_text": "Focus for 25 minutes or more on 14 different days",
+   "tier": "common",
+   "rationale": "Deep-veined maple of Japan (k). Sim median day 27."
+  },
+  {
+   "species_id": "barbinerve",
+   "category_id": "focus_days",
+   "threshold": 28,
+   "unlock_text": "Focus for 25 minutes or more on 28 different days",
+   "tier": "uncommon",
+   "rationale": "Bearded maple of NE China, Korea and the Russian Far East (k). Sim median day 54."
+  },
+  {
+   "species_id": "stachyophyllum",
+   "category_id": "focus_days",
+   "threshold": 45,
+   "unlock_text": "Focus for 25 minutes or more on 45 different days",
+   "tier": "uncommon",
+   "rationale": "Birch-leaved maple, a distinctive unlobed leaf from the Himalaya to central China (k). Sim median day 87."
+  },
+  {
+   "species_id": "kungshanense",
+   "category_id": "focus_days",
+   "threshold": 65,
+   "unlock_text": "Focus for 25 minutes or more on 65 different days",
+   "tier": "uncommon",
+   "rationale": "A Yunnan species (i), shown as approximate. Sim median day 128."
+  },
+  {
+   "species_id": "cinerascentiforme",
+   "category_id": "focus_days",
+   "threshold": 95,
+   "unlock_text": "Focus for 25 minutes or more on 95 different days",
+   "tier": "rare",
+   "rationale": "From Lebanon and Syria, drawn as a placeholder (u) and shown as a pressed specimen. One of the five Monspessulana placeholders, kept away from its look-alikes. Sim median day 188."
+  },
+  {
+   "species_id": "leipoense",
+   "category_id": "focus_days",
+   "threshold": 140,
+   "unlock_text": "Focus for 25 minutes or more on 140 different days",
+   "tier": "rare",
+   "rationale": "A Sichuan species (i), shown as approximate. Sim median day 278."
+  },
+  {
+   "species_id": "sterculiaceum",
+   "category_id": "focus_days",
+   "threshold": 200,
+   "unlock_text": "Focus for 25 minutes or more on 200 different days",
+   "tier": "legendary",
+   "rationale": "Franchet's maple, Himalaya to SW China (k). A documented, broad-leaved Lifetime top for 200 focus days. Sim median day 398."
+  },
+  {
+   "species_id": "miyabei",
+   "category_id": "focus_weeks",
+   "threshold": 4,
+   "unlock_text": "Have 4 focus weeks (3 focus days in a week)",
+   "tier": "common",
+   "rationale": "Miyabe's maple, a documented Japanese Norway-maple relative (k), for the first 4 focus weeks. Sim median day 37."
+  },
+  {
+   "species_id": "tenellum",
+   "category_id": "focus_weeks",
+   "threshold": 9,
+   "unlock_text": "Have 9 focus weeks (3 focus days in a week)",
+   "tier": "uncommon",
+   "rationale": "A Sichuan and Hubei species (i), shown as approximate. Sim median day 79."
+  },
+  {
+   "species_id": "lungshengense",
+   "category_id": "focus_weeks",
+   "threshold": 15,
+   "unlock_text": "Have 15 focus weeks (3 focus days in a week)",
+   "tier": "uncommon",
+   "rationale": "A Guangxi species (i), shown as approximate. Sim median day 135."
+  },
+  {
+   "species_id": "tibetense",
+   "category_id": "focus_weeks",
+   "threshold": 22,
+   "unlock_text": "Have 22 focus weeks (3 focus days in a week)",
+   "tier": "rare",
+   "rationale": "A Tibetan endemic (i), shown as approximate. Sim median day 198."
+  },
+  {
+   "species_id": "brevipes",
+   "category_id": "focus_weeks",
+   "threshold": 32,
+   "unlock_text": "Have 32 focus weeks (3 focus days in a week)",
+   "tier": "rare",
+   "rationale": "A Vietnamese unlobed species drawn as a placeholder (u) and shown as a pressed specimen. Sim median day 289."
+  },
+  {
+   "species_id": "tsinglingense",
+   "category_id": "focus_weeks",
+   "threshold": 44,
+   "unlock_text": "Have 44 focus weeks (3 focus days in a week)",
+   "tier": "rare",
+   "rationale": "From the Qinling Mountains (i), shown as approximate. Sim median day 401."
+  },
+  {
+   "species_id": "sinopurpurascens",
+   "category_id": "focus_weeks",
+   "threshold": 56,
+   "unlock_text": "Have 56 focus weeks (3 focus days in a week)",
+   "tier": "rare",
+   "rationale": "An eastern Chinese species with crimson autumn colour (i), shown as approximate. Sim median day 506."
+  },
+  {
+   "species_id": "pentaphyllum",
+   "category_id": "focus_weeks",
+   "threshold": 68,
+   "unlock_text": "Have 68 focus weeks (3 focus days in a week)",
+   "tier": "legendary",
+   "rationale": "Its leaf splits into five narrow leaflets, the catalogue's only palmately compound form, and it is very rare in the wild (k). Moved from 320 focus hours to 68 focus weeks so it rewards rhythm rather than volume: even a 4 h/day focuser needs about 16 months. Sim median day 618."
+  },
+  {
+   "species_id": "carpinifolium",
+   "category_id": "sound_winddowns",
+   "threshold": 5,
+   "unlock_text": "Wind down with a Maple sound and fall asleep on time, 5 nights",
+   "tier": "common",
+   "rationale": "Hornbeam maple looks so much like a hornbeam that it is often misidentified (k): a leaf that sounds like something else. Sim median day 15."
+  },
+  {
+   "species_id": "morifolium",
+   "category_id": "sound_winddowns",
+   "threshold": 15,
+   "unlock_text": "Wind down with a Maple sound and fall asleep on time, 15 nights",
+   "tier": "uncommon",
+   "rationale": "From the Ryukyu Islands (i), shown as approximate. Sim median day 46."
+  },
+  {
+   "species_id": "miaoshanicum",
+   "category_id": "sound_winddowns",
+   "threshold": 30,
+   "unlock_text": "Wind down with a Maple sound and fall asleep on time, 30 nights",
+   "tier": "uncommon",
+   "rationale": "A Guangxi species (i), shown as approximate. Sim median day 93."
+  },
+  {
+   "species_id": "leptophyllum",
+   "category_id": "sound_winddowns",
+   "threshold": 50,
+   "unlock_text": "Wind down with a Maple sound and fall asleep on time, 50 nights",
+   "tier": "uncommon",
+   "rationale": "A SE Chinese species drawn as a placeholder (u) and shown as a pressed specimen. Sim median day 155."
+  },
+  {
+   "species_id": "pseudowilsonii",
+   "category_id": "sound_winddowns",
+   "threshold": 80,
+   "unlock_text": "Wind down with a Maple sound and fall asleep on time, 80 nights",
+   "tier": "rare",
+   "rationale": "A Yunnan species (i), shown as approximate. Sim median day 249."
+  },
+  {
+   "species_id": "calcaratum",
+   "category_id": "sound_winddowns",
+   "threshold": 130,
+   "unlock_text": "Wind down with a Maple sound and fall asleep on time, 130 nights",
+   "tier": "legendary",
+   "rationale": "A documented, deeply 3-lobed Palmata maple spanning the eastern Himalaya, Yunnan and Indochina (k). The Lifetime top of sound wind-downs. Sim median day 405."
+  },
+  {
+   "species_id": "griseum",
+   "category_id": "scroll_free_winddowns",
+   "threshold": 3,
+   "unlock_text": "Stay under 5 minutes on your wind-down apps, 3 nights",
+   "tier": "first-steps",
+   "rationale": "Paperbark maple: cinnamon bark that peels in thin, scroll-like curls (k). The hero leaf for the first scroll-free wind-downs: famous, trifoliate, scarlet. Sim median day 5."
+  },
+  {
+   "species_id": "davidii",
+   "category_id": "scroll_free_winddowns",
+   "threshold": 12,
+   "unlock_text": "Stay under 5 minutes on your wind-down apps, 12 nights",
+   "tier": "common",
+   "rationale": "Père David's maple, the classic snakebark with green-and-white striped bark (k). It opens the striped-bark line for screen habits. Sim median day 20."
+  },
+  {
+   "species_id": "pensylvanicum",
+   "category_id": "scroll_free_winddowns",
+   "threshold": 25,
+   "unlock_text": "Stay under 5 minutes on your wind-down apps, 25 nights",
+   "tier": "common",
+   "rationale": "Striped maple, the only snakebark outside Asia (k). Sim median day 41."
+  },
+  {
+   "species_id": "rufinerve",
+   "category_id": "scroll_free_winddowns",
+   "threshold": 40,
+   "unlock_text": "Stay under 5 minutes on your wind-down apps, 40 nights",
+   "tier": "uncommon",
+   "rationale": "Grey-budded snakebark maple of Japan (k). Sim median day 67."
+  },
+  {
+   "species_id": "capillipes",
+   "category_id": "scroll_free_winddowns",
+   "threshold": 55,
+   "unlock_text": "Stay under 5 minutes on your wind-down apps, 55 nights",
+   "tier": "uncommon",
+   "rationale": "Red snakebark maple of Japan (k). Sim median day 91."
+  },
+  {
+   "species_id": "tegmentosum",
+   "category_id": "scroll_free_winddowns",
+   "threshold": 75,
+   "unlock_text": "Stay under 5 minutes on your wind-down apps, 75 nights",
+   "tier": "uncommon",
+   "rationale": "Manchu striped maple (k). Sim median day 125."
+  },
+  {
+   "species_id": "crataegifolium",
+   "category_id": "scroll_free_winddowns",
+   "threshold": 100,
+   "unlock_text": "Stay under 5 minutes on your wind-down apps, 100 nights",
+   "tier": "uncommon",
+   "rationale": "Hawthorn maple, an unlobed snakebark (k), for 100 scroll-free nights. Sim median day 167."
+  },
+  {
+   "species_id": "forrestii",
+   "category_id": "scroll_free_winddowns",
+   "threshold": 130,
+   "unlock_text": "Stay under 5 minutes on your wind-down apps, 130 nights",
+   "tier": "rare",
+   "rationale": "Forrest's maple of SW China (k). Sim median day 216."
+  },
+  {
+   "species_id": "mapienense",
+   "category_id": "scroll_free_winddowns",
+   "threshold": 170,
+   "unlock_text": "Stay under 5 minutes on your wind-down apps, 170 nights",
+   "tier": "rare",
+   "rationale": "Known only from Mabian, Sichuan, drawn as a placeholder (u). Moved from the top to a mid-rare rung. Sim median day 283."
+  },
+  {
+   "species_id": "micranthum",
+   "category_id": "scroll_free_winddowns",
+   "threshold": 215,
+   "unlock_text": "Stay under 5 minutes on your wind-down apps, 215 nights",
+   "tier": "rare",
+   "rationale": "A small-flowered Japanese snakebark (k). Sim median day 359."
+  },
+  {
+   "species_id": "laxiflorum",
+   "category_id": "scroll_free_winddowns",
+   "threshold": 270,
+   "unlock_text": "Stay under 5 minutes on your wind-down apps, 270 nights",
+   "tier": "rare",
+   "rationale": "A western Chinese snakebark (i), shown as approximate. Sim median day 450."
+  },
+  {
+   "species_id": "maximowiczii",
+   "category_id": "scroll_free_winddowns",
+   "threshold": 340,
+   "unlock_text": "Stay under 5 minutes on your wind-down apps, 340 nights",
+   "tier": "legendary",
+   "rationale": "A documented central Chinese snakebark (k), now the Lifetime top in place of a placeholder. Sim median day 566."
+  },
+  {
+   "species_id": "monspessulanum",
+   "category_id": "phone_free_mornings",
+   "threshold": 5,
+   "unlock_text": "Stay off your morning apps for 30 minutes after waking, 5 mornings",
+   "tier": "common",
+   "rationale": "Montpellier maple, the classic Mediterranean maple (k): sunny mornings for the first phone-free starts. Sim median day 11."
+  },
+  {
+   "species_id": "opalus",
+   "category_id": "phone_free_mornings",
+   "threshold": 15,
+   "unlock_text": "Stay off your morning apps for 30 minutes after waking, 15 mornings",
+   "tier": "common",
+   "rationale": "Italian maple of southern and western Europe and North Africa (k). Sim median day 35."
+  },
+  {
+   "species_id": "granatense",
+   "category_id": "phone_free_mornings",
+   "threshold": 30,
+   "unlock_text": "Stay off your morning apps for 30 minutes after waking, 30 mornings",
+   "tier": "uncommon",
+   "rationale": "From southern Spain, the Balearics and NW Africa (k). Sim median day 70."
+  },
+  {
+   "species_id": "hyrcanum",
+   "category_id": "phone_free_mornings",
+   "threshold": 50,
+   "unlock_text": "Stay off your morning apps for 30 minutes after waking, 50 mornings",
+   "tier": "uncommon",
+   "rationale": "Balkan maple (k). Sim median day 117."
+  },
+  {
+   "species_id": "pentapomicum",
+   "category_id": "phone_free_mornings",
+   "threshold": 75,
+   "unlock_text": "Stay off your morning apps for 30 minutes after waking, 75 mornings",
+   "tier": "uncommon",
+   "rationale": "From Afghanistan, Pakistan and the western Himalaya (k). Sim median day 177."
+  },
+  {
+   "species_id": "pilosum",
+   "category_id": "phone_free_mornings",
+   "threshold": 105,
+   "unlock_text": "Stay off your morning apps for 30 minutes after waking, 105 mornings",
+   "tier": "rare",
+   "rationale": "A central Chinese species (i), shown as approximate. Sim median day 247."
+  },
+  {
+   "species_id": "gracilifolium",
+   "category_id": "phone_free_mornings",
+   "threshold": 140,
+   "unlock_text": "Stay off your morning apps for 30 minutes after waking, 140 mornings",
+   "tier": "rare",
+   "rationale": "A Sichuan species (i), shown as approximate. Sim median day 330."
+  },
+  {
+   "species_id": "kweilinense",
+   "category_id": "phone_free_mornings",
+   "threshold": 180,
+   "unlock_text": "Stay off your morning apps for 30 minutes after waking, 180 mornings",
+   "tier": "rare",
+   "rationale": "A Guangxi species (i), shown as approximate. Sim median day 424."
+  },
+  {
+   "species_id": "heldreichii",
+   "category_id": "phone_free_mornings",
+   "threshold": 220,
+   "unlock_text": "Stay off your morning apps for 30 minutes after waking, 220 mornings",
+   "tier": "legendary",
+   "rationale": "Greek maple of the Balkans, with the deepest-cut lobes of the Mediterranean set (k). A striking, documented Lifetime top that replaces the draft's two placeholder look-alikes. Sim median day 520."
+  },
+  {
+   "species_id": "komarovii",
+   "category_id": "bedtime_shield_kept",
+   "threshold": 7,
+   "unlock_text": "Keep your bedtime shield up all night, 7 nights",
+   "tier": "common",
+   "rationale": "Komarov's maple, a hardy northern snakebark (k). It opens the shield ladder. Sim median day 14."
+  },
+  {
+   "species_id": "tschonoskii",
+   "category_id": "bedtime_shield_kept",
+   "threshold": 20,
+   "unlock_text": "Keep your bedtime shield up all night, 20 nights",
+   "tier": "common",
+   "rationale": "A snakebark of Japan and the Russian Far East (k). Sim median day 40."
+  },
+  {
+   "species_id": "caudatifolium",
+   "category_id": "bedtime_shield_kept",
+   "threshold": 40,
+   "unlock_text": "Keep your bedtime shield up all night, 40 nights",
+   "tier": "uncommon",
+   "rationale": "Kawakami maple of Taiwan (k). Sim median day 81."
+  },
+  {
+   "species_id": "chienii",
+   "category_id": "bedtime_shield_kept",
+   "threshold": 65,
+   "unlock_text": "Keep your bedtime shield up all night, 65 nights",
+   "tier": "uncommon",
+   "rationale": "A Yunnan snakebark (i), shown as approximate. Sim median day 130."
+  },
+  {
+   "species_id": "insulare",
+   "category_id": "bedtime_shield_kept",
+   "threshold": 95,
+   "unlock_text": "Keep your bedtime shield up all night, 95 nights",
+   "tier": "rare",
+   "rationale": "From the Ryukyu Islands and Taiwan (i), shown as approximate. Sim median day 190."
+  },
+  {
+   "species_id": "undulatum",
+   "category_id": "bedtime_shield_kept",
+   "threshold": 130,
+   "unlock_text": "Keep your bedtime shield up all night, 130 nights",
+   "tier": "rare",
+   "rationale": "Kew now treats it as part of the Balkan maple. Drawn as a placeholder (u), mid-ladder and on a different ladder from Balkan maple. Sim median day 260."
+  },
+  {
+   "species_id": "metcalfii",
+   "category_id": "bedtime_shield_kept",
+   "threshold": 175,
+   "unlock_text": "Keep your bedtime shield up all night, 175 nights",
+   "tier": "rare",
+   "rationale": "A SE Chinese snakebark (i), shown as approximate. Sim median day 349."
+  },
+  {
+   "species_id": "sikkimense",
+   "category_id": "bedtime_shield_kept",
+   "threshold": 230,
+   "unlock_text": "Keep your bedtime shield up all night, 230 nights",
+   "tier": "legendary",
+   "rationale": "Sikkim maple, an unlobed snakebark from the eastern Himalaya to Yunnan and Myanmar (k). The Lifetime top of shield nights. Sim median day 460."
+  },
+  {
+   "species_id": "pictum",
+   "category_id": "reflection_weeks",
+   "threshold": 3,
+   "unlock_text": "Have 3 reflection weeks (3 mood check-ins in a week)",
+   "tier": "common",
+   "rationale": "Painted maple of NE Asia and Japan (k): a fitting name for noticing how you feel. Sim median day 30."
+  },
+  {
+   "species_id": "sutchuenense",
+   "category_id": "reflection_weeks",
+   "threshold": 8,
+   "unlock_text": "Have 8 reflection weeks (3 mood check-ins in a week)",
+   "tier": "uncommon",
+   "rationale": "A documented central Chinese trifoliate with no English name (k). Sim median day 79."
+  },
+  {
+   "species_id": "erianthum",
+   "category_id": "reflection_weeks",
+   "threshold": 14,
+   "unlock_text": "Have 14 reflection weeks (3 mood check-ins in a week)",
+   "tier": "uncommon",
+   "rationale": "A central Chinese species (i), shown as approximate. Sim median day 142."
+  },
+  {
+   "species_id": "pauciflorum",
+   "category_id": "reflection_weeks",
+   "threshold": 22,
+   "unlock_text": "Have 22 reflection weeks (3 mood check-ins in a week)",
+   "tier": "rare",
+   "rationale": "An eastern Chinese species (i), shown as approximate. Sim median day 226."
+  },
+  {
+   "species_id": "serrulatum",
+   "category_id": "reflection_weeks",
+   "threshold": 33,
+   "unlock_text": "Have 33 reflection weeks (3 mood check-ins in a week)",
+   "tier": "rare",
+   "rationale": "A Taiwan species (i), shown as approximate. Sim median day 338."
+  },
+  {
+   "species_id": "tenuifolium",
+   "category_id": "reflection_weeks",
+   "threshold": 46,
+   "unlock_text": "Have 46 reflection weeks (3 mood check-ins in a week)",
+   "tier": "legendary",
+   "rationale": "A Japanese endemic with seven deeply cut lobes (k). The Lifetime top of reflection weeks. Sim median day 471."
+  },
+  {
+   "species_id": "distylum",
+   "category_id": "caffeine_curfew",
+   "threshold": 7,
+   "unlock_text": "Keep your caffeine curfew on 7 days",
+   "tier": "common",
+   "rationale": "Lime-leaved maple. Lime (linden) blossom is the classic caffeine-free bedtime tea, and this is a documented Japanese species (k). Sim median day 17."
+  },
+  {
+   "species_id": "chingii",
+   "category_id": "caffeine_curfew",
+   "threshold": 20,
+   "unlock_text": "Keep your caffeine curfew on 20 days",
+   "tier": "uncommon",
+   "rationale": "A Guangxi species (i), shown as approximate. Sim median day 49."
+  },
+  {
+   "species_id": "confertifolium",
+   "category_id": "caffeine_curfew",
+   "threshold": 45,
+   "unlock_text": "Keep your caffeine curfew on 45 days",
+   "tier": "uncommon",
+   "rationale": "A southern Chinese species (i), shown as approximate. Sim median day 113."
+  },
+  {
+   "species_id": "elegantulum",
+   "category_id": "caffeine_curfew",
+   "threshold": 90,
+   "unlock_text": "Keep your caffeine curfew on 90 days",
+   "tier": "rare",
+   "rationale": "A SE Chinese species (i), shown as approximate. Sim median day 227."
+  },
+  {
+   "species_id": "diabolicum",
+   "category_id": "caffeine_curfew",
+   "threshold": 160,
+   "unlock_text": "Keep your caffeine curfew on 160 days",
+   "tier": "legendary",
+   "rationale": "Horned maple of Japan (k). Its Latin name means 'devilish': a wry Lifetime top for resisting the late coffee. Sim median day 402."
+  },
+  {
+   "species_id": "caudatum",
+   "category_id": "wind_down_rituals",
+   "threshold": 5,
+   "unlock_text": "Finish a wind-down ritual on 5 evenings",
+   "tier": "common",
+   "rationale": "Tail-leaf maple of the high Himalaya, western China and Myanmar (k): mountain calm for the first rituals. Sim median day 14."
+  },
+  {
+   "species_id": "caesium",
+   "category_id": "wind_down_rituals",
+   "threshold": 15,
+   "unlock_text": "Finish a wind-down ritual on 15 evenings",
+   "tier": "common",
+   "rationale": "Indian maple, Himalaya to SW China (k). Sim median day 43."
+  },
+  {
+   "species_id": "acuminatum",
+   "category_id": "wind_down_rituals",
+   "threshold": 30,
+   "unlock_text": "Finish a wind-down ritual on 30 evenings",
+   "tier": "uncommon",
+   "rationale": "A western Himalayan species from Pakistan to Nepal (k). Sim median day 86."
+  },
+  {
+   "species_id": "pectinatum",
+   "category_id": "wind_down_rituals",
+   "threshold": 50,
+   "unlock_text": "Finish a wind-down ritual on 50 evenings",
+   "tier": "uncommon",
+   "rationale": "A snakebark ranging from the Himalaya to Yunnan (k). Sim median day 143."
+  },
+  {
+   "species_id": "thomsonii",
+   "category_id": "wind_down_rituals",
+   "threshold": 80,
+   "unlock_text": "Finish a wind-down ritual on 80 evenings",
+   "tier": "rare",
+   "rationale": "A Himalayan species (i), shown as approximate. Sim median day 230."
+  },
+  {
+   "species_id": "shangszeense",
+   "category_id": "wind_down_rituals",
+   "threshold": 115,
+   "unlock_text": "Finish a wind-down ritual on 115 evenings",
+   "tier": "rare",
+   "rationale": "Known only from Jiangxi, drawn as a placeholder (u). Moved from the top to a mid-rare rung. Sim median day 331."
+  },
+  {
+   "species_id": "wardii",
+   "category_id": "wind_down_rituals",
+   "threshold": 160,
+   "unlock_text": "Finish a wind-down ritual on 160 evenings",
+   "tier": "legendary",
+   "rationale": "Ward's maple of the eastern Himalaya, Myanmar and Yunnan (k). The Lifetime top of wind-down rituals. Sim median day 459."
+  },
+  {
+   "species_id": "wilsonii",
+   "category_id": "community_challenges",
+   "threshold": 1,
+   "unlock_text": "Complete a community challenge",
+   "tier": "common",
+   "rationale": "Wilson's maple, from southern China into Indochina (k): a leaf that crosses borders, for the first shared challenge. Sim median day 22, but the first challenge month varies (p90 day 114)."
+  },
+  {
+   "species_id": "shihweii",
+   "category_id": "community_challenges",
+   "threshold": 3,
+   "unlock_text": "Complete 3 community challenges",
+   "tier": "uncommon",
+   "rationale": "A SE Chinese species (i), shown as approximate. Sim median day 142."
+  },
+  {
+   "species_id": "tonkinense",
+   "category_id": "community_challenges",
+   "threshold": 6,
+   "unlock_text": "Complete 6 community challenges",
+   "tier": "rare",
+   "rationale": "From northern Vietnam and southern China (i), shown as approximate. Sim median day 295."
+  },
+  {
+   "species_id": "cappadocicum",
+   "category_id": "community_challenges",
+   "threshold": 10,
+   "unlock_text": "Complete 10 community challenges",
+   "tier": "legendary",
+   "rationale": "Cappadocian maple ranges from Turkey and the Caucasus to the Himalaya and China (k): a leaf shared by many lands. A documented, multi-region Lifetime top in place of the draft's placeholder. Sim median day 508."
+  }
+ ]
+}

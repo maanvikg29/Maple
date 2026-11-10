@@ -2,69 +2,100 @@ import SwiftUI
 import MapleCore
 import MapleDesign
 
-/// The onboarding end's first step: one calm screen to set bedtime, wake-up and wind-down. Saving it earns the
-/// First-steps leaf (the Sugar maple, "Set your sleep schedule"), which the next steps reveal (spec §8.8, D12).
+/// "Your sleep schedule", after the questions: one calm screen that opens on the schedule proposed from the answers
+/// (bedtime = wake − sleep need − 15 minutes, per variant; "Proposed from your answers"), which the member can still
+/// adjust. Saving it earns the First-steps leaf (the Sugar maple, "Set your sleep schedule"), which the end of
+/// onboarding reveals (spec §8.8, D12).
 ///
-/// The two times are the hero: tapping one selects it and the wheel below edits it.
+/// The two times are the hero: tapping one selects it and the wheel below edits it. When the weekend wake differs,
+/// a "Weekdays · Weekends" capsule above the times switches which nights they are for.
 struct SleepScheduleStep: View {
+    /// The schedule the answers propose.
+    let proposal: WeeklySleepSchedule
+    /// Called with every change, so a relaunch reopens the step as the member left it.
+    var onChange: (WeeklySleepSchedule) -> Void
+    var onBack: () -> Void
     /// Called with the schedule when the member taps "Save schedule".
-    var onSave: (SleepSchedule) -> Void
+    var onSave: (WeeklySleepSchedule) -> Void
 
     @Environment(\.theme) private var theme
     @Environment(\.locale) private var locale
     @Environment(\.calendar) private var calendar
-    @State private var bedtime = SleepSchedule.standard.bedtime
-    @State private var wake = SleepSchedule.standard.wake
-    @State private var windDown = SleepSchedule.standard.windDownMinutes
+    @State private var weekday: SleepSchedule
+    /// Nil when every night is the same.
+    @State private var weekend: SleepSchedule?
+    @State private var nights: WeeklySleepSchedule.Variant = .weekday
     @State private var editing: Edge = .bedtime
 
     private enum Edge: Hashable {
         case bedtime, wake
     }
 
-    static let windDownChoices = [30, 45, 60]
+    static let windDownChoices = OnboardingAnswers.windDownChoices
 
-    private var schedule: SleepSchedule {
-        SleepSchedule(bedtime: bedtime, wake: wake, windDownMinutes: windDown)
+    /// - Parameter start: The schedule the step opens on: the member's earlier draft, else the proposal.
+    init(
+        proposal: WeeklySleepSchedule, start: WeeklySleepSchedule, onChange: @escaping (WeeklySleepSchedule) -> Void,
+        onBack: @escaping () -> Void, onSave: @escaping (WeeklySleepSchedule) -> Void
+    ) {
+        self.proposal = proposal
+        self.onChange = onChange
+        self.onBack = onBack
+        self.onSave = onSave
+        _weekday = State(initialValue: start.weekday)
+        _weekend = State(initialValue: start.weekend)
+    }
+
+    /// What "Save schedule" stores.
+    private var schedule: WeeklySleepSchedule {
+        WeeklySleepSchedule(weekday: weekday, weekend: weekend)
+    }
+
+    /// The times on screen.
+    private var shown: Binding<SleepSchedule> {
+        Binding {
+            nights == .weekend ? (weekend ?? weekday) : weekday
+        } set: { value in
+            if nights == .weekend, weekend != nil { weekend = value } else { weekday = value }
+        }
     }
 
     var body: some View {
-        GeometryReader { proxy in
-            ScrollView {
-                VStack(spacing: 0) {
-                    Spacer(minLength: theme.spacing.xl)
-                    header
-                    times
-                        .padding(.top, theme.spacing.xxl)
-                    Text("\(HomeFormat.duration(minutes: schedule.minutesInBed)) in bed")
-                        .font(MapleFont.callout)
-                        .monospacedDigit()
-                        .foregroundStyle(theme.colors.textSecondary)
-                        .contentTransition(.numericText())
-                        .padding(.top, theme.spacing.sm)
-                        .accessibilityLabel("\(HomeFormat.spokenDuration(minutes: schedule.minutesInBed, locale: locale)) in bed")
-                    wheel
-                        .padding(.top, theme.spacing.xs)
-                    windDownChoice
-                        .padding(.top, theme.spacing.md)
-                    Spacer(minLength: theme.spacing.xl)
+        OnboardingPage(
+            step: .schedule, onBack: onBack,
+            primary: .init(title: "Save schedule", isEnabled: canSave) { onSave(schedule) }
+        ) {
+            VStack(spacing: 0) {
+                header
+                if weekend != nil {
+                    nightsChoice
+                        .padding(.top, theme.spacing.lg)
                 }
-                .padding(.horizontal, theme.spacing.homeMargin)
-                .frame(maxWidth: .infinity, minHeight: proxy.size.height)
+                times
+                    .padding(.top, weekend == nil ? theme.spacing.xxl : theme.spacing.md)
+                Text("\(HomeFormat.duration(minutes: shown.wrappedValue.minutesInBed)) in bed")
+                    .font(MapleFont.callout)
+                    .monospacedDigit()
+                    .foregroundStyle(theme.colors.textSecondary)
+                    .contentTransition(.numericText())
+                    .padding(.top, theme.spacing.sm)
+                    .accessibilityLabel("\(HomeFormat.spokenDuration(minutes: shown.wrappedValue.minutesInBed, locale: locale)) in bed")
+                wheel
+                    .padding(.top, theme.spacing.xs)
+                windDownChoice
+                    .padding(.top, theme.spacing.md)
             }
-            .scrollBounceBehavior(.basedOnSize)
-            .scrollIndicators(.hidden)
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            Button("Save schedule") { onSave(schedule) }
-                .buttonStyle(.moonlight)
-                .padding(.horizontal, theme.spacing.homeMargin)
-                .padding(.top, theme.spacing.sm)
-                .padding(.bottom, theme.spacing.md)
-                .footerFade(theme.colors.background)
+            .padding(.top, theme.spacing.xl)
+            .padding(.bottom, theme.spacing.xl)
         }
         .sensoryFeedback(.selection, trigger: editing)
-        .mapleAnimation(theme.motion.gentle, value: schedule)
+        .mapleAnimation(theme.motion.gentle, value: shown.wrappedValue)
+        .mapleAnimation(theme.motion.gentle, value: nights)
+        .onChange(of: schedule) { onChange(schedule) }
+    }
+
+    private var canSave: Bool {
+        weekday.minutesInBed > 0 && (weekend?.minutesInBed ?? 1) > 0
     }
 
     // MARK: Parts
@@ -73,13 +104,34 @@ struct SleepScheduleStep: View {
         VStack(spacing: theme.spacing.xs) {
             Text("Your sleep schedule")
                 .font(MapleFont.screenTitle)
+                .tracking(-0.3)
                 .foregroundStyle(theme.colors.textPrimary)
                 .accessibilityAddTraits(.isHeader)
-            Text("Saving it plants your maple.")
-                .font(MapleFont.callout)
-                .foregroundStyle(theme.colors.textSecondary)
+            VStack(spacing: 0) {
+                Text(schedule == proposal ? "Proposed from your answers." : "Adjusted from your answers.")
+                    .contentTransition(.opacity)
+                Text("Saving it plants your maple.")
+            }
+            .font(MapleFont.callout)
+            .foregroundStyle(theme.colors.textSecondary)
         }
         .multilineTextAlignment(.center)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// "Weekdays · Weekends", and which nights that is.
+    private var nightsChoice: some View {
+        VStack(spacing: theme.spacing.xxs) {
+            SegmentedCapsule(selection: $nights, options: [.weekday, .weekend], size: .regular) {
+                $0 == .weekday ? "Weekdays" : "Weekends"
+            }
+            .accessibilityLabel(Text("Nights"))
+            Text(RestCopy.nights(nights, calendar: calendar))
+                .font(MapleFont.footnote)
+                .foregroundStyle(theme.colors.textSecondary)
+                .multilineTextAlignment(.center)
+                .contentTransition(.opacity)
+        }
     }
 
     /// Bedtime → wake-up, side by side, or stacked when large text needs the room.
@@ -106,7 +158,7 @@ struct SleepScheduleStep: View {
 
     private func choice(_ edge: Edge) -> some View {
         let selected = editing == edge
-        let time = edge == .bedtime ? bedtime : wake
+        let time = edge == .bedtime ? shown.wrappedValue.bedtime : shown.wrappedValue.wake
         let label = edge == .bedtime ? "Bedtime" : "Wake-up"
         return Button {
             editing = edge
@@ -146,20 +198,15 @@ struct SleepScheduleStep: View {
     }
 
     private var wheel: some View {
-        DatePicker(
-            editing == .bedtime ? "Bedtime" : "Wake-up time",
-            selection: Binding(
-                get: { date(for: editing == .bedtime ? bedtime : wake) },
-                set: { newValue in
-                    let time = HomeFormat.clockTime(of: newValue, calendar: calendar)
-                    if editing == .bedtime { bedtime = time } else { wake = time }
+        ClockWheel(
+            label: editing == .bedtime ? "Bedtime" : "Wake-up time",
+            time: Binding(
+                get: { editing == .bedtime ? shown.wrappedValue.bedtime : shown.wrappedValue.wake },
+                set: { time in
+                    if editing == .bedtime { shown.wrappedValue.bedtime = time } else { shown.wrappedValue.wake = time }
                 }
-            ),
-            displayedComponents: .hourAndMinute
+            )
         )
-        .datePickerStyle(.wheel)
-        .labelsHidden()
-        .frame(maxWidth: 320)
     }
 
     private var windDownChoice: some View {
@@ -167,21 +214,16 @@ struct SleepScheduleStep: View {
             Text("Wind-down")
                 .font(MapleFont.footnote)
                 .foregroundStyle(theme.colors.textSecondary)
-            SegmentedCapsule(selection: $windDown, options: Self.windDownChoices, size: .regular) {
+            SegmentedCapsule(selection: shown.windDownMinutes, options: Self.windDownChoices, size: .regular) {
                 HomeFormat.duration(minutes: $0)
             }
             .accessibilityLabel("Wind-down length")
-            Text("From \(HomeFormat.clock(schedule.windDownStart, locale: locale))")
+            Text("From \(HomeFormat.clock(shown.wrappedValue.windDownStart, locale: locale))")
                 .font(MapleFont.footnote)
                 .monospacedDigit()
                 .foregroundStyle(theme.colors.textSecondary)
                 .contentTransition(.numericText())
         }
-    }
-
-    private func date(for time: ClockTime) -> Date {
-        let day = calendar.startOfDay(for: .now)
-        return calendar.date(bySettingHour: time.hour, minute: time.minute, second: 0, of: day) ?? day
     }
 }
 

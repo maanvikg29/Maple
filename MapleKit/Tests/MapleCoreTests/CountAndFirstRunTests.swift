@@ -8,13 +8,13 @@ import Testing
 struct LeafCountTests {
     private let context = CollectionContext(schedule: .standard, calendar: utc, hemisphere: .northern)
 
-    /// Planted and opened on 1 Oct, then three tracked nights by the 4th: three leaves earned and still waiting.
+    /// Planted and opened on 1 Oct, then two hours saved by the 4th: two leaves earned and still waiting.
     private func withWaiting() -> CollectionSnapshot {
         var snapshot = CollectionSnapshot.empty(profileID: UUID(), createdAt: at(2026, 10, 1, 9))
-        snapshot.raise(.firstSteps, to: 1, at: at(2026, 10, 1, 9), calendar: utc)
+        snapshot.raise(.firstLeaf, to: 1, at: at(2026, 10, 1, 9), calendar: utc)
         snapshot.runEngine(at: at(2026, 10, 1, 9), context: context)
         snapshot.openReveals(nil, at: at(2026, 10, 1, 9, 5), context: context)
-        snapshot.record([.nightsTracked: 3], at: at(2026, 10, 4, 7), calendar: utc)
+        snapshot.record([.hoursSaved: 2], at: at(2026, 10, 4, 7), calendar: utc)
         snapshot.runEngine(at: at(2026, 10, 4, 7), context: context)
         return snapshot
     }
@@ -58,9 +58,9 @@ struct LeafCountTests {
         var bud = unlock
         bud.revealed = false
         let rows = [
-            progressRow("a", .nightsTracked, threshold: 1, current: 1, state: .earned(unlock), estimate: nil),
-            progressRow("b", .nightsTracked, threshold: 3, current: 3, state: .waiting(bud), estimate: nil),
-            progressRow("c", .nightsTracked, threshold: 7, current: 3, estimate: 4),
+            progressRow("a", .restedNights, threshold: 1, current: 1, state: .earned(unlock), estimate: nil),
+            progressRow("b", .restedNights, threshold: 3, current: 3, state: .waiting(bud), estimate: nil),
+            progressRow("c", .restedNights, threshold: 7, current: 3, estimate: 4),
         ]
         let count = LeafCount(rows)
         #expect(count == LeafCount(opened: 1, waiting: 1, total: 3))
@@ -109,12 +109,12 @@ struct FirstRunTests {
         #expect(FirstRunStep.firstLeafID == "saccharum")
     }
 
-    @Test("The snapshot finds the First-steps leaf whatever else was earned")
+    @Test("The snapshot finds the first leaf whatever else was earned")
     func snapshotFirstLeaf() {
         var snapshot = CollectionSnapshot.empty(profileID: UUID(), createdAt: at(2026, 10, 1, 22))
         #expect(snapshot.firstLeaf == nil)
         #expect(!snapshot.hasPlacedFirstLeaf)
-        snapshot.raise(.firstSteps, to: 1, at: at(2026, 10, 1, 22), calendar: utc)
+        snapshot.raise(.firstLeaf, to: 1, at: at(2026, 10, 1, 22), calendar: utc)
         snapshot.runEngine(at: at(2026, 10, 1, 22), context: context)
         #expect(snapshot.firstLeaf?.speciesID == "saccharum")
         #expect(snapshot.hasPlantedMaple)
@@ -125,11 +125,11 @@ struct FirstRunTests {
         #expect(FirstRunStep.resume(hasSavedSchedule: true, firstLeaf: snapshot.firstLeaf) == .finished)
     }
 
-    @Test("Awarding First steps again never duplicates the Sugar maple")
+    @Test("Awarding the first leaf again never duplicates the Sugar maple")
     func idempotentAward() {
         var snapshot = CollectionSnapshot.empty(profileID: UUID(), createdAt: at(2026, 10, 1, 22))
         for minute in 0..<3 {
-            snapshot.raise(.firstSteps, to: 1, at: at(2026, 10, 1, 22, minute), calendar: utc)
+            snapshot.raise(.firstLeaf, to: 1, at: at(2026, 10, 1, 22, minute), calendar: utc)
             snapshot.runEngine(at: at(2026, 10, 1, 22, minute), context: context)
         }
         #expect(snapshot.unlocks.map(\.speciesID) == ["saccharum"])

@@ -69,10 +69,10 @@ struct RestWindDownTests {
     func pastMidnight() throws {
         let late = SleepSchedule(bedtime: ClockTime(hour: 0, minute: 30), wake: ClockTime(hour: 8, minute: 30), windDownMinutes: 60)
         var session = WindDownSession()
-        let started = session.start(at: try at(23, 40), schedule: late, calendar: calendar)
+        let started = session.start(at: try at(23, 40), schedule: .everyNight(late), calendar: calendar)
         #expect(started)
-        #expect(session.isActive(at: try at(day: 1, 0, 20), schedule: late, calendar: calendar))
-        #expect(!session.isActive(at: try at(day: 1, 0, 31), schedule: late, calendar: calendar))
+        #expect(session.isActive(at: try at(day: 1, 0, 20), schedule: .everyNight(late), calendar: calendar))
+        #expect(!session.isActive(at: try at(day: 1, 0, 31), schedule: .everyNight(late), calendar: calendar))
     }
 
     @Test("The morning reads last night's Goodnight, not an older one")

@@ -22,6 +22,8 @@ struct RestView: View {
     @State private var editorDetent: PresentationDetent = Self.editorFieldOnLaunch == nil ? .medium : .large
     /// A time whose picker the editor opens with (DEBUG launches only).
     @State private var editorField = Self.editorFieldOnLaunch
+    /// The nights the editor opens on (DEBUG launches only; otherwise tonight's).
+    @State private var editorNights = Self.editorNightsOnLaunch
     @State private var isWindingDown = false
     /// A leaf unlocked by the first schedule save, revealed once the editor has gone.
     @State private var unlockedBySave: String?
@@ -38,7 +40,14 @@ struct RestView: View {
         .background(theme.colors.background)
         .toolbarVisibility(.hidden, for: .navigationBar)
         .sheet(isPresented: $isEditing, onDismiss: editorDismissed) {
-            ScheduleEditor(schedule: schedule.schedule, editing: editorField, detent: $editorDetent) { unlocked in
+            let calendar = collection.context.calendar
+            let tonight = WeeklySleepSchedule.variant(
+                forNight: schedule.weekly.currentNight(at: clock.now(), calendar: calendar), calendar: calendar
+            )
+            ScheduleEditor(
+                schedule: schedule.weekly, nights: editorNights ?? .opening(schedule.weekly, tonight: tonight),
+                editing: editorField, detent: $editorDetent
+            ) { unlocked in
                 unlockedBySave = unlocked.first?.speciesID
             }
         }
@@ -80,8 +89,12 @@ struct RestView: View {
     }
 
     private func page(now: Date, action: NowState.Action?, fit: HeroFit) -> some View {
-        let current = schedule.schedule
         let calendar = collection.context.calendar
+        let weekly = schedule.weekly
+        // Tonight's schedule: the weekend one from a weekend night's evening until its morning.
+        let tonight = weekly.times(forNight: weekly.currentNight(at: now, calendar: calendar), calendar: calendar)
+        let current = tonight.schedule
+        let other = RestCopy.otherNights(weekly, tonight: tonight.variant, locale: locale)
         let dial = fit.heroHeight
         return VStack(spacing: 0) {
             header
@@ -91,7 +104,7 @@ struct RestView: View {
             SleepDial(schedule: current, now: HomeFormat.clockTime(of: now, calendar: calendar))
                 .scaleEffect(dial / SleepDial.diameter)
                 .frame(width: dial, height: dial)
-            details(current)
+            details(current, otherNights: other)
                 // Always at its natural height, so squeezing the page can never feed back into the dial's size.
                 .fixedSize(horizontal: false, vertical: true)
                 .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { measured.details = $0 }
@@ -103,11 +116,13 @@ struct RestView: View {
         }
         .padding(.horizontal, theme.spacing.homeMargin)
         .mapleAnimation(theme.motion.gentle, value: action)
+        .mapleAnimation(theme.motion.gentle, value: weekly)
         .mapleAnimation(theme.motion.gentle, value: current)
     }
 
-    /// "23:00 → 07:00", "8h in bed" and "Edit schedule".
-    private func details(_ current: SleepSchedule) -> some View {
+    /// "23:00 → 07:00" (tonight), "8h in bed", the other nights' times when weekends differ ("Weekends 00:30 →
+    /// 09:00") and "Edit schedule".
+    private func details(_ current: SleepSchedule, otherNights: (text: String, spoken: String)?) -> some View {
         VStack(spacing: 0) {
             SleepScheduleSpan(current)
                 .padding(.top, 28)
@@ -116,6 +131,16 @@ struct RestView: View {
                 .foregroundStyle(theme.colors.textSecondary)
                 .padding(.top, theme.spacing.xxs)
                 .accessibilityLabel(Text(RestCopy.spokenInBed(current, locale: locale)))
+            if let otherNights {
+                Text(otherNights.text)
+                    .font(MapleFont.footnote)
+                    .monospacedDigit()
+                    .foregroundStyle(theme.colors.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.top, theme.spacing.xs)
+                    .accessibilityLabel(Text(otherNights.spoken))
+                    .transition(.opacity)
+            }
             TextLink(schedule.hasSavedSchedule ? "Edit schedule" : "Set your schedule") {
                 editorDetent = .medium
                 isEditing = true
@@ -160,12 +185,13 @@ struct RestView: View {
     /// The primary, in the evening and wind-down only (§8.1).
     private func windDownAction(at now: Date) -> NowState.Action? {
         guard WindDownSession.offersWindDown(in: collection.phase(at: now)) else { return nil }
-        let active = BedsideLog.shared.isWindDownActive(at: now, schedule: schedule.schedule, calendar: collection.context.calendar)
+        let active = BedsideLog.shared.isWindDownActive(at: now, schedule: schedule.weekly, calendar: collection.context.calendar)
         return active ? .returnToWindDown : .startWindDown
     }
 
     private func editorDismissed() {
         editorField = nil
+        editorNights = nil
         guard let speciesID = unlockedBySave else { return }
         unlockedBySave = nil
         presentingRevealWithoutSlide { reveal = RevealRequest(id: speciesID) }
@@ -184,6 +210,14 @@ struct RestView: View {
     private static var editorFieldOnLaunch: ScheduleEditor.Field? {
         #if DEBUG
         RestDemo.openField
+        #else
+        nil
+        #endif
+    }
+
+    private static var editorNightsOnLaunch: ScheduleEditor.Nights? {
+        #if DEBUG
+        RestDemo.openNights
         #else
         nil
         #endif

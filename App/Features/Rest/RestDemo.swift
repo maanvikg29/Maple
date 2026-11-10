@@ -7,13 +7,23 @@ enum RestDemo {
     /// `-MapleDemoPresent schedule` opens the schedule editor on the Rest tab; `schedule:bedtime` and
     /// `schedule:wake` open it with that time's picker showing.
     static var opensScheduleEditor: Bool {
-        presentation == "schedule" || openField != nil
+        presentation == "schedule" || openField != nil || openNights != nil
     }
 
     static var openField: ScheduleEditor.Field? {
         switch presentation {
         case "schedule:bedtime": .bedtime
         case "schedule:wake": .wake
+        default: nil
+        }
+    }
+
+    /// `schedule:everyday`, `schedule:weekdays` and `schedule:weekends` open the editor on that segment.
+    static var openNights: ScheduleEditor.Nights? {
+        switch presentation {
+        case "schedule:everyday": .everyNight
+        case "schedule:weekdays": .weekdays
+        case "schedule:weekends": .weekends
         default: nil
         }
     }

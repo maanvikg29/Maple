@@ -6,13 +6,12 @@ import MapleServices
 /// Settings (spec §8.7): hemisphere, sleep goal and the reveal sound, as one Level-1 group. Every change saves at
 /// once through `AppSettings`; the hemisphere moves the seasons (and the tree) straight away.
 ///
-/// The sleep goal only decides Full nights, which need sleep-stage data from Apple Health; until those leaves can
-/// be earned on this iPhone the row is absent (spec §1.5: a feature appears only when it has real state).
+/// The sleep goal is the sleep need behind Full nights (7 to 9 hours, 7h 30m unless changed; rewards.json
+/// `full_nights`), which Apple Health's importer judges every night (`CollectionContext.sleepNeedMinutes`).
 struct SettingsView: View {
     @Environment(\.theme) private var theme
     @Environment(\.mapleClock) private var clock
     @Environment(AppSettings.self) private var settings
-    @Environment(CollectionStore.self) private var collection
 
     var body: some View {
         @Bindable var settings = settings
@@ -21,15 +20,15 @@ struct SettingsView: View {
                 ProfileSettingRow("Hemisphere", detail: Text(hemisphereDetail), stacked: true, controlIsLabelled: false) {
                     HemispherePicker(selection: $settings.hemisphere)
                 }
-                if collection.availability(of: .fullNights) == .available {
-                    ProfileSettingRow("Sleep goal", detail: Text("A full night is this much sleep, or within 30 minutes of it.")) {
-                        SleepGoalStepper()
-                    }
+                ProfileSettingRow("Sleep goal", detail: Text("A full night is this much sleep, or within 30 minutes of it.")) {
+                    SleepGoalStepper()
                 }
                 ProfileSettingRow("Reveal sound", detail: Text("A soft chime as a new leaf opens.")) {
                     ProfileToggle("Reveal sound", isOn: $settings.revealSound)
                 }
             }
+            // The wind-down and morning-leaf reminders, with iOS's permission (RemindersSettingsGroup).
+            RemindersSettingsGroup()
         }
     }
 
@@ -66,7 +65,7 @@ private struct HemispherePicker: View {
     }
 }
 
-/// Minus and plus icon circles around the goal ("7h 30m"), in 30-minute steps from 5 to 10 hours. VoiceOver
+/// Minus and plus icon circles around the goal ("7h 30m"), in 30-minute steps from 7 to 9 hours. VoiceOver
 /// treats it as one adjustable element.
 private struct SleepGoalStepper: View {
     @Environment(\.theme) private var theme

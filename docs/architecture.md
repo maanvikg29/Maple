@@ -71,12 +71,7 @@ Greenfield build of **Maple**, an iPhone digital-wellbeing app. Users earn **map
   - Export to JSON/CSV and "delete everything" covering both stores, the App Group, and CloudKit.
   - A permission primer screen before every system prompt.
 
-**Leaf system v1** (the full table goes in `docs/leaves.md`):
-- A leaf is a **variety** (its shape) × a **season colour** (spring green, summer deep green, autumn gold or crimson, winter frost; flipped for the southern hemisphere) × a **rarity**:
-  - common: daily behaviour
-  - rare: 7- and 21-night streaks, and challenges
-  - legendary frosted: winter streaks and referrals
-- Streaks forgive one missed night per week.
+**Leaf system:** 155 real species on 7 ladders, earned mostly from hours saved (`docs/design/rewards.md`; focus spec §4). Each leaf keeps the season colour it was earned in.
 - Leaves are never lost. After bad nights the tree just looks quieter, with dimmer light and less sway.
 
 ## 2. Xcode project structure
@@ -106,32 +101,28 @@ Maple/
 ## 3. Milestones
 Each milestone ends with: unit tests pass, a clean build for the iPhone simulator, the app launched with screenshots, and a git commit. Before each milestone I post a short task list.
 
-**MVP = M0 to M3.**
+**Done:** M0 Foundation and M1 Sleep loop (Home, Herbarium, the reveal, Profile, the sleep schedule, Apple Health sleep import and the wind-down reminder).
 
-- **M0 Foundation.**
-  - Repo, xcconfigs, project file and MapleKit package.
-  - Design tokens and core components.
-  - Tab shell with placeholder screens.
-  - `docs/architecture.md`, `docs/entitlements.md`.
-- **M1 Sleep loop (fully testable on a free account).**
-  - Onboarding: questions, proposed schedule, permission primers.
-  - Sleep schedule editor (weekday/weekend, wind-down length).
-  - HealthKit sleep import with night grouping, plus a debug sample-data seeder for the Simulator.
-  - LeafEngine (bedtime, focus, streaks, seasons) with tests written first.
-  - Procedural seasonal **Maple tree** drawn with Canvas.
-  - **Today** screen: morning reveal of last night's leaf, tonight's countdown.
-  - Local notifications for wind-down and the morning check-in.
-- **M2 Calm & insight.**
-  - Sounds mixer: 5 generated layers, volume per layer, fade-out timer, background audio.
-  - Focus timer (without blocking yet) that awards leaves.
-  - **Herbarium**: every leaf with its date and reason.
-  - Basic Swift Charts insights: sleep duration, bedtime consistency, leaves per day.
-- **M3 Blocking (paid program needed to test on a device).**
-  - Screen Time authorization and FamilyActivityPicker app sets for bedtime, focus and morning.
-  - DeviceActivity schedules and ManagedSettings shields.
-  - Maple-styled ShieldConfiguration, and a ShieldAction for "close" or "5 more minutes" (which logs the unlock).
-  - Monitor events that award leaves. Morning Mode (phone-free first 30 min).
-  - Last-Scroll v1 inside the report extension. Device checks of memory use and schedule limits.
+**Focus-first order** (`docs/superpowers/specs/2026-10-11-focus-hours-saved-design.md` §11). Each step gets its own implementation plan.
+
+1. **Reward re-cut and parked M1 merge (this step).** `rewards.json` and the category code re-cut to the 7 focus categories; `m1-schedule-onboarding`, `m1-health-import` and `m1-notifications` merged, with Rested nights from Apple Health and no morning notification.
+2. **F1 Focus core.**
+   - The MapleCore ledger, credit and reconciler.
+   - The Focus tab: idle root, Blocking sheet, presets, strictness, running session, end early, receipt, Saved today and Needs Screen Time.
+   - Shield and shield-action extensions, Live Activity, end notification and Home changes.
+   - Ladders: `first_leaf`, `hours_saved`, `sessions_finished` and `focus_streak`.
+   - On the free tier everything runs against `PreviewBlockingService` in DEBUG.
+3. **F2 Focus schedules and surfaces.**
+   - Morning, Bedtime and Study blocks with the monitor extension.
+   - Ladders: `phone_free_mornings` and `bedtime_kept`.
+   - Subjects, exams, Away, sounds, History and session detail.
+   - The Control, widget and App Shortcuts, StandBy and iCloud sync.
+4. **Later, each behind a flag:** SharePlay "Study together now"; Study Circles (the old M9 Social); a Focus filter; spaced review reminders; "Due soon" from Reminders and Calendar; a weekly look-back and a learned allow list; the Screen Time trend card; "What works for you" insights and CSV export; a Study key (NFC or QR); an AlarmKit "Ring when done"; recorded ambient places; class timetable blocks (no credit); the anonymous Library line; a term recap card.
+
+**Paid program:** file Family Controls Distribution requests for all 5 bundle IDs (app, `.monitor`, `.report`, `.shield`, `.shieldaction`) on day one. Approval takes weeks.
+
+**Other later items, unchanged:**
+- **M2 Calm & insight:** basic Swift Charts insights (sleep duration, bedtime consistency, leaves per day).
 - **M4 Score & journal:**
   - Transparent Wellbeing Score: tap to see the inputs, weights and maths.
   - Mood and energy check-ins; habit and caffeine journal with correlations.
@@ -145,11 +136,10 @@ Each milestone ends with: unit tests pass, a clean build for the iPhone simulato
   - AlarmKit alarms and bedside sunrise mode (overnight-audio fade-in).
   - Offline library, once the content source is decided.
 - **M7 Privacy & business:**
-  - CloudKit backup of non-health data; JSON/CSV export; delete-everything.
+  - JSON/CSV export; delete-everything.
   - StoreKit 2 with Family Sharing and an honest paywall (StoreKit config file for local testing).
   - Referral codes via the CloudKit public database.
-- **M8 Glanceables:** widgets, Live Activities (bedtime countdown, focus timer), Apple Watch app with Watch-based smart wake.
-- **M9 Social:** shared routines (CloudKit sharing), opt-in community challenges, themes and ambient visuals.
+- **M8 Glanceables:** widgets and Live Activities beyond F2's.
 - **M10 Launch polish:** accessibility audit, localization, performance, App Store screenshots.
 
 ## Entitlements to request early (paid program)

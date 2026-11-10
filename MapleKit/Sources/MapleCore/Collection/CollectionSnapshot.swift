@@ -53,8 +53,6 @@ public struct CollectionSnapshot: Sendable, Equatable, Codable {
     public var rarityConsent: RarityConsent
     /// Reveals ever opened; the first 3 get the full ritual (D8).
     public var revealsOpened: Int
-    /// The current bedtime run, for Home's streak (the counter keeps the best run).
-    public var currentBedtimeRun: Int
     /// Apple Health's nights, pending and settled: the source of the sleep categories (spec §5.1, D9).
     public var nights: NightLedger
 
@@ -62,7 +60,7 @@ public struct CollectionSnapshot: Sendable, Equatable, Codable {
         profileID: UUID, createdAt: Date, unlocks: [LeafUnlock] = [], revealedAt: [String: Date] = [:],
         counters: [RewardCategoryID: Double] = [:], history: [DailyCounters] = [], tendedDays: [LocalDay] = [],
         recentNights: [NightRecord] = [], pinnedSpeciesID: String? = nil, featuredSpeciesID: String? = nil,
-        rarityConsent: RarityConsent = .notAsked, revealsOpened: Int = 0, currentBedtimeRun: Int = 0,
+        rarityConsent: RarityConsent = .notAsked, revealsOpened: Int = 0,
         nights: NightLedger = NightLedger()
     ) {
         self.version = Self.currentVersion
@@ -78,7 +76,6 @@ public struct CollectionSnapshot: Sendable, Equatable, Codable {
         self.featuredSpeciesID = featuredSpeciesID
         self.rarityConsent = rarityConsent
         self.revealsOpened = revealsOpened
-        self.currentBedtimeRun = currentBedtimeRun
         self.nights = nights
     }
 
@@ -96,7 +93,7 @@ public struct CollectionSnapshot: Sendable, Equatable, Codable {
 
     private enum CodingKeys: String, CodingKey {
         case version, profileID, createdAt, unlocks, revealedAt, counters, history, tendedDays, recentNights
-        case pinnedSpeciesID, featuredSpeciesID, rarityConsent, revealsOpened, currentBedtimeRun, nights
+        case pinnedSpeciesID, featuredSpeciesID, rarityConsent, revealsOpened, nights
     }
 
     public init(from decoder: any Decoder) throws {
@@ -114,7 +111,6 @@ public struct CollectionSnapshot: Sendable, Equatable, Codable {
         featuredSpeciesID = try c.decodeIfPresent(String.self, forKey: .featuredSpeciesID)
         rarityConsent = try c.decodeIfPresent(RarityConsent.self, forKey: .rarityConsent) ?? .notAsked
         revealsOpened = try c.decodeIfPresent(Int.self, forKey: .revealsOpened) ?? 0
-        currentBedtimeRun = try c.decodeIfPresent(Int.self, forKey: .currentBedtimeRun) ?? 0
         nights = try c.decodeIfPresent(NightLedger.self, forKey: .nights) ?? NightLedger()
     }
 
@@ -133,7 +129,6 @@ public struct CollectionSnapshot: Sendable, Equatable, Codable {
         try c.encodeIfPresent(featuredSpeciesID, forKey: .featuredSpeciesID)
         try c.encode(rarityConsent, forKey: .rarityConsent)
         try c.encode(revealsOpened, forKey: .revealsOpened)
-        try c.encode(currentBedtimeRun, forKey: .currentBedtimeRun)
         try c.encode(nights, forKey: .nights)
     }
 }

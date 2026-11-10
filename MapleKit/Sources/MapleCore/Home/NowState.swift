@@ -61,7 +61,6 @@ public struct NowState: Sendable, Equatable {
         case returnToFocus
         /// Opens the reveal for the waiting leaves.
         case openReveals(count: Int)
-        case checkIn
 
         /// The capsule's label.
         public var title: String {
@@ -71,7 +70,6 @@ public struct NowState: Sendable, Equatable {
             case .startFocus(let minutes, let firstTime): firstTime ? "Start a \(minutes)-minute focus" : "Start focus · \(minutes)m"
             case .returnToFocus: "Return to focus"
             case .openReveals(let count): count == 1 ? "Open your new leaf" : "Open \(count) new leaves"
-            case .checkIn: "Check in"
             }
         }
     }
@@ -111,8 +109,6 @@ public struct NowState: Sendable, Equatable {
     public let caption: String
     /// The numeral and caption as one VoiceOver sentence with full units.
     public let spoken: String
-    /// Which leaves the next-leaf row prefers (`NextLeafPicker` takes the phase).
-    public let leafPreference: RewardTimeOfDay
     public let action: Action?
     /// Evening and wind-down use the dimmed primary capsule.
     public let actionIsDimmed: Bool
@@ -146,15 +142,34 @@ public struct NowState: Sendable, Equatable {
     ///   - goodnightAt: Last night's Goodnight tap, used when Apple Health has nothing.
     ///   - focus: Today's focus, once the timer ships.
     ///   - windDownActive: Wind-down mode is open.
-    ///   - checkInDue: The morning check-in hasn't been done (once check-ins ship).
     public static func resolve(
         date: Date, schedule: SleepSchedule, calendar: Calendar = .current, locale: Locale = .current,
         pending: Int = 0, counters: [RewardCategoryID: Double] = [:], features: ShippedFeatures = .current,
         lastNight: LastNightSleep? = nil, goodnightAt: Date? = nil, focus: FocusStatus? = nil,
-        windDownActive: Bool = false, checkInDue: Bool = false
+        windDownActive: Bool = false
     ) -> NowState {
-        let phase = NowPhase.resolve(date: date, schedule: schedule, calendar: calendar)
-        let windows = PhaseWindows(schedule: schedule)
+        resolve(
+            date: date, weekly: .everyNight(schedule), calendar: calendar, locale: locale, pending: pending,
+            counters: counters, features: features, lastNight: lastNight, goodnightAt: goodnightAt, focus: focus,
+            windDownActive: windDownActive
+        )
+    }
+
+    /// Resolves Home's state (spec §3.4) for the member's weekly schedule. Every caption names tonight's times ("bed
+    /// 00:30" on a weekend night, `WeeklySleepSchedule.tonight(at:calendar:)`); the morning's "in bed · bedtime" names
+    /// last night's bedtime, the one the Goodnight tap answered.
+    public static func resolve(
+        date: Date, weekly: WeeklySleepSchedule, calendar: Calendar = .current, locale: Locale = .current,
+        pending: Int = 0, counters: [RewardCategoryID: Double] = [:], features: ShippedFeatures = .current,
+        lastNight: LastNightSleep? = nil, goodnightAt: Date? = nil, focus: FocusStatus? = nil,
+        windDownActive: Bool = false
+    ) -> NowState {
+        let windows = PhaseWindows(weekly: weekly)
+        let today = windows.day(containing: date, calendar: calendar)
+        let phase = today.phase(at: date)
+        // Tonight's schedule drives the evening, wind-down and night; last night's woke the member this morning.
+        let schedule = weekly.schedule(forNight: today.day, calendar: calendar)
+        let previous = weekly.schedule(forNight: today.day.adding(days: -1, calendar: calendar), calendar: calendar)
         let bed = HomeFormat.clock(schedule.bedtime, locale: locale)
 
         func untilWindDown() -> (Content, [NumeralPart], String, String) {
@@ -192,8 +207,9 @@ public struct NowState: Sendable, Equatable {
                 } else if let goodnightAt {
                     let time = HomeFormat.clockTime(of: goodnightAt, calendar: calendar)
                     let text = HomeFormat.clock(time, locale: locale)
-                    content = (.goodnight, HomeFormat.clockParts(time, locale: locale), "in bed · bedtime \(bed)",
-                               "In bed at \(text). Bedtime \(bed).")
+                    let lastBed = HomeFormat.clock(previous.bedtime, locale: locale)
+                    content = (.goodnight, HomeFormat.clockParts(time, locale: locale), "in bed · bedtime \(lastBed)",
+                               "In bed at \(text). Bedtime \(lastBed).")
                 } else {
                     let windDown = HomeFormat.clock(schedule.windDownStart, locale: locale)
                     content = (.windDownTonight, HomeFormat.clockParts(schedule.windDownStart, locale: locale),
@@ -224,9 +240,9 @@ public struct NowState: Sendable, Equatable {
         } else {
             switch phase {
             case .morning:
-                action = features.checkIns && checkInDue ? .checkIn : nil
+                action = nil
             case .day:
-                let firstTime = (counters[.focusDays] ?? 0) == 0 && (counters[.focusHours] ?? 0) == 0
+                let firstTime = (counters[.sessionsFinished] ?? 0) == 0 && (counters[.hoursSaved] ?? 0) == 0
                 action = features.focus ? .startFocus(minutes: defaultFocusMinutes, firstTime: firstTime) : nil
             case .evening, .windDown:
                 action = windDownActive ? .returnToWindDown : .startWindDown
@@ -237,7 +253,7 @@ public struct NowState: Sendable, Equatable {
 
         return NowState(
             phase: phase, content: content.0, numeral: Numeral(parts: content.1), caption: content.2, spoken: content.3,
-            leafPreference: phase.leafPreference, action: action,
+            action: action,
             actionIsDimmed: phase == .evening || phase == .windDown,
             secondaryAction: phase == .night && features.sleepSounds ? .sleepSounds : nil,
             waitingCount: waiting, contentOpacity: phase == .night ? 0.8 : 1, showsBelowTheFold: phase != .night,
@@ -246,7 +262,7 @@ public struct NowState: Sendable, Equatable {
     }
 
     private init(
-        phase: NowPhase, content: Content, numeral: Numeral, caption: String, spoken: String, leafPreference: RewardTimeOfDay,
+        phase: NowPhase, content: Content, numeral: Numeral, caption: String, spoken: String,
         action: Action?, actionIsDimmed: Bool, secondaryAction: SecondaryAction?, waitingCount: Int, contentOpacity: Double,
         showsBelowTheFold: Bool, refreshesEverySecond: Bool
     ) {
@@ -255,7 +271,6 @@ public struct NowState: Sendable, Equatable {
         self.numeral = numeral
         self.caption = caption
         self.spoken = spoken
-        self.leafPreference = leafPreference
         self.action = action
         self.actionIsDimmed = actionIsDimmed
         self.secondaryAction = secondaryAction

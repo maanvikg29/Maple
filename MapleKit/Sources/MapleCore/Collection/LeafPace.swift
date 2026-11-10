@@ -30,11 +30,16 @@ public struct DailyCounters: Sendable, Hashable, Codable {
 /// Counters are stored as a JSON object keyed by category id. Ids this build doesn't know (from a newer build)
 /// are skipped rather than failing the whole file.
 enum CategoryCounterCoding {
+    /// Keys from the 2026-10-10 table that carry over to the focus table (focus spec §4.1). Other old keys are
+    /// dropped; earned leaves are unlocks keyed by species, so none is ever lost.
+    static let renamed: [String: RewardCategoryID] = ["on_time_bedtimes": .restedNights, "first_steps": .firstLeaf]
+
     static func decode<Key: CodingKey>(_ container: KeyedDecodingContainer<Key>, forKey key: Key) throws -> [RewardCategoryID: Double] {
         let raw = try container.decodeIfPresent([String: Double].self, forKey: key) ?? [:]
         var counters: [RewardCategoryID: Double] = [:]
         for (id, value) in raw {
-            if let category = RewardCategoryID(rawValue: id) { counters[category] = value }
+            guard let category = renamed[id] ?? RewardCategoryID(rawValue: id) else { continue }
+            counters[category] = max(counters[category] ?? 0, value)
         }
         return counters
     }

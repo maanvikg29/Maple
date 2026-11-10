@@ -5,13 +5,40 @@ import MapleServices
 
 /// The schedule editor sheet (spec §8.1), opened by "Edit schedule" on Rest › Sleep.
 ///
+/// - At the top, a 36pt `SegmentedCapsule` chooses which nights the times below are for: "Every day" (one
+///   schedule, every night), "Weekdays" or "Weekends". A quiet line under it names those nights from the member's
+///   calendar ("Friday and Saturday nights"), so a Friday–Saturday weekend reads right too. One control with three
+///   plain words keeps the sheet to a single decision: it is both the switch (Every day, or a separate weekend) and
+///   the tab for the weekend times, with no extra toggle row.
 /// - At `.medium` it shows the two times side by side, the wind-down length (30m, 45m or 1h) and Save.
 /// - Tapping a time opens its wheel underneath and lifts the sheet to `.large`; tapping it again closes it.
-/// - Save goes through `ScheduleStore.save(_:at:)`, which applies the schedule everywhere at once. The first save
-///   ever also plants the maple: it unlocks the First-steps leaf, which `onSave` hands back for the reveal.
+/// - Weekend times start as a copy of the weekday ones the first time Weekends is chosen. Saving on Every day saves
+///   one schedule for every night (the weekend draft is kept until the sheet closes, so switching back restores it).
+/// - Save goes through `ScheduleStore.save(_:at:)`, which applies the schedule everywhere at once and from the next
+///   night for the ledger. The first save ever also plants the maple: it unlocks the First-steps leaf, which `onSave`
+///   hands back for the reveal.
 struct ScheduleEditor: View {
     enum Field: Hashable {
         case bedtime, wake
+    }
+
+    /// Which nights the times are for.
+    enum Nights: Hashable, CaseIterable {
+        case everyNight, weekdays, weekends
+
+        var title: String {
+            switch self {
+            case .everyNight: "Every day"
+            case .weekdays: "Weekdays"
+            case .weekends: "Weekends"
+            }
+        }
+
+        /// The segment the editor opens on: Every day for one schedule, otherwise tonight's nights.
+        static func opening(_ schedule: WeeklySleepSchedule, tonight: WeeklySleepSchedule.Variant) -> Nights {
+            guard schedule.differsOnWeekends else { return .everyNight }
+            return tonight == .weekend ? .weekends : .weekdays
+        }
     }
 
     /// Wind-down lengths on offer, in minutes.
@@ -25,32 +52,67 @@ struct ScheduleEditor: View {
     @Environment(ScheduleStore.self) private var store
     @Environment(CollectionStore.self) private var collection
 
-    @State private var draft: SleepSchedule
+    @State private var weekday: SleepSchedule
+    @State private var weekend: SleepSchedule
+    @State private var nights: Nights
+    /// The weekend times are the member's own (saved before, or edited here), not a copy of the weekday ones.
+    @State private var weekendIsOwn: Bool
     @State private var editing: Field?
     @Binding private var detent: PresentationDetent
     private let onSave: ([LeafUnlock]) -> Void
 
     /// - Parameters:
-    ///   - schedule: The schedule to start from.
+    ///   - schedule: The weekly schedule to start from.
+    ///   - nights: The segment to open on (`Nights.opening(_:tonight:)`).
     ///   - editing: A time whose picker starts open.
     ///   - detent: The sheet's detent; the editor lifts it to `.large` while a picker is open.
     ///   - onSave: Called with the leaves the save unlocked (the First-steps leaf on the very first save).
     init(
-        schedule: SleepSchedule, editing: Field? = nil, detent: Binding<PresentationDetent>,
+        schedule: WeeklySleepSchedule, nights: Nights, editing: Field? = nil, detent: Binding<PresentationDetent>,
         onSave: @escaping ([LeafUnlock]) -> Void
     ) {
-        var start = schedule
-        start.windDownMinutes = Self.nearestChoice(to: schedule.windDownMinutes)
-        _draft = State(initialValue: start)
+        var weekday = schedule.weekday
+        weekday.windDownMinutes = Self.nearestChoice(to: weekday.windDownMinutes)
+        var weekend = schedule.weekend ?? weekday
+        weekend.windDownMinutes = Self.nearestChoice(to: weekend.windDownMinutes)
+        _weekday = State(initialValue: weekday)
+        _weekend = State(initialValue: weekend)
+        _weekendIsOwn = State(initialValue: schedule.differsOnWeekends)
+        _nights = State(initialValue: nights)
         _editing = State(initialValue: editing)
         _detent = detent
         self.onSave = onSave
+    }
+
+    /// The schedule Save would store.
+    private var result: WeeklySleepSchedule {
+        nights == .everyNight ? .everyNight(weekday) : WeeklySleepSchedule(weekday: weekday, weekend: weekend)
+    }
+
+    /// The times on screen: the weekend's on Weekends, otherwise the weekday (every-night) ones.
+    private var draft: Binding<SleepSchedule> {
+        Binding {
+            nights == .weekends ? weekend : weekday
+        } set: { value in
+            if nights == .weekends {
+                weekend = value
+                weekendIsOwn = true
+            } else {
+                weekday = value
+            }
+        }
+    }
+
+    private var canSave: Bool {
+        result.weekday.minutesInBed > 0 && result.schedule(for: .weekend).minutesInBed > 0
     }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 header
+                nightsChoice
+                    .padding(.top, theme.spacing.md)
                 fields
                     .padding(.top, theme.spacing.md)
                 if let editing {
@@ -70,13 +132,14 @@ struct ScheduleEditor: View {
             .padding(.top, theme.spacing.lg)
             .padding(.bottom, theme.spacing.lg)
             .mapleAnimation(theme.motion.gentle, value: editing)
-            .mapleAnimation(theme.motion.gentle, value: draft)
+            .mapleAnimation(theme.motion.gentle, value: draft.wrappedValue)
+            .mapleAnimation(theme.motion.gentle, value: nights)
         }
         .scrollBounceBehavior(.basedOnSize)
         .safeAreaBar(edge: .bottom) {
             Button("Save", action: save)
                 .buttonStyle(.moonlight(dimmed: isQuietHours))
-                .disabled(draft.minutesInBed == 0)
+                .disabled(!canSave)
                 .padding(.horizontal, theme.spacing.listMargin)
                 .padding(.top, theme.spacing.xs)
                 .padding(.bottom, theme.spacing.xs)
@@ -86,6 +149,10 @@ struct ScheduleEditor: View {
         .onAppear {
             // At accessibility sizes the two times alone fill a medium sheet, so it opens tall.
             if dynamicTypeSize.isAccessibilitySize { detent = .large }
+        }
+        .onChange(of: nights) {
+            // The first visit to Weekends starts from the weekday times.
+            if nights == .weekends, !weekendIsOwn { weekend = weekday }
         }
     }
 
@@ -105,13 +172,36 @@ struct ScheduleEditor: View {
         .padding(.trailing, -4)
     }
 
+    /// "Every day · Weekdays · Weekends", and which nights that is.
+    private var nightsChoice: some View {
+        VStack(alignment: .leading, spacing: theme.spacing.xxs) {
+            SegmentedCapsule(selection: $nights, options: Nights.allCases, size: .regular, fillsWidth: true) { $0.title }
+                .accessibilityLabel(Text("Nights"))
+                .environment(\.theme, sheetTheme)
+            Text(nightsLine)
+                .font(MapleFont.footnote)
+                .foregroundStyle(theme.colors.textSecondary)
+                .contentTransition(.opacity)
+        }
+    }
+
+    private var nightsLine: String {
+        let calendar = collection.context.calendar
+        switch nights {
+        case .everyNight: return store.weekly.differsOnWeekends ? "Weekends will use these times too" : "The same every night"
+        case .weekdays: return RestCopy.nights(.weekday, calendar: calendar)
+        case .weekends: return RestCopy.nights(.weekend, calendar: calendar)
+        }
+    }
+
     private var fields: some View {
         let layout = dynamicTypeSize.isAccessibilitySize
             ? AnyLayout(VStackLayout(spacing: theme.spacing.sm))
             : AnyLayout(HStackLayout(spacing: theme.spacing.sm))
+        let shown = draft.wrappedValue
         return layout {
-            ScheduleTimeField("Bedtime", time: draft.bedtime, isSelected: editing == .bedtime) { toggle(.bedtime) }
-            ScheduleTimeField("Wake-up", time: draft.wake, isSelected: editing == .wake) { toggle(.wake) }
+            ScheduleTimeField("Bedtime", time: shown.bedtime, isSelected: editing == .bedtime) { toggle(.bedtime) }
+            ScheduleTimeField("Wake-up", time: shown.wake, isSelected: editing == .wake) { toggle(.wake) }
         }
     }
 
@@ -149,7 +239,7 @@ struct ScheduleEditor: View {
     }
 
     private var windDownChoices: some View {
-        SegmentedCapsule(selection: $draft.windDownMinutes, options: Self.windDownChoices, size: .regular) { minutes in
+        SegmentedCapsule(selection: draft.windDownMinutes, options: Self.windDownChoices, size: .regular) { minutes in
             RestCopy.windDownOption(minutes: minutes)
         }
         .accessibilityLabel(Text("Wind-down length"))
@@ -165,7 +255,8 @@ struct ScheduleEditor: View {
     }
 
     private var summary: String {
-        draft.minutesInBed == 0 ? "Bedtime and wake-up need to differ" : RestCopy.editorSummary(draft, locale: locale)
+        let shown = draft.wrappedValue
+        return shown.minutesInBed == 0 ? "Bedtime and wake-up need to differ" : RestCopy.editorSummary(shown, locale: locale)
     }
 
     /// The primary capsule's dimmed variant from the evening on (D11).
@@ -185,8 +276,9 @@ struct ScheduleEditor: View {
     }
 
     private func save() {
-        let unchanged = store.hasSavedSchedule && draft == store.schedule
-        let unlocked = unchanged ? [] : store.save(draft, at: clock.now())
+        let schedule = result
+        let unchanged = store.hasSavedSchedule && schedule == store.weekly
+        let unlocked = unchanged ? [] : store.save(schedule, at: clock.now())
         onSave(unlocked)
         dismiss()
     }
@@ -198,12 +290,12 @@ struct ScheduleEditor: View {
     private func binding(for field: Field) -> Binding<Date> {
         let calendar = collection.context.calendar
         return Binding {
-            Self.date(for: field == .bedtime ? draft.bedtime : draft.wake, calendar: calendar)
+            Self.date(for: field == .bedtime ? draft.wrappedValue.bedtime : draft.wrappedValue.wake, calendar: calendar)
         } set: { date in
             let time = HomeFormat.clockTime(of: date, calendar: calendar)
             switch field {
-            case .bedtime: draft.bedtime = time
-            case .wake: draft.wake = time
+            case .bedtime: draft.wrappedValue.bedtime = time
+            case .wake: draft.wrappedValue.wake = time
             }
         }
     }

@@ -27,8 +27,6 @@ public struct LeafUnlock: Codable, Sendable, Hashable, Identifiable {
 public enum LeafAvailability: Sendable, Equatable {
     case available
     case needsAppleHealth
-    /// Needs asleep-stage data from an Apple Watch or a sleep tracker.
-    case needsSleepTracker
     case needsScreenTime
     /// The category ships in a later release ("Not earnable yet").
     case dormant

@@ -88,16 +88,17 @@ public final class CollectionStore {
         timeEpoch += 1
     }
 
-    /// The member's sleep schedule. `ScheduleStore` keeps it in sync; screens change it through `ScheduleStore`.
-    public var schedule: SleepSchedule {
+    /// The member's weekday and weekend schedules. `ScheduleStore` keeps it in sync; screens change it through
+    /// `ScheduleStore`.
+    public var schedule: WeeklySleepSchedule {
         get { context.schedule }
         set { context.schedule = newValue }
     }
 
     // MARK: - Changes
 
-    /// Adds to category counters (non-positive amounts are ignored), marks the day tended (except First steps and
-    /// Community challenges) and runs the engine.
+    /// Adds to category counters (non-positive amounts are ignored), marks the day tended (except First leaf) and runs
+    /// the engine.
     /// - Returns: Leaves unlocked by this change.
     @discardableResult
     public func record(_ increases: [RewardCategoryID: Double], at date: Date) -> [LeafUnlock] {
@@ -125,16 +126,6 @@ public final class CollectionStore {
     @discardableResult
     public func runEngine(at date: Date) -> [LeafUnlock] {
         mutate { $0.runEngine(at: date, context: context, engine: engine) }
-    }
-
-    /// Updates the current bedtime run; the Bedtime-runs counter keeps the best run.
-    @discardableResult
-    public func setCurrentBedtimeRun(_ nights: Int, at date: Date) -> [LeafUnlock] {
-        mutate { snapshot in
-            snapshot.currentBedtimeRun = max(0, nights)
-            snapshot.raise(.bedtimeRun, to: Double(nights), at: date, calendar: context.calendar)
-            return snapshot.runEngine(at: date, context: context, engine: engine)
-        }
     }
 
     /// Opens leaves that may be opened now, in queue order: the given ids, or all of them. Held leaves, and any
@@ -204,7 +195,7 @@ public final class CollectionStore {
 
     /// The member saved a schedule (`ScheduleStore.save`). Nights already under way keep being judged by the one
     /// they began with (`replacing`, nil for the first schedule ever); then the new one applies everywhere.
-    public func scheduleSaved(_ schedule: SleepSchedule, replacing old: SleepSchedule?, at date: Date) {
+    public func scheduleSaved(_ schedule: WeeklySleepSchedule, replacing old: WeeklySleepSchedule?, at date: Date) {
         if let old, old != schedule, snapshot.hasPlantedMaple {
             mutate { $0.scheduleChanged(from: old, to: schedule, at: date, calendar: context.calendar) }
         }
@@ -235,8 +226,6 @@ public final class CollectionStore {
     public var rarityConsent: RarityConsent { snapshot.rarityConsent }
     /// The first 3 reveals ever get the full ritual.
     public var revealsOpened: Int { snapshot.revealsOpened }
-    /// Home's streak; hidden under 2.
-    public var currentBedtimeRun: Int { snapshot.currentBedtimeRun }
     public var tendedDays: Int { snapshot.tendedDayCount }
     /// Structural growth g.
     public var growth: Double { TreeGrowth.structure(tendedDays: snapshot.tendedDayCount) }
@@ -271,11 +260,11 @@ public final class CollectionStore {
     public func progress(for speciesID: String, at date: Date) -> LeafProgress? { derived(at: date).byID[speciesID] }
     /// Home's next leaf.
     public func nextLeaf(at date: Date) -> LeafProgress? {
-        derived(at: date).picker.next(phase: phase(at: date), pinned: snapshot.pinnedSpeciesID)
+        derived(at: date).picker.next(pinned: snapshot.pinnedSpeciesID)
     }
     /// The tree's buds: up to 3, Home's next leaf first.
     public func buds(at date: Date) -> [LeafProgress] {
-        derived(at: date).picker.buds(phase: phase(at: date), pinned: snapshot.pinnedSpeciesID)
+        derived(at: date).picker.buds(pinned: snapshot.pinnedSpeciesID)
     }
     /// The Herbarium's "Almost there" rail (hide it when fewer than 2).
     public func almostThere(at date: Date) -> [LeafProgress] { derived(at: date).picker.almostThere() }
@@ -292,12 +281,12 @@ public final class CollectionStore {
     /// without Apple Health, spec §3.4; it earns nothing) and focus are passed in once they exist.
     public func nowState(
         at date: Date, locale: Locale = .current, lastNight: LastNightSleep? = nil, goodnightAt: Date? = nil,
-        focus: FocusStatus? = nil, windDownActive: Bool = false, checkInDue: Bool = false
+        focus: FocusStatus? = nil, windDownActive: Bool = false
     ) -> NowState {
         NowState.resolve(
-            date: date, schedule: context.schedule, calendar: context.calendar, locale: locale,
+            date: date, weekly: context.schedule, calendar: context.calendar, locale: locale,
             pending: pending(at: date).count, counters: snapshot.counters, features: context.features,
-            lastNight: lastNight, goodnightAt: goodnightAt, focus: focus, windDownActive: windDownActive, checkInDue: checkInDue
+            lastNight: lastNight, goodnightAt: goodnightAt, focus: focus, windDownActive: windDownActive
         )
     }
 

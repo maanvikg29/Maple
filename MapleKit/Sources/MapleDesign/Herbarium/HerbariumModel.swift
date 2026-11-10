@@ -57,7 +57,7 @@ nonisolated public struct HerbariumEntry: Sendable, Equatable, Identifiable {
             switch progress.availability {
             case .available: return isNextRung ? .next : .locked
             case .dormant: return .dormant
-            case .needsAppleHealth, .needsSleepTracker, .needsScreenTime: return .needsPermission(progress.availability)
+            case .needsAppleHealth, .needsScreenTime: return .needsPermission(progress.availability)
             }
         }
     }

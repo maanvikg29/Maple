@@ -62,7 +62,7 @@ struct WindDownView: View {
         let line = goodnightAt.map { goodnight in
             let text = RestCopy.phoneDown(at: HomeFormat.clockTime(of: goodnight, calendar: calendar), locale: locale)
             return (text: text, spoken: text + ".")
-        } ?? RestCopy.bedsideLine(at: now, schedule: schedule.schedule, calendar: calendar, locale: locale)
+        } ?? RestCopy.bedsideLine(at: now, schedule: schedule.weekly, calendar: calendar, locale: locale)
 
         return VStack(spacing: 0) {
             HStack {
@@ -110,7 +110,7 @@ struct WindDownView: View {
 
     private func begin() {
         let now = clock.now()
-        BedsideLog.shared.startWindDown(at: now, schedule: schedule.schedule, calendar: collection.context.calendar)
+        BedsideLog.shared.startWindDown(at: now, schedule: schedule.weekly, calendar: collection.context.calendar)
         #if DEBUG
         if RestDemo.saysGoodnight, goodnightAt == nil { sayGoodnight() }
         #endif
