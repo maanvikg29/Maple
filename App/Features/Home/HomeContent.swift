@@ -3,8 +3,9 @@ import MapleCore
 import MapleDesign
 import MapleServices
 
-/// Everything Home shows at one moment, read from the collection once per minute (spec §3). Views never compute
-/// unlocks, phases or estimates; this only gathers what the stores already decided.
+/// Everything Home shows at one moment, read from the collection once per minute (every second while a session runs;
+/// spec §3, F1 design §5.10). Views never compute unlocks, phases or estimates; this only gathers what the stores
+/// already decided.
 struct HomeContent {
     let now: Date
     let state: NowState
@@ -35,16 +36,20 @@ struct HomeContent {
     ///   - lastNight: Last night's sleep from Apple Health (`HealthSleepImporter.lastNightSleep(at:)`), the
     ///     morning's numeral (spec §3.4).
     ///   - noSleepHint: `HealthSleepImporter.showsNoSleepHint(at:)`.
+    ///   - focus: Today's focus (`FocusStores.status(at:collection:settings:)`), once Focus ships: the numeral, caption
+    ///     and Start.
+    ///   - provisionalSeconds: A running session's provisional seconds, which the next-leaf row adds, as the dial does
+    ///     (F1 design §4.3).
     init(
         collection: CollectionStore, now: Date, bedside: BedsideState = BedsideState(), lastNight: LastNightSleep? = nil,
-        noSleepHint: Bool = false
+        noSleepHint: Bool = false, focus: FocusStatus? = nil, provisionalSeconds: Int = 0
     ) {
         self.now = now
-        let state = collection.nowState(at: now, lastNight: lastNight, goodnightAt: bedside.goodnightAt,
+        let state = collection.nowState(at: now, lastNight: lastNight, goodnightAt: bedside.goodnightAt, focus: focus,
                                         windDownActive: bedside.windDownActive)
         self.state = state
-        showsNoSleepHint = noSleepHint && state.waitingCount == 0
-        let next = collection.nextLeaf(at: now)
+        showsNoSleepHint = noSleepHint && state.waitingCount == 0 && state.content != .settling
+        let next = collection.nextLeaf(at: now)?.displaying(provisionalSeconds: provisionalSeconds)
         self.next = next
         permissionPrompt = next == nil ? collection.permissionPrompt(at: now) : nil
         let inputs = collection.treeInputs(at: now)
@@ -68,7 +73,8 @@ struct HomeContent {
         leaves = count.opened
         total = count.total
         tendedDays = inputs.tendedDays
-        streak = 0 // The Focus streak arrives with F1 (focus spec §6).
+        // The Focus streak's current run (F1 design §5.10): only once Focus ships; the header hides it under 2.
+        streak = collection.context.features.focus ? collection.currentRun(at: now) : 0
         if let featured = collection.featuredLeaf, let species = LeafCatalog.shared.species(id: featured),
            let unlock = collection.unlock(for: featured) {
             avatar = HomeHeader.Avatar(species: species, colourway: unlock.colourway)
@@ -105,9 +111,10 @@ struct HomeContent {
 
     /// The next-leaf row's content: the waiting variant while leaves can be opened, else the next leaf, else (with
     /// nothing earnable until Apple Health is on) the needs-permission variant. Nil when there is nothing at all, or
-    /// when the no-sleep hint stands in its place.
+    /// when the no-sleep hint stands in its place. Nil too before the session store's first refresh
+    /// (`NowState.Content.settling`), while Screen Time's state and a running session's time aren't known.
     var row: NextLeafRow.Content? {
-        if showsNoSleepHint { return nil }
+        if showsNoSleepHint || state.content == .settling { return nil }
         if state.waitingCount > 0 {
             return .waiting(count: state.waitingCount)
         }

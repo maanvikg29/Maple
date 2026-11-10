@@ -5,13 +5,14 @@ import MapleDesign
 import MapleServices
 
 enum AppTab: String, Hashable {
-    case home, rest, herbarium
+    case home, focus, herbarium
 }
 
 /// The app's root: the end of onboarding until the first leaf is on the maple, then the three tabs (spec §2.1).
 struct RootView: View {
     @Environment(\.theme) private var theme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(NotificationRouter.self) private var notifications
     @State private var router = AppRouter(selectedTab: .initial)
     /// Latched at launch and cleared only by onboarding's `onFinish`: the First-steps leaf is placed mid-flow, and
     /// the seedling it grows still has to be shown before Home takes over.
@@ -36,6 +37,8 @@ struct RootView: View {
                     .transition(.opacity)
             }
         }
+        // A relaunch mid-session, or a receipt waiting, opens on the Focus tab (F1 design §5.4, §5.8).
+        .focusArrival(isOnboarding: isPlanting)
         .environment(router)
     }
 
@@ -45,12 +48,12 @@ struct RootView: View {
             Tab("Home", image: "maple.tree", value: AppTab.home) {
                 NavigationStack { HomeView() }
             }
-            Tab(value: AppTab.rest) {
-                NavigationStack { RestView() }
+            Tab(value: AppTab.focus) {
+                NavigationStack { FocusView() }
             } label: {
-                // The outline moon (spec §2.1), selected or not. Given the symbol itself, the bar draws `moon.fill`
-                // in both states, so it gets the outline as a plain template image.
-                Label { Text("Rest") } icon: { Self.outlineMoon }
+                // SF `timer` (P10), selected or not. Given the symbol itself, the bar can draw another variant when
+                // selected, so it gets the outline as a plain template image, as the Rest tab's moon did.
+                Label { Text("Focus") } icon: { Self.timerIcon }
             }
             Tab("Herbarium", image: "maple.herbarium", value: AppTab.herbarium) {
                 NavigationStack { HerbariumView() }
@@ -59,16 +62,24 @@ struct RootView: View {
         .tint(theme.colors.textPrimary)
         .tabBarMinimizeBehavior(.onScrollDown)
         .modifier(TabBarSurface())
+        // A tapped session-end notification opens its receipt once the tabs are up: on a cold launch from the tap
+        // too, and after the first run if it was still on screen.
+        .onChange(of: notifications.tappedReceipt, initial: true) { _, session in
+            guard let session else { return }
+            notifications.tappedReceipt = nil
+            router.showFocus(.receipt(session))
+        }
         #if DEBUG
         .demoPresenter()
+        .revealDemoMotion()
         #endif
     }
 
-    /// SF `moon` (outline, regular) drawn once into a template bitmap, so no symbol variant can replace it.
-    private static let outlineMoon: Image = {
+    /// SF `timer` (regular) drawn once into a template bitmap, so no symbol variant can replace it.
+    private static let timerIcon: Image = {
         let configuration = UIImage.SymbolConfiguration(pointSize: 21, weight: .regular)
-        guard let symbol = UIImage(systemName: "moon", withConfiguration: configuration) else {
-            return Image(systemName: "moon")
+        guard let symbol = UIImage(systemName: "timer", withConfiguration: configuration) else {
+            return Image(systemName: "timer")
         }
         let format = UIGraphicsImageRendererFormat()
         format.scale = 3
@@ -100,7 +111,7 @@ private struct TabBarSurface: ViewModifier {
 }
 
 private extension AppTab {
-    /// Home, unless a DEBUG build was launched with `-MapleDemoTab rest|herbarium` (used for simulator screenshots).
+    /// Home, unless a DEBUG build was launched with `-MapleDemoTab focus|herbarium` (used for simulator screenshots).
     static var initial: AppTab {
         #if DEBUG
         if let name = UserDefaults.standard.string(forKey: "MapleDemoTab"), let tab = AppTab(rawValue: name) {

@@ -2,7 +2,8 @@ import MapleCore
 import SwiftUI
 
 /// The calm primer before iOS's notification prompt, in `HealthPrimerView`'s pattern: one leaf, a title and one
-/// sentence on the only two reminders Maple sends, "Allow reminders" (which shows iOS's prompt) and "Not now".
+/// sentence on what Maple sends (a session's end and wind-down), "Allow reminders" (which shows iOS's prompt) and
+/// "Not now".
 ///
 /// Present it as a `.medium` sheet on `surface2` (Settings), or full screen on `background` (the first run):
 ///
@@ -42,7 +43,7 @@ public struct NotificationsPrimerView: View {
 
     nonisolated public static let title = "A gentle reminder"
     /// What Maple sends, and that it sends nothing more.
-    nonisolated public static let message = "Only when it's time to wind down. Nothing else."
+    nonisolated public static let message = "When a session ends, and when it's time to wind down. Nothing else."
     nonisolated public static let allowTitle = "Allow reminders"
     nonisolated public static let notNowTitle = "Not now"
 

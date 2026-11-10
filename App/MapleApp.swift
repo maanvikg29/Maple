@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import UserNotifications
 import MapleCore
 import MapleDesign
 import MapleServices
@@ -18,9 +19,15 @@ struct MapleApp: App {
     @State private var health: HealthPermission
     /// Apple Health's sleep, read into the collection: the sleep leaves' only source (spec D9).
     @State private var sleep: HealthSleepImporter
-    /// The wind-down reminder, kept scheduled by `ReminderUpkeep`.
+    /// Maple's reminders (wind-down, a session's end and the study reminder), kept scheduled by `ReminderUpkeep`.
     @State private var reminders = NotificationScheduler.launch()
+    /// What a tapped notification asks Maple to show (`NotificationRouter`).
+    @State private var notifications: NotificationRouter
+    /// iOS keeps its notification delegate weakly: this one lives as long as the app.
+    private let notificationDelegate: NotificationDelegate
     private let stores: MapleStores
+    /// The running session's Live Activity (F1 design §5.11), kept current by the Focus session store.
+    private let liveActivity: ActivityKitController
     private let clock: MapleClock
     /// Where the first run starts or picks up (spec §8.8): until the Sugar maple is on the tree, the app opens on
     /// the end of onboarding, already showing the right step in its first frame. Decided again if the files could
@@ -28,7 +35,10 @@ struct MapleApp: App {
     @State private var launch: LaunchGate
 
     init() {
-        let stores = MapleStores.launch()
+        let liveActivity = ActivityKitController()
+        let stores = MapleStores.launch(liveActivity: liveActivity)
+        liveActivity.attach(collection: stores.collection, notes: stores.focus.notes)
+        self.liveActivity = liveActivity
         self.stores = stores
         _collection = State(initialValue: stores.collection)
         _schedule = State(initialValue: stores.schedule)
@@ -46,6 +56,12 @@ struct MapleApp: App {
         sleep.startObserving(clock: stores.clock)
         _sleep = State(initialValue: sleep)
         _launch = State(initialValue: LaunchGate(firstRun: Self.firstRun(stores)))
+        // Before launch finishes, so a tap that launched Maple still reaches it (F1 design §6).
+        let notifications = NotificationRouter()
+        _notifications = State(initialValue: notifications)
+        let delegate = NotificationDelegate { identifier in notifications.opened(identifier) }
+        notificationDelegate = delegate
+        UNUserNotificationCenter.current().delegate = delegate
     }
 
     /// A member without the First-steps leaf on the tree plants their maple first, resuming wherever an earlier
@@ -80,7 +96,18 @@ struct MapleApp: App {
                 .environment(health)
                 .environment(sleep)
                 .environment(reminders)
+                .environment(notifications)
+                // Focus (F1 design §7.7): the session store, presets, app sets and intentions, and the four together for
+                // the commands that span them (`FocusStores.start(_:intention:settings:)`).
+                .environment(stores.focus.sessions)
+                .environment(stores.focus.presets)
+                .environment(stores.focus.appSets)
+                .environment(stores.focus.notes)
+                .environment(\.focusStores, stores.focus)
                 .environment(\.mapleClock, clock)
+                #if DEBUG
+                .liveActivityDemo(liveActivity, collection: stores.collection)
+                #endif
         }
     }
 }
@@ -99,6 +126,8 @@ struct LaunchGate: Equatable {
 ///   available exactly when Apple Health is connected), imports Apple Health's sleep (`HealthSleepImporter`, which
 ///   records the nights with `CollectionStore.recordSleep(_:at:)` and settles them) and refreshes rarity; an import
 ///   the locked iPhone refused runs again once protected data is available;
+/// - Focus sessions are refreshed on launch, on every foreground, when protected data becomes available and while
+///   one runs (`focusUpkeep()`);
 /// - the season is read again on every foreground and at each significant time change (which iOS posts at local
 ///   midnight), so a month boundary passed with the app open changes it everywhere. (A root `TimelineView` would do
 ///   it too, but one at the root kept the first frame from ever committing.)
@@ -121,6 +150,7 @@ private struct ThemedRoot: View {
         RootView(firstRun: launch.firstRun)
             .id(launch.generation)
             .reminderUpkeep()
+            .focusUpkeep()
             .environment(\.theme, contrast == .increased ? .mapleIncreasedContrast : .maple)
             .environment(\.season, collection.season(at: seasonDate ?? clock.now()))
             .preferredColorScheme(.dark)

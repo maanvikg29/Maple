@@ -32,10 +32,14 @@ public struct FocusStart: Sendable, Hashable {
         self.readiness = readiness
     }
 
-    /// "Start study · 50m", or "Hold to start · Locked 50m".
+    /// Locked with nothing to warn about: Start is a 1.5-second hold, on Home as everywhere (§5.2).
+    public var needsHold: Bool { readiness == .ready(needsHold: true) }
+
+    /// "Start study · 50m", or "Hold to start · Locked 50m" when Start is a hold. A Locked preset whose start screen
+    /// has something to say reads like any other: a tap opens the Focus tab, and the hold happens there.
     public var title: String {
         let length = HomeFormat.duration(minutes: minutes)
-        return strictness == .locked ? "Hold to start · Locked \(length)" : "\(verb.startTitle) · \(length)"
+        return needsHold ? "Hold to start · Locked \(length)" : "\(verb.startTitle) · \(length)"
     }
 }
 
@@ -58,10 +62,13 @@ public struct FocusStatus: Sendable, Hashable {
     /// What Start would begin; nil when there is no preset.
     public var start: FocusStart?
     public var blocking: Blocking
+    /// The session store's first refresh has run (`FocusSessionStore.isLoaded`). Until it has, a session may be running
+    /// and blocking's state is unknown, so Home shows nothing that depends on them (`NowState.Content.settling`).
+    public var isLoaded: Bool
 
     public init(
         savedTodaySeconds: Int = 0, savedYesterdaySeconds: Int = 0, savedTotalSeconds: Int = 0, remaining: TimeInterval? = nil,
-        start: FocusStart? = nil, blocking: Blocking = .ready
+        start: FocusStart? = nil, blocking: Blocking = .ready, isLoaded: Bool = true
     ) {
         self.savedTodaySeconds = savedTodaySeconds
         self.savedYesterdaySeconds = savedYesterdaySeconds
@@ -69,6 +76,7 @@ public struct FocusStatus: Sendable, Hashable {
         self.remaining = remaining
         self.start = start
         self.blocking = blocking
+        self.isLoaded = isLoaded
     }
 }
 
@@ -99,6 +107,10 @@ public struct NowState: Sendable, Equatable {
         case untilBed
         /// Night: "07:00" · "wake-up · your maple is resting".
         case wake
+        /// Focus ships and the session store's first refresh hasn't run (F1 design §5.10): a session may be running, so
+        /// Home holds its numeral, caption, next leaf and action until it has. A relaunch mid-session never flashes
+        /// Start, nor "Turn on blocking" in a build that can block.
+        case settling
     }
 
     /// Home's one primary action. Nil when there is none: the capsule disappears and nothing replaces it.
@@ -250,6 +262,14 @@ public struct NowState: Sendable, Equatable {
                         "\(spokenInAll(focus.savedTotalSeconds)) saved in all. None yet today.")
             }
             return untilWindDown()
+        }
+
+        if features.focus, let focus, !focus.isLoaded {
+            return NowState(
+                phase: phase, content: .settling, numeral: Numeral(parts: []), caption: "", spoken: "", action: nil,
+                actionIsDimmed: phase == .evening || phase == .windDown, secondaryAction: nil, waitingCount: 0,
+                contentOpacity: phase == .night ? 0.8 : 1, showsBelowTheFold: phase != .night, refreshesEverySecond: false
+            )
         }
 
         let runningFocus = features.focus ? focus?.remaining.flatMap { $0 > 0 ? $0 : nil } : nil

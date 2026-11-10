@@ -30,6 +30,7 @@ public struct NextLeafRow: View {
     @Environment(\.theme) private var theme
     @Environment(\.season) private var season
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.locale) private var locale
 
     private let content: Content
     private let action: () -> Void
@@ -190,7 +191,7 @@ public struct NextLeafRow: View {
 
     private var accessibilityLabel: String {
         switch content {
-        case .leaf(let progress, _): HomeSpeech.nextLeaf(progress)
+        case .leaf(let progress, _): HomeSpeech.nextLeaf(progress, locale: locale)
         case .waiting(let count): HomeSpeech.waiting(count)
         case .needsPermission(let progress): HomeSpeech.needsPermission(progress)
         }

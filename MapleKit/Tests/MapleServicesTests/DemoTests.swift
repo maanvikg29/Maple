@@ -32,16 +32,17 @@ struct DemoDataTests {
         #expect(added.isEmpty)
     }
 
-    @Test("Shipped categories fill first, so a small collection has no dormant leaves")
+    @Test("Earnable categories fill first, so a small collection has no dormant leaves")
     func shippedFirst() {
-        let shipped = RewardCatalog.shared.assignments.filter { ShippedFeatures.current.isShipped($0.categoryID) }
-        func isShipped(_ unlock: LeafUnlock) -> Bool {
-            let category = RewardCatalog.shared.reward(forSpecies: unlock.speciesID)?.categoryID
-            return category.map { ShippedFeatures.current.isShipped($0) } ?? false
+        func availability(_ speciesID: String) -> LeafAvailability? {
+            RewardCatalog.shared.reward(forSpecies: speciesID).map {
+                LeafAvailability(category: $0.categoryID, permissions: DemoData.defaultPermissions, features: .current)
+            }
         }
-        #expect(demo(shipped.count).unlocks.allSatisfy(isShipped))
-        // A bigger collection holds every shipped leaf before any other.
-        #expect(Set(shipped.map(\.speciesID)).isSubset(of: Set(demo(23).unlocks.map(\.speciesID))))
+        let earnable = RewardCatalog.shared.assignments.filter { availability($0.speciesID) == .available }
+        #expect(demo(earnable.count).unlocks.allSatisfy { availability($0.speciesID) == .available })
+        // A bigger collection holds every earnable leaf before any other.
+        #expect(Set(earnable.map(\.speciesID)).isSubset(of: Set(demo(23).unlocks.map(\.speciesID))))
     }
 
     @Test("Waiting leaves are the newest, and can be opened in morning, day and evening")

@@ -46,7 +46,7 @@ Status: approved by the owner section by section (2026-10-12 to 2026-10-23). Rev
   - the pure cores that the F1-paid extensions will wrap.
 - **Free builds:**
   - Home stays on Rested nights.
-  - Focus offers only the plain timer, which counts toward nothing (R12).
+  - Focus offers only the plain timer, which counts toward nothing (R12). Once chosen it is remembered, and the Focus tab goes straight to it (F1-29).
   - The copy is in §5.3.
 
 ### 1.2 F1-paid: a short step after the account joins the paid program
@@ -102,6 +102,8 @@ Schedules, subjects and exams, sounds, iCloud sync and widgets were already F2.
 | F1-10 | Plans | **F1 is two implementation plans:** F1a (logic) and F1b (screens) (§9). |
 
 ### 2.2 Decided on the owner's behalf after the review (2026-10-23)
+F1-27 to F1-31 are the owner's own, from 2026-10-29, answering questions the F1b final review raised.
+
 | # | Question | Decision |
 |---|---|---|
 | F1-11 | Breaks | **Inside the planned length.** The countdown keeps running and the end never moves, so the notification, the Live Activity and F1-paid's monitor all stay fixed. A break that would pass the end is cut short at the end. |
@@ -120,6 +122,11 @@ Schedules, subjects and exams, sounds, iCloud sync and widgets were already F2.
 | F1-24 | Undesigned screens | **Designed in §5.13 to §5.17 without mockups:** the preset editor, the Blocking sheet, the streak sheet, intention entry and large text. The ended-away receipt is in §5.8. |
 | F1-25 | Home before the day's first session | **The lifetime total, "41h", captioned "saved in all · none yet today",** instead of a large "0m". |
 | F1-26 | Launches | **Live, demo and sandbox** (§7.6). Demo launches keep everything in memory. The DEBUG sandbox keeps its own files and credits preview events, so a whole session can be tried end to end. |
+| F1-27 | The Live Activity during a break | **"Study · break until 14:28"** on the Lock Screen and in the expanded view, read aloud as "Study, break until 14:28", in the app's clock format ("2:28 PM" in en_US). With Maple suspended nothing updates the activity when the break ends, so "break until" stays true afterwards, where "Break · back at 14:28" didn't. The app's own break screen is unchanged (§5.11). Owner, 2026-10-29. |
+| F1-28 | An intention typed and then swiped away | **Saved, exactly as Return saves it:** trimmed, at most 60 characters, and a blank field means no intention. A field that was cleared still removes the intention at once (§5.16). Owner, 2026-10-29. |
+| F1-29 | The plain timer in a build that can't block | **Remembered.** In a build that can never block, the member's first "Use a plain timer · it won't count" is saved in Settings, and from then on the Focus tab goes straight to the plain timer's start screen, which keeps its "Plain timer · apps aren't locked" line. A build that can block still asks again after each start, because Screen Time may be turned on (§1.1, §5.3). Owner, 2026-10-29. |
+| F1-30 | A plain timer's strictness | **Gentle, whatever its preset.** A plain timer locks nothing, so Locked's and Steady's exit costs mean nothing for it: it starts with one tap and no hold, the start screen shows no Locked line, and End early is Gentle's, with no emergency release and no 15-second countdown. Sessions that lock apps are unchanged (§5.2, §5.6, §5.7, §5.12, §5.13). Owner, 2026-10-29. |
+| F1-31 | A receipt shown the next day | **"saved · 2h 10m that day"**, with that day's total, only when the session's Maple day is earlier than the shown day and the shown day's window has opened (wake − 60). Between bedtime and that moment it still says "today". Today's receipts keep "today" (§5.8). Owner, 2026-10-29. |
 
 ## 3. Counting rules
 The focus spec's R1 to R14 stand, with the changes below made in place there. F1a implements §3.1 to §3.5 exactly.
@@ -365,10 +372,14 @@ Every screen has a DEBUG launch argument (§8.2). The mockup page shows §5.1 to
   - the marks fill around the dial while it is held;
   - they drain back if it is let go early.
 - A plain tap shows "Hold to start. Locked ends early only by emergency release." for 4 seconds.
-- Locked never starts with one tap anywhere, including Home's Start and the receipt's Again.
+- A session that locks apps never starts Locked with one tap anywhere, including Home's Start and the receipt's Again.
+- **A plain timer is never Locked** (F1-30). It locks nothing, so it is Gentle whatever its preset: from a Locked preset it starts with one tap, with no hold and no "Hold to start…" line, and it ends through Gentle's End early (§5.6). That includes "Start as a plain timer" after a lock that failed. One rule decides the strictness that applies (`Strictness.applying(to:)`), for the start screen, Home's Start, the receipt's Again and every way out.
 
 ### 5.3 Needs Screen Time
 - **When it shows:** whenever blocking isn't available. The plain timer is offered instead.
+- **Choosing the plain timer** (F1-29):
+  - In a build that can never block, the first "Use a plain timer · it won't count" is remembered in Settings, across launches. From then on the Focus tab goes straight to the plain timer's start screen, which keeps its "Plain timer · apps aren't locked" line, so it stays honest; the free build's card no longer comes before every session. Existing members' settings read as not chosen.
+  - In a build that can block, the choice lasts until the next start, because Screen Time may be turned on. Once Screen Time allows Maple, the start screen blocks again.
 - **Every "Turn on Screen Time" in the app** (Home's needs-permission row, the Herbarium) opens this screen. Maple's page in iOS Settings has no Screen Time switch.
 - **Layout:**
   - the dial with its marks off;
@@ -422,6 +433,7 @@ Every screen has a DEBUG launch argument (§8.2). The mockup page shows §5.1 to
   - then a quiet 15-second countdown, "Ending in 15s", which "Keep going" still cancels;
   - "Take a 5-minute break instead" is offered while the break is unused (cut short at the planned end).
 - **Gentle:** a 5-second breathing ring, then the session ends.
+- **A plain timer** always ends this way, as Gentle, whatever its preset's strictness (F1-30): no hold, no 15-second countdown, and no emergency release.
 
 ### 5.7 Emergency release (Locked)
 - **A full screen:** "Emergency release", with "Study · Locked" under it.
@@ -433,12 +445,13 @@ Every screen has a DEBUG launch argument (§8.2). The mockup page shows §5.1 to
   - "Breathe in" for 4 seconds, then "and out" for 4 seconds, while the bloom slowly swells;
   - then the ended state: "18m", "saved · they stay yours", "Session ended. It won't count as finished." and "Done".
 - **No limit:** it is always available, with no weekly allowance. Each use is logged as `sessionEnded(emergencyRelease)`.
+- **Never for a plain timer,** which locks nothing and ends through Gentle's End early whatever its preset (F1-30).
 - **Holds cancel** when the app leaves the foreground.
 
 ### 5.8 Receipt (the session's final frame)
 - **Header:** "Study · Chemistry ch. 4" over "Apps open again". There is no ⌄ on the receipt.
 - **The finish (§4.6),** then:
-  - "50m", captioned "saved · 2h 10m today";
+  - "50m", captioned "saved · 2h 10m today". When the session's Maple day is earlier than the shown day and the shown day's window has opened (wake − 60), it reads "saved · 2h 10m that day", with that day's total (F1-31); VoiceOver reads "2 hours, 10 minutes that day", and the large-text line under the dial matches. Between bedtime and that moment it still says "today", so a finish past bedtime or a receipt opened in the small hours keeps it;
   - the leaf line (below);
   - the breakdown, "Locked the whole time · 1 break";
   - an optional one-tap "How did it go?" (All done · Partly · Not yet);
@@ -464,12 +477,12 @@ Every screen has a DEBUG launch argument (§8.2). The mockup page shows §5.1 to
   - **Plain timer:** lit marks and "50m focused · not counted toward leaves".
   - **Lost confirmation:** "Couldn't confirm the block after 14:10".
   - **After bedtime:** "After bedtime · this didn't count".
-  - **Over the cap:** "Over today's 6h · this didn't add".
+  - **Over the cap:** "Over today's 6h · this didn't add" ("Over that day's 6h · this didn't add" when the caption says "that day", F1-31).
 - **The end notification** opens this receipt when tapped.
 - **The reflection carries forward.** "Partly" or "Not yet" puts that intention first among the next start's chips, and "All done" drops it.
 
 ### 5.9 Saved today
-As in focus spec §3.3. Its reasons come from the rule ids in §3.3, with "Couldn't confirm the block" in place of "Protection was off".
+As in focus spec §3.3. Its reasons come from the rule ids in §3.3, with "Couldn't confirm the block" in place of "Protection was off". A receipt saying "today" opens it on the day of the total it showed (F1-31); from a receipt saying "that day", or from Home, it opens on today.
 
 ### 5.10 Home
 As in focus spec §6, with these details:
@@ -494,7 +507,7 @@ As in focus spec §6, with these details:
 - **Compact:** the leaf and the system timer text.
 - **Minimal:** the ring.
 - **Expanded:** the leaf, the timer text, "Study · Chemistry ch. 4" (the intention capped at 40 characters) and the ring.
-- **During a break:** "Break · back at 14:28".
+- **During a break:** "Study · break until 14:28" on the Lock Screen and in the expanded view: the preset name (never the intention), then "break until" and the break's end, in the app's clock format. VoiceOver reads "Study, break until 14:28" (F1-27). With Maple suspended nothing updates the activity when the break ends, and "break until" stays true afterwards. The app's own break screen (§5.5) is unchanged.
 - **Plain timer:** "Plain timer", with no leaf.
 - **No buttons.** Once `staleDate` passes, it shows "Session complete".
 - **Upkeep:**
@@ -507,7 +520,7 @@ As in focus spec §6, with these details:
 - "Daily study reminder", with an on/off switch and a time.
 - "Release all apps", for stuck shields only.
   - It asks first: "Release all apps? Every app Maple is resting opens again now."
-  - During a session it goes through that strictness level's own end path, so in Locked it is the emergency release.
+  - During a session it goes through that strictness level's own end path, so in Locked it is the emergency release. During a plain timer it is Gentle's End early, whatever the preset (F1-30).
   - On F1 builds it clears the preview stores.
 
 ### 5.13 Preset editor
@@ -524,6 +537,7 @@ As in focus spec §6, with these details:
   - Steady: "Two unlocks a session. Ending early takes a hold and 15 seconds."
   - Locked: "No unlocks. Ending early takes a 10-second hold and a breath. Calls and Always Allowed apps keep working, and you can turn off Screen Time for Maple in Settings."
 - **Changing strictness:** a tighter level applies now. A looser one applies from the next day, with the line "Steady starts tomorrow".
+- **What it applies to:** sessions that lock apps. A plain timer is Gentle whatever its preset's level (F1-30).
 - **Limits:** at most 6 presets. "+" hides at 6. Deleting is a destructive row at the bottom, and the last preset can't be deleted.
 
 ### 5.14 Blocking sheet
@@ -544,7 +558,8 @@ As in focus spec §6, with these details:
 ### 5.16 Intention entry
 - "What's this for?" opens a single-line field (at most 60 characters) above the keyboard.
 - The last 3 distinct intentions show as chips above it, with carried-forward ones first (§5.8).
-- Return saves it. Clearing the field removes it.
+- Return saves it. Closing the entry without Return (a swipe down, or a tap outside) saves it the same way: trimmed, at most 60 characters, and a blank field means no intention (F1-28).
+- Clearing the field removes it at once.
 
 ### 5.17 Large text
 - **The dial** uses a fitted size, never `scaleEffect`.

@@ -9,11 +9,14 @@ struct HomeView: View {
     @Environment(CollectionStore.self) private var collection
     @Environment(HealthSleepImporter.self) private var sleep
     @Environment(AppRouter.self) private var router
-    @Environment(\.openURL) private var openURL
     @Environment(\.mapleClock) private var clock
     @Environment(\.theme) private var theme
     @Environment(\.season) private var season
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.locale) private var locale
+    @Environment(AppSettings.self) private var settings
+    /// This launch's Focus stores: Home's focus status and its one-tap start (F1 design §5.10).
+    @Environment(\.focusStores) private var focusStores
 
     @Namespace private var zoom
     @State private var scroll = HomeScrollState()
@@ -26,6 +29,13 @@ struct HomeView: View {
     @State private var pushedLeaf: String?
     /// "Show on my maple" asked while a sheet or cover was up: the Tree view opens once that has gone.
     @State private var pendingTreeFocus: String?
+    /// True while a session runs: the timeline ticks every second (`NowState.refreshesEverySecond`), so the time left
+    /// turns over on the session's own minutes and counts seconds in the last one.
+    @State private var everySecond = false
+    /// Both cadences tick from this whole minute, so a minute tick lands where `.everyMinute`'s would.
+    @State private var timelineStart = HomeView.minuteStart(of: .now)
+    /// The Locked hold's progress (F1 design §5.2).
+    @State private var holdProgress = 0.0
     /// Wind-down mode's log: whether it is on, and tonight's Goodnight (spec §3.4).
     private let bedside = BedsideLog.shared
     #if DEBUG
@@ -36,15 +46,20 @@ struct HomeView: View {
     static let mapleTransitionID = "home.maple"
 
     var body: some View {
-        // NowState refreshes every minute; the clock freezes it inside a phase for DEBUG demos.
-        TimelineView(.everyMinute) { timeline in
+        // NowState refreshes every minute, and every second while a session runs (F1 design §5.10); the clock freezes
+        // it inside a phase for DEBUG demos.
+        TimelineView(.periodic(from: timelineStart, by: everySecond ? 1 : 60)) { timeline in
             let now = clock.date(forTimeline: timeline.date)
             let content = HomeContent(
                 collection: collection, now: now, bedside: bedside.state(at: now, collection: collection),
-                lastNight: sleep.lastNightSleep(at: now), noSleepHint: sleep.showsNoSleepHint(at: now)
+                lastNight: sleep.lastNightSleep(at: now), noSleepHint: sleep.showsNoSleepHint(at: now),
+                focus: focusStatus(), provisionalSeconds: provisionalSeconds()
             )
             GeometryReader { proxy in
                 screen(content, proxy: proxy)
+            }
+            .onChange(of: content.state.refreshesEverySecond, initial: true) { _, running in
+                everySecond = running
             }
         }
         // Under a full-screen cover (the reveal, wind-down mode, the Tree view) the scene and the sky hold their frame.
@@ -63,6 +78,16 @@ struct HomeView: View {
                     .presentationBackground(theme.colors.surface2)
             case .health(let request):
                 HealthPrimerSheet(speciesID: request.speciesID)
+            case .savedToday:
+                SavedTodaySheet()
+                    #if DEBUG
+                    .revealDemoMotion()
+                    #endif
+            case .streak:
+                StreakSheet()
+                    #if DEBUG
+                    .revealDemoMotion()
+                    #endif
             }
         }
         .fullScreenCover(item: $cover, onDismiss: presentPendingTree) { cover in
@@ -81,6 +106,13 @@ struct HomeView: View {
             guard let request else { return }
             router.treeLeafRequest = nil
             showOnMaple(request)
+        }
+        // A Focus request made from inside one of Home's presentations (Settings in the Profile sheet) shows the Focus
+        // tab, so whatever Home is presenting closes.
+        .onChange(of: router.focusRequest) { _, request in
+            guard request != nil else { return }
+            sheet = nil
+            cover = nil
         }
         #if DEBUG
         .task { applyDemoPresentation() }
@@ -159,7 +191,7 @@ struct HomeView: View {
         .safeAreaBar(edge: .top) {
             HomeHeader(
                 season: season, date: content.now, streak: content.streak, avatar: content.avatar,
-                onStreak: {}, onAvatar: { sheet = .profile }
+                onStreak: { sheet = .streak }, onAvatar: { sheet = .profile }
             )
             .opacity(state.contentOpacity)
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { measured.header = $0 }
@@ -182,11 +214,22 @@ struct HomeView: View {
     private func belowStage(_ content: HomeContent) -> some View {
         let state = content.state
         return VStack(spacing: 0) {
-            NowBlock(numeral: state.numeral.parts, caption: state.caption, spoken: state.spoken)
-                .padding(.horizontal, theme.spacing.homeMargin)
-                .contentShape(Rectangle())
-                .padding(.top, HomeLayout.numeralGap)
-                .opacity(state.contentOpacity)
+            // Before the session store's first refresh nothing here is known yet (F1 design §5.10): it all waits.
+            if state.content != .settling {
+                // While a session runs Home refreshes every second, so the numeral changes crisply instead of rolling
+                // (F1 design §4.6).
+                NowBlock(numeral: state.numeral.parts, caption: state.caption, spoken: state.spoken,
+                         rolls: !state.refreshesEverySecond)
+                    .padding(.horizontal, theme.spacing.homeMargin)
+                    .contentShape(Rectangle())
+                    // Today's saved time opens Saved today (focus spec §5.9).
+                    .onTapGesture { if opensSavedToday(state) { sheet = .savedToday } }
+                    .accessibilityAddTraits(opensSavedToday(state) ? .isButton : [])
+                    .accessibilityHint(opensSavedToday(state) ? Text(FocusSheetCopy.savedTodayHint) : Text(""))
+                    .accessibilityAction { if opensSavedToday(state) { sheet = .savedToday } }
+                    .padding(.top, HomeLayout.numeralGap)
+                    .opacity(state.contentOpacity)
+            }
 
             if content.showsNoSleepHint {
                 NoSleepHint()
@@ -202,12 +245,36 @@ struct HomeView: View {
         }
     }
 
-    /// The one primary capsule, or night's glass capsule once sleep sounds ship; nothing when there is no action.
+    /// The numeral opens Saved today once Focus ships, while it shows today's saved time.
+    private func opensSavedToday(_ state: NowState) -> Bool {
+        collection.context.features.focus && state.content == .savedToday
+    }
+
+    /// The one primary capsule: a hold for a Locked start that can go straight ahead (F1 design §5.2), the moonlight
+    /// capsule otherwise, or night's glass capsule once sleep sounds ship; nothing when there is no action.
     @ViewBuilder
     private func action(_ state: NowState) -> some View {
-        if let action = state.action {
-            Button(action.title) { perform(action) }
+        if case .startFocus(let start) = state.action, start.needsHold {
+            HoldButton(
+                title: start.title, duration: FocusCopy.holdToStartSeconds, accessibilityName: start.spokenTitle(locale: locale),
+                progress: $holdProgress, frozenProgress: Self.frozenHold
+            ) {
+                Task { await begin(start) }
+            }
+            .disabled(isStarting)
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { measured.action = $0 }
+            .padding(.horizontal, theme.spacing.homeMargin)
+            .transition(.opacity)
+        } else if let action = state.action {
+            // A limit on the label wins over the capsule's two lines: at accessibility sizes "Start a quick session ·
+            // 25m" needs a third (§5.17). At other sizes it keeps the capsule's one line.
+            Button { perform(action) } label: {
+                Text(action.title).lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+            }
                 .buttonStyle(.moonlight(dimmed: state.actionIsDimmed))
+                // "Start study, 50 minutes": VoiceOver never reads a length as "50m".
+                .accessibilityLabel(action.spokenTitle(locale: locale))
+                .disabled(isStarting)
                 .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { measured.action = $0 }
                 .padding(.horizontal, theme.spacing.homeMargin)
                 .transition(.opacity)
@@ -232,7 +299,7 @@ struct HomeView: View {
                 pushedLeaf = progress.speciesID
             } turnOn: {
                 turnOnPermission(progress.availability, speciesID: progress.speciesID,
-                                 showHealthPrimer: { sheet = .health($0) }, openURL: openURL)
+                                 showHealthPrimer: { sheet = .health($0) }, router: router)
             }
             .zoomSource(id: progress.speciesID, in: zoom)
         }
@@ -246,21 +313,84 @@ struct HomeView: View {
             cover = .windDown
         case .openReveals:
             presentingRevealWithoutSlide { cover = .reveal(nil) }
-        case .startFocus, .returnToSession, .turnOnBlocking:
-            // Until F1b adds the Focus tab, focus lives in Rest; Home offers these only once focus ships.
-            router.selectedTab = .rest
+        case .startFocus(let start):
+            switch start.readiness {
+            case .ready(needsHold: false):
+                Task { await begin(start) }
+            case .ready(needsHold: true):
+                // Locked never starts with one tap (F1 design §5.2): its capsule is a hold, which begins it itself.
+                break
+            case .needsStartScreen:
+                // The start screen has something to say first (F1-20).
+                router.showFocus(.selectPreset(start.presetID))
+            }
+        case .returnToSession:
+            router.showFocus(.returnToSession)
+        case .turnOnBlocking:
+            router.showFocus(.needsScreenTime)
         }
     }
 
     private func perform(_ action: NowState.SecondaryAction) {
         switch action {
         case .sleepSounds:
-            router.selectedTab = .rest
+            // Sleep sounds ship in F2 (`ShippedFeatures.sleepSounds`), so Home never offers this yet: nothing opens.
+            break
         }
     }
 
+    /// Home's one-tap start (a completed hold for Locked): the preset as Start shows it, started from Home. A start
+    /// the store refuses opens the Focus tab with that preset, where the start screen says why.
+    private func begin(_ start: FocusStart) async {
+        defer { holdProgress = 0 }
+        guard let focusStores, let preset = focusStores.presets.preset(id: start.presetID) else {
+            router.showFocus(.selectPreset(start.presetID))
+            return
+        }
+        let appSet = preset.appSetID.flatMap { focusStores.appSets.set(id: $0) }
+        let request = FocusSessionStore.StartRequest(preset: preset, minutes: start.minutes, appSet: appSet, from: .home)
+        switch await focusStores.start(request, intention: nil, settings: settings) {
+        case .started:
+            break    // Home now shows the session: "50m" · "left in this session" · "Return to session".
+        case .alreadyRunning:
+            router.showFocus(.returnToSession)
+        case .ledgerUnavailable, .blockingFailed, .notRecorded:
+            router.showFocus(.selectPreset(start.presetID))
+        }
+    }
+
+    /// A start is on its way: Start waits for it (the store refuses a second one anyway).
+    private var isStarting: Bool { focusStores?.sessions.isStarting ?? false }
+
+    /// Today's focus on the session store's trusted time, once Focus ships; nil before, when Home ignores it.
+    private func focusStatus() -> FocusStatus? {
+        guard collection.context.features.focus, let focusStores else { return nil }
+        return focusStores.status(at: focusStores.sessions.now, collection: collection, settings: settings)
+    }
+
+    /// A running session's provisional seconds (display credit less what is counted), which the next-leaf row adds so
+    /// it agrees with the dial (F1 design §4.3).
+    private func provisionalSeconds() -> Int {
+        guard collection.context.features.focus, let sessions = focusStores?.sessions, sessions.running != nil else { return 0 }
+        return max(0, sessions.displayCredit(at: sessions.now).total - collection.focus.totalSeconds)
+    }
+
+    /// DEBUG `-MapleDemoHoldAt 0…1`: the hold's fill frozen for a screenshot (Task 7's `frozenProgress`); nil otherwise.
+    private static let frozenHold: Double? = {
+        #if DEBUG
+        DemoLaunchOptions.current.holdAt
+        #else
+        nil
+        #endif
+    }()
+
+    /// The whole minute `date` falls in.
+    private static func minuteStart(of date: Date) -> Date {
+        Date(timeIntervalSinceReferenceDate: (date.timeIntervalSinceReferenceDate / 60).rounded(.down) * 60)
+    }
+
     #if DEBUG
-    /// `-MapleDemoPresent tree|tree:<id>|streak|leaf:<id>|health` on the Home tab (docs/debug-launch-arguments.md).
+    /// `-MapleDemoPresent tree|tree:<id>|saved|streak|leaf:<id>|health` on the Home tab (docs/debug-launch-arguments.md).
     private func applyDemoPresentation() {
         guard !demoApplied else { return }
         demoApplied = true
@@ -274,6 +404,10 @@ struct HomeView: View {
             cover = .tree(focusing: String(value.dropFirst("tree:".count)))
         case "health":
             sheet = .health(HealthPrimerRequest())
+        case "saved":
+            sheet = .savedToday
+        case "streak":
+            sheet = .streak
         case let value where value.hasPrefix("leaf:"):
             pushedLeaf = String(value.dropFirst("leaf:".count))
         default:
@@ -283,15 +417,20 @@ struct HomeView: View {
     #endif
 }
 
-/// Home's sheets (spec §2.3): Profile `.large`, and the Apple Health primer `.medium` from the needs-permission row.
+/// Home's sheets (spec §2.3): Profile `.large`, the Apple Health primer `.medium` from the needs-permission row, and
+/// the Focus sheets: Saved today from the numeral, the streak from the header (F1 design §5.9, §5.15).
 enum HomeSheet: Identifiable, Hashable {
     case profile
     case health(HealthPrimerRequest)
+    case savedToday
+    case streak
 
     var id: String {
         switch self {
         case .profile: "profile"
         case .health(let request): request.id
+        case .savedToday: "savedToday"
+        case .streak: "streak"
         }
     }
 }

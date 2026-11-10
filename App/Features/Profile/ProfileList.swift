@@ -11,6 +11,7 @@ import MapleDesign
 struct ProfilePage<Content: View>: View {
     @Environment(\.theme) private var theme
     @Environment(\.profilePageBackground) private var pageBackground
+    @Environment(\.profilePageScrollAnchor) private var scrollAnchor
     private let title: String
     private let content: Content
 
@@ -36,6 +37,11 @@ struct ProfilePage<Content: View>: View {
             .padding(.bottom, theme.spacing.xxxl)
         }
         .scrollBounceBehavior(.basedOnSize)
+        // The initial offset only: a page shorter than the screen still sits at the top.
+        .defaultScrollAnchor(scrollAnchor, for: .initialOffset)
+        #if DEBUG
+        .modifier(ScrollsToEndOnceSettled(isOn: scrollAnchor == .bottom))
+        #endif
         .scrollEdgeEffectStyle(.soft, for: .top)
         .background(pageBackground ?? theme.colors.background)
         .navigationTitle(title)
@@ -44,10 +50,36 @@ struct ProfilePage<Content: View>: View {
     }
 }
 
+#if DEBUG
+/// DEBUG only: a `ProfilePage` whose scroll anchor is `.bottom` (`SettingsDemo`) scrolls to its end once its sheet has
+/// settled. A pushed page in a sheet is first laid out at the screen's full height and without the sheet's insets, and
+/// the bottom anchor loses its place when they arrive (Settings opened about 45pt down, not at its end).
+private struct ScrollsToEndOnceSettled: ViewModifier {
+    let isOn: Bool
+    @State private var position = ScrollPosition(edge: .top)
+
+    func body(content: Content) -> some View {
+        if isOn {
+            content
+                .scrollPosition($position)
+                .task {
+                    try? await Task.sleep(for: .milliseconds(500))
+                    position.scrollTo(edge: .bottom)
+                }
+        } else {
+            content
+        }
+    }
+}
+#endif
+
 extension EnvironmentValues {
     /// The fill behind a `ProfilePage`: the sheet's `surface2` inside the Profile sheet (spec §2.3); nil means the
     /// screen background, for a page pushed onto a tab's stack.
     @Entry var profilePageBackground: Color? = nil
+    /// Where a `ProfilePage` opens scrolled to: nil for the top. DEBUG's Settings sets `.bottom` for screenshots of
+    /// its end (`SettingsDemo`).
+    @Entry var profilePageScrollAnchor: UnitPoint? = nil
 }
 
 /// Rows on one Level-1 surface (radius 28), divided by 0.5pt hairlines inset to the text.

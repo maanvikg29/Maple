@@ -1,5 +1,22 @@
+import Foundation
 import Observation
 import SwiftUI
+
+/// What another tab asks the Focus tab to show (F1-20, §5.3, §5.10, §6). `FocusView` applies it once and clears it.
+enum FocusRequest: Hashable {
+    /// Home's Start when the start screen has something to say: that preset, selected.
+    case selectPreset(UUID)
+    /// Home's "Turn on blocking", and every "Turn on Screen Time" (Home's next-leaf row, the Herbarium): Needs Screen
+    /// Time.
+    case needsScreenTime
+    /// A session-end notification's tap: that session's receipt.
+    case receipt(UUID)
+    /// Home's "Return to session": the running session, no longer minimised.
+    case returnToSession
+    /// Settings' "Release all apps" during a session (§5.12): the session's own way out, End early or the emergency
+    /// release (`FocusReleaseRouter`).
+    case releaseAll
+}
 
 /// Navigation requests that cross tabs, such as the Tree view's "See all leaves" (spec §8.4).
 @Observable
@@ -33,6 +50,16 @@ final class AppRouter {
     func showOnMaple(_ speciesID: String) {
         treeLeafRequest = speciesID
         selectedTab = .home
+    }
+
+    /// One-shot request for the Focus tab; `FocusView` applies it and clears it. Home closes its own sheet or cover
+    /// when one arrives, so a request made from inside one shows the tab.
+    var focusRequest: FocusRequest?
+
+    /// Shows the Focus tab, with what it should show.
+    func showFocus(_ request: FocusRequest) {
+        focusRequest = request
+        selectedTab = .focus
     }
 }
 

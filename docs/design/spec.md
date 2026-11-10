@@ -10,7 +10,10 @@ Example data in this document (species names, counts, times) only illustrates la
 > 2. **The category table in §5.1 is superseded by `MapleCore/Resources/rewards.json`** (the finalised reward table: 19 categories including `focus_weeks` and `reflection_weeks`, with the final ladders). Per-leaf rule text is the assignment's `unlock_text`. Category copy and behaviour metadata (short rule, earned line, definition, requirement, time of day, design pace, action) live in code as `RewardCategoryInfo`, keyed by category id, in the voice of the §5.1 table.
 > 3. **Platform:** iPhone only. Ignore any mention of other devices in the inputs.
 > 4. **Sleep leaves come only from Apple Health** (product owner's decision, with rewards.json's data sources and D9). Nights tracked, On-time bedtimes, Bedtime runs, Steady weeks, Seasons in rhythm and Steady mornings need Apple Health; Full nights also need asleep-stage data. The Goodnight tap is never a source: it records the phone-down time for wind-down and for "Morning, no Apple Health" (§3.4) only, so §5.1's "or your Goodnight tap" no longer applies. Without Apple Health these leaves show their "Needs Apple Health" states and are left out of next-leaf, buds, Almost there, pacing and Profile totals. When that leaves Home's next-leaf row with no candidate, the row shows its needs-permission variant: the cheapest such leaf (by design pace) as a neutral skeleton at 50% with "Needs Apple Health" on the right, and a "Turn on Apple Health" `TextLink` in place of the hairline. Every "Turn on Apple Health" first shows a calm `.medium` primer (one leaf, two sentences on what Maple reads and that it stays on the iPhone, "Continue", `TextLink` "Not now"); Continue shows Apple's Health sheet, and once it is closed Apple Health counts as connected (HealthKit never reveals read access).
-> 5. **Focus-first (2026-10-11).** `docs/superpowers/specs/2026-10-11-focus-hours-saved-design.md` wins over this document where they disagree. Already in the build: the reward table is its 7 categories (§4); Home's next leaf is the next hours-saved rung, with no phase preference (§3.5 → its §4.5); the bedtime-run streak and the Streak sheet are gone (Home's header streak returns as the Focus streak in F1); the first leaf is "Plant your maple". Coming with F1 and F2: tabs Home · Focus · Herbarium (D10), §3.4's day and session states (its §6), and the Rest tab retired into Focus (§8.1 → its §5).
+> 5. **Focus-first (2026-10-11).** `docs/superpowers/specs/2026-10-11-focus-hours-saved-design.md` wins over this document where they disagree. Already in the build: the reward table is its 7 categories (§4); Home's next leaf is the next hours-saved rung, with no phase preference (§3.5 → its §4.5); the bedtime-run streak and the Streak sheet are gone (Home's header streak returns as the Focus streak in F1); the first leaf is "Plant your maple". Shipped with F1: tabs Home · Focus · Herbarium (D10), §3.4's day and session states (its §6), and the Rest tab retired into Focus (§8.1 → its §5; item 8).
+> 6. **Gold during a session (F1-18).** Amber still means "you earned something" and nothing else (§1 principle 3). A Focus session adds gold, which is not amber: `Theme.Dial.gold` `#F0C24A` (about 43°, against amber's 30°), with `goldSoft` `#C99A2C` at 62%, `goldEdge` `#FFE8A8` at 85%, `goldVein` `#725811` and `goldBloom` `#F0C24A` at 18% (`MapleDesign/Focus/DialTokens.swift`). Gold appears only over counted time: this session's share of the dial's centre leaf, the leaf the session opens, and the finish's sweep over the counted marks. A session that counted nothing finishes in white. The Lock Screen and Dynamic Island leaf is season tint, never gold. The dial's other colours are in `docs/superpowers/specs/2026-10-23-f1-focus-design.md` §4.2.
+> 7. **No overshoot, and Focus's own motion (F1).** Every ease and spring stops at its end value without passing it: the reveal's `timingCurve(0.2, 0, 0, 1)`, the reveal leaf's settle, the finish's leaf grow (0.8s ease-out) and any spring (`dampingFraction` 1.0). Mockup curves that overshoot (`f1-timer.html`'s `--pop`) are not used. The Focus dial moves as F1 design §4.6 says, with transform and opacity only: its lit marks fade in over 0.3s, the one motion besides press feedback that is faster than `gentle` (principle 9). Under Reduce Motion there is no sweep or ripple, states cross-fade, and the marks step once a minute; the finish keeps its tone as a cross-fade, its counted marks turning gold together (white when nothing counted) and back by 1.8s (decisions.md, 2026-10-24).
+> 8. **The Rest tab is retired into Focus (F1).** The tabs are Home · Focus · Herbarium (D10, §2.1), and the Focus tab is built around the minute-marks dial (F1 design §4, §5). Rest's `SleepDial` and the `FocusTimer` ring are gone. The sleep schedule is a Settings row, "Sleep schedule ›", whose editor (§8.1) opens as a sheet over the Profile sheet; wind-down mode (§8.1) opens from Home's evening and wind-down capsule. Home's header streak is the Focus streak (§3.2), and its sheet is F1 design §5.15 (§8.6).
 
 ---
 
@@ -29,7 +32,7 @@ Where the inputs disagreed, this spec decides as follows. Nothing below is left 
 | D7 | Calendar-limited leaves | None. The settled reward model has no calendar windows, and evergreens sit on year-round consistency ladders. | P2/P3 seasonal paths |
 | D8 | Reveal interaction | Tap to open, no hold. The full ritual plays for the first 3 reveals ever and always for uncommon, rare and legendary leaves; other reveals use a short ritual. "Open all" handles queues. Nothing is ever revealed in the wind-down or night phases. | P1 hold-to-open |
 | D9 | Screen Time and Apple Health paths | If permission is missing, show a designed "Needs Screen Time" / "Needs Apple Health" state. There is no manual self-report fallback. These leaves are excluded from next-leaf, Almost there and pacing until permission is granted. | P2's open question |
-| D10 | Tabs | Home · Rest · Herbarium. | M0's 5 tabs |
+| D10 | Tabs | Home · Focus · Herbarium (Rest until F1; Overrides item 8). | M0's 5 tabs |
 | D11 | Primary button | Moonlight gradient capsule with the spec's thin border and soft glow. It has a dimmed variant in the evening and wind-down, and there is none at night. | P1 solid #EEF2F8 |
 | D12 | First leaf | The First-steps leaf ("Plant your maple") is revealed as the last step of onboarding, at any hour, like Opal's first gem. This is the only reveal that can happen at night, so Home always has at least 1 species. | — |
 | D13 | Serif | New York italic for scientific names only. Sentence case everywhere, with no tracked caps anywhere, including the reveal. | P3 "TAP TO UNFURL" |
@@ -39,16 +42,16 @@ Where the inputs disagreed, this spec decides as follows. Nothing below is left 
 
 ## 1. Design principles
 
-1. **One hero object per screen, never boxed.** Home is the tree, Rest › Sleep is the moon dial, Rest › Focus is the timer ring, Herbarium is the specimens, the reveal is the bud. A hero never sits inside a card, border or fill.
+1. **One hero object per screen, never boxed.** Home is the tree, Focus is the minute-marks dial, Herbarium is the specimens, the reveal is the bud. A hero never sits inside a card, border or fill.
 2. **Black does the work; light is local.** Every screen sits on `#05070D`. Colour and glow come only from content: the tree's bloom, leaf blooms, the moon, and the amber reward glow. Containers never glow and never cast shadows. Navy belongs to the night sky, sheets and selected states, not to card fills.
 3. **Amber means "you earned something", and nothing else.** The complete list of places amber may appear:
-   - the streak glyph and count, and the streak sheet's numeral and run circles;
+   - the Focus streak's drawn Field maple and its count in Home's header, and on the streak sheet the same leaf and the streak sheet's numeral ("12 days"; its week dots are season tint, not amber);
    - the waiting bud (on the tree, as the next-leaf-row glyph, and the reveal bud's glow);
    - the reveal bloom, before it crossfades to the leaf's colour;
    - the new-leaf halo on the tree (decays over 24h) and the unseen-leaf dot on tiles;
    - the Herbarium owned-count bar.
 
-   Amber never appears on button fills, borders, labels or glyphs, on progress toward locked leaves, in charts, in body text, as a season tint, or in leaf colours.
+   Amber never appears on button fills, borders, labels or glyphs, on progress toward locked leaves, in charts, in body text, as a season tint, or in leaf colours. The one exception is the Focus streak's mark: a Field maple drawn in amber in Home's header and on the streak sheet (`StreakLeaf`; F1 design §5.10, §5.15), because a run is earned.
 4. **The hero sets the tint.** The season tint (§6.1) colours progress hairlines, the score strokes, the season word in the header, insight highlights and next-rung skeletons. It is the only accent outside amber and the leaves themselves.
 5. **State, not description.** A feature appears only when it has real state. No placeholder or roadmap UI anywhere: no "coming soon", "Arrives in M1", "onboarding", "feature" or milestone codes. Leaves from categories that have not shipped are visible but labelled "Not earnable yet".
 6. **One number, one line, one action.** Home's first screen is exactly: header, tree stage with its caption, one hero numeral with one caption, one next-leaf row, and at most one button.
@@ -88,7 +91,7 @@ The system floating Liquid Glass tab bar (`TabView` + `Tab`), in this order:
 | Order | Label | Symbol | Root view | Notes |
 |---|---|---|---|---|
 | 1 | Home | custom template symbol `maple.tree` (a round-crowned maple on a short trunk, 1.5pt rounded stroke drawn to SF Symbols Regular) | `HomeView` in its own `NavigationStack` | Nav bar hidden; custom header |
-| 2 | Rest | SF `moon` (outline, regular) | `RestView` in its own `NavigationStack` | Sleep and focus tools |
+| 2 | Focus | SF `timer` (regular), drawn once into a template image so the bar never swaps in another variant | `FocusView` in its own `NavigationStack` | Focus sessions: start, running, break, receipt (F1 design §5) |
 | 3 | Herbarium | custom template symbol `maple.herbarium` (a pressed 5-lobed leaf on a page, same stroke) | `HerbariumView` in its own `NavigationStack` | The 155-species collection |
 
 Tab bar styling:
@@ -105,26 +108,31 @@ A feature appears only from the release that ships it. Before that it is absent.
 |---|---|---|
 | Tree, collection count, today's number, next leaf, pending reveals | Home first screen | — |
 | Full tree with tappable leaves | Tree view (full-screen cover) | Tap the tree |
-| Streak (bedtime runs) | Home header → Streak sheet | Tap the streak |
+| Focus streak | Home header → streak sheet (F1 design §5.15) | Tap the streak |
+| Saved today | Sheet (F1 design §5.9) | Home's day numeral, or the receipt's numeral on the Focus tab |
 | Profile, totals, featured leaf, Settings, Privacy, rarity consent toggle, About, Design System (DEBUG) | Profile sheet | Tap the avatar |
 | Wellbeing score with a plain-language breakdown | Home below the fold → Score sheet | Scroll |
 | Weekly insights | Home below the fold → Insights (push) | "All insights ›" |
-| Bedtime schedule, wind-down mode, Goodnight, alarm | Rest › Sleep | Tab, or Home's evening CTA |
-| Sleep sounds | Rest › Sleep → Sounds sheet | Row, or Home's night capsule |
-| Wind-down apps and shield | Rest › Sleep row | — |
-| Focus timer | Rest › Focus | Tab, or Home's day CTA |
+| Bedtime schedule | Profile sheet › Settings, "Sleep schedule ›" → schedule editor (sheet) | Row |
+| Wind-down mode, Goodnight, alarm | Wind-down mode (full-screen cover) | Home's evening and wind-down capsule |
+| Sleep sounds | Sounds sheet (F2) | Home's night capsule |
+| Wind-down apps and shield | Decided with F2 | — |
+| Focus sessions: start, Needs Screen Time, running, break, end early, emergency release, receipt | Focus tab | Tab, Home's day capsule, a session-end notification, Home's needs-permission row |
+| Presets, the Blocking sheet, intention entry | Sheets on the Focus tab | Holding a chip or "+", the Blocking line, "What's this for?" |
+| Session end and daily study reminder; Release all apps | Profile sheet › Settings | Rows |
+| Running session outside the app | Live Activity on the Lock Screen and in the Dynamic Island (F1 design §5.11) | — |
 | Morning check-in (mood and energy) | Check-in sheet | Home's morning CTA |
-| Caffeine log | Rest › Sleep row "Caffeine curfew" | — |
+| Caffeine log | Decided with its release | — |
 | Wind-down ritual steps | Wind-down mode | — |
 | Community challenges | Profile sheet row "Challenges" | — |
 | 155 leaves, filters, search, detail, share | Herbarium | Tab, tree caption, next-leaf row |
-| Leaf reveal | Full-screen cover | Home CTA, the waiting bud, a waiting tile, the focus summary |
+| Leaf reveal | Full-screen cover | Home CTA, the waiting bud, a waiting tile, the session's receipt |
 
 ### 2.3 Presentation rules
 
 - **Push with zoom transition:** leaf detail (from a tile, next-leaf row, Almost-there card or Tree-view rosette), Insights.
-- **Full-screen cover:** reveal, Tree view, wind-down mode, running focus session.
-- **Sheets:** Profile (`.large`), Streak (`.medium`), Score breakdown (`.large`), Sounds (`.medium`), Filter (`.medium`), Search (`.large`), Rarity explainer (`.medium`), consent (`.medium`).
+- **Full-screen cover:** reveal, Tree view, wind-down mode. A running session, its break, the emergency release and the receipt are the Focus tab's own screens, not covers (F1 design §5).
+- **Sheets:** Profile (`.large`), the streak sheet and End early (`.medium`; `.large` at accessibility sizes), Saved today (`.medium`, `.large`; only `.large` at accessibility sizes), the preset editor and the Blocking sheet (`.large`), intention entry (sized to its field, above the keyboard), over Settings the study reminder's time (`.medium`; `.large` at accessibility sizes) and the schedule editor (`.medium`, `.large` while a wheel is open), Score breakdown (`.large`), Sounds (`.medium`), Filter (`.medium`), Search (`.large`), Rarity explainer (`.medium`), consent (`.medium`).
 - Sheets use `presentationBackground(surface2)` and the system corner radius.
 
 ---
@@ -138,7 +146,7 @@ iPhone 17, 402 × 874pt, evening phase, autumn, 23 species. Top safe area 62, bo
 ```
 y=0   +----------------------------------------------------+
       | 9:41                            ( island )   ..l = |  status bar 0-62; the scene shows through
-y=62  | Autumn . Sat 10 Oct              (moon) 12   (av)  |  HomeHeader 44pt
+y=62  | Autumn . Sat 10 Oct              (leaf) 12   (av)  |  HomeHeader 44pt
 y=106 |         .        .            .          .         |  TreeStage 106-516 (410pt = 47%), no container
       |           .     _.-~*~~*~~*~~*~-._     .           |  stars only in evening and night
       |          .-~ * * * o * * * * * * ~-.               |  * leaf rosette (an earned species)
@@ -191,9 +199,9 @@ Stage height = `min(410, max(320, availableHeight × 0.47))`. At larger text siz
 
 **HomeHeader** (y 62–106, pinned with `safeAreaBar(edge: .top)`, `scrollEdgeEffectStyle(.soft, for: .top)`, no background)
 - **Left:** "Autumn" in `contextEmphasis` (15 SF Rounded semibold) in the season tint, then " · Sat 10 Oct" in `callout` (15 SF Pro regular) `textSecondary`. VoiceOver: "Autumn, Saturday 10 October".
-- **Right, streak button:** SF `moon.fill` 12pt plus the current bedtime-run count in 17 SF Rounded semibold monospacedDigit, both `reward`, 6pt apart, 44×44 hit area.
-  - Hidden while the run is under 2.
-  - Opens the Streak sheet. VoiceOver: "12-night bedtime run, button".
+- **Right, streak button:** the Focus streak (F1 design §5.10): a drawn Field maple (`StreakLeaf`, 16pt, blades and stalk) plus the current run in days in 17 SF Rounded semibold monospacedDigit, both `reward`, 6pt apart, 44×44 hit area.
+  - Shown only once Focus ships, and hidden while the run is under 2.
+  - Opens the streak sheet (F1 design §5.15). VoiceOver: "Focus streak, 12 days, button".
 - **Right, avatar:** 12pt after the streak. A 32pt circle: `surface2` fill, 1pt ring of white at 14%, the featured leaf drawn at 20pt in its pressed colourway.
   - The featured leaf defaults to the most recently earned leaf until the user features one.
   - Opens the Profile sheet. VoiceOver: "Profile".
@@ -1115,6 +1123,11 @@ Contact shadow is the only shadow type: an ellipse, black 45–55%, blur 6–10.
 |---|---|
 | Reveal opens | `.impact(flexibility: .soft, intensity: 0.5)` |
 | Segmented and chip changes | `.selection` |
+| Each 5-minute step while turning the Focus dial, and the preset editor's length and strictness (and its verb and break rows, which stand in for chips and segments at large text sizes) | `.selection` |
+| A session's block is confirmed: "Locking 6 apps…" settles into the session's screen (F1 design §5.1) | `.impact(flexibility: .soft)` |
+| A break runs out while Maple is open (F1 design §5.5) | `.impact(flexibility: .soft, intensity: 0.5)` |
+| A session's finish, as the gold ring sets off (F1 design §4.6) | `.impact(flexibility: .soft, intensity: 0.5)` |
+| Holding a preset chip opens its editor | `.impact(flexibility: .soft, intensity: 0.5)` |
 | Everything else | None |
 
 Haptics are kept under Reduce Motion.
@@ -1122,7 +1135,7 @@ Haptics are kept under Reduce Motion.
 ### 6.8 Symbols
 
 - **Custom template symbols** (asset catalogue; 1.5pt rounded stroke drawn to SF Symbols Regular): `maple.tree`, `maple.herbarium`.
-- **SF Symbols allowed** only inside controls, at 13–17pt regular or semibold, monochrome: `moon` (tab), `moon.fill` (streak), `chevron.left`, `chevron.right`, `xmark`, `magnifyingglass`, `line.3.horizontal.decrease`, `square.and.arrow.up`, `info.circle`, `plus`, `minus`, `play.fill`, `pause.fill`.
+- **SF Symbols allowed** only inside controls, at 13–17pt regular or semibold, monochrome: `timer` (the Focus tab, drawn into a template image), `chevron.left`, `chevron.right`, `chevron.up` (the Herbarium's session bar), `chevron.down` (minimising a running session), `lock.fill` (Locked, in the Blocking line and the strictness chooser), `xmark`, `magnifyingglass`, `line.3.horizontal.decrease`, `square.and.arrow.up`, `info.circle`, `plus`, `minus`, `play.fill`, `pause.fill`.
 - Leaves and buds are always drawn, never symbols.
 
 ### 6.9 Shape of the new `Tokens.swift`
@@ -1192,8 +1205,11 @@ public enum SceneColors { static func sky(for phase: NowPhase) -> SkyPalette }  
 | `TreeStage`, `SkyBackdrop`, `TreeRenderer` (3 raster layers), `ParticleLayer`, `TreeView` | App/Features/Tree | The hero | §4, §8.4 |
 | `HerbariumView`, `HerbariumModel` (@Observable, derived sections), `AlmostThereCard`, `LeafCell`, `CategorySectionHeader`, `HerbariumFilterSheet`, `HerbariumSearchSheet`, `LeafDetailView`, `StatusTile`, `SpecimenLabel`, `ShareCardView` | App/Features/Herbarium | Collection | §5 |
 | `RevealView`, `RevealCoordinator` (@Observable queue; held vs pending) | App/Features/Reveal | Ritual | §5.8 |
-| `RestView`, `SleepDial`, `FocusTimer`, `WindDownMode`, `FocusSessionView`, `SoundsSheet` | App/Features/Rest | Tools | §8.1 |
-| `StreakSheet`, `ProfileSheet`, `ScoreSheet`, `InsightsView` | App/Features/… | Secondary screens | §8 |
+| `WindDownView`, `BedsideLog`, `ScheduleEditor` | App/Features/Sleep | Wind-down mode and the schedule editor, kept from the retired Rest tab | §8.1 |
+| `FocusView`, `FocusStartView`, `NeedsScreenTimeView`, `RunningSessionView`, `BreakView`, `EndEarlySheet`, `EmergencyReleaseView`, `ReceiptView`, `SavedTodaySheet`, `StreakSheet`, `PresetEditor`, `BlockingSheet`, `IntentionEntry` | App/Features/Focus | The Focus tab and its sheets | F1 design §5 |
+| `MinuteDial`, `DialFrame`, `HoldButton`, `FinishTimeline` | MapleDesign | The minute-marks dial, holds and the finish | F1 design §4 |
+| `SoundsSheet` | Its F2 plan | Sleep sounds | §8.1 |
+| `ProfileSheet`, `ScoreSheet`, `InsightsView` | App/Features/… | Secondary screens | §8 |
 | `LeafShareProvider` protocol, `LeafShareStore` (@Observable, @MainActor, App Group cache), `UnconfiguredLeafShareProvider`, `RarityReporter` (randomized response + OHTTP) | MapleServices | Rarity | §5.7 |
 
 ### 7.4 Data the views read
@@ -1216,7 +1232,9 @@ struct LeafProgress: Sendable, Identifiable {
 
 Rule for all of them: each screen is built around its own object or real data. A tool that has not shipped is absent. An empty state is drawn (a sapling, a bud, a skeleton), never an icon plus a sentence.
 
-### 8.1 Rest tab
+### 8.1 Rest tab (retired with F1)
+
+> Retired with F1 (Overrides item 8): there is no Rest tab, no `SleepDial` and no `FocusTimer`. The Focus half is replaced by the Focus tab (F1 design §4, §5). Two pieces below survive unchanged: the schedule editor, which opens from Profile › Settings › "Sleep schedule ›", and wind-down mode, which opens from Home's evening and wind-down capsule. The rest of this section is history.
 
 - **Header:** a custom 44pt row with "Rest" in `screenTitle`.
 - **Mode switch:** a 36pt `SegmentedCapsule` with Sleep and Focus, shown only once Focus ships. Until then Rest is Sleep only.
@@ -1285,14 +1303,7 @@ Rule for all of them: each screen is built around its own object or real data. A
 
 ### 8.6 Streak sheet (`.medium`)
 
-- A `moon.fill` glyph at 40pt and the numeral "12" in `heroNumeral`, both `reward`.
-- "night run" in 15 secondary and "Best run: 21 nights" in 13 secondary.
-- A 14-night row of 20pt circles:
-  - nights in the current run: filled `reward`;
-  - a forgiven miss: hollow `reward` ring;
-  - other nights: white 8% ring.
-- "One missed night in any 7 doesn't break a run." in 13 secondary.
-- The next Bedtime-runs leaf as a `NextLeafRow`.
+Replaced by the Focus streak sheet, F1 design §5.15 (Overrides items 5 and 8): the current run as its title ("12 days"), the best run and the rest-day line from `StreakWeek`, and this week as 7 dots from the locale's first weekday (finished days in season tint; rest days and misses the same neutral dot; today pending). The bedtime-run sheet that stood here is gone with the bedtime-run streak.
 
 ### 8.7 Settings and Privacy
 
@@ -1361,7 +1372,7 @@ Sections are separated by 0.5pt hairlines, not boxed. It shows:
 - All text scales.
 - `heroNumeral` is capped at 88 and `scoreNumeral` at 72. Numerals use `minimumScaleFactor(0.6)`.
 - At accessibility sizes:
-  - Home's stage (and Rest's dial) yield height, down to 150pt, so the first screen's action stays above the tab bar; at the two largest sizes the capsule is pinned just above the tab bar and the rest scrolls under it (`HeroFit`, §3.1);
+  - Home's stage (and the Focus start screen's dial, F1 design §5.17) yield height, down to 150pt, so the first screen's action stays above the tab bar; at the two largest sizes the capsule is pinned just above the tab bar and the rest scrolls under it (`HeroFit`, §3.1);
   - the NowBlock caption may wrap to 3 lines; the tree caption drops the stage name rather than truncate;
   - the primary label may wrap to 2 lines and the capsule grows; a `GlassCapsule` label does the same;
   - the Tree view's subtitle drops the stage name, then the days, rather than cut off the count, and the tree is fitted below the top bar as it is drawn;
@@ -1393,7 +1404,7 @@ Sections are separated by 0.5pt hairlines, not boxed. It shows:
 
 **Targets:** 44 × 44pt minimum everywhere, including the 32pt avatar, the 36pt circles, the waiting bud and the tree caption.
 
-**Haptics:** only the reveal haptic and `.selection`. Nothing conveys information by haptic alone.
+**Haptics:** only §6.7's. Nothing conveys information by haptic alone: each soft impact comes with something on screen (the reveal, the session's screen settling, the session screen returning, the finish, the editor opening).
 
 **Verification before ship**
 - **Snapshot matrix:**

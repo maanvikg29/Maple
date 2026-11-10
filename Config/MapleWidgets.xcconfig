@@ -1,0 +1,21 @@
+// MapleWidgets.xcconfig — the Live Activity extension (F1 design §5.11, §7.7). It has no entitlements and no App
+// Group: everything it shows arrives in the activity's attributes and content. It inherits Base.xcconfig (bundle
+// prefix, iOS 27, iPhone only, Swift 6, signing, and the version numbers, which must match the app's) from the
+// project-level configuration, as the app target does.
+
+PRODUCT_NAME = MapleWidgets
+PRODUCT_BUNDLE_IDENTIFIER = $(MAPLE_BUNDLE_ID).widgets
+SKIP_INSTALL = YES
+
+// Info.plist: generated keys, merged with Config/MapleWidgets-Info.plist for the NSExtension dictionary.
+GENERATE_INFOPLIST_FILE = YES
+INFOPLIST_FILE = Config/MapleWidgets-Info.plist
+INFOPLIST_KEY_CFBundleDisplayName = Maple
+
+// Swift 6 concurrency, as the app: UI code is main-actor by default.
+SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor
+SWIFT_APPROACHABLE_CONCURRENCY = YES
+SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES
+
+ENABLE_PREVIEWS = YES
+LD_RUNPATH_SEARCH_PATHS = $(inherited) @executable_path/Frameworks @executable_path/../../Frameworks

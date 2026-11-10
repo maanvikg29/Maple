@@ -131,7 +131,8 @@ struct HomeTests {
         #expect(HomeSpeech.treeLabel(stage: .seedling, leaves: 1, total: 155, tendedDays: 0)
             == "Your maple. Seedling, 1 of 155 leaves.")
         #expect(HomeSpeech.caption(stage: .youngMaple, leaves: 23, total: 155) == "23 of 155 leaves, young maple")
-        #expect(HomeSpeech.streak(nights: 12) == "12-night bedtime run")
+        #expect(HomeSpeech.streak(days: 12) == "Focus streak, 12 days")
+        #expect(HomeSpeech.streak(days: 1) == "Focus streak, 1 day")
     }
 
     @Test("The tree's value names the newest and next leaf, then what applies")
@@ -157,6 +158,18 @@ struct HomeTests {
             expected += " " + approximate
         }
         #expect(HomeSpeech.nextLeaf(next) == expected)
+
+        // An hours leaf reads what is left as the row shows it, in minutes rounded up ("17m"), never a rounded hour.
+        let korean = LeafProgress(speciesID: "pseudosieboldianum", category: .hoursSaved, threshold: 19, tier: .common,
+                                  current: 19 - 16.8 / 60, availability: .available, state: .locked, estimatedDays: 1)
+        let koreanName = try #require(LeafCatalog.shared.species(id: "pseudosieboldianum")).displayName
+        #expect(LeafRemainder(korean, phase: .day).text == "17m")
+        #expect(HomeSpeech.nextLeaf(korean, locale: Locale(identifier: "en_GB")).hasPrefix(
+            "Next leaf: \(koreanName). 18 of 19 hours saved, 17 minutes to go."))
+        let hourAway = LeafProgress(speciesID: "pseudosieboldianum", category: .hoursSaved, threshold: 19, tier: .common,
+                                    current: 17.75, availability: .available, state: .locked, estimatedDays: 1)
+        #expect(HomeSpeech.nextLeaf(hourAway, locale: Locale(identifier: "en_GB")).hasPrefix(
+            "Next leaf: \(koreanName). 17 of 19 hours saved, 1 hour, 15 minutes to go."))
 
         let streak = try progress(.focusStreak, current: 2)
         #expect(HomeSpeech.amount(streak) == "2 of \(Int(streak.threshold)) days in a row")

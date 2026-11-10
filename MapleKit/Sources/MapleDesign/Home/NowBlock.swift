@@ -16,16 +16,20 @@ public struct NowBlock: View {
     private let numeral: [NumeralPart]
     private let caption: String
     private let spoken: String
+    private let rolls: Bool
 
-    public init(numeral: [NumeralPart], caption: String, spoken: String) {
+    /// - Parameter rolls: Whether the numeral rolls when it changes; false while a session runs, when Home refreshes
+    ///   every second, so it changes crisply (F1 design §4.6).
+    public init(numeral: [NumeralPart], caption: String, spoken: String, rolls: Bool = true) {
         self.numeral = numeral
         self.caption = caption
         self.spoken = spoken
+        self.rolls = rolls
     }
 
     public var body: some View {
         VStack(spacing: HomeLayout.captionGap) {
-            StatNumber(numeral.map { $0.isUnit ? .unit($0.text) : .value($0.text) }, size: .hero)
+            StatNumber(numeral.map { $0.isUnit ? .unit($0.text) : .value($0.text) }, size: .hero, rolls: rolls)
             Text(caption)
                 .font(MapleFont.callout)
                 .foregroundStyle(theme.colors.textSecondary)

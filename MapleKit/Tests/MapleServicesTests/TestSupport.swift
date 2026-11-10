@@ -33,7 +33,7 @@ func files(in directory: URL) -> [String] {
 let testContext = CollectionContext(schedule: .standard, permissions: [.appleHealth], calendar: utc, hemisphere: .northern)
 
 /// A share provider that returns what the test tells it to and counts its calls.
-actor StubShareProvider: LeafShareProvider {
+actor StubShareProvider {
     nonisolated let identifier: String
     private var result: Result<LeafShareCounts, any Error>
     private(set) var calls = 0
@@ -52,6 +52,10 @@ actor StubShareProvider: LeafShareProvider {
         return try result.get()
     }
 }
+
+/// The conformance sits in an extension. Declared on the actor itself, a compile batch holding this file and
+/// StoreTests.swift infers `nonisolated` for the actor from the `nonisolated` protocol (Xcode 27.1) and fails.
+extension StubShareProvider: LeafShareProvider {}
 
 struct Offline: Error {}
 

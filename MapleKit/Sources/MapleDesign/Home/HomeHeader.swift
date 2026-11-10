@@ -1,8 +1,9 @@
 import MapleCore
 import SwiftUI
 
-/// Home's 44pt header (spec §3.2): the season word in its tint and today's date on the left; the bedtime-run
-/// streak and the avatar on the right. No wordmark, greeting, large title or gear.
+/// Home's 44pt header (spec §3.2, F1 design §5.10): the season word in its tint and today's date on the left; the
+/// Focus streak (a drawn amber leaf and the current run) and the avatar on the right. No wordmark, greeting, large
+/// title or gear.
 ///
 /// ```swift
 /// HomeHeader(season: .autumn, date: now, streak: 12, avatar: .init(species: rubrum, colourway: .autumn),
@@ -20,13 +21,13 @@ public struct HomeHeader: View {
         }
     }
 
-    /// The streak shows only from a 2-night run.
+    /// The streak shows only from a 2-day run (F1 design §5.10).
     public static let minimumStreak = 2
 
     @Environment(\.theme) private var theme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    /// The streak's moon: 12pt, growing with the count beside it.
-    @ScaledMetric(relativeTo: .headline) private var moonSize: CGFloat = 12
+    /// The streak's leaf: 16pt, growing with the count beside it.
+    @ScaledMetric(relativeTo: .headline) private var leafSize: CGFloat = 16
 
     private let season: Season
     private let date: Date
@@ -96,11 +97,13 @@ public struct HomeHeader: View {
     private var streakButton: some View {
         Button(action: onStreak) {
             HStack(spacing: 6) {
-                Image(systemName: "moon.fill")
-                    .font(.system(size: moonSize, weight: .semibold))
+                StreakLeaf()
+                    .frame(width: leafSize, height: leafSize)
+                // The Focus streak changes by opacity: a numeric roll animates a blur, and Focus motion is transform
+                // and opacity only (F1 design §4.6).
                 Text(streak, format: .number)
                     .font(.system(.headline, design: .rounded, weight: .semibold).monospacedDigit())
-                    .contentTransition(.numericText())
+                    .contentTransition(.opacity)
             }
             .foregroundStyle(theme.colors.reward)
             .frame(minWidth: theme.spacing.minimumHitTarget, minHeight: theme.spacing.minimumHitTarget, alignment: .trailing)
@@ -108,7 +111,7 @@ public struct HomeHeader: View {
         }
         .buttonStyle(HeaderPressStyle())
         .mapleAnimation(theme.motion.gentle, value: streak)
-        .accessibilityLabel(HomeSpeech.streak(nights: streak))
+        .accessibilityLabel(HomeSpeech.streak(days: streak))
     }
 
     private var avatarButton: some View {

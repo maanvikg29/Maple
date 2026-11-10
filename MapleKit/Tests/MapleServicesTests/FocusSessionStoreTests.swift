@@ -218,6 +218,33 @@ private final class LateShields: BlockingService {
     func releaseAll() async -> ShieldResult { await base.releaseAll() }
 }
 
+/// The preview blocker, noting `isLoaded` each time the store probes it or asks it for a shield operation.
+@MainActor
+private final class LoadedSpy: BlockingService {
+    let base: PreviewBlockingService
+    /// Reads the store's `isLoaded`; set once the store exists.
+    var isLoaded: () -> Bool = { false }
+    private(set) var seen: [Bool] = []
+
+    init(_ base: PreviewBlockingService) {
+        self.base = base
+    }
+
+    var capability: BlockingCapability { base.capability }
+    var source: FocusSource { base.source }
+    func probe() async -> BlockingProbe {
+        seen.append(isLoaded())
+        return await base.probe()
+    }
+    func requestAuthorization() async -> BlockingProbe { await base.requestAuthorization() }
+    func readStore() async -> ShieldStoreState { await base.readStore() }
+    func perform(_ op: ShieldOp, selection: Data?) async -> ShieldResult {
+        seen.append(isLoaded())
+        return await base.perform(op, selection: selection)
+    }
+    func releaseAll() async -> ShieldResult { await base.releaseAll() }
+}
+
 /// An in-memory ledger whose open read can be made to miss everything, as a clock set far forward can.
 private final class BlindOpenRead: FocusLedgerStore {
     let base: MemoryLedgerStore
@@ -459,6 +486,34 @@ struct FocusSessionStoreTests {
         #expect(h.ledger.events.isEmpty)
     }
 
+    @Test("Loaded only once the first refresh has replayed the ledger, probed blocking and ended a session that ended while away")
+    func loaded() async throws {
+        let h = Harness()
+        await h.store.refresh()
+        guard case .started(let id) = await h.store.start(h.request()) else { Issue.record("not started"); return }
+        // Maple is killed mid-session and opened again after the planned end.
+        h.advance(minutes: 60)
+        let spy = LoadedSpy(h.blocking)
+        let store = h.relaunch(over: h.ledger, blocking: spy)
+        spy.isLoaded = { [unowned store] in store.isLoaded }
+        #expect(!store.isLoaded)
+        // A ledger that can't be read loads nothing.
+        h.ledger.unreadable = true
+        await store.refresh()
+        #expect(!store.isLoaded)
+        h.ledger.unreadable = false
+        await store.refresh()
+        // Not while it probed, read the block back or cleared it: only once the session it found had ended.
+        #expect(!spy.seen.isEmpty)
+        #expect(spy.seen.allSatisfy { !$0 })
+        #expect(store.isLoaded)
+        #expect(store.running == nil)
+        #expect(store.lastEnded?.id == id)
+        // It stays loaded.
+        await store.refresh()
+        #expect(store.isLoaded)
+    }
+
     @Test("A block that doesn't verify starts nothing; a session that can't be written lifts its block at once")
     func startFailures() async {
         let failing = Harness()
@@ -533,6 +588,57 @@ struct FocusSessionStoreTests {
         #expect(h.store.lastEnded?.endReason == .releaseAll)
         #expect(h.store.lastEnded?.endVerified == false)
         #expect(h.ledger.events.contains { $0.kind == .shieldCleared(.releaseAll) })
+    }
+
+    @Test("During a plain timer of a Locked preset, Settings' Release all apps opens Gentle's way out, and completing it ends the session")
+    func releaseAllPlainTimer() async {
+        let h = Harness()
+        var request = h.request(plain: true)
+        request.preset.strictness = .locked
+        _ = await h.store.start(request)
+        #expect(h.store.running?.plan.strictness == .locked)
+        #expect(h.store.running?.plan.appliedStrictness == .gentle)
+        h.advance(minutes: 10)
+        // Settings' path (`FocusReleaseRouter`): nothing ends yet, and the way out that opens is Gentle's End early, as
+        // `RunningSessionView` picks it.
+        #expect(await !h.store.releaseAllUnlessRunning())
+        #expect(h.store.lastEnded == nil)
+        #expect(h.store.running.map { SessionEndPath($0.plan) } == .gentle)
+        // That End early completed: the view's `endEarlyDismissed` asks the store to clear everything.
+        await h.store.releaseAll()
+        #expect(h.store.running == nil)
+        #expect(h.store.lastEnded?.endReason == .releaseAll)
+        #expect(h.blocking.store == .empty)
+        #expect(h.collection.focus.totalSeconds == 0)
+    }
+
+    @Test("Settings' Release all apps sends a running session to its way out, and otherwise clears every store at once")
+    func releaseAllFromSettings() async {
+        // A session that locks apps: its block stays until its own way out completes.
+        let running = Harness()
+        _ = await running.store.start(running.request())
+        running.advance(minutes: 10)
+        #expect(await !running.store.releaseAllUnlessRunning())
+        #expect(running.store.running != nil)
+        #expect(running.store.lastEnded == nil)
+        #expect(running.blocking.store != .empty)
+
+        // One that has just reached its planned end is never sent through a way out: the refresh ends it first.
+        let reached = Harness()
+        _ = await reached.store.start(reached.request())
+        reached.advance(minutes: 51)
+        #expect(await reached.store.releaseAllUnlessRunning())
+        #expect(reached.store.running == nil)
+        #expect(reached.store.lastEnded?.endReason == .completed)
+        #expect(reached.blocking.store == .empty)
+
+        // Nothing running: a block left behind is cleared now.
+        let idle = Harness()
+        _ = await idle.blocking.perform(.apply(session: UUID()), selection: Data("six".utf8))
+        #expect(idle.blocking.store != .empty)
+        #expect(await idle.store.releaseAllUnlessRunning())
+        #expect(idle.blocking.store == .empty)
+        #expect(idle.store.lastEnded == nil)
     }
 
     @Test("One locked break, inside the planned length")

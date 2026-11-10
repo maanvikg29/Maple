@@ -20,9 +20,9 @@ nonisolated public enum HomeSpeech {
         }
     }
 
-    /// "12-night bedtime run".
-    public static func streak(nights: Int) -> String {
-        "\(nights)-night bedtime run"
+    /// The Focus streak, in the header and as the streak sheet's title: "Focus streak, 12 days" (F1 design §5.10).
+    public static func streak(days: Int) -> String {
+        "Focus streak, \(days) \(days == 1 ? "day" : "days")"
     }
 
     /// "23 of 155 leaves, young maple".
@@ -59,13 +59,20 @@ nonisolated public enum HomeSpeech {
         return sentences.joined(separator: " ")
     }
 
-    /// The next-leaf row: "Next leaf: Red maple. 11 of 14 on-time bedtimes, 3 to go." Approximate drawings add
-    /// "Approximate drawing." or "Uncharted, placeholder drawing."
-    public static func nextLeaf(_ progress: LeafProgress) -> String {
+    /// The next-leaf row: "Next leaf: Red maple. 11 of 14 on-time bedtimes, 3 to go." An hours leaf says what is left
+    /// as the row shows it, in minutes ("18 of 19 hours saved, 17 minutes to go."), never a rounded hour (F1 design
+    /// §4.9). Approximate drawings add "Approximate drawing." or "Uncharted, placeholder drawing."
+    public static func nextLeaf(_ progress: LeafProgress, locale: Locale = .current) -> String {
         guard let species = LeafCatalog.shared.species(id: progress.speciesID) else { return "Next leaf" }
-        let toGo = Int((progress.remaining - 1e-9).rounded(.up))
         var text = "Next leaf: \(species.displayName). \(amount(progress))"
-        text += toGo > 0 ? ", \(toGo) to go." : "."
+        if progress.category == .hoursSaved {
+            // `LeafRemainder`'s minutes, rounded up.
+            let minutes = Int((progress.remaining * 60 - 1e-9).rounded(.up))
+            text += minutes > 0 ? ", \(HomeFormat.spokenDuration(minutes: minutes, locale: locale)) to go." : "."
+        } else {
+            let toGo = Int((progress.remaining - 1e-9).rounded(.up))
+            text += toGo > 0 ? ", \(toGo) to go." : "."
+        }
         if let approximate = species.confidence.approximateSpokenLabel {
             text += " " + approximate
         }

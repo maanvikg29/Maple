@@ -20,7 +20,6 @@ struct LeafDetailView: View {
     @Environment(\.season) private var season
     @Environment(\.mapleClock) private var clock
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.openURL) private var openURL
     @Environment(\.locale) private var locale
     @Environment(\.timeZone) private var timeZone
     @Environment(CollectionStore.self) private var collection
@@ -295,7 +294,7 @@ struct LeafDetailView: View {
             startWindDown: { showsWindDown = true },
             turnOn: {
                 guard let availability = collection.progress(for: speciesID, at: clock.now())?.availability else { return }
-                turnOnPermission(availability, speciesID: speciesID, showHealthPrimer: { healthPrimer = $0 }, openURL: openURL)
+                turnOnPermission(availability, speciesID: speciesID, showHealthPrimer: { healthPrimer = $0 }, router: router)
             },
             togglePin: {
                 if collection.pinnedSpeciesID == speciesID { collection.unpin() } else { collection.pin(speciesID) }

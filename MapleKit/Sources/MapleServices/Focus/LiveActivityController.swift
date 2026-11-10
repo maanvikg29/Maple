@@ -7,6 +7,15 @@ public protocol LiveActivityController: AnyObject {
     /// Shows `state`, or ends every Maple activity when it is nil, reconnecting to one already running. Called
     /// after every change; calling it again with the same state changes nothing.
     func reconcile(running state: FocusActivityState?) async
+
+    /// Maple is in front again (F1 design §5.11, upkeep): an activity ActivityKit refused may be asked for once more.
+    /// Called on every return to the foreground, before that refresh's `reconcile`.
+    func mapleBecameActive()
+}
+
+extension LiveActivityController {
+    /// Most controllers keep no asks: nothing to do.
+    public func mapleBecameActive() {}
 }
 
 /// No Live Activity: tests, and builds before F1b.

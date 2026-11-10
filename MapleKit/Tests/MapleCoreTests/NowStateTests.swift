@@ -155,7 +155,35 @@ struct NowStateTests {
         #expect(now.action?.title == "Start study · 50m")
         var locked = study
         locked.strictness = .locked
+        locked.readiness = .ready(needsHold: true)
         #expect(NowState.Action.startFocus(locked).title == "Hold to start · Locked 50m")
+    }
+
+    @Test("Home's Start has a spoken name: the hold's for a Locked start that goes straight ahead, the tap's otherwise")
+    func spokenStart() {
+        var locked = study
+        locked.strictness = .locked
+        locked.readiness = .ready(needsHold: true)
+        #expect(locked.needsHold)
+        #expect(locked.spokenTitle(locale: enGB) == "Hold to start, Locked 50 minutes")
+        // The start screen has something to say: a tap opens the Focus tab, which asks for the hold itself.
+        locked.readiness = .needsStartScreen(.expiredTokens)
+        #expect(!locked.needsHold)
+        #expect(locked.title == "Start study · 50m")
+        #expect(locked.spokenTitle(locale: enGB) == "Start study, 50 minutes")
+        #expect(study.spokenTitle(locale: enGB) == "Start study, 50 minutes")
+        #expect(FocusCopy.holdToStartSeconds == 1.5)
+    }
+
+    @Test("Home's capsule reads Start by its spoken name, and every other action by its own words")
+    func spokenAction() {
+        #expect(NowState.Action.startFocus(study).spokenTitle(locale: enGB) == "Start study, 50 minutes")
+        var long = study
+        long.minutes = 90
+        #expect(NowState.Action.startFocus(long).spokenTitle(locale: enGB) == "Start study, 1 hour, 30 minutes")
+        #expect(NowState.Action.returnToSession.spokenTitle(locale: enGB) == "Return to session")
+        #expect(NowState.Action.turnOnBlocking.spokenTitle(locale: enGB) == "Turn on blocking")
+        #expect(NowState.Action.startWindDown.spokenTitle(locale: enGB) == "Start wind-down")
     }
 
     @Test("Before the day's first session: the lifetime total; with nothing ever saved, the countdown")
@@ -182,6 +210,32 @@ struct NowStateTests {
         #expect(free.action == nil)
     }
 
+    @Test("Before the session store's first refresh Home holds everything below the stage: a relaunch mid-session never flashes Start or Turn on blocking")
+    func beforeTheFirstRefresh() {
+        let unloaded = [
+            FocusStatus(savedTotalSeconds: 41 * 3600, start: study, isLoaded: false),
+            FocusStatus(start: study, blocking: .needsPermission, isLoaded: false),
+        ]
+        for focus in unloaded {
+            for (hour, minute) in [(7, 40), (13, 40), (20, 55), (23, 30)] {
+                let now = state(hour, minute, pending: 1, features: .all, focus: focus)
+                #expect(now.content == .settling)
+                #expect(now.numeral.parts.isEmpty)
+                #expect(now.caption.isEmpty)
+                #expect(now.spoken.isEmpty)
+                #expect(now.action == nil)
+                #expect(now.secondaryAction == nil)
+                #expect(now.waitingCount == 0)
+                #expect(!now.refreshesEverySecond)
+            }
+        }
+        // Once it has run, the day shows its own numeral and Start.
+        #expect(state(13, 40, features: .all, focus: FocusStatus(savedTotalSeconds: 41 * 3600, start: study)).action == .startFocus(study))
+        // In the M1 build, before focus shipped, Home never waits for it.
+        let m1 = state(13, 40, features: ShippedFeatures(releases: [.m1]), focus: unloaded[0])
+        #expect(m1.content == .untilWindDown)
+    }
+
     @Test("A running session shows calm minutes in every phase, night included")
     func focusRunning() {
         let running = FocusStatus(savedTodaySeconds: 600, remaining: 18 * 60 + 42)
@@ -197,8 +251,8 @@ struct NowStateTests {
         #expect(state(23, 30, features: .all, focus: running).action == .returnToSession)
         let last = state(13, 40, features: .all, focus: FocusStatus(remaining: 42))
         #expect(last.numeral.parts == [.value("0:42")])
-        // Before focus ships nothing runs.
-        #expect(state(20, 55, focus: running).content == .untilWindDown)
+        // In the M1 build, before focus shipped, nothing ran.
+        #expect(state(20, 55, features: ShippedFeatures(releases: [.m1]), focus: running).content == .untilWindDown)
     }
 
     @Test("Morning with no sleep data: saved yesterday, when something was")

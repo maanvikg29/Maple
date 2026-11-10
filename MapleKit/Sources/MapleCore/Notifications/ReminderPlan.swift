@@ -24,6 +24,19 @@ public enum ReminderKind: String, Sendable, Hashable, CaseIterable {
         guard let kind = Self.allCases.first(where: { identifier.hasPrefix($0.identifierPrefix) }) else { return nil }
         self = kind
     }
+
+    /// A running session's end reminder: "maple.reminder.sessionEnd.<the session's id, lowercased>".
+    public static func sessionEndIdentifier(for session: UUID) -> String {
+        ReminderKind.sessionEnd.identifierPrefix + session.uuidString.lowercased()
+    }
+
+    /// The session a session-end identifier names, so tapping it opens that session's receipt; nil for any other
+    /// identifier.
+    public static func session(inSessionEndIdentifier identifier: String) -> UUID? {
+        let prefix = ReminderKind.sessionEnd.identifierPrefix
+        guard identifier.hasPrefix(prefix) else { return nil }
+        return UUID(uuidString: String(identifier.dropFirst(prefix.count)))
+    }
 }
 
 /// How a notification arrives (`UNNotificationInterruptionLevel`, without importing UserNotifications).
@@ -248,7 +261,7 @@ public struct ReminderPlan: Sendable, Equatable {
         guard input.settings.sessionEnd, let session = input.runningSession else { return nil }
         let kind = ReminderKind.sessionEnd
         return ReminderRequest(
-            id: kind.identifierPrefix + session.id.uuidString.lowercased(), kind: kind, fireDate: session.plannedEnd,
+            id: ReminderKind.sessionEndIdentifier(for: session.id), kind: kind, fireDate: session.plannedEnd,
             calendar: input.calendar,
             title: session.isPlainTimer ? ReminderCopy.timerDoneTitle : ReminderCopy.sessionDoneTitle,
             body: ReminderCopy.sessionEndBody(presetName: session.presetName, minutes: session.plannedMinutes,

@@ -2,8 +2,7 @@
 
 PRODUCT_NAME = Maple
 PRODUCT_BUNDLE_IDENTIFIER = $(MAPLE_BUNDLE_ID)
-MARKETING_VERSION = 0.1.0
-CURRENT_PROJECT_VERSION = 1
+// MARKETING_VERSION and CURRENT_PROJECT_VERSION are in Base.xcconfig, shared with the MapleWidgets extension.
 
 // Entitlements follow the signing tier: Maple-free or Maple-paid.
 CODE_SIGN_ENTITLEMENTS = Config/Entitlements/Maple-$(MAPLE_TIER).entitlements
@@ -23,6 +22,8 @@ INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.healthcare-fitness
 INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES
 INFOPLIST_KEY_UIUserInterfaceStyle = Dark
 INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait
+// The running session's Live Activity (F1 design §5.11): an Info.plist key, not an entitlement.
+INFOPLIST_KEY_NSSupportsLiveActivities = YES
 // Only what Maple asks to read today (sleep, spec D9): widen it when a milestone starts reading more.
 INFOPLIST_KEY_NSHealthShareUsageDescription = Maple reads your sleep from Apple Health to grow leaves on your maple. It stays on your iPhone.
 INFOPLIST_KEY_NSHealthUpdateUsageDescription = Maple can save your wind-down sessions to Health as mindful minutes.

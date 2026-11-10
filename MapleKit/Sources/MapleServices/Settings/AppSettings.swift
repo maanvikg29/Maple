@@ -44,11 +44,20 @@ nonisolated public struct SettingsSnapshot: Codable, Sendable, Equatable {
     public var sessionEndReminder: Bool
     /// The daily study reminder's time; nil while it is off (the default, F1-4).
     public var studyReminder: ClockTime?
+    /// A Focus session has started at least once (P4). Until then the start screen preselects Quick and shows the
+    /// first-session lines, and the first start asks for notifications (F1-23).
+    public var hasStartedFocus: Bool
+    /// The last session whose receipt was shown, so a receipt shows once (P5, `ReceiptPicker`).
+    public var lastReceiptSeen: UUID?
+    /// "Use a plain timer · it won't count" was chosen in a build that can never block, which remembers it
+    /// (`AppSettings.choosePlainTimer(capability:)`, owner 2026-10-29).
+    public var plainTimerChosen: Bool
 
     public init(
         hemisphere: HemisphereChoice = .automatic, sleepGoalMinutes: Int = AppSettings.defaultSleepGoalMinutes,
         revealSound: Bool = false, windDownReminder: Bool = true, sessionEndReminder: Bool = true,
-        studyReminder: ClockTime? = nil
+        studyReminder: ClockTime? = nil, hasStartedFocus: Bool = false, lastReceiptSeen: UUID? = nil,
+        plainTimerChosen: Bool = false
     ) {
         version = Self.currentVersion
         self.hemisphere = hemisphere
@@ -57,12 +66,16 @@ nonisolated public struct SettingsSnapshot: Codable, Sendable, Equatable {
         self.windDownReminder = windDownReminder
         self.sessionEndReminder = sessionEndReminder
         self.studyReminder = studyReminder
+        self.hasStartedFocus = hasStartedFocus
+        self.lastReceiptSeen = lastReceiptSeen
+        self.plainTimerChosen = plainTimerChosen
     }
 
     // MARK: Codable (tolerant: missing or unknown values take their defaults)
 
     private enum CodingKeys: String, CodingKey {
         case version, hemisphere, sleepGoalMinutes, revealSound, windDownReminder, sessionEndReminder, studyReminder
+        case hasStartedFocus, lastReceiptSeen, plainTimerChosen
     }
 
     public init(from decoder: any Decoder) throws {
@@ -77,6 +90,9 @@ nonisolated public struct SettingsSnapshot: Codable, Sendable, Equatable {
         windDownReminder = (try? c.decodeIfPresent(Bool.self, forKey: .windDownReminder)) ?? true
         sessionEndReminder = (try? c.decodeIfPresent(Bool.self, forKey: .sessionEndReminder)) ?? true
         studyReminder = try? c.decodeIfPresent(ClockTime.self, forKey: .studyReminder)
+        hasStartedFocus = (try? c.decodeIfPresent(Bool.self, forKey: .hasStartedFocus)) ?? false
+        lastReceiptSeen = try? c.decodeIfPresent(UUID.self, forKey: .lastReceiptSeen)
+        plainTimerChosen = (try? c.decodeIfPresent(Bool.self, forKey: .plainTimerChosen)) ?? false
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -88,12 +104,16 @@ nonisolated public struct SettingsSnapshot: Codable, Sendable, Equatable {
         try c.encode(windDownReminder, forKey: .windDownReminder)
         try c.encode(sessionEndReminder, forKey: .sessionEndReminder)
         try c.encodeIfPresent(studyReminder, forKey: .studyReminder)
+        try c.encode(hasStartedFocus, forKey: .hasStartedFocus)
+        try c.encodeIfPresent(lastReceiptSeen, forKey: .lastReceiptSeen)
+        try c.encode(plainTimerChosen, forKey: .plainTimerChosen)
     }
 }
 
-/// The member's settings: hemisphere, sleep goal, the reveal sound and the wind-down reminder (spec §8.7). One instance
-/// for the app, injected with `.environment(_:)`; screens read it with `@Environment(AppSettings.self)` and assign
-/// to its properties, which saves at once.
+/// The member's settings: hemisphere, sleep goal, the reveal sound, the reminders, and what Focus remembers about the
+/// member (the first start, the last receipt seen) (spec §8.7, F1 design §5.12). One instance for the app, injected
+/// with `.environment(_:)`; screens read it with `@Environment(AppSettings.self)` and assign to its properties, which
+/// saves at once.
 ///
 /// ```swift
 /// @Environment(AppSettings.self) private var settings
@@ -189,6 +209,40 @@ public final class AppSettings {
         set { change { $0.studyReminder = newValue } }
     }
 
+    /// A Focus session has started at least once (P4). `FocusStores.start(_:intention:settings:)` sets it at the first
+    /// start; nothing clears it.
+    public var hasStartedFocus: Bool {
+        get { snapshot.hasStartedFocus }
+        set { change { $0.hasStartedFocus = newValue } }
+    }
+
+    /// The last session whose receipt was shown (P5). The receipt sets it as it appears, and `ReceiptPicker.pending`
+    /// then shows it no more.
+    public var lastReceiptSeen: UUID? {
+        get { snapshot.lastReceiptSeen }
+        set { change { $0.lastReceiptSeen = newValue } }
+    }
+
+    /// "Use a plain timer · it won't count" has been chosen in a build that can never block (owner, 2026-10-29).
+    /// `choosePlainTimer(capability:)` sets it; nothing clears it.
+    public var plainTimerChosen: Bool { snapshot.plainTimerChosen }
+
+    /// The member chose "Use a plain timer · it won't count" on Needs Screen Time (F1 design §5.3). A build that can
+    /// never block (`BlockingCapability.unavailableInBuild`) remembers it, so the free build's card stops coming before
+    /// every session (owner, 2026-10-29). A build that can block doesn't: Screen Time may be turned on there, so the
+    /// choice lasts only until the next start (the Focus tab's own `plainTimer`).
+    public func choosePlainTimer(capability: BlockingCapability) {
+        guard capability == .unavailableInBuild else { return }
+        change { $0.plainTimerChosen = true }
+    }
+
+    /// The Focus tab goes straight to the plain timer's start screen, whose "Plain timer · apps aren't locked" keeps it
+    /// honest: the plain timer was chosen once, and this build can never block. Always false in a build that can
+    /// block, whatever was saved.
+    public func opensPlainTimer(capability: BlockingCapability) -> Bool {
+        capability == .unavailableInBuild && plainTimerChosen
+    }
+
     /// The reminder switches, as `ReminderPlan` reads them.
     public var reminders: ReminderSettings {
         ReminderSettings(windDown: windDownReminder, sessionEnd: sessionEndReminder, studyReminder: studyReminderTime)
@@ -232,13 +286,30 @@ public final class AppSettings {
     /// the member's settings, like every other store, so a demo never writes the real file.
     public static func launch(directory: URL = MapleContainer.directory()) -> AppSettings {
         #if DEBUG
-        if DemoLaunchOptions.current.isActive {
-            let saved = JSONStorage<SettingsSnapshot>(.file(directory.appending(path: file))).load()
-            return AppSettings(storage: JSONStorage(.memory, initial: saved))
-        }
+        let options = DemoLaunchOptions.current
+        if options.isActive { return demo(options, directory: directory) }
         #endif
         return live(directory: directory)
     }
+
+    #if DEBUG
+    /// A demo launch's settings: an in-memory copy of the member's. With Focus arguments or `-MapleDemoFresh`, the first
+    /// start follows the launch (P4: only a first session and a fresh install, `-MapleDemoFresh` with or without Focus
+    /// arguments, haven't started one), and only today's earlier sessions' receipts have been seen (P5), so the
+    /// scenario's own receipt shows and an earlier one never does. The plain timer was chosen before only with
+    /// `-MapleDemoPlainTimerChosen YES`.
+    static func demo(_ options: DemoLaunchOptions, directory: URL) -> AppSettings {
+        var saved = JSONStorage<SettingsSnapshot>(.file(directory.appending(path: file))).load()
+        if options.hasFocusArguments || options.fresh {
+            var focus = saved ?? SettingsSnapshot()
+            focus.hasStartedFocus = !options.fresh && FocusDemoScenario(options).hasStartedFocus
+            focus.lastReceiptSeen = options.fresh ? nil : FocusDemoScenario(options).seenReceipt
+            focus.plainTimerChosen = !options.fresh && options.plainTimerChosen
+            saved = focus
+        }
+        return AppSettings(storage: JSONStorage(.memory, initial: saved))
+    }
+    #endif
 
     // MARK: Private
 

@@ -17,8 +17,8 @@ enum RevealDemoOptions {
     /// `-MapleDemoRevealLeaf <speciesID>`: the waiting leaf `-MapleDemoPresent reveal` opens first
     /// (`RevealFlow(startingWith:)`).
     static var leaf: String? { isDemoLaunch ? UserDefaults.standard.string(forKey: "MapleDemoRevealLeaf") : nil }
-    /// `-MapleDemoReduceMotion YES`: the reveal and the onboarding end render as under Reduce Motion
-    /// (`simctl` has no Reduce Motion switch).
+    /// `-MapleDemoReduceMotion YES`: the whole app renders as under Reduce Motion: the reveal, the onboarding end and
+    /// every Focus screen (`simctl` has no Reduce Motion switch).
     static var reduceMotion: Bool { isDemoLaunch && UserDefaults.standard.bool(forKey: "MapleDemoReduceMotion") }
     /// `-MapleDemoOnboardingStep <step>`: opens onboarding on one screen (docs/debug-launch-arguments.md). The
     /// setup screens: `wake`, `weekend`, `weekend:later`, `sleep`, `winddown`, `schedule`, `schedule:weekend`,
@@ -40,7 +40,7 @@ enum RevealDemoOptions {
 }
 
 extension View {
-    /// Applies `-MapleDemoReduceMotion` to everything inside.
+    /// Applies `-MapleDemoReduceMotion` to everything inside: at the tabs, and at each presented root that shows Focus.
     func revealDemoMotion() -> some View {
         modifier(RevealDemoMotion())
     }

@@ -229,6 +229,37 @@ struct ComponentTests {
         #expect(!StatNumber.startsNewGroup(parts, at: 9))
     }
 
+    @Test("Home's numeral: two saved values roll, a running session's time changes crisply, and a switch between them either way cross-fades")
+    func statNumberChange() {
+        #expect(StatNumber.Change.between(rolledBefore: true, rollsNow: true) == .roll)
+        #expect(StatNumber.Change.between(rolledBefore: false, rollsNow: false) == .none)
+        // A session ending on Home ("0:01" to "2h 10m"), and one starting: never a roll, which animates a blur.
+        #expect(StatNumber.Change.between(rolledBefore: false, rollsNow: true) == .crossFade)
+        #expect(StatNumber.Change.between(rolledBefore: true, rollsNow: false) == .crossFade)
+        // Each change's own transition. A crisp change has none, so Home's own animation of its state (which runs each
+        // second while a session does) can't fade the time from one second to the next.
+        #expect(StatNumber.Change.roll.transition == .numericText())
+        #expect(StatNumber.Change.crossFade.transition == .opacity)
+        #expect(StatNumber.Change.none.transition == .identity)
+    }
+
+    @Test("A numeral that doesn't roll (Home's while a session runs) draws exactly as one that does: only its change differs")
+    func statNumberWithoutRoll() throws {
+        let size = CGSize(width: 300, height: 120)
+        let parts: [StatNumber.Part] = [.value("0:42")]
+        let rolling = try pixels(of: StatNumber(parts).background(Color.black), size: size)
+        let crisp = try pixels(of: StatNumber(parts, rolls: false).background(Color.black), size: size)
+        #expect(crisp == rolling)
+        #expect(crisp.contains { $0 > 200 })
+        let block = CGSize(width: 402, height: 160)
+        func now(rolls: Bool) -> some View {
+            NowBlock(numeral: [.value("32"), .unit("m")], caption: "left in this session",
+                     spoken: "32 minutes left in this session.", rolls: rolls)
+                .background(Color.black)
+        }
+        #expect(try pixels(of: now(rolls: false), size: block) == pixels(of: now(rolls: true), size: block))
+    }
+
     @Test("The segmented thumb covers exactly one segment inside the track's inset")
     func segmentedThumb() {
         let width = SegmentedCapsuleMetrics.thumbWidth(total: 304, count: 3)
@@ -367,6 +398,27 @@ struct ComponentTests {
         #expect(!containsAmber(try pixels(of: primer, size: CGSize(width: 402, height: 420))))
         let resting = BudGlyph(waiting: false).frame(width: 96, height: 96)
         #expect(!containsAmber(try pixels(of: resting, size: CGSize(width: 96, height: 96))))
+    }
+
+    @Test("The Focus streak is a drawn Field maple in reward amber, and the header shows it only from a 2-day run")
+    func streakLeaf() throws {
+        // The leaf's colour is the reward token, so the two can't drift apart.
+        let reward = Theme.maple.colors.reward.resolve(in: EnvironmentValues())
+        #expect(abs(Double(reward.red) * 255 - Double(StreakLeaf.color.red)) < 1.5)
+        #expect(abs(Double(reward.green) * 255 - Double(StreakLeaf.color.green)) < 1.5)
+        #expect(abs(Double(reward.blue) * 255 - Double(StreakLeaf.color.blue)) < 1.5)
+        #expect(LeafCatalog.shared.species(id: StreakLeaf.speciesID)?.displayName == "Field maple")
+        let leaf = StreakLeaf(detailed: true).frame(width: 40, height: 40).background(Color.black)
+        #expect(containsAmber(try pixels(of: leaf, size: CGSize(width: 40, height: 40))))
+        // Winter's tint is blue, and there is no avatar, so any amber in the header comes from the streak.
+        let date = Date(timeIntervalSince1970: 1_792_000_000)
+        func header(_ streak: Int) -> some View {
+            HomeHeader(season: .winter, date: date, streak: streak, avatar: nil, onStreak: {}, onAvatar: {})
+                .frame(width: 402)
+                .background(Color.black)
+        }
+        #expect(!containsAmber(try pixels(of: header(1), size: CGSize(width: 402, height: 44))))
+        #expect(containsAmber(try pixels(of: header(12), size: CGSize(width: 402, height: 44))))
     }
 
     @Test("Every component renders in every state without failing")

@@ -12,6 +12,52 @@ nonisolated public enum DemoData {
     /// Permissions a demo collection assumes unless `-MapleDemoPermissions` says otherwise.
     public static let defaultPermissions: GrantedPermissions = [.appleHealth, .sleepTracker]
 
+    /// A Focus history for a demo collection (F1b): finished days making the streak, and the hours counted before
+    /// today. It fixes the collection's three focus counters, so every focus leaf below them is earned and none above.
+    nonisolated public struct FocusHistory: Sendable, Equatable {
+        /// The day the history runs up to. It holds no credit of its own: today's sessions come from the ledger.
+        public var today: LocalDay
+        /// Seconds counted before today: the history's days plus the book's baseline.
+        public var secondsBeforeToday: Int
+        /// The run through yesterday, with a rest day 4 days ago once it is 6 days or longer. Today's first finished
+        /// session adds one.
+        public var runThroughYesterday: Int
+        /// The best run, which ended 10 days before the current run began.
+        public var bestRun: Int
+
+        public init(today: LocalDay, secondsBeforeToday: Int, runThroughYesterday: Int, bestRun: Int) {
+            self.today = today
+            self.secondsBeforeToday = secondsBeforeToday
+            self.runThroughYesterday = runThroughYesterday
+            self.bestRun = bestRun
+        }
+    }
+
+    /// Counted seconds on each of a history's finished days.
+    public static let focusDaySeconds = 25 * 60
+
+    /// The finished days of `history`, oldest first: each one frozen (totals only), with one finished session and
+    /// `focusDaySeconds` counted.
+    public static func focusDays(_ history: FocusHistory, calendar: Calendar) -> [DayCredit] {
+        var offsets: [Int] = []
+        if history.runThroughYesterday > 0 {
+            let restDay: Int? = history.runThroughYesterday >= 6 ? -4 : nil
+            offsets += (1...history.runThroughYesterday).map { -$0 }.filter { $0 != restDay }
+        }
+        if history.bestRun > 0 {
+            let end = -(history.runThroughYesterday + 10)
+            offsets += (0..<history.bestRun).map { end - $0 }
+        }
+        let zone = calendar.timeZone.identifier
+        return offsets.sorted().map { offset in
+            let day = history.today.adding(days: offset, calendar: calendar)
+            let start = day.startDate(in: calendar)
+            return DayCredit(day: day, zone: zone, seconds: focusDaySeconds, finished: 1,
+                             firstCountedAt: start.addingTimeInterval(16 * 3600), dayEnd: start.addingTimeInterval(23 * 3600),
+                             frozen: true)
+        }
+    }
+
     /// A collection of `species` leaves earned over `tendedDays` days, ending yesterday.
     ///
     /// - The cheapest rungs (threshold ÷ design pace) come first, from categories that are shipped and available
@@ -20,34 +66,48 @@ nonisolated public enum DemoData {
     /// - Counters sit part-way to each category's next rung, so next-leaf bars show progress.
     /// - Unlock dates spread over about 1.6 × `tendedDays`, at noon, so pressed colourways mix seasons.
     /// - The `waiting` newest leaves are unopened and can be opened in morning, day and evening.
+    /// - A `focusHistory` fixes the hours, sessions and streak counters instead (hours: its seconds before today;
+    ///   sessions: its finished days; streak: its best run) and puts its days in the focus book. Every focus leaf below
+    ///   those counters is earned, before any other rung, so a collection then holds at least those and the Sugar maple.
     public static func snapshot(
         species count: Int, tendedDays days: Int, waiting: Int, now: Date, calendar: Calendar = .current,
         hemisphere: Hemisphere = .current, permissions: GrantedPermissions = defaultPermissions,
-        features: ShippedFeatures = .current
+        features: ShippedFeatures = .current, focusHistory: FocusHistory? = nil
     ) -> CollectionSnapshot {
         let rewards = RewardCatalog.shared
-        let total = min(max(0, count), rewards.assignments.count)
+        let focusDays = focusHistory.map { Self.focusDays($0, calendar: calendar) } ?? []
+        let daySeconds = focusDays.reduce(0) { $0 + $1.seconds }
+        let dayFinished = focusDays.reduce(0) { $0 + $1.finished }
+        var fixed: [RewardCategoryID: Double] = [:]
+        if let focusHistory {
+            fixed[.hoursSaved] = Double(max(focusHistory.secondsBeforeToday, daySeconds)) / 3600
+            fixed[.sessionsFinished] = Double(dayFinished)
+            fixed[.focusStreak] = Double(focusDays.isEmpty ? 0 : focusHistory.bestRun)
+        }
+        let forced = rewards.assignments.filter { rung in fixed[rung.categoryID].map { rung.threshold <= $0 } ?? false }
+        var total = min(max(0, count), rewards.assignments.count)
+        if total > 0 { total = min(max(total, forced.count + 1), rewards.assignments.count) }
         let today = LocalDay(now, calendar: calendar)
         let span = max(Int((Double(max(0, days)) * 1.6).rounded()), days + 1, total + 1, 2)
         let start = today.adding(days: -span, calendar: calendar)
         var snapshot = CollectionSnapshot.empty(profileID: profileID, createdAt: noon(of: start, calendar: calendar))
         guard total > 0 else { return snapshot }
 
-        // Choose rungs: available categories first, each in order of cost.
+        // Choose rungs: the focus rungs a history has earned, then available categories first, each in order of cost.
         func isAvailable(_ category: RewardCategoryID) -> Bool {
             LeafAvailability(category: category, permissions: permissions, features: features) == .available
         }
         func cost(_ rung: RewardAssignment) -> Double {
             rung.categoryID == .firstLeaf ? 0 : rung.threshold / RewardCategoryInfo(rung.categoryID).designPace
         }
-        let ranked = rewards.assignments.sorted { a, b in
+        let ranked = rewards.assignments.filter { fixed[$0.categoryID] == nil }.sorted { a, b in
             let pa = isAvailable(a.categoryID) ? 0 : 1, pb = isAvailable(b.categoryID) ? 0 : 1
             if pa != pb { return pa < pb }
             if cost(a) != cost(b) { return cost(a) < cost(b) }
             let oa = RewardCategoryInfo(a.categoryID).order, ob = RewardCategoryInfo(b.categoryID).order
             return oa != ob ? oa < ob : a.threshold < b.threshold
         }
-        let chosen = Array(ranked.prefix(total))
+        let chosen = forced + Array(ranked.prefix(total - forced.count))
         let maxCost = max(1, chosen.map(cost).max() ?? 1)
 
         // Unlocks, dated by cost across the span (the newest yesterday).
@@ -61,7 +121,7 @@ nonisolated public enum DemoData {
                               colourway: LeafColourway.pressed(in: season, evergreen: evergreen), revealed: true, seen: true)
         }
         unlocks = unlocks.enumerated().sorted { ($0.element.date, $0.offset) < ($1.element.date, $1.offset) }.map(\.element)
-        let waitingCount = min(max(0, waiting), total - 1)
+        let waitingCount = min(max(0, waiting), unlocks.count - 1)
         for index in unlocks.indices.suffix(waitingCount) {
             unlocks[index].revealed = false
             unlocks[index].seen = false
@@ -71,12 +131,16 @@ nonisolated public enum DemoData {
         }
         snapshot.unlocks = unlocks
         snapshot.revealedAt = Dictionary(uniqueKeysWithValues: unlocks.filter(\.revealed).map { ($0.speciesID, $0.date.addingTimeInterval(30 * 60)) })
-        snapshot.revealsOpened = total - waitingCount
+        snapshot.revealsOpened = unlocks.count - waitingCount
 
-        // Counters: each category part-way from its top earned rung to the next.
+        // Counters: a history's fixed values; every other category part-way from its top earned rung to the next.
         var counters: [RewardCategoryID: Double] = [:]
         let earnedIDs = Set(chosen.map(\.speciesID))
         for category in rewards.categories {
+            if let value = fixed[category.id] {
+                if value > 0 { counters[category.id] = value }
+                continue
+            }
             let rungs = rewards.rungs(in: category.id)
             let earned = rungs.filter { earnedIDs.contains($0.speciesID) }
             let floor = earned.last?.threshold ?? 0
@@ -90,10 +154,12 @@ nonisolated public enum DemoData {
             if value > 0 { counters[category.id] = min(value, next - 1) }
         }
         snapshot.counters = counters
-        // The focus book carries the focus counters as its baseline, as a real collection's would after an update.
+        // The focus book carries the focus counters: its days, and a baseline for the rest, as a real collection's
+        // would after an update.
         snapshot.focus = FocusBook(
-            baseline: FocusTotals(seconds: Int(((counters[.hoursSaved] ?? 0) * 3600).rounded()),
-                                  finished: Int(counters[.sessionsFinished] ?? 0)),
+            days: focusDays,
+            baseline: FocusTotals(seconds: max(0, Int(((counters[.hoursSaved] ?? 0) * 3600).rounded()) - daySeconds),
+                                  finished: max(0, Int(counters[.sessionsFinished] ?? 0) - dayFinished)),
             bestRun: Int(counters[.focusStreak] ?? 0), startedAt: noon(of: start, calendar: calendar)
         )
 

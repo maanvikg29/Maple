@@ -22,9 +22,12 @@ struct MemberShareResolverTests {
 
     @Test("Unshipped categories are not earnable yet, whatever the data")
     func notEarnable() {
-        #expect(share("buergerianum", counts: nil) == .notEarnableYet)
-        #expect(share("buergerianum", counts: counts(members: 5_000, ["buergerianum": 40])) == .notEarnableYet)
-        #expect(share("buergerianum", counts: counts(members: 5_000, ["buergerianum": 40]), features: .all) != .notEarnableYet)
+        // Phone-free mornings ship with F2.
+        #expect(share("sempervirens", counts: nil) == .notEarnableYet)
+        #expect(share("sempervirens", counts: counts(members: 5_000, ["sempervirens": 40])) == .notEarnableYet)
+        #expect(share("sempervirens", counts: counts(members: 5_000, ["sempervirens": 40]), features: .all) != .notEarnableYet)
+        // Sessions finished shipped with F1.
+        #expect(share("buergerianum", counts: counts(members: 5_000, ["buergerianum": 40])) != .notEarnableYet)
         #expect(share("not-a-species", counts: nil) == .notEarnableYet)
     }
 

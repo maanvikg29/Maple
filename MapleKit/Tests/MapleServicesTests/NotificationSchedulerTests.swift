@@ -100,6 +100,25 @@ struct NotificationSchedulerTests {
         #expect(!center.pending.values.contains { $0.request.kind == .sessionEnd })
     }
 
+    @Test("A session's end counts its time left from the moment the plan was made for, not the scheduler's clock")
+    func trustedNow() async throws {
+        let center = FakeNotificationCenter()
+        // The member has set the clock an hour forward; the session store's trusted time is still `now`.
+        let scheduler = NotificationScheduler(center: center, clock: .fixed(now.addingTimeInterval(3600)))
+        let running = ReminderPlan.RunningSession(id: UUID(), plannedEnd: now.addingTimeInterval(50 * 60), presetName: "Study",
+                                                  plannedMinutes: 50, isPlainTimer: false)
+        let withSession = ReminderPlan(.init(
+            nights: UpcomingNight.nights(for: .standard, around: now, calendar: utc), settings: .allOn, now: now,
+            calendar: utc, locale: Locale(identifier: "en_GB"), runningSession: running
+        ))
+        await scheduler.reschedule(plan: withSession, now: now)
+        let end = try #require(center.pending.values.first { $0.request.kind == .sessionEnd })
+        #expect(end.trigger == .after(50 * 60))
+        // On the moved clock alone the end looks past, and it would be dropped.
+        await scheduler.reschedule(plan: withSession)
+        #expect(!center.pending.values.contains { $0.request.kind == .sessionEnd })
+    }
+
     @Test("Rescheduling again replaces rather than duplicates, and drops what the plan no longer has")
     func replaces() async {
         let center = FakeNotificationCenter()

@@ -5,6 +5,10 @@
 MAPLE_BUNDLE_ID = com.maanvikgupta.maple
 MAPLE_APP_GROUP = group.com.maanvikgupta.maple
 
+// The app and every extension it embeds carry the same version and build: an extension's must match its app's.
+MARKETING_VERSION = 0.1.0
+CURRENT_PROJECT_VERSION = 1
+
 SDKROOT = iphoneos
 SUPPORTED_PLATFORMS = iphoneos iphonesimulator
 IPHONEOS_DEPLOYMENT_TARGET = 27.0
@@ -22,6 +26,8 @@ ALWAYS_SEARCH_USER_PATHS = NO
 CLANG_ENABLE_MODULES = YES
 CLANG_ENABLE_OBJC_ARC = YES
 ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES
+// Embedding the signed MapleWidgets extension: copy it as built (stripping a signed binary only warns).
+COPY_PHASE_STRIP = NO
 
 // Warnings worth catching early.
 CLANG_WARN_DOCUMENTATION_COMMENTS = YES
