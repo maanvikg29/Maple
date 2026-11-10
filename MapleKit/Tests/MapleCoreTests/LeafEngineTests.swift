@@ -110,9 +110,11 @@ struct RevealScheduleTests {
         #expect(release(at(2026, 10, 10, 20, 14)) == at(2026, 10, 10, 20, 14))
     }
 
-    @Test("Unlocks from Evening start are held until the next Morning start")
+    @Test("Unlocks in Evening are pending at once; from Wind-down start they are held until the next Morning start")
     func evening() {
-        #expect(release(at(2026, 10, 10, 20, 15)) == at(2026, 10, 11, 6))
+        #expect(release(at(2026, 10, 10, 20, 15)) == at(2026, 10, 10, 20, 15))
+        #expect(release(at(2026, 10, 10, 22, 14)) == at(2026, 10, 10, 22, 14))
+        #expect(release(at(2026, 10, 10, 22, 15)) == at(2026, 10, 11, 6))
         #expect(release(at(2026, 10, 10, 23, 30)) == at(2026, 10, 11, 6))
         #expect(release(at(2026, 10, 11, 2)) == at(2026, 10, 11, 6))
         #expect(release(at(2026, 10, 11, 5, 59)) == at(2026, 10, 11, 6))
@@ -131,7 +133,8 @@ struct RevealScheduleTests {
             RevealSchedule.releaseDate(for: unlock(at: date), schedule: .everyNight(late), calendar: utc)
         }
         #expect(release(at(2026, 10, 10, 21, 59)) == at(2026, 10, 10, 21, 59))
-        #expect(release(at(2026, 10, 10, 22)) == at(2026, 10, 11, 8))
+        #expect(release(at(2026, 10, 10, 22)) == at(2026, 10, 10, 22))            // Evening: at once
+        #expect(release(at(2026, 10, 11, 0)) == at(2026, 10, 11, 8))              // Wind-down: held
         #expect(release(at(2026, 10, 11, 0, 30)) == at(2026, 10, 11, 8))
         #expect(release(at(2026, 10, 11, 8)) == at(2026, 10, 11, 8))
     }
@@ -139,10 +142,10 @@ struct RevealScheduleTests {
     @Test("Pending and held partition the unrevealed leaves")
     func partition() {
         let day = unlock("rubrum", at: at(2026, 10, 10, 14))
-        let night = unlock("nigrum", at: at(2026, 10, 10, 21))
+        let night = unlock("nigrum", at: at(2026, 10, 10, 22, 20))                 // Wind-down
         let opened = unlock("saccharinum", at: at(2026, 10, 10, 9), revealed: true)
         let all = [day, night, opened]
-        let evening = at(2026, 10, 10, 21, 30)
+        let evening = at(2026, 10, 10, 22, 30)
         #expect(RevealSchedule.pending(all, at: evening, schedule: schedule, calendar: utc).map(\.speciesID) == ["rubrum"])
         #expect(RevealSchedule.held(all, at: evening, schedule: schedule, calendar: utc).map(\.speciesID) == ["nigrum"])
         let morning = at(2026, 10, 11, 6, 30)

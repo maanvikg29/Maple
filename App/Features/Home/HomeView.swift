@@ -246,8 +246,8 @@ struct HomeView: View {
             cover = .windDown
         case .openReveals:
             presentingRevealWithoutSlide { cover = .reveal(nil) }
-        case .startFocus, .returnToFocus:
-            // Focus lives in Rest (spec §2.2); Home offers it only once it ships.
+        case .startFocus, .returnToSession, .turnOnBlocking:
+            // Until F1b adds the Focus tab, focus lives in Rest; Home offers these only once focus ships.
             router.selectedTab = .rest
         }
     }

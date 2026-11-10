@@ -4,7 +4,7 @@ import MapleCore
 import MapleDesign
 import MapleServices
 
-/// Keeps Maple's wind-down reminder in step with the member's day: reschedules
+/// Keeps Maple's reminders in step with the member's day: reschedules
 /// (`NotificationScheduler.reschedule(plan:)`) on every foreground and whenever the plan's inputs change (a schedule
 /// save, the reminder switch, wind-down mode opening, iOS's permission answer, and a time-zone or clock change).
 struct ReminderUpkeep: ViewModifier {
@@ -56,7 +56,8 @@ struct ReminderUpkeep: ViewModifier {
 
     private func reschedule() async {
         let plan = ReminderInputs.plan(
-            collection: collection, schedule: schedule, settings: settings, bedside: bedside, now: clock.now(), locale: locale
+            collection: collection, schedule: schedule, settings: settings, windDownOpenedAt: bedside.session.startedAt,
+            runningSession: nil, lastSessionStart: nil, now: clock.now(), locale: locale
         )
         await reminders.reschedule(plan: plan)
     }

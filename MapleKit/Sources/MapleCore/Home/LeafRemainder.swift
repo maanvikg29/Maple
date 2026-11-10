@@ -14,7 +14,8 @@ public struct LeafRemainder: Sendable, Equatable {
         let unit = Self.unit(for: progress.category)
         let remaining = progress.remaining
         if unit == .hours {
-            text = HomeFormat.duration(minutes: Int((remaining * 60).rounded()))
+            // Up to the next minute: a leaf seconds away reads "1m", never "0m" (F1 design §3.6).
+            text = HomeFormat.duration(minutes: Int((remaining * 60 - 1e-9).rounded(.up)))
             amount = "\(Int(progress.current))h of \(Int(progress.threshold))h"
         } else {
             let count = Int((remaining - 1e-9).rounded(.up))

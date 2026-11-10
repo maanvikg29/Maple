@@ -28,6 +28,9 @@ public enum LeafAvailability: Sendable, Equatable {
     case available
     case needsAppleHealth
     case needsScreenTime
+    /// The category needs Screen Time, which this build can't use (a free build): "Not available in this build",
+    /// with no button. Home's pick treats it like `dormant`.
+    case notInThisBuild
     /// The category ships in a later release ("Not earnable yet").
     case dormant
 }
@@ -53,10 +56,12 @@ public struct LeafProgress: Sendable, Identifiable, Equatable {
     public let state: LeafState
     /// Days to reach the threshold at the member's pace (or the design pace); nil when unavailable or earned.
     public let estimatedDays: Double?
+    /// The threshold of the rung below in this category's ladder, 0 for the first rung.
+    public let floor: Double
 
     public init(
         speciesID: String, category: RewardCategoryID, threshold: Double, tier: RewardTier, current: Double,
-        availability: LeafAvailability, state: LeafState, estimatedDays: Double?
+        availability: LeafAvailability, state: LeafState, estimatedDays: Double?, floor: Double = 0
     ) {
         self.speciesID = speciesID
         self.category = category
@@ -66,11 +71,19 @@ public struct LeafProgress: Sendable, Identifiable, Equatable {
         self.availability = availability
         self.state = state
         self.estimatedDays = estimatedDays
+        self.floor = floor
     }
 
     /// Progress toward the threshold, 0...1.
     public var fraction: Double {
         threshold > 0 ? min(1, max(0, current / threshold)) : 0
+    }
+
+    /// Progress within this rung, from the rung below to the threshold, 0...1: the dial's leaf fill (F1 design §4.3).
+    /// Every other surface uses `fraction`.
+    public var rungFraction: Double {
+        let span = threshold - floor
+        return span > 0 ? min(1, max(0, (current - floor) / span)) : (current >= threshold ? 1 : 0)
     }
 
     /// Whole units still needed, e.g. 3 (nights).

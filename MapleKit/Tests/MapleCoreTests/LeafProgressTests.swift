@@ -61,6 +61,16 @@ struct AvailabilityTests {
         #expect(LeafAvailability(category: .hoursSaved, permissions: none, features: .all) == .needsScreenTime)
         #expect(LeafAvailability(category: .hoursSaved, permissions: [.screenTime], features: .all) == .available)
     }
+
+    @Test("A build that can't block shows Screen Time leaves as not in this build, whatever is granted")
+    func notInThisBuild() {
+        let all = ShippedFeatures.all
+        #expect(LeafAvailability(category: .hoursSaved, permissions: [.screenTime], features: all, blocking: .unavailableInBuild) == .notInThisBuild)
+        #expect(LeafAvailability(category: .hoursSaved, permissions: [], features: all, blocking: .preview) == .needsScreenTime)
+        #expect(LeafAvailability(category: .restedNights, permissions: [.appleHealth], features: all, blocking: .unavailableInBuild) == .available)
+        #expect(LeafAvailability(category: .hoursSaved, permissions: [], features: .current, blocking: .unavailableInBuild) == .dormant)
+        #expect(!LeafAvailability.notInThisBuild.canBeTurnedOn)
+    }
 }
 
 @Suite("Pace")
@@ -158,6 +168,18 @@ struct LeafProgressBuilderTests {
         let focus = try #require(rows.first { $0.category == .hoursSaved })
         #expect(focus.availability == .dormant)
         #expect(focus.estimatedDays == nil)
+    }
+
+    @Test("Each rung knows the rung below it, for the dial's fill")
+    func rungFloor() {
+        let rows = LeafProgressBuilder(permissions: [.screenTime], features: .all)
+            .progress(counters: [.hoursSaved: 2.5], unlocks: [], history: [], today: today, calendar: utc)
+        let hours = rows.filter { $0.category == .hoursSaved }
+        #expect(hours.prefix(4).map(\.floor) == [0, 1, 2, 3])
+        #expect(hours[0].rungFraction == 1)
+        #expect(hours[2].rungFraction == 0.5)                                    // 2 → 3, at 2.5
+        #expect(hours[3].rungFraction == 0)                                      // 3 → 5, not started
+        #expect(hours[2].fraction == 2.5 / 3)                                    // other surfaces keep the whole ladder
     }
 }
 

@@ -45,6 +45,8 @@ enum ReminderDemo {
                 body: ReminderCopy.windDownBody(bedtime: night?.bedtime ?? now, calendar: calendar, locale: locale),
                 threadID: kind.threadID, interruption: .active, playsSound: true
             )
+        case .sessionEnd, .studyReminder:
+            return                                  // `requestedKind` only names wind-down
         }
         await reminders.postDemo(request, after: delay)
     }

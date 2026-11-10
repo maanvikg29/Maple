@@ -125,8 +125,8 @@ private func homeStill(
 
 @MainActor
 func snapshotScenes() -> [SnapshotScene] {
-    let next = progress(.onTimeBedtimes, current: 9)
-    let firstRung = progress(.nightsTracked, current: 0)
+    let next = progress(.restedNights, current: 9)
+    let firstRung = progress(.restedNights, current: 0)
     var scenes: [SnapshotScene] = []
 
     // Whole first screen, composed.
@@ -175,19 +175,6 @@ func snapshotScenes() -> [SnapshotScene] {
             NextLeafRow(content, action: {}).padding(.horizontal, 24)
         })
     }
-
-    // The Streak sheet's 14 nights: a 9-night run with one forgiven miss.
-    var calendar = Calendar(identifier: .gregorian)
-    calendar.timeZone = TimeZone(identifier: "UTC")!
-    let lastNight = LocalDay(year: 2026, month: 10, day: 9)
-    let onTime: [Bool] = [true, false, true, true, true, true, false, true, true, true, true, true]
-    let nights = onTime.enumerated().map { index, value in
-        NightRecord(day: lastNight.adding(days: index - onTime.count + 1, calendar: calendar), onTime: value, fullNight: nil, scrollFree: nil)
-    }
-    scenes.append(piece("40-run-row", height: 60) {
-        BedtimeRunRow(marks: BedtimeRunNights.marks(nights: nights, currentRun: 9, lastNight: lastNight, calendar: calendar))
-            .padding(.horizontal, 20)
-    })
 
     // Tree view at 1× and 2×.
     let model = tree(species: 23, growth: 0.21, phase: .evening, waiting: 1)

@@ -83,6 +83,16 @@ struct DemoDataTests {
         #expect(demo(23).treeSeed == DemoData.snapshot(species: 90, tendedDays: 200, waiting: 2, now: now, calendar: utc, hemisphere: .northern).treeSeed)
     }
 
+    @Test("A demo collection's focus book matches its counters")
+    func demoBook() {
+        let snapshot = DemoData.snapshot(species: 40, tendedDays: 60, waiting: 0, now: at(2026, 10, 23, 12), calendar: utc,
+                                         hemisphere: .northern, features: .all)
+        #expect(snapshot.focus.startedAt != nil)
+        #expect(Double(snapshot.focus.totalSeconds) == ((snapshot.counters[.hoursSaved] ?? 0) * 3600).rounded())
+        #expect(Double(snapshot.focus.totalFinished) == snapshot.counters[.sessionsFinished] ?? 0)
+        #expect(Double(snapshot.focus.bestRun) == snapshot.counters[.focusStreak] ?? 0)
+    }
+
     @Test("Zero species is an empty collection")
     func empty() {
         let snapshot = demo(0)

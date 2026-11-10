@@ -206,7 +206,7 @@ struct TreeLayoutTests {
         let (older, newer, held) = (unlocks[5], unlocks[6], unlocks[8])
         for g in [0.0, 0.2, 0.5, 0.9] {
             // The newer leaf was opened first (its Herbarium tile); the older one and the last one still wait, and the
-            // very last was earned in the evening, so it is held and drawn nowhere yet.
+            // very last was earned in wind-down, so it is held and drawn nowhere yet.
             let early = TreeLayout.generate(
                 seed: seed, growth: g, species: unlocks.filter { ![older, unlocks[7], held].contains($0) },
                 waiting: [older, unlocks[7]], unlockOrder: unlocks

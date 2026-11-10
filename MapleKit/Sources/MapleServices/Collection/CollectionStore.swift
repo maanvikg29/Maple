@@ -25,7 +25,9 @@ public final class CollectionStore {
     @ObservationIgnored private let storage: JSONStorage<CollectionSnapshot>
     @ObservationIgnored private let engine = LeafEngine()
     @ObservationIgnored private var revision = 0
-    @ObservationIgnored private var cache: (revision: Int, day: LocalDay, rows: [LeafProgress], byID: [String: LeafProgress], picker: NextLeafPicker)?
+    @ObservationIgnored private var cache: (
+        revision: Int, day: LocalDay, mapleDay: LocalDay, rows: [LeafProgress], byID: [String: LeafProgress], picker: NextLeafPicker
+    )?
 
     /// Loads the saved collection, or on a first run creates (and saves) an empty one with a new profile id and tree
     /// seed. A file that is there but unreadable is never replaced: see `isAvailable`.
@@ -37,6 +39,7 @@ public final class CollectionStore {
         case .value(let saved):
             snapshot = saved
             isAvailable = true
+            Self.keepOriginal(of: saved, in: storage)
         case .absent:
             snapshot = .empty(profileID: UUID(), createdAt: now)
             isAvailable = true
@@ -56,6 +59,7 @@ public final class CollectionStore {
         switch storage.read() {
         case .value(let saved):
             snapshot = saved
+            Self.keepOriginal(of: saved, in: storage)
         case .absent:
             snapshot = .empty(profileID: UUID(), createdAt: now)
             storage.save(snapshot)
@@ -187,10 +191,19 @@ public final class CollectionStore {
     /// by then settle as untracked. Late data upgrades a settled night for 72 hours and never downgrades it; passing
     /// the same nights again changes nothing, so the importer can send the last few nights on every run. Nothing is
     /// recorded before the maple is planted.
-    /// - Returns: Leaves unlocked, stamped `date`: pending at once in the morning and day, held from Evening on.
+    /// - Returns: Leaves unlocked, stamped `date`: pending at once until Wind-down, held from Wind-down until morning.
     @discardableResult
     public func recordSleep(_ nights: [SleepNightObservation], at date: Date) -> [LeafUnlock] {
         mutate { $0.recordSleep(nights, at: date, context: context, engine: engine) }
+    }
+
+    /// The one call `FocusSessionStore` makes: replayed sessions' credit (`HoursCredit`). Records it in the focus book
+    /// and raises the focus counters to its totals, each leaf dated when its credit was proven. Passing the same
+    /// credit again changes nothing, so the session store sends every open day's sessions on each replay.
+    /// - Returns: Leaves unlocked.
+    @discardableResult
+    public func applyFocus(_ credits: [SessionCredit], at date: Date) -> [LeafUnlock] {
+        mutate { $0.applyFocus(credits, at: date, context: context, engine: engine) }
     }
 
     /// The member saved a schedule (`ScheduleStore.save`). Nights already under way keep being judged by the one
@@ -233,6 +246,10 @@ public final class CollectionStore {
     /// The tree's vitality on the day of `date`, from the week of nights before it (spec §4.8).
     public func vitality(at date: Date) -> Vitality { snapshot.vitality(at: date, calendar: context.calendar) }
     public var totals: ProfileTotals { snapshot.totals(context: context) }
+    /// Every Maple day's focus credit.
+    public var focus: FocusBook { snapshot.focus }
+    /// The Focus streak's current run at `date`.
+    public func currentRun(at date: Date) -> Int { snapshot.currentRun(at: date, context: context) }
 
     public func unlock(for speciesID: String) -> LeafUnlock? { snapshot.unlock(for: speciesID) }
     public func isUnseen(_ speciesID: String) -> Bool { snapshot.isUnseen(speciesID) }
@@ -250,7 +267,7 @@ public final class CollectionStore {
 
     /// Leaves no longer held.
     public func pending(at date: Date) -> [LeafUnlock] { snapshot.pending(at: date, context: context) }
-    /// Leaves earned from Evening on, held until Morning.
+    /// Leaves earned in Wind-down or at night, held until Morning.
     public func held(at date: Date) -> [LeafUnlock] { snapshot.held(at: date, context: context) }
     /// What a reveal can open now. Home's waiting bud, row and CTA show exactly these.
     public func revealable(at date: Date) -> [LeafUnlock] { snapshot.revealable(at: date, context: context) }
@@ -278,19 +295,26 @@ public final class CollectionStore {
     public func treeInputs(at date: Date) -> TreeInputs { snapshot.treeInputs(at: date, context: context) }
 
     /// Home's NowBlock and CTA. Apple Health's last night, the Goodnight tap (the phone-down time the morning shows
-    /// without Apple Health, spec §3.4; it earns nothing) and focus are passed in once they exist.
+    /// without Apple Health, spec §3.4; it earns nothing) and the focus status (display credit) are passed in.
     public func nowState(
         at date: Date, locale: Locale = .current, lastNight: LastNightSleep? = nil, goodnightAt: Date? = nil,
         focus: FocusStatus? = nil, windDownActive: Bool = false
     ) -> NowState {
         NowState.resolve(
             date: date, weekly: context.schedule, calendar: context.calendar, locale: locale,
-            pending: pending(at: date).count, counters: snapshot.counters, features: context.features,
+            pending: pending(at: date).count, features: context.features,
             lastNight: lastNight, goodnightAt: goodnightAt, focus: focus, windDownActive: windDownActive
         )
     }
 
     // MARK: - Private
+
+    /// A file that read with losses (an unreadable field took its default, or an unlock was dropped) is copied aside
+    /// before anything can be saved, so the next save never destroys the original. A newer build's file is never
+    /// saved over, so it needs no copy.
+    private static func keepOriginal(of saved: CollectionSnapshot, in storage: JSONStorage<CollectionSnapshot>) {
+        if saved.decodedWithLosses, !saved.isFromNewerBuild { storage.copyAside() }
+    }
 
     private func mutate<Result>(_ change: (inout CollectionSnapshot) -> Result) -> Result {
         // A change always lands on the member's real collection: read it first if launch couldn't.
@@ -300,23 +324,26 @@ public final class CollectionStore {
         if copy != snapshot {
             snapshot = copy
             revision += 1
-            // The placeholder is never written over a file that couldn't be read.
-            if isAvailable { storage.save(copy) }
+            // The placeholder is never written over a file that couldn't be read, and a newer build's file is never
+            // written over at all (F1 design §3.5): changes then last until the app quits.
+            if isAvailable, !copy.isFromNewerBuild { storage.save(copy) }
         }
         return result
     }
 
     private func derived(at date: Date) -> (rows: [LeafProgress], byID: [String: LeafProgress], picker: NextLeafPicker) {
         let day = LocalDay(date, calendar: context.calendar)
+        // The Maple day turns at bedtime, not at midnight, and the Focus streak's current run follows it.
+        let mapleDay = snapshot.focusWindow(at: date, context: context).day
         // Reading the snapshot registers the observation even when the cache answers.
         _ = snapshot.counters
-        if let cache, cache.revision == revision, cache.day == day {
+        if let cache, cache.revision == revision, cache.day == day, cache.mapleDay == mapleDay {
             return (cache.rows, cache.byID, cache.picker)
         }
         let rows = snapshot.progress(at: date, context: context)
         let byID = Dictionary(uniqueKeysWithValues: rows.map { ($0.speciesID, $0) })
         let picker = NextLeafPicker(progress: rows)
-        cache = (revision, day, rows, byID, picker)
+        cache = (revision, day, mapleDay, rows, byID, picker)
         return (rows, byID, picker)
     }
 }

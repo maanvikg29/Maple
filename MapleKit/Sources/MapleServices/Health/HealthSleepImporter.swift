@@ -1,5 +1,6 @@
 import Foundation
 import MapleCore
+import MapleStorage
 import Observation
 import os
 

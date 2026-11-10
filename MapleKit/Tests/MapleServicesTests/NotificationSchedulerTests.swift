@@ -83,6 +83,23 @@ struct NotificationSchedulerTests {
         #expect(tonight.request.interruption == .active)
     }
 
+    @Test("A session's end is scheduled after its real time left, and goes when the session does")
+    func sessionEnd() async throws {
+        let center = FakeNotificationCenter()
+        let scheduler = NotificationScheduler(center: center, clock: .fixed(now))
+        let running = ReminderPlan.RunningSession(id: UUID(), plannedEnd: now.addingTimeInterval(50 * 60), presetName: "Study",
+                                                  plannedMinutes: 50, isPlainTimer: false)
+        let withSession = ReminderPlan(.init(
+            nights: UpcomingNight.nights(for: .standard, around: now, calendar: utc), settings: .allOn, now: now,
+            calendar: utc, locale: Locale(identifier: "en_GB"), runningSession: running
+        ))
+        await scheduler.reschedule(plan: withSession)
+        let end = try #require(center.pending.values.first { $0.request.kind == .sessionEnd })
+        #expect(end.trigger == .after(50 * 60))
+        await scheduler.reschedule(plan: plan(at: now))
+        #expect(!center.pending.values.contains { $0.request.kind == .sessionEnd })
+    }
+
     @Test("Rescheduling again replaces rather than duplicates, and drops what the plan no longer has")
     func replaces() async {
         let center = FakeNotificationCenter()
@@ -216,7 +233,37 @@ struct ReminderSettingsTests {
         settings.windDownReminder = false
         let reloaded = AppSettings(storage: JSONStorage(.file(url)), regionCode: "GB")
         #expect(!reloaded.windDownReminder)
-        #expect(reloaded.reminders == .allOff)
+        #expect(reloaded.reminders == ReminderSettings(windDown: false))
+    }
+
+    @Test("The session-end switch is on and the study reminder off by default; both are saved")
+    func focusReminders() throws {
+        let url = try temporaryDirectory().appendingPathComponent(AppSettings.file)
+        let settings = AppSettings(storage: JSONStorage(.file(url)), regionCode: "GB")
+        #expect(settings.sessionEndReminder)
+        #expect(settings.studyReminderTime == nil)
+        settings.sessionEndReminder = false
+        settings.studyReminderTime = ClockTime(hour: 16)
+        let reloaded = AppSettings(storage: JSONStorage(.file(url)), regionCode: "GB")
+        #expect(reloaded.reminders == ReminderSettings(windDown: true, sessionEnd: false, studyReminder: ClockTime(hour: 16)))
+        let old = #"{"version":1,"hemisphere":"northern","sleepGoalMinutes":450,"revealSound":false,"windDownReminder":true}"#
+        let snapshot = try JSONDecoder().decode(SettingsSnapshot.self, from: Data(old.utf8))
+        #expect(snapshot.sessionEndReminder)
+        #expect(snapshot.studyReminder == nil)
+    }
+
+    @Test("Reminder inputs come from the stores")
+    func inputs() {
+        let collection = CollectionStore(storage: JSONStorage(.memory), context: testContext, now: at(2026, 10, 12, 9))
+        let schedule = ScheduleStore(storage: JSONStorage(.memory), collection: collection)
+        let settings = AppSettings(storage: JSONStorage(.memory), regionCode: "GB")
+        let running = ReminderPlan.RunningSession(id: UUID(), plannedEnd: at(2026, 10, 12, 14, 50), presetName: "Study",
+                                                  plannedMinutes: 50, isPlainTimer: false)
+        let plan = ReminderInputs.plan(collection: collection, schedule: schedule, settings: settings, windDownOpenedAt: nil,
+                                       runningSession: running, lastSessionStart: nil, now: at(2026, 10, 12, 14),
+                                       locale: Locale(identifier: "en_GB"))
+        #expect(plan.requests.contains { $0.kind == .sessionEnd })
+        #expect(plan.requests.contains { $0.kind == .windDown })
     }
 
     @Test("A settings file from before the reminders existed turns wind-down on")

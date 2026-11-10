@@ -1,27 +1,6 @@
 import Foundation
 import os
 
-/// Where Maple keeps its files: the App Group container (shared with future extensions and widgets), or
-/// Application Support when the group isn't available.
-nonisolated public enum MapleContainer {
-    /// The app's `MapleAppGroup` Info.plist key, filled from the `MAPLE_APP_GROUP` build setting so each developer's
-    /// Signing.local.xcconfig can use their own group; Maple's own group where the key is missing (tests, previews).
-    public static let appGroupIdentifier: String = {
-        let configured = Bundle.main.object(forInfoDictionaryKey: "MapleAppGroup") as? String
-        if let configured, !configured.isEmpty, !configured.hasPrefix("$(") { return configured }
-        return "group.com.maanvikgupta.maple"
-    }()
-
-    public static func directory(fileManager: FileManager = .default) -> URL {
-        if let group = fileManager.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier) {
-            return group.appending(path: "Maple", directoryHint: .isDirectory)
-        }
-        let support = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-            ?? fileManager.temporaryDirectory
-        return support.appending(path: "Maple", directoryHint: .isDirectory)
-    }
-}
-
 /// Where a store's value lives.
 nonisolated public enum StorageLocation: Sendable, Equatable {
     /// A JSON file, written atomically and protected until first unlock (extensions read it while locked).
@@ -127,10 +106,29 @@ public final class JSONStorage<Value: Codable> {
         }
     }
 
-    private func setAside(_ url: URL) {
+    /// Where a set-aside copy of the file at `url` goes: `<name>.damaged-<time>.<ext>` beside it.
+    private func asideURL(for url: URL) -> URL {
         let stamp = Int(Date().timeIntervalSince1970)
         let name = url.deletingPathExtension().lastPathComponent + ".damaged-\(stamp)." + url.pathExtension
-        try? FileManager.default.moveItem(at: url, to: url.deletingLastPathComponent().appending(path: name))
+        return url.deletingLastPathComponent().appending(path: name)
+    }
+
+    private func setAside(_ url: URL) {
+        try? FileManager.default.moveItem(at: url, to: asideURL(for: url))
+    }
+
+    /// Copies the file as it is now to `<name>.damaged-<time>.<ext>` beside it, leaving the original in place. For a
+    /// file that decodes only with losses: the next save replaces it with the repaired value, and this copy keeps
+    /// what was there. Does nothing for memory storage or a missing file.
+    public func copyAside() {
+        guard case .file(let url) = location, FileManager.default.fileExists(atPath: url.path) else { return }
+        let copy = asideURL(for: url)
+        do {
+            try FileManager.default.copyItem(at: url, to: copy)
+            Self.logger.notice("Kept a copy of \(url.lastPathComponent, privacy: .public) as \(copy.lastPathComponent, privacy: .public)")
+        } catch {
+            Self.logger.error("Couldn't copy \(url.lastPathComponent, privacy: .public) aside: \(String(describing: error), privacy: .public)")
+        }
     }
 
     /// What looking for a set-aside copy found.

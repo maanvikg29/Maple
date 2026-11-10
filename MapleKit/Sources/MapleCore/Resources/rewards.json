@@ -138,7 +138,7 @@
   {
    "id": "sessions_finished",
    "name": "Sessions finished",
-   "metric": "Sessions the member started, planned at 20 minutes or more, that reached their planned end. At most 4 a day.",
+   "metric": "Sessions the member started that ran to their planned end, with at least 20 locked awake minutes making up at least 3/4 of the planned length. At most 3 a day, in the order they ended. F1 design §3.4.",
    "unit": "sessions",
    "data_source": "Maple's session ledger",
    "available_from": "F1",
@@ -156,7 +156,7 @@
   {
    "id": "focus_streak",
    "name": "Focus streak",
-   "metric": "The best run of days with a finished session. Any 2 rest days per calendar week are built in; Away pauses it.",
+   "metric": "The best run of Maple days with a finished session. Missed days between finished days are rest days, at most 2 in any 7 days in a row; a one-day gap across a time-zone change is neutral. F1 design §3.4.",
    "unit": "days",
    "data_source": "Maple's session ledger",
    "available_from": "F1",
@@ -311,7 +311,7 @@
    "species_id": "palmatum",
    "category_id": "hours_saved",
    "threshold": 24,
-   "unlock_text": "Save 24 hours · A day back",
+   "unlock_text": "Save 24 hours",
    "tier": "common",
    "rationale": "Japanese maple, the world's best-loved garden maple, with over a thousand cultivars (k). Re-cut 2026-10-11: a well-known garden maple on an early or landmark rung."
   },
@@ -495,7 +495,7 @@
    "species_id": "griseum",
    "category_id": "hours_saved",
    "threshold": 168,
-   "unlock_text": "Save 168 hours · A week back",
+   "unlock_text": "Save 168 hours",
    "tier": "uncommon",
    "rationale": "Paperbark maple: cinnamon bark that peels in thin, scroll-like curls (k). Re-cut 2026-10-11: a well-known garden maple on an early or landmark rung."
   },
@@ -767,7 +767,7 @@
    "species_id": "japonicum",
    "category_id": "hours_saved",
    "threshold": 720,
-   "unlock_text": "Save 720 hours · A month back",
+   "unlock_text": "Save 720 hours",
    "tier": "rare",
    "rationale": "Fullmoon maple: a moonlit name for a bedtime leaf, and a famous 9-lobed garden tree (k). Re-cut 2026-10-11: a well-known garden maple on an early or landmark rung."
   },
@@ -1143,7 +1143,7 @@
    "species_id": "pentaphyllum",
    "category_id": "hours_saved",
    "threshold": 2000,
-   "unlock_text": "Save 2,000 hours · A working year back",
+   "unlock_text": "Save 2,000 hours",
    "tier": "legendary",
    "rationale": "Its leaf splits into five narrow leaflets, the catalogue's only palmately compound form, and it is very rare in the wild (k). Re-cut 2026-10-11: IUCN CR (2019) on one of the hardest rungs."
   },

@@ -471,11 +471,11 @@ struct ReviewFixTests {
         let first = species(.restedNights, rung: 0), second = species(.restedNights, rung: 1)
         snapshot.raise(.restedNights, to: 3, at: at(2026, 10, 2, 14), calendar: utc)    // pending at once
         snapshot.runEngine(at: at(2026, 10, 2, 14), context: context)
-        snapshot.raise(.restedNights, to: 14, at: at(2026, 10, 2, 21), calendar: utc)   // evening: held
-        snapshot.runEngine(at: at(2026, 10, 2, 21), context: context)
+        snapshot.raise(.restedNights, to: 14, at: at(2026, 10, 2, 22, 20), calendar: utc)   // wind-down: held
+        snapshot.runEngine(at: at(2026, 10, 2, 22, 20), context: context)
 
         let sessionStart = at(2026, 10, 2, 22, 14)                     // Evening; wind-down starts 22:15
-        let place = at(2026, 10, 2, 22, 16)
+        let place = at(2026, 10, 2, 22, 30)
         #expect(snapshot.phase(at: sessionStart, context: context) == .evening)
         #expect(snapshot.phase(at: place, context: context) == .windDown)
         #expect(snapshot.revealable(at: sessionStart, context: context).map(\.speciesID) == [first])
