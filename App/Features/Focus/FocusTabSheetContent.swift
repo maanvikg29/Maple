@@ -23,8 +23,8 @@ struct FocusTabSheetContent: View {
     var body: some View {
         @Bindable var tab = tab
         switch sheet {
-        case .saved(let day):
-            SavedTodaySheet(day: day)
+        case .saved(let day, let earlier):
+            SavedTodaySheet(day: day, isEarlierDay: earlier)
         case .streak:
             StreakSheet()
         case .blocking:

@@ -7,6 +7,7 @@ struct FocusSheetCopyTests {
     @Test("Saved today's heading and hint; its lines are Task 5's")
     func savedToday() {
         #expect(FocusSheetCopy.savedTodayHint == "Opens Saved today")
+        #expect(FocusSheetCopy.savedThatDayHint == "Opens Saved that day")
         #expect(FocusSheetCopy.howWeCountTitle == "How we count")
     }
 
@@ -43,7 +44,7 @@ struct FocusSheetCopyTests {
     @Test("Every fixed line is sentence case, with no exclamation and none of the words Maple never uses")
     func voice() {
         let lines: [String] = [
-            FocusSheetCopy.savedTodayHint, FocusSheetCopy.howWeCountTitle, FocusSheetCopy.save, FocusSheetCopy.close,
+            FocusSheetCopy.savedTodayHint, FocusSheetCopy.savedThatDayHint, FocusSheetCopy.howWeCountTitle, FocusSheetCopy.save, FocusSheetCopy.close,
             FocusSheetCopy.cancel, FocusSheetCopy.editPresetTitle, FocusSheetCopy.editPreset, FocusSheetCopy.nameTitle,
             FocusSheetCopy.verbTitle, FocusSheetCopy.lengthTitle, FocusSheetCopy.shorter, FocusSheetCopy.longer,
             FocusSheetCopy.breakTitle, FocusSheetCopy.breakNote, FocusSheetCopy.appsTitle, FocusSheetCopy.strictnessTitle,

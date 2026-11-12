@@ -201,7 +201,7 @@ struct ReceiptView: View {
         .onTapGesture { openSavedToday(model) }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(model.dialLabel))
-        .accessibilityHint(Text(FocusSheetCopy.savedTodayHint))
+        .accessibilityHint(Text(model.savedHint))
         .accessibilityAddTraits(.isButton)
         .accessibilityAction(.default) { openSavedToday(model) }
     }
@@ -319,7 +319,7 @@ struct ReceiptView: View {
     }
 
     private func openSavedToday(_ model: ReceiptModel) {
-        tab.sheet = .saved(model.savedTodayDay)
+        tab.sheet = .saved(model.savedDay, earlier: model.savedDayIsEarlier)
     }
 
     private func reflect(_ reflection: Reflection) {

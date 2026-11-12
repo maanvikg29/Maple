@@ -16,6 +16,8 @@ public enum FocusSheetCopy {
 
     /// VoiceOver's hint on a numeral that opens Saved today (Home's, the receipt's).
     public static let savedTodayHint = "Opens Saved today"
+    /// The same hint on a receipt whose caption says "that day" (F1-31).
+    public static let savedThatDayHint = "Opens Saved that day"
     /// The heading over `SavedTodayModel.howWeCount`.
     public static let howWeCountTitle = "How we count"
 

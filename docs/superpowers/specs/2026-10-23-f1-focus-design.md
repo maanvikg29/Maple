@@ -126,7 +126,7 @@ F1-27 to F1-31 are the owner's own, from 2026-10-29, answering questions the F1b
 | F1-28 | An intention typed and then swiped away | **Saved, exactly as Return saves it:** trimmed, at most 60 characters, and a blank field means no intention. A field that was cleared still removes the intention at once (§5.16). Owner, 2026-10-29. |
 | F1-29 | The plain timer in a build that can't block | **Remembered.** In a build that can never block, the member's first "Use a plain timer · it won't count" is saved in Settings, and from then on the Focus tab goes straight to the plain timer's start screen, which keeps its "Plain timer · apps aren't locked" line. A build that can block still asks again after each start, because Screen Time may be turned on (§1.1, §5.3). Owner, 2026-10-29. |
 | F1-30 | A plain timer's strictness | **Gentle, whatever its preset.** A plain timer locks nothing, so Locked's and Steady's exit costs mean nothing for it: it starts with one tap and no hold, the start screen shows no Locked line, and End early is Gentle's, with no emergency release and no 15-second countdown. Sessions that lock apps are unchanged (§5.2, §5.6, §5.7, §5.12, §5.13). Owner, 2026-10-29. |
-| F1-31 | A receipt shown the next day | **"saved · 2h 10m that day"**, with that day's total, only when the session's Maple day is earlier than the shown day and the shown day's window has opened (wake − 60). Between bedtime and that moment it still says "today". Today's receipts keep "today" (§5.8). Owner, 2026-10-29. |
+| F1-31 | A receipt shown the next day | **"saved · 2h 10m that day"**, with that day's total, only when the session's Maple day is earlier than the shown day and the shown day's window has opened (wake − 60). Between bedtime and that moment it still says "today". Today's receipts keep "today" (§5.8). Its numeral then opens "Saved that day", with that day's sessions (§5.9). Owner, 2026-10-29 and 2026-11-12. |
 
 ## 3. Counting rules
 The focus spec's R1 to R14 stand, with the changes below made in place there. F1a implements §3.1 to §3.5 exactly.
@@ -460,7 +460,7 @@ Every screen has a DEBUG launch argument (§8.2). The mockup page shows §5.1 to
   - no leaf: "Field maple · 1h 10m to go";
   - one leaf: "Field maple is yours · it opens after this session", or "… opens in the morning" when it is held;
   - more: "2 new leaves are yours".
-- **Tapping the numeral** opens Saved today.
+- **Tapping the numeral** opens Saved today on the day of the total it shows ("Saved that day" when the caption says "that day", §5.9).
 - **Endings:**
 
 | Ending | Receipt |
@@ -482,7 +482,7 @@ Every screen has a DEBUG launch argument (§8.2). The mockup page shows §5.1 to
 - **The reflection carries forward.** "Partly" or "Not yet" puts that intention first among the next start's chips, and "All done" drops it.
 
 ### 5.9 Saved today
-As in focus spec §3.3. Its reasons come from the rule ids in §3.3, with "Couldn't confirm the block" in place of "Protection was off". A receipt saying "today" opens it on the day of the total it showed (F1-31); from a receipt saying "that day", or from Home, it opens on today.
+As in focus spec §3.3. Its reasons come from the rule ids in §3.3, with "Couldn't confirm the block" in place of "Protection was off". A receipt opens it on the day of the total it showed (F1-31). From one saying "that day" the sheet is titled "Saved that day", its cap reason reads "Over that day's 6h", and a day with nothing reads "Nothing saved that day."; VoiceOver's hint on that receipt's numeral is "Opens Saved that day". From Home it opens on today.
 
 ### 5.10 Home
 As in focus spec §6, with these details:
