@@ -7,10 +7,10 @@ import MapleServices
 /// time beside it that didn't count, greyed, and why ("Unlocked 5 min", "After bedtime", "Over today's 6h",
 /// "Couldn't confirm the block"), then how counting works. Opened from Home's numeral and the receipt's.
 ///
-/// Today is the Maple day whose awake window holds the session store's trusted now, or the day a receipt saying "today"
-/// gives (`ReceiptModel.savedTodayDay`), so its numeral opens the total it showed. Each session's credit is the store's
-/// own (`credit(for:)`), so caps and overlaps count as they do everywhere else. `.medium`, lifting to `.large`; `.large`
-/// at accessibility sizes.
+/// Today is the Maple day whose awake window holds the session store's trusted now, or the day a receipt gives
+/// (`ReceiptModel.savedDay`), so its numeral opens the total it showed: as "Saved that day" from a receipt saying "that
+/// day" (F1-31). Each session's credit is the store's own (`credit(for:)`), so caps and overlaps count as they do
+/// everywhere else. `.medium`, lifting to `.large`; `.large` at accessibility sizes.
 struct SavedTodaySheet: View {
     @Environment(\.theme) private var theme
     @Environment(\.locale) private var locale
@@ -18,6 +18,8 @@ struct SavedTodaySheet: View {
     @Environment(CollectionStore.self) private var collection
     @Environment(FocusSessionStore.self) private var sessions
     var day: LocalDay?
+    /// `day` is an earlier Maple day than the one being lived in: the sheet says "that day" where it would say "today".
+    var isEarlierDay = false
 
     var body: some View {
         // Once a minute, so a running session's row keeps up between the store's 15-second refreshes.
@@ -35,14 +37,14 @@ struct SavedTodaySheet: View {
         let todays = sessions.sessions.filter { $0.plan.day == today }
         return SavedTodayModel(
             credits: todays.compactMap { sessions.credit(for: $0.id) }, sessions: todays, day: today, now: now,
-            calendar: collection.context.calendar, locale: locale
+            earlierDay: isEarlierDay, calendar: collection.context.calendar, locale: locale
         )
     }
 
     private func page(_ model: SavedTodayModel) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                Text(SavedTodayModel.title)
+                Text(model.title)
                     .font(MapleFont.sectionTitle)
                     .foregroundStyle(theme.colors.textPrimary)
                     .accessibilityAddTraits(.isHeader)

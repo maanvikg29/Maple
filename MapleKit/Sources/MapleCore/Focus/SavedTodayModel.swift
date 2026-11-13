@@ -3,6 +3,7 @@ import MapleFocusCore
 
 /// Saved today (F1 design §5.9, focus spec §3.3): the day's total, and each session's counted time with the reasons for
 /// any time that didn't count. Seconds are display credit, so the total matches Home's numeral while a session runs.
+/// Opened from a receipt saying "that day", it is "Saved that day" (F1-31).
 public struct SavedTodayModel: Sendable, Equatable {
     public struct Row: Sendable, Hashable, Identifiable {
         public let id: UUID
@@ -18,8 +19,6 @@ public struct SavedTodayModel: Sendable, Equatable {
         public let spoken: String
     }
 
-    public static let title = "Saved today"
-    public static let emptyText = "Nothing saved yet today."
     /// The definition (focus spec §3.3), shown on first use and behind the info button.
     public static var definition: String { RewardCategoryInfo(.hoursSaved).definition }
     /// "How we count", one sentence a line. Phone breaks are F2, so F1 leaves them out.
@@ -28,14 +27,16 @@ public struct SavedTodayModel: Sendable, Equatable {
         "Up to 6 hours count each day.",
     ]
 
+    /// "Saved today", or "Saved that day" for an earlier Maple day.
+    public let title: String
     public let rows: [Row]
     public let totalSeconds: Int
     /// "2h 10m".
     public let total: String
     /// The total for VoiceOver: "2 hours, 10 minutes".
     public let totalSpoken: String
-    /// "Nothing saved yet today." when there are no rows.
-    public var emptyLine: String? { rows.isEmpty ? Self.emptyText : nil }
+    /// "Nothing saved yet today." ("Nothing saved that day.") when there are no rows.
+    public let emptyLine: String?
 
     /// - Parameters:
     ///   - credits: Credit for every open session (`HoursCredit.credit` over all of them), so caps and overlaps are
@@ -44,7 +45,12 @@ public struct SavedTodayModel: Sendable, Equatable {
     ///   - day: The Maple day to show.
     ///   - now: Trusted time (`FocusSessionStore.now`): a running session's time since its last checkpoint is
     ///     provisional, not a reason.
-    public init(credits: [SessionCredit], sessions: [SessionRecord], day: LocalDay, now: Date, calendar: Calendar, locale: Locale) {
+    ///   - earlierDay: `day` is an earlier Maple day than the one being lived in (`ReceiptModel.savedDayIsEarlier`).
+    public init(
+        credits: [SessionCredit], sessions: [SessionRecord], day: LocalDay, now: Date, earlierDay: Bool = false,
+        calendar: Calendar, locale: Locale
+    ) {
+        title = earlierDay ? "Saved that day" : "Saved today"
         var byID: [UUID: SessionRecord] = [:]
         for session in sessions where byID[session.id] == nil { byID[session.id] = session }
         let todays = credits.filter { $0.day == day }
@@ -74,7 +80,9 @@ public struct SavedTodayModel: Sendable, Equatable {
                 seconds[rule, default: 0] += stretch.interval.duration
             }
             let named = order.filter { seconds[$0, default: 0] >= 1 }
-            let reasons = named.map { CreditWords.line($0, seconds: Int(seconds[$0, default: 0].rounded())) }
+            let reasons = named.map {
+                CreditWords.line($0, seconds: Int(seconds[$0, default: 0].rounded()), earlierDay: earlierDay)
+            }
             let span = "\(session.plan.presetName) · \(clock(session.countdownStart))–\(clock(end))"
             let title = counted >= 60 ? "\(span) · \(HomeFormat.duration(minutes: counted / 60))" : span
             // Spoken: a comma for each "·", "to" for the dash, lengths in words, then each reason as its own sentence.
@@ -82,13 +90,14 @@ public struct SavedTodayModel: Sendable, Equatable {
             let spokenTitle = counted >= 60
                 ? "\(spokenSpan), \(FocusTimeText.spokenLength(minutes: counted / 60, locale: locale))" : spokenSpan
             let spokenReasons = named.map {
-                CreditWords.spokenLine($0, seconds: Int(seconds[$0, default: 0].rounded()), locale: locale)
+                CreditWords.spokenLine($0, seconds: Int(seconds[$0, default: 0].rounded()), earlierDay: earlierDay, locale: locale)
             }
             found.append((start: session.countdownStart,
                           row: Row(id: session.id, title: title, countedSeconds: counted, reasons: reasons, isRunning: running,
                                    spoken: ([spokenTitle] + spokenReasons).joined(separator: ". "))))
         }
         rows = found.sorted { $0.start < $1.start }.map { $0.row }
+        emptyLine = rows.isEmpty ? (earlierDay ? "Nothing saved that day." : "Nothing saved yet today.") : nil
         totalSeconds = rows.reduce(0) { $0 + $1.countedSeconds }
         total = HomeFormat.duration(minutes: totalSeconds / 60)
         totalSpoken = FocusTimeText.spokenLength(minutes: totalSeconds / 60, locale: locale)

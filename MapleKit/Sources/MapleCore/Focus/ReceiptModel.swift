@@ -89,9 +89,13 @@ public struct ReceiptModel: Sendable, Equatable {
     /// than the one the member is living in as the receipt shows: from the next window's opening, not from bedtime
     /// (F1-31).
     public let caption: String
-    /// The day Saved today opens on from the numeral: the day of the caption's total while the caption says "today", so
-    /// the two agree whatever the clock has done since (§5.9). Nil for one saying "that day", which opens on today.
-    public let savedTodayDay: LocalDay?
+    /// The day Saved today opens on from the numeral: the day of the caption's total, so the two agree whatever the clock
+    /// has done since (§5.9).
+    public let savedDay: LocalDay
+    /// The caption says "that day", so the sheet is "Saved that day" (F1-31).
+    public let savedDayIsEarlier: Bool
+    /// VoiceOver's hint on the numeral: "Opens Saved today", or "Opens Saved that day".
+    public let savedHint: String
     /// The numeral and caption as one line, repeated under the dial at accessibility sizes, where the numeral stops
     /// growing (§5.17): "50m saved · 2h 10m today"; a caption that starts its own sentence follows a dot.
     public let timeLine: String
@@ -186,7 +190,9 @@ public struct ReceiptModel: Sendable, Equatable {
         let shown = counts ? counted / 60 : focused
         // Shown once the next day has opened: the caption's total is that day's, so it says so (F1-31).
         let earlierDay = plan.day < today
-        savedTodayDay = earlierDay ? nil : plan.day
+        savedDay = plan.day
+        savedDayIsEarlier = earlierDay
+        savedHint = earlierDay ? FocusSheetCopy.savedThatDayHint : FocusSheetCopy.savedTodayHint
         numeral = FocusTimeText.length(minutes: shown)
         numeralParts = HomeFormat.durationParts(minutes: shown)
         if ending == .emergency {
@@ -322,7 +328,7 @@ public struct ReceiptModel: Sendable, Equatable {
         func length(_ minutes: Int) -> String {
             spoken ? FocusTimeText.spokenLength(minutes: minutes, locale: locale) : HomeFormat.duration(minutes: minutes)
         }
-        let cap = "\(earlierDay ? "that day's" : "today's") \(spoken ? length(HoursCredit.dailyCap / 60) : "\(HoursCredit.dailyCap / 3600)h")"
+        let cap = "\(CreditWords.capDay(earlierDay)) \(spoken ? length(HoursCredit.dailyCap / 60) : "\(HoursCredit.dailyCap / 3600)h")"
         let breaks = session.breaks.count
         func withBreaks(_ line: String) -> String {
             breaks == 0 ? line : "\(line)\(dot) \(breaks) \(breaks == 1 ? "break" : "breaks")"

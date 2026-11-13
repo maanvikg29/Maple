@@ -35,6 +35,16 @@ struct CreditWordsTests {
         #expect(CreditWords.spokenLine(.afterBedtime, seconds: 600, locale: enGB) == "After bedtime")
         #expect(CreditWords.spokenLine(.unconfirmed, seconds: 2400, locale: enGB) == "Couldn't confirm the block")
     }
+
+    @Test("For an earlier day the cap is that day's; the other reasons read the same")
+    func earlierDay() {
+        #expect(CreditWords.reason(.dailyCap, earlierDay: true) == "Over that day's 6h")
+        #expect(CreditWords.line(.dailyCap, seconds: 3000, earlierDay: true) == "Over that day's 6h")
+        #expect(CreditWords.spokenLine(.dailyCap, seconds: 3000, earlierDay: true, locale: enGB)
+            == "Over that day's \(HomeFormat.spokenDuration(minutes: 360, locale: enGB))")
+        #expect(CreditWords.line(.override, seconds: 300, earlierDay: true) == "Unlocked 5 min")
+        #expect(CreditWords.spokenLine(.afterBedtime, seconds: 600, earlierDay: true, locale: enGB) == "After bedtime")
+    }
 }
 
 @Suite("Receipt marks")
@@ -649,16 +659,26 @@ struct ReceiptDayTests {
         #expect(receipt(late, shown: at(2026, 10, 24, 7), todaySeconds: 3600).caption == "saved · 1h today")
     }
 
-    @Test("A receipt saying today opens Saved today on the day of its total; one saying that day leaves it on today")
-    func savedTodayDay() throws {
+    @Test("The numeral opens the day of the total it shows: as Saved today while it says today, as Saved that day after")
+    func savedDay() throws {
         let evening = try eveningSession()
         let day = LocalDay(year: 2026, month: 10, day: 23)
-        #expect(receipt(evening, shown: at(2026, 10, 23, 23, 10)).savedTodayDay == day)
-        #expect(receipt(evening, shown: at(2026, 10, 24, 5, 59, 59)).savedTodayDay == day)
-        #expect(receipt(evening, shown: at(2026, 10, 24, 6)).savedTodayDay == nil)
+        for shown in [at(2026, 10, 23, 23, 10), at(2026, 10, 24, 5, 59, 59)] {
+            let model = receipt(evening, shown: shown)
+            #expect(model.savedDay == day)
+            #expect(!model.savedDayIsEarlier)
+            #expect(model.savedHint == "Opens Saved today")
+        }
+        for shown in [at(2026, 10, 24, 6), at(2026, 10, 24, 10, 30)] {
+            let model = receipt(evening, shown: shown)
+            #expect(model.savedDay == day)
+            #expect(model.savedDayIsEarlier)
+            #expect(model.savedHint == "Opens Saved that day")
+        }
         // Started after bedtime, it belongs to the next day: Saved today lists it, not the evening before it.
-        let late = try ended(from: at(2026, 10, 23, 23, 20), minutes: 25)
-        #expect(receipt(late, shown: at(2026, 10, 23, 23, 55)).savedTodayDay == LocalDay(year: 2026, month: 10, day: 24))
+        let late = receipt(try ended(from: at(2026, 10, 23, 23, 20), minutes: 25), shown: at(2026, 10, 23, 23, 55))
+        #expect(late.savedDay == LocalDay(year: 2026, month: 10, day: 24))
+        #expect(!late.savedDayIsEarlier)
     }
 
     @Test("The none caption follows the same rule")
@@ -709,8 +729,12 @@ struct ReceiptDayTests {
 struct SavedTodayModelTests {
     private let today = LocalDay(year: 2026, month: 10, day: 23)
 
-    private func model(_ credits: [SessionCredit], _ sessions: [SessionRecord], now: Date, locale: Locale = enGB) -> SavedTodayModel {
-        SavedTodayModel(credits: credits, sessions: sessions, day: today, now: now, calendar: utc, locale: locale)
+    private func model(
+        _ credits: [SessionCredit], _ sessions: [SessionRecord], now: Date, earlierDay: Bool = false, locale: Locale = enGB
+    ) -> SavedTodayModel {
+        SavedTodayModel(
+            credits: credits, sessions: sessions, day: today, now: now, earlierDay: earlierDay, calendar: utc, locale: locale
+        )
     }
 
     /// Study 14:00–15:10 with a 5-minute unlock at minute 30, then Quick 16:00–16:25.
@@ -728,7 +752,7 @@ struct SavedTodayModelTests {
     func typical() {
         let day = typicalDay()
         let saved = model(day.credits(), day.ledger.sessions(), now: at(2026, 10, 23, 17))
-        #expect(SavedTodayModel.title == "Saved today")
+        #expect(saved.title == "Saved today")
         #expect(saved.rows.map(\.title) == ["Study · 14:00–15:10 · 1h 5m", "Quick · 16:00–16:25 · 25m"])
         #expect(saved.rows.map(\.reasons) == [["Unlocked 5 min"], []])
         #expect(saved.rows.map(\.countedSeconds) == [3900, 1500])
@@ -836,6 +860,27 @@ struct SavedTodayModelTests {
         #expect(saved.totalSeconds == 0)
         #expect(saved.total == "0m")
         #expect(saved.emptyLine == "Nothing saved yet today.")
+    }
+
+    @Test("Opened the next day from a receipt saying that day: the title, the cap's reason and the empty line say that day")
+    func thatDay() {
+        let day = FocusDay(at(2026, 10, 23, 8))
+        day.session(minutes: 180)
+        day.at(at(2026, 10, 23, 11, 30))
+        day.session(minutes: 180)
+        day.at(at(2026, 10, 23, 15))
+        day.session(minutes: 50)
+        let saved = model(day.credits(), day.ledger.sessions(), now: at(2026, 10, 24, 9, 30), earlierDay: true)
+        #expect(saved.title == "Saved that day")
+        #expect(saved.rows.map(\.title) == ["Study · 08:00–11:00 · 3h", "Study · 11:30–14:30 · 3h", "Study · 15:00–15:50"])
+        #expect(saved.rows.map(\.reasons) == [[], [], ["Over that day's 6h"]])
+        #expect(saved.rows.last?.spoken == "Study, 15:00 to 15:50. Over that day's \(HomeFormat.spokenDuration(minutes: 360, locale: enGB))")
+        #expect(saved.total == "6h")
+        #expect(saved.emptyLine == nil)
+
+        let none = model([], [], now: at(2026, 10, 24, 9, 30), earlierDay: true)
+        #expect(none.title == "Saved that day")
+        #expect(none.emptyLine == "Nothing saved that day.")
     }
 
     @Test("How we count, in five lines, and the definition")
