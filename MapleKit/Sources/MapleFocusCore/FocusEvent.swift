@@ -109,8 +109,10 @@ public enum FocusEventKind: Sendable, Hashable {
     case sessionEnded(EndReason, verified: Bool)
     case shieldCleared(ShieldClearReason)
     case reflected(Reflection)
-    /// Reserved for History's delete (F2): hides a session, never its leaves.
+    /// History's "Remove from History" (F2): hides a session, never its leaves.
     case sessionHidden
+    /// The session's subject was changed afterwards (F2 Study record); nil for "No subject". The newest one wins.
+    case subjectChanged(UUID?)
     /// A kind this build doesn't know, kept so the session can stop crediting at it.
     case unknown(String)
 
@@ -129,14 +131,16 @@ public enum FocusEventKind: Sendable, Hashable {
         case .shieldCleared: "shieldCleared"
         case .reflected: "reflected"
         case .sessionHidden: "sessionHidden"
+        case .subjectChanged: "subjectChanged"
         case .unknown(let type): type
         }
     }
 
-    /// Whether this kind can change credit. Reflections and hiding never do; unknown kinds are assumed to.
+    /// Whether this kind can change credit. Reflections, hiding and a change of subject never do; unknown kinds are
+    /// assumed to.
     public var affectsCredit: Bool {
         switch self {
-        case .reflected, .sessionHidden: false
+        case .reflected, .sessionHidden, .subjectChanged: false
         default: true
         }
     }
@@ -199,7 +203,7 @@ public struct FocusEvent: Sendable, Hashable, Identifiable, Codable {
     private enum CodingKeys: String, CodingKey {
         case id, version = "v", type, sessionID = "session", deviceID = "device", writer, seq, source
         case affectsCredit = "credit", stamp = "at"
-        case plan, seconds, reason, verified, answer
+        case plan, seconds, reason, verified, answer, subject
     }
 
     public init(from decoder: any Decoder) throws {
@@ -231,6 +235,9 @@ public struct FocusEvent: Sendable, Hashable, Identifiable, Codable {
         case "shieldCleared": (try? c.decode(ShieldClearReason.self, forKey: .reason)).map { .shieldCleared($0) }
         case "reflected": (try? c.decode(Reflection.self, forKey: .answer)).map { .reflected($0) }
         case "sessionHidden": .sessionHidden
+        // No subject is written as no key; a subject that can't be read keeps the event as `unknown`.
+        case "subjectChanged":
+            c.contains(.subject) ? (try? c.decode(UUID.self, forKey: .subject)).map { .subjectChanged($0) } : .subjectChanged(nil)
         default: nil
         }
         kind = decoded ?? .unknown(type)
@@ -257,6 +264,7 @@ public struct FocusEvent: Sendable, Hashable, Identifiable, Codable {
             try c.encode(verified, forKey: .verified)
         case .shieldCleared(let reason): try c.encode(reason, forKey: .reason)
         case .reflected(let answer): try c.encode(answer, forKey: .answer)
+        case .subjectChanged(let subject): try c.encodeIfPresent(subject, forKey: .subject)
         case .shieldApplied, .shieldVerified, .shieldLost, .breakEnded, .overrideEnded, .sessionHidden, .unknown: break
         }
     }

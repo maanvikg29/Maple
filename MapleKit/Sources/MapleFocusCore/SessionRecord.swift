@@ -23,6 +23,8 @@ public struct SessionRecord: Sendable, Equatable, Identifiable {
     public let end: PlacedEvent?
     public let reflection: Reflection?
     public let isHidden: Bool
+    /// The session's subject (F2 Study record): its plan's, or the newest change's; nil for none.
+    public let subjectID: UUID?
     /// When proof stopped: a failed read-back, or an event this build doesn't know that can change credit.
     public let lostAt: Date?
     /// The last checkpoint before proof stopped (the receipt's "Couldn't confirm the block after 14:10").
@@ -51,6 +53,7 @@ public struct SessionRecord: Sendable, Equatable, Identifiable {
         var end: PlacedEvent?
         var reflection: Reflection?
         var hidden = false
+        var subject = plan.subjectID
         var lost: Date?
         var lastCheckpoint: Date?
         var intervals: [DateInterval] = []
@@ -67,6 +70,9 @@ public struct SessionRecord: Sendable, Equatable, Identifiable {
                 continue
             case .sessionHidden:
                 hidden = true
+                continue
+            case .subjectChanged(let id):
+                subject = id
                 continue
             default:
                 break
@@ -127,6 +133,7 @@ public struct SessionRecord: Sendable, Equatable, Identifiable {
         self.end = end
         self.reflection = reflection
         isHidden = hidden
+        subjectID = subject
         lostAt = lost
         self.lastCheckpoint = lastCheckpoint.map { min($0, plannedEnd) }
         provenIntervals = plan.kind == .blocking ? intervals.compactMap { interval in
