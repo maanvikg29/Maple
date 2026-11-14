@@ -37,7 +37,7 @@ struct MapleApp: App {
     init() {
         let liveActivity = ActivityKitController()
         let stores = MapleStores.launch(liveActivity: liveActivity)
-        liveActivity.attach(collection: stores.collection, notes: stores.focus.notes)
+        liveActivity.attach(collection: stores.collection, notes: stores.focus.notes, subjects: stores.focus.subjects)
         self.liveActivity = liveActivity
         self.stores = stores
         _collection = State(initialValue: stores.collection)
@@ -103,6 +103,7 @@ struct MapleApp: App {
                 .environment(stores.focus.presets)
                 .environment(stores.focus.appSets)
                 .environment(stores.focus.notes)
+                .environment(stores.focus.subjects)
                 .environment(\.focusStores, stores.focus)
                 .environment(\.mapleClock, clock)
                 #if DEBUG

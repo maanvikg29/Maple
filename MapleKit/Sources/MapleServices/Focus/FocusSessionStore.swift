@@ -287,6 +287,7 @@ public final class FocusSessionStore {
             guard replay() else { return }
             _ = try? write(.reflected(reflection), session: session)
             absorb()
+            if history != nil { await readHistory() }
         }
     }
 

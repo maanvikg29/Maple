@@ -34,6 +34,7 @@ struct EndBreathView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(FocusSessionStore.self) private var sessions
     @Environment(SessionNotesStore.self) private var notes
+    @Environment(SubjectStore.self) private var subjects
 
     /// The breath and the question's fade are over: the timeline stops.
     @State private var isSettled = false
@@ -175,7 +176,8 @@ struct EndBreathView: View {
 
     /// "Study · Chemistry ch. 4", as the session's own header reads.
     private var title: String {
-        FocusCopy.sessionTitle(presetName: session.plan.presetName, intention: notes.intention(for: session.id))
+        FocusCopy.sessionTitle(presetName: session.plan.presetName, subject: subjects.name(for: session.subjectID),
+                               intention: notes.intention(for: session.id))
     }
 
     private func model(at now: Date) -> EndBreathModel {

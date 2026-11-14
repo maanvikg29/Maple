@@ -11,7 +11,8 @@ import MapleServices
 /// - `-MapleDemoIntention <text>`: "What's this for?" filled in;
 /// - `-MapleDemoScreenTime failStart`: the start screen as just after a lock that failed, offering the plain timer;
 /// - `-MapleDemoScreenTime plain`: the plain timer chosen (with `-MapleDemoFocus idle`, the start screen as a plain timer);
-/// - `-MapleDemoPresent blocking|preset|saved|streak|intention`: that sheet over the tab.
+/// - `-MapleDemoPresent blocking|preset|saved|streak|intention|subject`: that sheet over the tab;
+/// - `-MapleDemoPresent history|session`: History pushed over the tab (`session`: its newest session's detail open).
 enum FocusDemoPresenter {
     private static var applied = false
 
@@ -25,16 +26,22 @@ enum FocusDemoPresenter {
         if let intention = options.intention { tab.intention = intention }
         if options.screenTime == .failStart { tab.plainTimer = .lockFailed }
         if options.screenTime == .plain { tab.plainTimer = .chosen }
-        if let sheet = options.focusSheet { tab.sheet = Self.sheet(sheet, tab: tab, presets: presets) }
+        if let sheet = options.focusSheet {
+            tab.sheet = Self.sheet(sheet, tab: tab, presets: presets)
+            if sheet == .history || sheet == .session { tab.showsHistory = true }
+        }
     }
 
-    private static func sheet(_ sheet: FocusDemo.Sheet, tab: FocusTabState, presets: PresetStore) -> FocusTabSheet {
+    private static func sheet(_ sheet: FocusDemo.Sheet, tab: FocusTabState, presets: PresetStore) -> FocusTabSheet? {
         switch sheet {
         case .blocking: .blocking
         case .preset: .preset(tab.selectedPresetID ?? presets.lastUsed?.id)
         case .saved: .saved(nil)
         case .streak: .streak
         case .intention: .intention
+        case .subject: .subject
+        // History is pushed, not a sheet; `HistoryView` opens the session's detail itself.
+        case .history, .session: nil
         }
     }
 }

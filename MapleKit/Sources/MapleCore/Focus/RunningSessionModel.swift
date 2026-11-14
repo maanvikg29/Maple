@@ -204,11 +204,11 @@ public struct RunningSessionModel: Sendable, Equatable {
     ///   - displaySeconds: Counted plus provisional (`FocusSessionStore.countedSoFar(_:)`).
     ///   - roomLeftToday: Seconds of today's 6 hours still free, display credit included.
     public init(
-        session: SessionRecord, now: Date, intention: String?, leaf: Leaf?, opened: [Opened], counted time: CountedTime,
-        displaySeconds: Int, roomLeftToday: Int, isFirstSession: Bool, locale: Locale
+        session: SessionRecord, now: Date, intention: String?, subject: String? = nil, leaf: Leaf?, opened: [Opened],
+        counted time: CountedTime, displaySeconds: Int, roomLeftToday: Int, isFirstSession: Bool, locale: Locale
     ) {
         let plan = session.plan
-        title = FocusCopy.sessionTitle(presetName: plan.presetName, intention: intention)
+        title = FocusCopy.sessionTitle(presetName: plan.presetName, subject: subject, intention: intention)
         let isPlain = plan.kind == .plainTimer || session.lostAt != nil
         restingLine = SelectionText.restingLine(plan.selection, isPlainTimer: isPlain)
         let left = session.secondsLeft(at: now)
@@ -357,10 +357,10 @@ public struct BreakScreenModel: Sendable, Equatable {
     public let endPath: SessionEndPath
 
     /// Nil when no break is running at `now`.
-    public init?(session: SessionRecord, now: Date, intention: String?, locale: Locale, calendar: Calendar) {
+    public init?(session: SessionRecord, now: Date, intention: String?, subject: String? = nil, locale: Locale, calendar: Calendar) {
         guard let left = session.breakSecondsLeft(at: now), let current = session.breaks.last,
               let backAt = session.breakEnd(at: now) else { return nil }
-        subtitle = FocusCopy.sessionTitle(presetName: session.plan.presetName, intention: intention)
+        subtitle = FocusCopy.sessionTitle(presetName: session.plan.presetName, subject: subject, intention: intention)
         secondsLeft = left
         breakSeconds = max(1, Int(backAt.timeIntervalSince(current.start).rounded()))
         remaining = FocusTimeText.remaining(left)

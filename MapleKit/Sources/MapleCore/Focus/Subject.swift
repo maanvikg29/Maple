@@ -189,3 +189,32 @@ public struct SubjectList: Codable, Sendable, Equatable {
         lhs.subjects == rhs.subjects && lhs.lastUsed == rhs.lastUsed
     }
 }
+
+/// The subject sheet's and the subject line's words (F2 Study record).
+public enum SubjectCopy {
+    public static let title = "Subject"
+    public static let noSubject = "No subject"
+    /// The start screen's line, and the receipt's, before any subject exists or for a session without one.
+    public static let add = "Add a subject"
+    public static let new = "New subject"
+    public static let namePrompt = "Subject name"
+    public static let addButton = "Add"
+    public static let edit = "Edit"
+    public static let done = "Done"
+    public static let remove = "Remove"
+    public static let hint = "Subjects sort your study time in History."
+    public static let removedNote = "Removed subjects keep their sessions in History."
+    public static let unavailable = "Couldn't save that yet. Try again in a moment."
+    public static var full: String { "\(Subject.maximumCount) of \(Subject.maximumCount) subjects" }
+
+    /// The line a screen shows for a session's subject: its name, "No subject" once the member has subjects, or
+    /// "Add a subject" before the first one.
+    public static func line(name: String?, hasSubjects: Bool) -> String {
+        name ?? (hasSubjects ? noSubject : add)
+    }
+
+    /// VoiceOver for that line: "Subject, Biology".
+    public static func spoken(name: String?, hasSubjects: Bool) -> String {
+        name.map { "\(title), \($0)" } ?? line(name: nil, hasSubjects: hasSubjects)
+    }
+}

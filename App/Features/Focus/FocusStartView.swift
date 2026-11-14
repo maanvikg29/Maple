@@ -7,7 +7,9 @@ import MapleServices
 ///
 /// - **Choosing:** the dial previews the length in plan marks, with the leaf dot where the next hours leaf would open
 ///   and that leaf in the centre; turning it sets this session's length. Under it are the preset chips, "What's this
-///   for?", the Blocking line and the counts line, then the primary capsule.
+///   for?", the subject line, the Blocking line and the counts line, then the primary capsule.
+/// - **Study record (F2):** "History ›" in the header, the subject line ("Biology ›", which follows the subject each
+///   preset was last used with), and under the capsule "6h 20m focused this week ›", once there is a session.
 /// - **Locked** starts with a 1.5-second hold, whose progress fills the dial's marks. A plain tap shows "Hold to start.
 ///   Locked ends early only by emergency release." for 4 seconds in the counts line's place (§5.2). A plain timer
 ///   locks nothing, so it is Gentle whatever its preset: one tap, and no hint (`Strictness.applying(to:)`).
@@ -34,6 +36,7 @@ struct FocusStartView: View {
     @Environment(FocusSessionStore.self) private var sessions
     @Environment(PresetStore.self) private var presets
     @Environment(AppSetStore.self) private var appSets
+    @Environment(SubjectStore.self) private var subjects
     @Environment(CollectionStore.self) private var collection
     @Environment(AppSettings.self) private var settings
     @Environment(NotificationScheduler.self) private var reminders
@@ -71,13 +74,56 @@ struct FocusStartView: View {
         // A plain timer, chosen or running, can't count toward a leaf, so none is drawn.
         let showsLeaf = lines.showsLeaf && running?.plan.kind != .plainTimer
         let leaf = showsLeaf ? stores.nextHoursLeaf(at: now, collection: collection) : nil
-        return FocusHeroPage { diameter in
+        return FocusHeroPage(headerLink: historyLink) { diameter in
             dial(model, lines: lines, leaf: leaf, session: running, diameter: diameter)
         } below: {
             details(model, lines: lines, session: running)
         } primary: {
-            primary(model, lines: lines)
+            VStack(spacing: theme.spacing.xxs) {
+                primary(model, lines: lines)
+                if model.showsDetails, let strip = weekStrip(at: now) {
+                    // "6h 20m focused this week ›": History, from the time it adds up (F2 Study record).
+                    TextLink(strip) { tab.showsHistory = true }
+                        .font(MapleFont.footnote)
+                }
+            }
         }
+    }
+
+    // MARK: Study record (F2)
+
+    private var showsStudyRecord: Bool { collection.context.features.studyRecord }
+
+    /// "History ›" in the header.
+    private var historyLink: HeaderLink? {
+        showsStudyRecord ? HeaderLink(title: HistoryPage.link) { tab.showsHistory = true } : nil
+    }
+
+    /// This week's time focused, once there is a session to count; left out at accessibility sizes, where the header's
+    /// link is the way in and the room goes to the dial.
+    private func weekStrip(at now: Date) -> String? {
+        guard showsStudyRecord, !dynamicTypeSize.isAccessibilitySize else { return nil }
+        let context = collection.context
+        return HistoryPage.weekStrip(sessions.recentStudySessions, today: collection.snapshot.focusWindow(at: now, context: context).day,
+                                     calendar: context.calendar)
+    }
+
+    /// "Biology ›", "No subject ›", or "Add a subject ›" before the first one: the next session's subject. It opens
+    /// the subject sheet.
+    private func subjectLine(for preset: FocusPreset) -> some View {
+        let name = subjects.name(for: tab.subjectID(preset: preset.id, subjects: subjects))
+        let hasSubjects = !subjects.active.isEmpty
+        let words = Text(verbatim: SubjectCopy.line(name: name, hasSubjects: hasSubjects))
+            .foregroundStyle(name == nil ? theme.colors.textSecondary : theme.colors.textPrimary)
+        return Button { tab.sheet = .subject } label: {
+            Text("\(words)\(Text(verbatim: " ›").foregroundStyle(theme.colors.textSecondary))")
+                .font(MapleFont.callout)
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
+                .frame(maxWidth: .infinity, minHeight: theme.spacing.minimumHitTarget, alignment: .leading)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(SubjectCopy.spoken(name: name, hasSubjects: hasSubjects))
     }
 
     // MARK: Dial
@@ -141,6 +187,9 @@ struct FocusStartView: View {
                     .padding(.top, theme.spacing.md)
                 intentionLine
                     .padding(.top, theme.spacing.xs)
+                if showsStudyRecord {
+                    subjectLine(for: model.preset)
+                }
                 if let plainLine = lines.plainLine {
                     Text(plainLine)
                         .font(MapleFont.callout)
@@ -299,6 +348,8 @@ struct FocusStartView: View {
     private func choose(_ preset: FocusPreset) {
         tab.selectedPresetID = preset.id
         tab.minutes = nil
+        // The line follows the subject this preset was last used with.
+        tab.subjectPick = nil
         notice = nil
         // Another choice tries the block again.
         if tab.plainTimer == .lockFailed { tab.plainTimer = nil }
@@ -310,7 +361,8 @@ struct FocusStartView: View {
         let request = FocusSessionStore.StartRequest(
             preset: preset, minutes: model.minutes,
             appSet: lines.startsPlainTimer ? nil : preset.appSetID.flatMap { appSets.set(id: $0) },
-            plainTimer: lines.startsPlainTimer, from: .focusTab
+            plainTimer: lines.startsPlainTimer, from: .focusTab,
+            subject: showsStudyRecord ? tab.subjectID(preset: preset.id, subjects: subjects) : nil
         )
         let intention = tab.intention.flatMap { RecentIntentions.normalized($0) }
         let isFirstStart = !settings.hasStartedFocus
@@ -331,6 +383,7 @@ struct FocusStartView: View {
             tab.lastStarted = id
             tab.minutes = nil
             tab.intention = nil
+            tab.subjectPick = nil
             // F1-23: asked once, at the first start, if iOS hasn't asked yet; never on a demo launch.
             if isFirstStart, reminders.schedulesReminders, reminders.authorization == .notDetermined {
                 await reminders.requestAuthorization()

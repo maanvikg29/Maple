@@ -31,6 +31,7 @@ struct ReceiptView: View {
     @Environment(PresetStore.self) private var presets
     @Environment(AppSetStore.self) private var appSets
     @Environment(SessionNotesStore.self) private var notes
+    @Environment(SubjectStore.self) private var subjects
     @Environment(CollectionStore.self) private var collection
     @Environment(AppSettings.self) private var settings
     @Environment(FocusTabState.self) private var tab
@@ -127,8 +128,19 @@ struct ReceiptView: View {
         _ model: ReceiptModel, session: SessionRecord, frame: DialFrame, centre: ReceiptFlow.CentreLeaf?,
         finish: FinishFrame, again: AgainAction?
     ) -> some View {
-        let title = FocusCopy.sessionTitle(presetName: session.plan.presetName, intention: notes.intention(for: session.id))
-        return SessionScreen(title: title, subtitle: model.subtitle) { diameter in
+        let subject = subjects.name(for: session.subjectID)
+        let title = FocusCopy.sessionTitle(presetName: session.plan.presetName, subject: subject,
+                                           intention: notes.intention(for: session.id))
+        // "Biology ›": a wrong pick is put right here, where the session is still fresh (F2 Study record). It sits in
+        // the top bar's empty room, so the receipt's lines and controls stay where they were.
+        let hasSubjects = !subjects.active.isEmpty
+        let subjectLink = collection.context.features.studyRecord
+            ? HeaderLink(title: SubjectCopy.line(name: subject, hasSubjects: hasSubjects),
+                         spoken: SubjectCopy.spoken(name: subject, hasSubjects: hasSubjects)) { tab.sheet = .retag(session.id) }
+            : nil
+        return SessionScreen(
+            title: title, subtitle: model.subtitle, headerLink: subjectLink, headerLinkOpacity: finish.lineOpacity
+        ) { diameter in
             VStack(spacing: theme.spacing.xs) {
                 if let note = model.note {
                     // "Ended at 18 of 50m", over the counted time.

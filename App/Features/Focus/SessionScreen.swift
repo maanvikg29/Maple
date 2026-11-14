@@ -18,6 +18,8 @@ struct SessionScreen<Dial: View, Lines: View, Controls: View>: View {
     private let title: String
     private let subtitle: String?
     private let onMinimise: (() -> Void)?
+    private let headerLink: HeaderLink?
+    private let headerLinkOpacity: Double
     private let dial: (CGFloat) -> Dial
     private let lines: Lines
     private let controls: Controls
@@ -26,15 +28,21 @@ struct SessionScreen<Dial: View, Lines: View, Controls: View>: View {
     ///   - title: "Study · Chemistry ch. 4", "Break · apps stay locked", "Emergency release".
     ///   - subtitle: "6 apps resting", "Study · Chemistry ch. 4", "Study · Locked", "Apps open again".
     ///   - onMinimise: ⌄; nil leaves its room empty (the receipt and the emergency release have none).
+    ///   - headerLink: A link at the top bar's trailing edge, in the room ⌄'s row already takes: the receipt's
+    ///     subject, "Biology ›" (F2 Study record). Nil for none.
+    ///   - headerLinkOpacity: The link's opacity, so it can fade in with the receipt's lines.
     ///   - dial: The dial, given its diameter.
     init(
-        title: String, subtitle: String?, onMinimise: (() -> Void)? = nil,
+        title: String, subtitle: String?, onMinimise: (() -> Void)? = nil, headerLink: HeaderLink? = nil,
+        headerLinkOpacity: Double = 1,
         @ViewBuilder dial: @escaping (CGFloat) -> Dial, @ViewBuilder lines: () -> Lines,
         @ViewBuilder controls: () -> Controls
     ) {
         self.title = title
         self.subtitle = subtitle
         self.onMinimise = onMinimise
+        self.headerLink = headerLink
+        self.headerLinkOpacity = headerLinkOpacity
         self.dial = dial
         self.lines = lines()
         self.controls = controls()
@@ -78,6 +86,13 @@ struct SessionScreen<Dial: View, Lines: View, Controls: View>: View {
                     .buttonStyle(.iconCircle)
             }
             Spacer(minLength: 0)
+            if let headerLink {
+                TextLink(headerLink.title, action: headerLink.action)
+                    .font(MapleFont.footnote)
+                    .lineLimit(1)
+                    .accessibilityLabel(headerLink.spoken ?? headerLink.title)
+                    .opacity(headerLinkOpacity)
+            }
         }
         .frame(height: theme.spacing.minimumHitTarget)
     }

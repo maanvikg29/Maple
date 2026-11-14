@@ -2,6 +2,20 @@
 
 Newest first. Each entry: what was decided, why, and what it affects.
 
+## 2026-11-15 — F2's first slice: the Study record (subjects and History)
+The owner chose the Study record as F2's first slice, and asked for code without a written spec or plan, so this entry is the record of what was agreed and what was decided while building it.
+- **Agreed with the owner:** a subject is picked at the start (a line on the start screen that remembers each preset's last subject; "No subject" is allowed). Subjects are a name only, up to 8, 24 characters. History's number is time focused, with time saved as a smaller second line. Exams are left out for now.
+- **Where a subject lives:** the session's ledger entries carry the subject's id (`FocusPlan.subjectID`, and a later `subjectChanged` event when it is put right; the newest wins). Names live only in `subjects.json` (`SubjectList`, `SubjectStore`), so typed text still never reaches the ledger (F1-19). A subject change never affects credit.
+- **Time focused:** from the countdown's start to the session's end, capped at its planned end, minus breaks. Unlocks don't reduce it, and a plain timer counts. Time saved is unchanged. A session belongs to its Maple day.
+- **What History leaves out:** the running session, sessions removed by the member, and sessions under a minute focused (`StudyHistory.minimumSeconds`). Why the last: a start ended at once isn't study, and would crowd the list.
+- **Removing:** "Remove from History" hides a session with the existing `sessionHidden` event. Leaves it earned stay. It can't be undone in the app.
+- **Removed subjects** keep their sessions and their name in History, shown dimmer. Adding the name again brings the subject back under its id.
+- **Titles:** "Study · Biology"; with an intention too the subject stands in for the preset, "Biology · Chapter 4", so the header stays one line.
+- **The receipt's subject link** sits in the top bar's empty room (where ⌄ is on the running screen). Why: the receipt has no spare line; a line under the breakdown pushed "Again" under the tab bar.
+- **"New subject"** is at the top of the subject sheet, not the bottom as first sketched. Why: under the list it was hidden by the keyboard.
+- **The switch:** `ShippedFeatures.studyRecord`, on wherever Focus ships. History reads the whole ledger off the main actor (`FocusSessionStore.loadHistory()`); the store's own replay still reads only this month and last.
+- **Left for later:** exams, an icon or leaf per subject, the other F2 slices (timer shapes and sound, schedules, outside the app).
+
 ## 2026-11-14 — The owner's changes after using the build (F1-32 to F1-36)
 The owner tried the Focus tab in the simulator and asked for five changes, recorded as F1-32 to F1-36 in the F1 design's §2.2.
 - **F1-32, End early asks twice:** the sheet's way out (Gentle's "End session", Steady's 3-second hold) no longer ends the session. It leads to a breath in the session's place (`EndBreathView`, `EndBreathModel`): "Breathe in" for 4 seconds and "and out" for 4, once for Gentle and twice for Steady, with a disc that fills and empties the dial. Then "Still want to end?", with "Keep going" and "End session"; the session ends only there. Gentle's 5-second ring and Steady's 15-second "Ending in 15s" countdown are gone. Why: the ring was too slight to notice, and the owner wanted the choice put again after the pause.

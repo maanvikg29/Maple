@@ -10,7 +10,8 @@ import MapleServices
 /// - `.preset(id)`: that preset's editor, or a new preset's for nil. A saved preset becomes the selected one, and a
 ///   deleted one stops being it; either way the turned length goes, so the start screen shows the preset's own;
 /// - `.intention`: the tab's "What's this for?";
-/// - `.saved`: as from Home, on the receipt's day when it gives one; `.streak`: as from Home.
+/// - `.saved`: as from Home, on the receipt's day when it gives one; `.streak`: as from Home;
+/// - `.subject`: the next session's subject; `.retag(id)`: that session's subject, changed afterwards (F2 Study record).
 struct FocusTabSheetContent: View {
     @Environment(CollectionStore.self) private var collection
     @Environment(FocusSessionStore.self) private var sessions
@@ -18,6 +19,7 @@ struct FocusTabSheetContent: View {
     @Environment(AppSetStore.self) private var appSets
     @Environment(FocusTabState.self) private var tab
     @Environment(AppSettings.self) private var settings
+    @Environment(SubjectStore.self) private var subjects
     let sheet: FocusTabSheet
 
     var body: some View {
@@ -35,6 +37,14 @@ struct FocusTabSheetContent: View {
             PresetEditorHost(draft: draft(for: id), onSaved: saved, onDeleted: deleted)
         case .intention:
             IntentionEntry(intention: $tab.intention)
+        case .subject:
+            SubjectSheet(selected: selectedPreset.flatMap { tab.subjectID(preset: $0.id, subjects: subjects) }) { subject in
+                tab.subjectPick = subject.map { .subject($0) } ?? .noSubject
+            }
+        case .retag(let id):
+            SubjectSheet(selected: sessions.sessions.first { $0.id == id }?.subjectID) { subject in
+                Task { await sessions.setSubject(subject, for: id) }
+            }
         }
     }
 

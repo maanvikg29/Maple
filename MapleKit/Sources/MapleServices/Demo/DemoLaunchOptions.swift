@@ -58,9 +58,13 @@ nonisolated public struct DemoLaunchOptions: Sendable, Equatable {
     public var saved: FocusDemo.Saved?
     /// `-MapleDemoLiveActivity running|break|plain|ended`.
     public var liveActivity: FocusDemo.LiveActivity?
-    /// `-MapleDemoPresent blocking|preset|saved|streak|intention`: a Focus sheet. Nil for the app's own presentations
+    /// `-MapleDemoPresent blocking|preset|saved|streak|intention|subject|history|session`: a Focus sheet, or History
+    /// (`session`: with its newest session's detail open). Nil for the app's own presentations
     /// (`reveal`, `profile`, `winddown`, `onboarding`), which the app reads from the same key.
     public var focusSheet: FocusDemo.Sheet?
+    /// `-MapleDemoHistory YES`: F2 Study record's demo: Biology, Maths and Chemistry (and French, removed), with
+    /// seventeen earlier days of sessions for History.
+    public var history = false
     /// `-MapleDemoPreset study|quick|deep|read`: the selected preset.
     public var preset: FocusVerb?
     /// `-MapleDemoIntention <text>`: the session's intention; an empty value means none.
@@ -132,6 +136,7 @@ nonisolated public struct DemoLaunchOptions: Sendable, Equatable {
         saved = choice("MapleDemoSaved")
         liveActivity = choice("MapleDemoLiveActivity")
         focusSheet = choice("MapleDemoPresent")
+        history = flag("MapleDemoHistory")
         preset = switch value("MapleDemoPreset")?.lowercased() {
         case "study": .study
         case "quick": .quick
@@ -206,7 +211,7 @@ nonisolated public struct DemoLaunchOptions: Sendable, Equatable {
         ship != nil || focus != nil || focusAt != nil || strictness != nil || screenTime != nil || receipt != nil
             || saved != nil || liveActivity != nil || focusSheet != nil || preset != nil || intention != nil
             || holdAt != nil || endCountdown != nil || finishAt != nil || receiptTimes != nil || presetName != nil
-            || plainTimerChosen
+            || plainTimerChosen || history
     }
 
     /// A deterministic demo collection replaces the member's own: asked for, or a Focus demo (whose scenarios need a

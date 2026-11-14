@@ -587,4 +587,73 @@ struct FocusDemoScenarioTests {
         #expect(plain.preview?.store == .empty)
     }
 }
+@Suite("Demo Study record")
+@MainActor
+struct DemoStudyRecordTests {
+    @Test("-MapleDemoHistory plants subjects and seventeen earlier days, which History lists on their own days")
+    func history() async throws {
+        let stores = try await launch(["-MapleDemoFocus", "idle", "-MapleDemoHistory", "YES"])
+        let subjects = stores.focus.subjects
+        #expect(subjects.active.map(\.name) == ["Biology", "Maths", "Chemistry"])
+        #expect(subjects.list.subjects.filter(\.isRemoved).map(\.name) == ["French"])
+        let study = try #require(stores.focus.presets.presets.first { $0.verb == .study })
+        #expect(subjects.name(for: subjects.lastUsed(with: study.id)) == "Maths")
+
+        await stores.focus.sessions.loadHistory()
+        let sessions = try #require(stores.focus.sessions.history?.sessions)
+        let today = LocalDay(year: 2026, month: 10, day: 23)
+        let days = Set(sessions.map(\.day))
+        // Three days in four of the seventeen before today, and today's two.
+        #expect(days.count == 14)
+        #expect(days.min() == today.adding(days: -17, calendar: utc))
+        #expect(days.max() == today)
+        #expect(!days.contains(today.adding(days: -3, calendar: utc)))
+        let yesterday = sessions.filter { $0.day == today.adding(days: -1, calendar: utc) }
+        #expect(yesterday.map(\.focusedSeconds) == [90 * 60])
+        #expect(yesterday.first.flatMap { subjects.name(for: $0.subjectID) } == "Biology")
+        #expect(yesterday.first?.savedSeconds == 90 * 60)
+        let early = try #require(sessions.first { $0.day == today.adding(days: -2, calendar: utc) })
+        #expect(early.focusedSeconds == 12 * 60 && !early.ranToEnd)
+        let plain = try #require(sessions.first { $0.day == today.adding(days: -8, calendar: utc) })
+        #expect(plain.savedSeconds == 0 && plain.focusedSeconds == 50 * 60)
+        #expect(sessions.contains { subjects.name(for: $0.subjectID) == "French" })
+        #expect(stores.focus.sessions.running == nil)
+    }
+
+    @Test("History's sessions were seen as they ended: none comes back as a receipt, even with nothing saved today")
+    func historyIsSeen() async throws {
+        for arguments in [["-MapleDemoSaved", "empty"], ["-MapleDemoScreenTime", "unavailable"], []] {
+            let all = ["-MapleDemoFocus", "idle", "-MapleDemoHistory", "YES"] + arguments
+            let stores = try await launch(all)
+            let settings = AppSettings.demo(DemoLaunchOptions(arguments: ["-MapleDemoShip", "f1"] + all),
+                                            directory: try temporaryDirectory())
+            #expect(!stores.focus.sessions.sessions.isEmpty)
+            #expect(ReceiptPicker.pending(stores.focus.sessions.sessions, seen: settings.lastReceiptSeen, now: stores.now) == nil)
+        }
+    }
+
+    @Test("A free build's history is plain timers: time focused, nothing saved")
+    func freeBuildHistory() async throws {
+        let stores = try await launch(["-MapleDemoFocus", "idle", "-MapleDemoScreenTime", "unavailable", "-MapleDemoHistory", "YES"])
+        await stores.focus.sessions.loadHistory()
+        let sessions = try #require(stores.focus.sessions.history?.sessions)
+        #expect(sessions.count > 10)
+        #expect(sessions.allSatisfy { $0.savedSeconds == 0 && $0.focusedSeconds > 0 })
+        let records = try #require(stores.focus.sessions.history?.records)
+        #expect(records.allSatisfy { $0.plan.kind == .plainTimer })
+    }
+
+    @Test("A first session has no history, whatever the launch asks")
+    func firstHasNoHistory() async throws {
+        let stores = try await launch(["-MapleDemoFocus", "first", "-MapleDemoHistory", "YES"])
+        #expect(stores.focus.subjects.list.isEmpty)
+        #expect(stores.focus.sessions.sessions.isEmpty)
+    }
+
+    @Test("Without -MapleDemoHistory a Focus demo has no subjects")
+    func noSubjects() async throws {
+        let stores = try await launch(["-MapleDemoFocus", "idle"])
+        #expect(stores.focus.subjects.list.isEmpty)
+    }
+}
 #endif

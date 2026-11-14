@@ -23,6 +23,9 @@ public struct ShippedFeatures: Sendable, Hashable {
 
     /// The Focus tab, sessions and their leaves (F1).
     public var focus: Bool { releases.contains(.f1) }
+    /// The Study record, F2's first slice: subjects, History and the "This week" strip. It rides on Focus, so it ships
+    /// with it; the rest of F2 stays behind `.f2`.
+    public var studyRecord: Bool { releases.contains(.f1) }
     /// Sounds (F2).
     public var sleepSounds: Bool { releases.contains(.f2) }
     /// Screen Time: blocking and the leaves that need it (F1).

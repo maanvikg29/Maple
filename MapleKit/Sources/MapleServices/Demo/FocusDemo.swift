@@ -88,6 +88,8 @@ nonisolated public enum FocusDemo {
     /// `-MapleDemoPresent`, when it names a Focus sheet.
     nonisolated public enum Sheet: String, Sendable, CaseIterable {
         case blocking, preset, saved, streak, intention
+        /// F2 Study record: the subject sheet; History; History with its newest session's detail open.
+        case subject, history, session
     }
 }
 
@@ -162,6 +164,10 @@ struct FocusDemoScenario {
         var end: End
         var reflection: Reflection?
         var intention: String?
+        /// The subject it was started with (F2 Study record).
+        var subject: UUID?
+        /// `-MapleDemoHistory`'s earlier days: written in the history boot (`seed`).
+        var isHistory = false
 
         /// Seconds before now the session was started: `sessionStarted`, 2 seconds before a block's read-back.
         var startAgo: TimeInterval { startedAgo + (kind == .blocking ? 2 : 0) }
@@ -232,6 +238,8 @@ struct FocusDemoScenario {
     let receiptTimes: FocusDemo.ReceiptTimes?
     /// `-MapleDemoPresetName`: the selected preset's name.
     let presetName: String?
+    /// `-MapleDemoHistory`: subjects and seventeen earlier days of sessions (F2 Study record).
+    let hasHistory: Bool
 
     init(_ options: DemoLaunchOptions) {
         var asked = options.focus
@@ -250,6 +258,8 @@ struct FocusDemoScenario {
         let ends = state == .ended || state == .endedAway
         self.state = state
         self.screenTime = screenTime
+        // A first session has nothing behind it.
+        hasHistory = options.history && state != .first
         receipt = options.receipt ?? .clean
         saved = if state == .first || screenTime == .unavailable {
             .empty
@@ -439,6 +449,7 @@ struct FocusDemoScenario {
             study.breakAt = 25 * 60
             study.reflection = .allDone
             study.intention = "Maths sheet"
+            if hasHistory { study.subject = Self.demoSubjects[1].id }
             latestFirst = [read, study]
         case .capped:
             // The capped receipt is the session over the cap; otherwise a Study 50m plays it.
@@ -486,23 +497,105 @@ struct FocusDemoScenario {
             plannedSeconds: script.minutes * 60, breakSeconds: script.breakSeconds, strictness: script.strictness,
             kind: script.kind, appSetID: blocks ? AppSet.distractionsID : nil, selection: blocks ? script.selection : nil,
             startedFrom: .focusTab, mapleDay: frozen.day.description, window: frozen.window,
-            zone: context.calendar.timeZone.identifier, appBuild: appBuild, rulesVersion: FocusRules.version
+            zone: context.calendar.timeZone.identifier, appBuild: appBuild, rulesVersion: FocusRules.version,
+            subjectID: script.subject
         )
+    }
+
+    // MARK: Study record (F2, `-MapleDemoHistory`)
+
+    /// The history demo's subjects: three offered, and French removed (History's "past subject").
+    static let demoSubjects: [(id: UUID, name: String, removed: Bool)] = [
+        (UUID(uuidString: "6D61706C-6500-5355-424A-000000000001")!, "Biology", false),
+        (UUID(uuidString: "6D61706C-6500-5355-424A-000000000002")!, "Maths", false),
+        (UUID(uuidString: "6D61706C-6500-5355-424A-000000000003")!, "Chemistry", false),
+        (UUID(uuidString: "6D61706C-6500-5355-424A-000000000004")!, "French", true),
+    ]
+
+    /// `-MapleDemoHistory`'s subjects file: Study was last used with Maths.
+    func subjectList(presets: [FocusPreset]) -> SubjectList {
+        var list = SubjectList()
+        guard hasHistory, let data = try? JSONEncoder().encode(DemoSubjects(
+            subjects: Self.demoSubjects.map { Subject(id: $0.id, name: $0.name, isRemoved: $0.removed) },
+            lastUsed: Dictionary(uniqueKeysWithValues: presets.filter { $0.verb == .study }.map {
+                ($0.id.uuidString.lowercased(), Self.demoSubjects[1].id.uuidString)
+            })
+        )), let decoded = try? JSONDecoder().decode(SubjectList.self, from: data) else { return list }
+        list = decoded
+        return list
+    }
+
+    /// `subjects.json` as `SubjectList` writes it, so the demo can plant ids and a removed subject.
+    private struct DemoSubjects: Encodable {
+        var subjects: [Subject]
+        var lastUsed: [String: String]
+    }
+
+    /// Seventeen earlier days of sessions, three days in four, with subjects: a Study with Maths and an evening Read
+    /// with no subject; a Deep with Biology; a Quick with Chemistry ended early and a Study with French (removed since).
+    /// One day's Study is a plain timer; on a free build (`unavailable`) every one is.
+    func historyScripts(presets: [FocusPreset], now: Date, calendar: Calendar) -> [Script] {
+        guard hasHistory else { return [] }
+        func preset(_ verb: FocusVerb) -> FocusPreset { presets.first { $0.verb == verb } ?? presets[0] }
+        let subjects = Self.demoSubjects.map(\.id)
+        let midnight = calendar.startOfDay(for: now)
+        var scripts: [Script] = []
+        func add(_ verb: FocusVerb, day: Int, hour: Double, minutes: Int, subject: UUID?, ranMinutes: Int? = nil,
+                 plain asked: Bool = false, intention: String? = nil, reflection: Reflection? = nil) {
+            let plain = asked || screenTime == .unavailable
+            let start = midnight.addingTimeInterval(TimeInterval(-day * 86400) + hour * 3600)
+            let chosen = preset(verb)
+            var script = Script(
+                id: UUID(uuidString: String(format: "6D61706C-6500-4849-5354-%012d", scripts.count + 1))!, preset: chosen,
+                minutes: minutes,
+                kind: plain ? .plainTimer : .blocking, selection: plain ? nil : Self.six, breakSeconds: 0,
+                startedAgo: now.timeIntervalSince(start),
+                end: .ended(ranMinutes == nil ? .completed : .endedEarly, at: TimeInterval((ranMinutes ?? minutes) * 60))
+            )
+            script.subject = subject
+            script.intention = intention
+            script.reflection = reflection
+            script.isHistory = true
+            scripts.append(script)
+        }
+        for day in 1...17 {
+            switch day % 4 {
+            case 0:
+                add(.study, day: day, hour: 16, minutes: 50, subject: subjects[1], plain: day == 8, intention: "Problem sheet",
+                    reflection: .allDone)
+                add(.reading, day: day, hour: 19.5, minutes: 30, subject: nil)
+            case 1:
+                add(.deep, day: day, hour: 15.5, minutes: 90, subject: subjects[0], intention: "Cell biology notes", reflection: .partly)
+            case 2:
+                add(.quick, day: day, hour: 17, minutes: 25, subject: subjects[2], ranMinutes: 12)
+                add(.study, day: day, hour: 18.5, minutes: 50, subject: subjects[3])
+            default:
+                break
+            }
+        }
+        return scripts
     }
 
     /// Everything the stores start from, stamped back from `now`: the demo time source's stamp (this boot, the shifted
     /// wall clock).
     func seed(now: EventStamp, snapshot: CollectionSnapshot, context: CollectionContext, appBuild: String) -> Seed {
         let presets = presetsFile()
-        let subject = subjectScript(presets: presets.presets)
-        let scripts = earlierScripts(presets: presets.presets, before: subject?.startAgo ?? 0) + [subject].compactMap { $0 }
+        var subject = subjectScript(presets: presets.presets)
+        // The history demo's own session is a Chemistry one, so its screens and receipt name a subject:
+        // "Chemistry · Chapter 4".
+        if hasHistory {
+            subject?.subject = Self.demoSubjects[2].id
+            if subject?.intention == Self.intention { subject?.intention = "Chapter 4" }
+        }
+        let scripts = historyScripts(presets: presets.presets, now: now.wall, calendar: context.calendar)
+            + earlierScripts(presets: presets.presets, before: subject?.startAgo ?? 0) + [subject].compactMap { $0 }
         let blocking = blocker(for: subject)
-        var timed: [(ago: TimeInterval, session: UUID, kind: FocusEventKind)] = []
+        var timed: [(ago: TimeInterval, session: UUID, kind: FocusEventKind, isHistory: Bool)] = []
         var notes: [String: SessionNote] = [:]
         for script in scripts {
             let started = now.wall.addingTimeInterval(-script.startAgo)
             let plan = frozenPlan(for: script, startedAt: started, snapshot: snapshot, context: context, appBuild: appBuild)
-            timed += script.timeline(plan).map { (ago: $0.ago, session: script.id, kind: $0.kind) }
+            timed += script.timeline(plan).map { (ago: $0.ago, session: script.id, kind: $0.kind, isHistory: script.isHistory) }
             if let text = script.intention.flatMap(RecentIntentions.normalized) {
                 notes[script.id.uuidString.lowercased()] = SessionNote(text: text, at: started)
             }
@@ -511,18 +604,26 @@ struct FocusDemoScenario {
         let ordered = timed.enumerated().sorted { a, b in
             a.element.ago != b.element.ago ? a.element.ago > b.element.ago : a.offset < b.offset
         }
+        // Earlier days are written in a boot of their own, whose clock runs over those days: this boot's continuous
+        // clock may not reach back that far. They are older than everything else, so their sequence numbers come first.
+        let span: TimeInterval = 40 * 86400
         let events = ordered.enumerated().map { index, item in
             let ago = item.element.ago
+            let stamp = item.element.isHistory
+                ? EventStamp(wall: now.wall.addingTimeInterval(-ago), continuous: UInt64(((span - ago) * 1e9).rounded()),
+                             boot: "demo-history", zone: now.zone)
+                : EventStamp(wall: now.wall.addingTimeInterval(-ago), continuous: now.continuous - UInt64((ago * 1e9).rounded()),
+                             boot: now.boot, zone: now.zone)
             return FocusEvent(
                 id: "\(item.element.session.uuidString.lowercased()).\(index + 1)", kind: item.element.kind,
                 sessionID: item.element.session, deviceID: FocusDemo.deviceID, writer: .app, seq: index + 1,
-                source: blocking.source,
-                stamp: EventStamp(wall: now.wall.addingTimeInterval(-ago), continuous: now.continuous - UInt64((ago * 1e9).rounded()),
-                                  boot: now.boot, zone: now.zone)
+                source: blocking.source, stamp: stamp
             )
         }
-        return Seed(presets: presets, appSets: appSetsFile(), notes: SessionNotesFile(notes: notes), events: events,
-                    blocking: blocking)
+        var seed = Seed(presets: presets, appSets: appSetsFile(), notes: SessionNotesFile(notes: notes), events: events,
+                        blocking: blocking)
+        seed.subjects = subjectList(presets: presets.presets)
+        return seed
     }
 }
 
@@ -532,10 +633,14 @@ extension FocusDemoScenario {
     var hasStartedFocus: Bool { state != .first }
 
     /// The last receipt this scenario's member has seen (P5, `AppSettings.lastReceiptSeen`): the newest of today's
-    /// earlier sessions, whose receipt showed as it ended. So only the scenario's own session opens on a receipt; nil
-    /// without earlier sessions.
+    /// earlier sessions, whose receipt showed as it ended, or else of `-MapleDemoHistory`'s. So only the scenario's own
+    /// session opens on a receipt; nil without earlier sessions.
     var seenReceipt: UUID? {
-        earlierScripts(presets: presetsFile().presets, before: 0).last?.id
+        let presets = presetsFile().presets
+        if let today = earlierScripts(presets: presets, before: 0).last { return today.id }
+        // `-MapleDemoHistory` with nothing today: yesterday's session, or it would open as a receipt.
+        return historyScripts(presets: presets, now: Date(timeIntervalSinceReferenceDate: 0), calendar: Calendar(identifier: .gregorian))
+            .min { $0.startAgo < $1.startAgo }?.id
     }
 }
 #endif

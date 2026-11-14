@@ -377,6 +377,12 @@ public struct SessionDetailModel: Sendable, Equatable {
         public let from: Double
         public let to: Double
         public let kind: Kind
+
+        public init(from: Double, to: Double, kind: Kind) {
+            self.from = from
+            self.to = to
+            self.kind = kind
+        }
     }
 
     public static let removeTitle = "Remove from History"
@@ -388,6 +394,10 @@ public struct SessionDetailModel: Sendable, Equatable {
     public static let subjectTitle = "Subject"
     public static let intentionTitle = "What it was for"
     public static let addIntention = "Add a note"
+    /// "How did it go?", in the receipt's words.
+    public static let reflections: [(reflection: Reflection, title: String)] = [
+        (.allDone, "All done"), (.partly, "Partly"), (.notYet, "Not yet"),
+    ]
 
     /// "Study · Biology".
     public let title: String
