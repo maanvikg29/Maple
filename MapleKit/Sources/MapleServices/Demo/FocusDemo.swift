@@ -201,6 +201,8 @@ struct FocusDemoScenario {
         var notes: SessionNotesFile
         var events: [FocusEvent]
         var blocking: any BlockingService
+        /// The member's subjects (F2 Study record); none unless the scenario has them.
+        var subjects = SubjectList()
     }
 
     /// Distractions: "Blocking 6 apps", "6 apps resting".

@@ -778,4 +778,100 @@ struct FocusSessionStoreTests {
         #expect(h.kinds == ["sessionStarted", "sessionEnded"])
         guard case .started = await h.store.start(h.request()) else { Issue.record("the next start was refused"); return }
     }
+
+    // MARK: Study record (F2)
+
+    @Test("A session starts with its subject, and the subject is in the ledger's plan")
+    func startsWithSubject() async throws {
+        let h = Harness()
+        let biology = UUID()
+        var request = h.request()
+        request.subject = biology
+        guard case .started(let id) = await h.store.start(request) else { Issue.record("not started"); return }
+        #expect(h.store.running?.subjectID == biology)
+        guard case .sessionStarted(let plan) = try #require(h.ledger.events.first { $0.sessionID == id }).kind else {
+            Issue.record("no start")
+            return
+        }
+        #expect(plan.subjectID == biology)
+    }
+
+    @Test("A session's subject can be changed afterwards, to another subject or to none, without touching its credit")
+    func retag() async throws {
+        let h = Harness()
+        let maths = UUID()
+        guard case .started(let id) = await h.store.start(h.request()) else { Issue.record("not started"); return }
+        h.advance(minutes: 50)
+        await h.store.refresh()
+        let saved = h.collection.focus.totalSeconds
+        #expect(saved == 3000)
+        await h.store.setSubject(maths, for: id)
+        #expect(h.store.sessions.first { $0.id == id }?.subjectID == maths)
+        #expect(h.kinds.last == "subjectChanged")
+        await h.store.setSubject(nil, for: id)
+        #expect(h.store.sessions.first { $0.id == id }?.subjectID == nil)
+        await h.store.refresh()
+        #expect(h.collection.focus.totalSeconds == saved)
+    }
+
+    @Test("History reads the whole ledger: a session the open read no longer holds is still listed, with what it saved")
+    func wholeHistory() async throws {
+        let h = Harness()
+        guard case .started(let old) = await h.store.start(h.request()) else { Issue.record("not started"); return }
+        h.advance(minutes: 50)
+        await h.store.refresh()
+        let partial = PartialOpenRead(h.ledger, hiding: { $0.sessionID == old })
+        let later = h.relaunch(over: partial)
+        await later.refresh()
+        #expect(later.sessions.isEmpty)
+        #expect(later.history == nil)
+        await later.loadHistory()
+        let history = try #require(later.history)
+        #expect(history.sessions.map(\.id) == [old])
+        #expect(history.sessions.first?.focusedSeconds == 3000)
+        #expect(history.sessions.first?.savedSeconds == 3000)
+        #expect(history.record(old)?.plan.presetName == "Study")
+        #expect(history.credit(old)?.seconds == 3000)
+    }
+
+    @Test("Removing a session from History hides it there and keeps everything it earned; the running session can't be removed")
+    func removeFromHistory() async throws {
+        let h = Harness()
+        guard case .started(let first) = await h.store.start(h.request()) else { Issue.record("not started"); return }
+        h.advance(minutes: 50)
+        await h.store.refresh()
+        h.advance(minutes: 10)
+        guard case .started(let second) = await h.store.start(h.request(minutes: 25)) else { Issue.record("not started"); return }
+        await h.store.loadHistory()
+        #expect(h.store.history?.sessions.map(\.id) == [first])
+
+        #expect(await h.store.removeFromHistory(second) == false)
+        #expect(h.store.running?.id == second)
+        #expect(await h.store.removeFromHistory(first))
+        #expect(h.kinds.last == "sessionHidden")
+        #expect(h.store.history?.sessions.isEmpty == true)
+        #expect(h.store.sessions.first { $0.id == first }?.isHidden == true)
+        #expect(h.collection.focus.totalSeconds >= 3000)
+
+        h.advance(minutes: 25)
+        await h.store.refresh()
+        await h.store.loadHistory()
+        #expect(h.store.history?.sessions.map(\.id) == [second])
+        // The hidden session's time still fills the day: the second one counts on top of it, never in its place.
+        #expect(h.collection.focus.totalSeconds == 4500)
+    }
+
+    @Test("This week's sessions come from the open read, without the running one")
+    func recentStudySessions() async throws {
+        let h = Harness()
+        guard case .started(let done) = await h.store.start(h.request(plain: true)) else { Issue.record("not started"); return }
+        h.advance(minutes: 50)
+        await h.store.refresh()
+        h.advance(minutes: 5)
+        guard case .started = await h.store.start(h.request()) else { Issue.record("not started"); return }
+        let recent = h.store.recentStudySessions
+        #expect(recent.map(\.id) == [done])
+        #expect(recent.first?.savedSeconds == 0)
+        #expect(recent.first?.focusedSeconds == 3000)
+    }
 }

@@ -83,7 +83,7 @@ public struct MapleStores {
     /// Whether the collection and schedule files could both be read (see `CollectionStore.isAvailable`).
     public var isAvailable: Bool { collection.isAvailable && schedule.isAvailable }
 
-    /// Reads the collection, schedule, Apple Health record and Focus files (presets, app sets, intentions) again if
+    /// Reads the collection, schedule, Apple Health record and Focus files (presets, app sets, intentions, subjects) again if
     /// launch couldn't (before the first unlock after a restart).
     /// - Returns: Whether the collection, schedule or a Focus store changed from its placeholder, so the first-run
     ///   step must be decided again.
@@ -95,6 +95,7 @@ public struct MapleStores {
         let presetsReloaded = focus.presets.reloadIfUnavailable()
         let appSetsReloaded = focus.appSets.reloadIfUnavailable()
         let notesReloaded = focus.notes.reloadIfUnavailable()
+        focus.subjects.reloadIfUnavailable()
         if collectionReloaded, !scheduleReloaded {
             // The collection's placeholder had the standard schedule; give it the member's again.
             collection.schedule = schedule.weekly

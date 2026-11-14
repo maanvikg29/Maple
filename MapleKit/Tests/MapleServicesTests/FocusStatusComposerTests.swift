@@ -29,6 +29,7 @@ private struct ComposerStores {
             presets: PresetStore(storage: JSONStorage(.memory), defaultAppSetID: AppSet.distractionsID),
             appSets: appSets,
             notes: SessionNotesStore(storage: JSONStorage(.memory)),
+            subjects: SubjectStore(storage: JSONStorage(.memory)),
             mode: .live
         )
         settings.hasStartedFocus = started

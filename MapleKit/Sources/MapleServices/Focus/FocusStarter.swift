@@ -7,15 +7,20 @@ extension FocusStores {
     /// - the intention is kept for the session, at its start, in `session-notes.json`, never in the ledger (a blank one
     ///   keeps nothing), and the Live Activity is sent again so its expanded view has it from the first frame the system
     ///   shows away from Maple (§5.11);
-    /// - the first start is recorded (`AppSettings.hasStartedFocus`).
+    /// - the first start is recorded (`AppSettings.hasStartedFocus`);
+    /// - the subject is remembered for the preset, "No subject" too (F2 Study record). A subject that isn't offered any
+    ///   more is dropped before the start.
     ///
     /// Nothing is kept when the session doesn't start.
     public func start(
         _ request: FocusSessionStore.StartRequest, intention: String?, settings: AppSettings
     ) async -> FocusSessionStore.StartOutcome {
+        var request = request
+        if let subject = request.subject, !subjects.active.contains(where: { $0.id == subject }) { request.subject = nil }
         let outcome = await sessions.start(request)
         guard case .started(let id) = outcome else { return outcome }
         presets.markUsed(request.preset.id)
+        subjects.markUsed(request.subject, with: request.preset.id)
         if let text = intention.flatMap(RecentIntentions.normalized) {
             notes.setIntention(text, for: id, at: sessions.running?.started.placed ?? sessions.now)
             await sessions.resendLiveActivity()
