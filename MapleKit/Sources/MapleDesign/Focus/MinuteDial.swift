@@ -26,6 +26,10 @@ public struct MinuteDial<Centre: View>: View {
     private let centre: Centre
     /// The finish drawn over the marks (`finishing(_:)`, in `FinishTimeline.swift`).
     var finish: FinishFrame?
+    /// The marks the ring is spaced for (`spread(_:follows:)`); nil for the frame's own.
+    var spread: Double?
+    /// The finger is turning the dial: the ring follows it closely rather than gliding.
+    var spreadFollows = false
 
     /// - Parameters:
     ///   - diameter: The dial's side in points: `MinuteDialMetrics.preferredDiameter(forWidth:)`, shrinking with
@@ -43,6 +47,33 @@ public struct MinuteDial<Centre: View>: View {
         let tint = theme.colors.seasonTint(season)
         let fading = reduceMotion ? nil : frame.newestLit
         ZStack {
+            if let spread, !reduceMotion {
+                // The start screen: the ring follows the turn between lengths, and glides to a new one (F1-33).
+                SpreadRing(spread: spread, frame: frame, geometry: geometry, theme: theme, tint: tint)
+                    .animation(spreadFollows ? .interactiveSpring(response: 0.12, dampingFraction: 0.9) : .snappy(duration: 0.32),
+                               value: spread)
+            } else {
+                ownMarks(geometry, tint: tint, fading: fading)
+            }
+            if let finish {
+                FinishLayer(finish: finish, marks: frame.marks, geometry: geometry, theme: theme)
+            }
+            centre
+        }
+        .frame(width: diameter, height: diameter)
+        .background {
+            DialBloomLayer(bloom: frame.bloom, tint: tint, dial: theme.dial, side: diameter * MinuteDialMetrics.bloomScale)
+                .opacity(frame.markOpacity)
+                .mapleAnimation(theme.motion.gentle, value: frame.bloom)
+                .mapleAnimation(theme.motion.gentle, value: frame.markOpacity)
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    /// The frame's own marks and its leaf dot, as every screen but the start screen draws them.
+    @ViewBuilder
+    private func ownMarks(_ geometry: MinuteDialGeometry, tint: Color, fading: Int?) -> some View {
+        Group {
             ZStack {
                 marks(geometry, tint: tint, skipping: fading)
                 if let fading {
@@ -60,19 +91,7 @@ public struct MinuteDial<Centre: View>: View {
             if let dot = frame.dot {
                 dotView(dot, geometry: geometry, tint: tint)
             }
-            if let finish {
-                FinishLayer(finish: finish, marks: frame.marks, geometry: geometry, theme: theme)
-            }
-            centre
         }
-        .frame(width: diameter, height: diameter)
-        .background {
-            DialBloomLayer(bloom: frame.bloom, tint: tint, dial: theme.dial, side: diameter * MinuteDialMetrics.bloomScale)
-                .opacity(frame.markOpacity)
-                .mapleAnimation(theme.motion.gentle, value: frame.bloom)
-                .mapleAnimation(theme.motion.gentle, value: frame.markOpacity)
-        }
-        .accessibilityElement(children: .contain)
     }
 
     /// Every mark but `skipping`, each stroked in its state's colour. Under Reduce Motion the current mark is drawn
@@ -107,6 +126,18 @@ public struct MinuteDial<Centre: View>: View {
         .mapleAnimation(theme.motion.gentle, value: dot.reached)
         .position(geometry.dotCentre(angle: dot.angle))
         .accessibilityHidden(true)
+    }
+}
+
+extension MinuteDial {
+    /// Spaces the ring for `marks` marks instead of the frame's own count (`DialSpread.marks(minutes:fraction:)`), so
+    /// the start screen's marks follow the finger between lengths and glide to a new length (F1-33). `follows` is true
+    /// while the finger is turning. Under Reduce Motion the frame's own marks are drawn, stepping as before.
+    public func spread(_ marks: Double?, follows: Bool = false) -> MinuteDial {
+        var dial = self
+        dial.spread = marks
+        dial.spreadFollows = follows
+        return dial
     }
 }
 
@@ -158,6 +189,17 @@ nonisolated struct MinuteDialGeometry: Sendable, Equatable {
         var path = Path()
         path.move(to: segment.inner)
         path.addLine(to: segment.outer)
+        return path
+    }
+
+    /// Mark `index` drawn at `angle`, for a ring spaced by something other than its own count (`DialSpread`).
+    func path(angle: Double, index: Int, state: MarkState) -> Path {
+        let inner = state == .gap
+            ? DialLayout.gapInnerRadius
+            : index % 5 == 0 ? DialLayout.longInnerRadius : DialLayout.shortInnerRadius
+        var path = Path()
+        path.move(to: point(angle: angle, radius: inner))
+        path.addLine(to: point(angle: angle, radius: DialLayout.outerRadius))
         return path
     }
 

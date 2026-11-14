@@ -67,7 +67,7 @@ nonisolated public struct DemoLaunchOptions: Sendable, Equatable {
     public var intention: String?
     /// `-MapleDemoHoldAt 0…1`: a hold frozen at that progress.
     public var holdAt: Double?
-    /// `-MapleDemoEndCountdown <s>`: Steady's end countdown frozen at that many seconds, 0…15.
+    /// `-MapleDemoEndCountdown <s>`: End early's breath frozen with that many seconds left, 0…16 (0 is its second question).
     public var endCountdown: Int?
     /// `-MapleDemoFinishAt <s>`: the receipt's finish (or an emergency release's breath) frozen that many seconds in.
     public var finishAt: Double?
@@ -141,7 +141,7 @@ nonisolated public struct DemoLaunchOptions: Sendable, Equatable {
         }
         intention = value("MapleDemoIntention")
         holdAt = number("MapleDemoHoldAt").map { min(1, max(0, $0)) }
-        endCountdown = count("MapleDemoEndCountdown", max: 15)
+        endCountdown = count("MapleDemoEndCountdown", max: 16)
         finishAt = number("MapleDemoFinishAt").map { max(0, $0) }
         receiptTimes = value("MapleDemoReceiptTimes").flatMap { text in
             let times = Self.clockTimes(from: text)

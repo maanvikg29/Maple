@@ -1,83 +1,137 @@
 import Foundation
 import MapleFocusCore
 
-/// End early, for Gentle and Steady (F1 design §5.6): a sheet over the session. Copy and timings are `FocusCopy.EndEarly`'s.
+/// End early, for Gentle and Steady (F1 design §5.6): the sheet over the session that asks. Its way out (Gentle's "End
+/// session", Steady's 3-second hold) leads to the breath (`EndBreathModel`), never straight to the end. Copy and
+/// timings are `FocusCopy.EndEarly`'s.
 public struct EndEarlyModel: Sendable, Equatable {
-    public enum Stage: Sendable, Equatable {
-        /// "End this session?", with the way out still to take.
-        case asking
-        /// The way out was taken: the session ends when this many seconds have passed (Steady's quiet 15, Gentle's
-        /// 5-second ring). "Keep going" still cancels.
-        case ending(secondsLeft: Int)
-    }
-
     public let path: SessionEndPath
-    public let stage: Stage
-    /// "End this session?", or "Ending in 15s" once the countdown runs, down to "Ending in 1s".
+    /// "End this session?"
     public let title: String
-    /// The title for VoiceOver: "Ending in 15 seconds".
-    public let spokenTitle: String
     /// "18 minutes saved so far. They stay yours either way.", or "This session isn't counting toward leaves."
     public let body: String
-    /// The primary, "Keep going", at every stage.
+    /// The primary, "Keep going".
     public let keepGoingTitle: String
-    /// Steady while asking: "Hold to end".
+    /// Steady: "Hold to end".
     public let holdTitle: String?
-    /// Gentle while asking: "End session".
+    /// Gentle: "End session".
     public let endTitle: String?
-    /// Steady while asking and while the preset's break is unused: "Take a 5-minute break instead".
+    /// Steady, while the preset's break is unused: "Take a 5-minute break instead".
     public let breakInsteadTitle: String?
-    /// Gentle's ring, 0...1 of its 5 seconds; nil when it isn't running.
-    public let ringProgress: Double?
 
     /// - Parameters:
     ///   - path: `.gentle` or `.steady` (Locked's way out is `EmergencyReleaseModel`).
     ///   - countedSeconds: This session's counted seconds so far (`FocusSessionStore.countedSoFar(_:)`).
     ///   - breakAvailable: The preset has a break, it is unused, time is left, and apps are locked
     ///     (`RunningSessionModel.breakAvailable(_:at:)`).
-    public init(path: SessionEndPath, countedSeconds: Int, breakAvailable: Bool, stage: Stage) {
+    public init(path: SessionEndPath, countedSeconds: Int, breakAvailable: Bool) {
         self.path = path
-        self.stage = stage
+        title = FocusCopy.EndEarly.title
         body = FocusCopy.EndEarly.savedLine(countedSeconds: countedSeconds)
         keepGoingTitle = FocusCopy.keepGoing
-        switch stage {
-        case .asking:
-            title = FocusCopy.EndEarly.title
-            spokenTitle = title
-            holdTitle = path == .steady ? FocusCopy.EndEarly.holdToEnd : nil
-            endTitle = path == .gentle ? FocusCopy.EndEarly.gentleEnd : nil
-            breakInsteadTitle = path == .steady && breakAvailable ? FocusCopy.EndEarly.takeBreakInstead : nil
-            ringProgress = nil
-        case .ending(let left):
-            // The session ends as the countdown reaches zero, while the sheet is still sliding away: the words stop at
-            // 1s, so it never reads "Ending in 0s". The ring runs to its end.
-            let shown = max(1, left)
-            title = FocusCopy.EndEarly.endingIn(seconds: shown)
-            spokenTitle = "Ending in \(shown) \(shown == 1 ? "second" : "seconds")"
-            holdTitle = nil
-            endTitle = nil
-            breakInsteadTitle = nil
-            let ring = Self.countdown(for: .gentle)
-            let seconds = max(0, left)
-            ringProgress = path == .gentle ? min(1, max(0, Double(ring - seconds) / Double(ring))) : nil
+        holdTitle = path == .steady ? FocusCopy.EndEarly.holdToEnd : nil
+        endTitle = path == .gentle ? FocusCopy.EndEarly.gentleEnd : nil
+        breakInsteadTitle = path == .steady && breakAvailable ? FocusCopy.EndEarly.takeBreakInstead : nil
+    }
+}
+
+/// After End early's sheet (F1-32): the breath in the session's place, then the question again. Gentle takes one slow
+/// breath (4 seconds in, 4 out) and Steady two, while a disc and the cool bloom swell and settle (a transform and an
+/// opacity). Then "Still want to end?", with "Keep going" and "End session": the session ends only on that last tap.
+/// "Keep going" is there throughout. Copy and timings are `FocusCopy.EndEarly`'s.
+public struct EndBreathModel: Sendable, Equatable {
+    /// What the dial's centre shows.
+    public enum Centre: Sendable, Equatable {
+        /// "Breathe in", then "and out".
+        case breath(String)
+        /// "18m" over "saved so far" ("19m" over "focused" when the session can't count).
+        case asking(numeral: String, caption: String)
+    }
+
+    /// The second question fades in over this (§4.6: fade-ins last at least 0.6 s).
+    public static let askFade: TimeInterval = 0.6
+
+    /// How long the breathing lasts: 8 seconds for Gentle, 16 for Steady.
+    public static func breathSeconds(for path: SessionEndPath) -> TimeInterval {
+        Double(FocusCopy.EndEarly.breaths(for: path)) * 2 * FocusCopy.EndEarly.breathHalfSeconds
+    }
+
+    public let centre: Centre
+    /// The dial for VoiceOver: "Breathe in", then "18 minutes saved so far".
+    public let spoken: String
+    /// Under the dial while breathing: "One slow breath before you decide."
+    public let line: String?
+    /// Once it asks again: "Still want to end?"
+    public let title: String?
+    /// Once it asks again: "18 minutes saved so far. They stay yours either way."
+    public let body: String?
+    /// The dial's numeral and caption as one line, repeated under it at accessibility sizes (§5.17); nil while breathing.
+    public let timeLine: String?
+    /// "Keep going", from the first moment.
+    public let keepGoingTitle: String
+    /// "End session": it holds its place through the breath and fades in with `askOpacity`.
+    public let endTitle: String
+    /// 0 through the breath, then 0…1 as the question fades in.
+    public let askOpacity: Double
+    /// The breathing disc, as a share of its full size (1 under Reduce Motion), and its strength.
+    public let discScale: Double
+    public let discOpacity: Double
+    /// The cool bloom's swell (1 under Reduce Motion) and its strength.
+    public let bloomScale: Double
+    public let bloomOpacity: Double
+
+    public var isAsking: Bool { if case .asking = centre { true } else { false } }
+    public var isBreathing: Bool { !isAsking }
+
+    /// - Parameters:
+    ///   - path: `.gentle` or `.steady`.
+    ///   - countedSeconds: The session's counted seconds so far (`FocusSessionStore.countedSoFar(_:)`).
+    ///   - focusedSeconds: From the countdown's start to now: the numeral when the session can't count.
+    ///   - canCount: The session could count (`FocusPlan.canCount`).
+    ///   - seconds: Since the breath began, on trusted time.
+    public init(
+        path: SessionEndPath, countedSeconds: Int, focusedSeconds: Int, canCount: Bool, seconds: Double, reduceMotion: Bool,
+        locale: Locale = .current
+    ) {
+        let t = seconds.isNaN ? 0 : max(0, seconds)
+        let total = Self.breathSeconds(for: path)
+        keepGoingTitle = FocusCopy.keepGoing
+        endTitle = FocusCopy.EndEarly.gentleEnd
+        if t < total {
+            let half = FocusCopy.EndEarly.breathHalfSeconds
+            let within = t.truncatingRemainder(dividingBy: 2 * half)
+            let words = within < half ? FocusCopy.EndEarly.breatheIn : FocusCopy.EndEarly.breatheOut
+            centre = .breath(words)
+            spoken = words
+            line = FocusCopy.EndEarly.breathLine(breaths: FocusCopy.EndEarly.breaths(for: path))
+            title = nil
+            body = nil
+            timeLine = nil
+            askOpacity = 0
+            // One swell a breath: up through the 4 seconds in, back through the 4 out.
+            let wave = 0.5 - 0.5 * cos(.pi * within / half)
+            discScale = reduceMotion ? 1 : 0.45 + 0.55 * wave
+            discOpacity = 0.35 + 0.65 * wave
+            bloomScale = reduceMotion ? 1 : 0.8 + 0.45 * wave
+            bloomOpacity = 0.5 + 0.5 * wave
+        } else {
+            let shown = canCount ? max(0, countedSeconds) / 60 : max(0, focusedSeconds) / 60
+            let numeral = FocusTimeText.length(minutes: shown)
+            let caption = canCount ? FocusCopy.EndEarly.savedCaption : FocusCopy.EndEarly.focusedCaption
+            centre = .asking(numeral: numeral, caption: caption)
+            spoken = "\(FocusTimeText.spokenLength(minutes: shown, locale: locale)) \(caption)"
+            line = nil
+            title = FocusCopy.EndEarly.askAgain
+            body = FocusCopy.EndEarly.savedLine(countedSeconds: countedSeconds)
+            timeLine = "\(numeral) \(caption)"
+            let fade = min(1, (t - total) / Self.askFade)
+            askOpacity = fade
+            // The disc settles away as the question comes in.
+            discScale = reduceMotion ? 1 : 0.45
+            discOpacity = 0.35 * (1 - fade)
+            bloomScale = reduceMotion ? 1 : 0.8
+            bloomOpacity = 0.5
         }
-    }
-
-    /// How long the countdown runs once the way out is taken: Steady's 15 seconds, Gentle's 5.
-    public static func countdown(for path: SessionEndPath) -> Int {
-        path == .gentle ? Int(FocusCopy.EndEarly.gentleBreathSeconds) : FocusCopy.EndEarly.countdownSeconds
-    }
-
-    /// The whole seconds left of a countdown that ends at `endsAt`, rounded up: "Ending in 15s" first.
-    public static func secondsLeft(until endsAt: Date, now: Date) -> Int {
-        max(0, Int((endsAt.timeIntervalSince(now) - 1e-9).rounded(.up)))
-    }
-
-    /// Gentle's ring breathes once over its 5 seconds: a transform only, none under Reduce Motion.
-    public static func ringScale(progress: Double, reduceMotion: Bool) -> Double {
-        guard !reduceMotion else { return 1 }
-        let p = min(1, max(0, progress))
-        return 0.88 + 0.12 * sin(.pi * p)
     }
 }
 

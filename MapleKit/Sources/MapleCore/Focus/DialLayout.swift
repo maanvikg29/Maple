@@ -51,9 +51,10 @@ public struct DialLayout: Sendable, Equatable {
         2 * .pi * minute / Double(markCount * minutesPerMark)
     }
 
-    /// The length after turning the dial by `degrees` from `minutes`: whole 5-minute steps, 20 minutes to 3 hours.
+    /// The length after turning the dial by `degrees` from `minutes`: whole 5-minute steps, each taken at its halfway
+    /// point so the dial settles on the nearer length, 20 minutes to 3 hours.
     public static func length(turning degrees: Double, from minutes: Int) -> Int {
-        stepped(minutes, by: Int((degrees / degreesPerStep).rounded(.towardZero)))
+        stepped(minutes, by: Int((degrees / degreesPerStep).rounded(.toNearestOrAwayFromZero)))
     }
 
     /// `minutes` moved by `steps` 5-minute steps (VoiceOver's adjustable action), within the range.

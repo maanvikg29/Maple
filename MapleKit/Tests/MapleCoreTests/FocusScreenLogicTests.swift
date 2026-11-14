@@ -41,8 +41,11 @@ struct DialLayoutTests {
     @Test("A 30° turn is 5 minutes, between 20 minutes and 3 hours")
     func turning() {
         #expect(DialLayout.length(turning: 30, from: 50) == 55)
-        #expect(DialLayout.length(turning: 359, from: 50) == 105)
-        #expect(DialLayout.length(turning: -29, from: 50) == 50)
+        #expect(DialLayout.length(turning: 359, from: 50) == 110)
+        #expect(DialLayout.length(turning: 14, from: 50) == 50)
+        #expect(DialLayout.length(turning: 15, from: 50) == 55)
+        #expect(DialLayout.length(turning: -14, from: 50) == 50)
+        #expect(DialLayout.length(turning: -29, from: 50) == 45)
         #expect(DialLayout.length(turning: -360, from: 50) == 20)
         #expect(DialLayout.length(turning: 3600, from: 50) == 180)
         #expect(DialLayout.stepped(50, by: -1) == 45)

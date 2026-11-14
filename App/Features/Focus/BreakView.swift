@@ -49,11 +49,15 @@ struct BreakView: View {
                 .font(MapleFont.footnote)
                 .foregroundStyle(theme.colors.textSecondary)
         } controls: {
-            Button(FocusCopy.BreakTime.backToStudying, action: onBackToStudying)
-                .buttonStyle(.glassCapsule)
-                .disabled(isEndingBreak)
-                .accessibilityFocused(controlsFocused)
-            TextLink(model.endPath.title, chevron: false, action: onEndPath)
+            SessionActionRow {
+                Button(FocusCopy.BreakTime.backToStudying, action: onBackToStudying)
+                    .buttonStyle(.glassCapsule)
+                    .disabled(isEndingBreak)
+                    .accessibilityFocused(controlsFocused)
+            } second: {
+                Button(model.endPath.title, action: onEndPath)
+                    .buttonStyle(.glassCapsule)
+            }
         }
     }
 }

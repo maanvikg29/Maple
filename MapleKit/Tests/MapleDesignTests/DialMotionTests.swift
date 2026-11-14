@@ -25,27 +25,38 @@ struct DialTurnTrackerTests {
         #expect(abs(DialTurnTracker.angle(of: CGPoint(x: 0, y: 100), around: centre) - 270) < 1e-9)
     }
 
-    @Test("Each 30° is a step: clockwise lengthens, anticlockwise shortens, and what's left over carries")
+    @Test("Each 30° is a step, taken at its halfway point, so the dial settles on the nearer length; what's left over carries")
     func steps() {
         var tracker = DialTurnTracker()
-        #expect(tracker.move(to: point(29), from: point(0), around: centre, deadZone: 20) == 0)
-        #expect(tracker.move(to: point(31), from: point(0), around: centre, deadZone: 20) == 1)
-        #expect(abs(tracker.pending - 1) < 1e-6)
+        #expect(tracker.move(to: point(14), from: point(0), around: centre, deadZone: 20) == 0)
+        #expect(abs(tracker.fraction - 14.0 / 30) < 1e-6)
+        #expect(tracker.move(to: point(16), from: point(0), around: centre, deadZone: 20) == 1)
+        #expect(abs(tracker.pending - -14) < 1e-6)
+        #expect(abs(tracker.fraction - -14.0 / 30) < 1e-6)
         #expect(tracker.move(to: point(91), from: point(0), around: centre, deadZone: 20) == 2)
-        #expect(tracker.move(to: point(1), from: point(0), around: centre, deadZone: 20) == -2)
-        #expect(abs(tracker.pending - -29) < 1e-6)
+        #expect(abs(tracker.pending - 1) < 1e-6)
+        #expect(tracker.move(to: point(1), from: point(0), around: centre, deadZone: 20) == -3)
+        #expect(abs(tracker.pending - 1) < 1e-6)
         tracker.end()
-        #expect(tracker.lastAngle == nil && tracker.pending == 0)
-        // Exactly 30° is a whole step.
+        #expect(tracker.lastAngle == nil && tracker.pending == 0 && tracker.fraction == 0)
+        // Exactly 30° is a whole step, and so is exactly half of one.
         #expect(tracker.move(to: point(30), from: point(0), around: centre, deadZone: 20) == 1)
+        tracker.end()
+        #expect(tracker.move(to: point(15), from: point(0), around: centre, deadZone: 20) == 1)
+        // What's left over never passes half a step either way.
+        for degrees in stride(from: 1.0, through: 170, by: 1) {
+            var each = DialTurnTracker()
+            _ = each.move(to: point(degrees), from: point(0), around: centre, deadZone: 20)
+            #expect(abs(each.fraction) <= 0.5 + 1e-9)
+        }
     }
 
     @Test("Crossing 12 o'clock turns the short way round")
     func crossingTwelve() {
         var tracker = DialTurnTracker()
-        #expect(tracker.move(to: point(10), from: point(350), around: centre, deadZone: 20) == 0)
-        #expect(abs(tracker.pending - 20) < 1e-6)
-        #expect(tracker.move(to: point(20), from: point(350), around: centre, deadZone: 20) == 1)
+        #expect(tracker.move(to: point(0), from: point(350), around: centre, deadZone: 20) == 0)
+        #expect(abs(tracker.pending - 10) < 1e-6)
+        #expect(tracker.move(to: point(10), from: point(350), around: centre, deadZone: 20) == 1)
         #expect(tracker.move(to: point(340), from: point(350), around: centre, deadZone: 20) == -1)
     }
 
@@ -77,7 +88,79 @@ struct DialTurnTrackerTests {
         _ = tracker.move(to: point(100), from: point(90), around: centre, deadZone: 20)
         tracker.end()
         #expect(tracker.move(to: point(200), from: point(200), around: centre, deadZone: 20) == 0)
-        #expect(tracker.move(to: point(232), from: point(200), around: centre, deadZone: 20) == 1)
+        #expect(tracker.move(to: point(217), from: point(200), around: centre, deadZone: 20) == 1)
+    }
+}
+
+/// The start screen's marks follow the finger between lengths (F1-33): the ring is spaced for a number of marks that
+/// moves continuously with the turn.
+@Suite("Dial spread")
+struct DialSpreadTests {
+    @Test("At rest the ring is spaced for the length's own marks")
+    func atRest() {
+        #expect(DialSpread.marks(minutes: 50, fraction: 0) == 50)
+        #expect(DialSpread.marks(minutes: 65, fraction: 0) == 33)
+        #expect(DialSpread.marks(minutes: 180, fraction: 0) == 60)
+    }
+
+    @Test("Part of a step moves it part of the way, and a completed step carries on from the same place")
+    func follows() {
+        #expect(DialSpread.marks(minutes: 50, fraction: 0.2) == 51)
+        #expect(DialSpread.marks(minutes: 50, fraction: -0.4) == 48)
+        #expect(DialSpread.marks(minutes: 50, fraction: 0.5) == DialSpread.marks(minutes: 55, fraction: -0.5))
+        // 2 minutes a mark past the hour.
+        #expect(DialSpread.marks(minutes: 90, fraction: 0.4) == 46)
+    }
+
+    @Test("It never passes the shortest or the longest length")
+    func limits() {
+        #expect(DialSpread.marks(minutes: 20, fraction: -0.5) == 20)
+        #expect(DialSpread.marks(minutes: 180, fraction: 0.5) == 60)
+        #expect(DialSpread.marks(minutes: 50, fraction: .nan) == 50)
+    }
+
+    @Test("Marks sit evenly round the ring it is spaced for, and the last one fades in as room opens for it")
+    func drawn() {
+        let whole = DialSpread.drawn(spread: 50, count: 50)
+        #expect(whole.count == 50)
+        #expect(whole.allSatisfy { $0.opacity == 1 })
+        #expect(whole[0].angle == 0)
+        #expect(abs(whole[25].angle - .pi) < 1e-9)
+        // Turning up from 50: a 51st mark fades in, and every mark closes up to make room.
+        let more = DialSpread.drawn(spread: 50.4, count: 50)
+        #expect(more.count == 51)
+        #expect(abs(more[50].opacity - 0.4) < 1e-9)
+        #expect(more[50].state == 49)
+        #expect(more[25].angle < whole[25].angle)
+        // Turning down: the last marks go, the one at the end fading.
+        let fewer = DialSpread.drawn(spread: 47.5, count: 50)
+        #expect(fewer.count == 48)
+        #expect(abs(fewer[47].opacity - 0.5) < 1e-9)
+        #expect(fewer.allSatisfy { $0.angle < 2 * .pi })
+        #expect(DialSpread.drawn(spread: 0, count: 50).isEmpty)
+    }
+
+    @Test("The leaf dot keeps its minute as the ring closes up")
+    func dot() {
+        // Minute 35 of 50 sits 70% of the way round; spaced for 55 it sits 35/55 of the way.
+        let angle = 2 * Double.pi * 35 / 50
+        #expect(abs(DialSpread.angle(angle, count: 50, spread: 55) - 2 * .pi * 35 / 55) < 1e-9)
+        #expect(DialSpread.angle(angle, count: 50, spread: 50) == angle)
+        #expect(DialSpread.angle(angle, count: 50, spread: 0) == angle)
+    }
+}
+
+/// The Focus tab's sky (F1-34): still stars, the same every time.
+@Suite("Focus sky")
+struct FocusSkyFieldTests {
+    @Test("The stars are the same on every launch, inside the unit square, small and faint")
+    func stars() {
+        let stars = FocusSkyField.stars
+        #expect(stars.count == FocusSkyField.count)
+        #expect(stars == FocusSkyField.make())
+        #expect(stars.allSatisfy { (0...1).contains($0.x) && (0...1).contains($0.y) })
+        #expect(stars.allSatisfy { (0.4...1.3).contains($0.radius) && (0.12...0.6).contains($0.opacity) })
+        #expect(Set(stars.map(\.x)).count > FocusSkyField.count / 2)
     }
 }
 

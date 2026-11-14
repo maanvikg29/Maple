@@ -39,6 +39,8 @@ struct FocusStartView: View {
     @Environment(NotificationScheduler.self) private var reminders
 
     /// The Locked hold's fill, shown on the dial's marks while it is held.
+    /// The part of a 5-minute step the finger is through while it turns the dial, -0.5…0.5; 0 between touches.
+    @State private var dialTurn = 0.0
     @State private var holdProgress = 0.0
     /// When the plain-tap hint appeared; it goes after `FocusCopy.holdHintSeconds`.
     @State private var hintShownAt: Date?
@@ -114,7 +116,9 @@ struct FocusStartView: View {
                 DialCentre(leaf: species.map { DialLeaf(species: $0, fill: fill) },
                            numeral: DialCentre.numeralParts(model.lengthText), caption: model.caption, diameter: diameter)
             }
-            .dialTurning(minutes: length(of: model.preset), enabled: model.canTurn) {
+            // The marks follow the finger between lengths, and glide to a chip's length (F1-33).
+            .spread(DialSpread.marks(minutes: model.minutes, fraction: dialTurn), follows: dialTurn != 0)
+            .dialTurning(minutes: length(of: model.preset), enabled: model.canTurn, turn: $dialTurn) {
                 tab.hasTurnedDial = true
             }
         }

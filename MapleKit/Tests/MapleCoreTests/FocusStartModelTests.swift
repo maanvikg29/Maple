@@ -114,7 +114,7 @@ struct FocusCopyTests {
             == "1 second of break left. Back to studying at 14:28.")
     }
 
-    @Test("End early: counted minutes only, the zero line, Steady's hold and countdown, and the break instead")
+    @Test("End early: counted minutes only, the zero line, Steady's hold, the break instead, the breath and the second question")
     func endEarly() {
         #expect(FocusCopy.EndEarly.title == "End this session?")
         #expect(FocusCopy.EndEarly.savedLine(countedSeconds: 18 * 60 + 40) == "18 minutes saved so far. They stay yours either way.")
@@ -123,12 +123,14 @@ struct FocusCopyTests {
         #expect(FocusCopy.EndEarly.savedLine(countedSeconds: 0) == "This session isn't counting toward leaves.")
         #expect(FocusCopy.EndEarly.holdToEnd == "Hold to end")
         #expect(FocusCopy.EndEarly.holdSeconds == 3)
-        #expect(FocusCopy.EndEarly.countdownSeconds == 15)
-        #expect(FocusCopy.EndEarly.endingIn(seconds: 15) == "Ending in 15s")
-        #expect(FocusCopy.EndEarly.endingIn(seconds: 9) == "Ending in 9s")
         #expect(FocusCopy.EndEarly.takeBreakInstead == "Take a 5-minute break instead")
         #expect(FocusCopy.EndEarly.gentleEnd == "End session")
-        #expect(FocusCopy.EndEarly.gentleBreathSeconds == 5)
+        #expect(FocusCopy.EndEarly.breathHalfSeconds == 4)
+        #expect(FocusCopy.EndEarly.breaths(for: .gentle) == 1)
+        #expect(FocusCopy.EndEarly.breaths(for: .steady) == 2)
+        #expect(FocusCopy.EndEarly.breathLine(breaths: 1) == "One slow breath before you decide.")
+        #expect(FocusCopy.EndEarly.breathLine(breaths: 2) == "Two slow breaths before you decide.")
+        #expect(FocusCopy.EndEarly.askAgain == "Still want to end?")
     }
 
     @Test("Emergency release: the hold, the honest line with and without counted minutes, the breath and the ended state")
