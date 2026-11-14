@@ -102,7 +102,7 @@ Schedules, subjects and exams, sounds, iCloud sync and widgets were already F2.
 | F1-10 | Plans | **F1 is two implementation plans:** F1a (logic) and F1b (screens) (§9). |
 
 ### 2.2 Decided on the owner's behalf after the review (2026-10-23)
-F1-27 to F1-31 are the owner's own, from 2026-10-29, answering questions the F1b final review raised.
+F1-27 to F1-31 are the owner's own, from 2026-10-29, answering questions the F1b final review raised. F1-32 to F1-36 are the owner's too, from 2026-11-14, after using the build in the simulator.
 
 | # | Question | Decision |
 |---|---|---|
@@ -127,6 +127,11 @@ F1-27 to F1-31 are the owner's own, from 2026-10-29, answering questions the F1b
 | F1-29 | The plain timer in a build that can't block | **Remembered.** In a build that can never block, the member's first "Use a plain timer · it won't count" is saved in Settings, and from then on the Focus tab goes straight to the plain timer's start screen, which keeps its "Plain timer · apps aren't locked" line. A build that can block still asks again after each start, because Screen Time may be turned on (§1.1, §5.3). Owner, 2026-10-29. |
 | F1-30 | A plain timer's strictness | **Gentle, whatever its preset.** A plain timer locks nothing, so Locked's and Steady's exit costs mean nothing for it: it starts with one tap and no hold, the start screen shows no Locked line, and End early is Gentle's, with no emergency release and no 15-second countdown. Sessions that lock apps are unchanged (§5.2, §5.6, §5.7, §5.12, §5.13). Owner, 2026-10-29. |
 | F1-31 | A receipt shown the next day | **"saved · 2h 10m that day"**, with that day's total, only when the session's Maple day is earlier than the shown day and the shown day's window has opened (wake − 60). Between bedtime and that moment it still says "today". Today's receipts keep "today" (§5.8). Its numeral then opens "Saved that day", with that day's sessions (§5.9). Owner, 2026-10-29 and 2026-11-12. |
+| F1-32 | End early asks twice | **The sheet's way out leads to a breath, then a second question; only "End session" there ends the session** (§5.6). The breath takes the session's place: one slow breath for Gentle, two for Steady. The 5-second ring and the 15-second "Ending in 15s" countdown are gone. Owner, 2026-11-14: the ring "doesn't seem very significant", and "after breathing part is done ask again". |
+| F1-33 | Turning the dial | **The marks follow the finger between lengths, and a step is taken at its halfway point** (§4.5), so the dial settles on the nearer length. The length still moves in 5-minute steps. Owner, 2026-11-14: "make turning the dial more smoother". |
+| F1-34 | The Focus tab's backdrop | **Still stars and a low glow in the season's tint** behind every Focus screen (§5.4). One still frame: nothing redraws through a session. Owner, 2026-11-14: "a lot of blank space when the timer is on". |
+| F1-35 | Session buttons | **"End early" is a glass capsule beside "Take a break"** (§5.4), and End early's sheet is only as tall as what it says, in the session screen's own dark (§5.6). Owner, 2026-11-14. |
+| F1-36 | Strictness in a free build | **The strictness chooser stays in the preset editor** in a build without Family Controls, where sessions run as plain timers. Owner, 2026-11-14: "dont hide it". |
 
 ## 3. Counting rules
 The focus spec's R1 to R14 stand, with the changes below made in place there. F1a implements §3.1 to §3.5 exactly.
@@ -274,7 +279,9 @@ Colours are `MinuteDial` tokens in `Tokens.swift`, each with an Increase Contras
 ### 4.5 Setting the length
 - **Turning the dial:** 30° of turn changes the length by 5 minutes, so one full turn is an hour.
   - The range is 20 minutes to 3 hours.
-  - Each step plays a `.selection` haptic, and the marks re-lay out.
+  - A step is taken at its halfway point (15°), so the dial settles on the nearer length when the finger lifts (F1-33).
+  - Each step plays a `.selection` haptic.
+  - The marks follow the finger between lengths: the ring is spaced for a number of marks that moves continuously with the turn, a mark fading in or out at 12 o'clock, and the leaf dot keeps its minute. When the finger lifts, or a chip is tapped, the ring glides to the length. Under Reduce Motion the marks step from one length's ring to the next.
   - Turning changes only this session. Holding a chip edits its preset.
 - **Chips** set their preset's length.
 - **Hint:** the caption reads "turn to set the length" until the member has turned the dial once. After that it shows the preset name.
@@ -404,7 +411,9 @@ Every screen has a DEBUG launch argument (§8.2). The mockup page shows §5.1 to
 - **First session only:** one line under the dial, "You can lock your phone. Maple keeps time."
 - **Buttons:**
   - "Take a break", when the preset has one;
-  - "End early" (Gentle and Steady) or "Emergency release" (Locked).
+  - "End early" (Gentle and Steady) or "Emergency release" (Locked);
+  - both are glass capsules, side by side, and stacked where they don't fit (F1-35).
+- **Backdrop** (F1-34): behind every Focus screen, still stars over the background and a low glow in the season's tint rising from the foot of the screen. It is one still frame, so it costs a long session nothing.
 - **Other behaviour:**
   - ⌄ minimises the session, which keeps running;
   - the screen dims after 30 seconds (§4.6);
@@ -424,16 +433,24 @@ Every screen has a DEBUG launch argument (§8.2). The mockup page shows §5.1 to
 - **Ending:** "Back to studying" ends the break early. When the break runs out, the session screen returns, and a soft haptic plays if the app is open. Nothing is sent while the phone is locked.
 
 ### 5.6 End early (Gentle, Steady)
-- **A sheet over the session:**
+- **A small sheet over the session,** only as tall as what it says, in the session screen's own dark (F1-35):
   - "End this session?";
   - "18 minutes saved so far. They stay yours either way." The minutes are counted seconds. At zero it reads "This session isn't counting toward leaves.";
   - the primary, "Keep going".
-- **Steady:**
-  - "Hold to end" needs 3 seconds;
-  - then a quiet 15-second countdown, "Ending in 15s", which "Keep going" still cancels;
-  - "Take a 5-minute break instead" is offered while the break is unused (cut short at the planned end).
-- **Gentle:** a 5-second breathing ring, then the session ends.
-- **A plain timer** always ends this way, as Gentle, whatever its preset's strictness (F1-30): no hold, no 15-second countdown, and no emergency release.
+- **The sheet's way out:**
+  - Gentle: "End session";
+  - Steady: "Hold to end", which needs 3 seconds, and "Take a 5-minute break instead" while the break is unused (cut short at the planned end).
+- **The breath** (F1-32) takes the session's place once the sheet has gone, with the tab bar tucked away:
+  - "Breathe in" for 4 seconds and "and out" for 4, inside the session's own dial: once for Gentle, twice for Steady;
+  - a soft disc fills the dial as the breath comes in and empties as it goes out, and the cool bloom swells with it (a transform and an opacity; under Reduce Motion only the opacity);
+  - under the dial: "One slow breath before you decide." ("Two slow breaths…" for Steady);
+  - "Keep going" is there from the first moment.
+- **The second question,** when the breath is over:
+  - the dial shows "18m" over "saved so far" ("19m" over "focused" when the session can't count);
+  - "Still want to end?", with the line that says the minutes stay;
+  - "Keep going", and "End session", which fades in where it has been waiting. The session ends only on that tap.
+- **Leaving the foreground** during the breath or the question goes back to the session, as it cancels a hold.
+- **A plain timer** always ends this way, as Gentle, whatever its preset's strictness (F1-30): no hold, one breath, and no emergency release.
 
 ### 5.7 Emergency release (Locked)
 - **A full screen:** "Emergency release", with "Study · Locked" under it.

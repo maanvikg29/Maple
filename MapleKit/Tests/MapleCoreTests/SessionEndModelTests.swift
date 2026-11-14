@@ -3,75 +3,35 @@ import Testing
 @testable import MapleCore
 @testable import MapleFocusCore
 
-/// End early for Gentle and Steady (F1 design §5.6).
+/// End early for Gentle and Steady (F1 design §5.6): the sheet that asks.
 @Suite("End early")
 struct EndEarlyModelTests {
-    @Test("Steady asks first: Keep going, Hold to end, and the break instead while it is unused")
+    @Test("Steady asks: Keep going, Hold to end, and the break instead while it is unused")
     func steadyAsking() {
-        let sheet = EndEarlyModel(path: .steady, countedSeconds: 18 * 60, breakAvailable: true, stage: .asking)
+        let sheet = EndEarlyModel(path: .steady, countedSeconds: 18 * 60, breakAvailable: true)
         #expect(sheet.title == "End this session?")
-        #expect(sheet.spokenTitle == "End this session?")
         #expect(sheet.body == "18 minutes saved so far. They stay yours either way.")
         #expect(sheet.keepGoingTitle == "Keep going")
         #expect(sheet.holdTitle == "Hold to end")
         #expect(sheet.endTitle == nil)
         #expect(sheet.breakInsteadTitle == "Take a 5-minute break instead")
-        #expect(sheet.ringProgress == nil)
-        let noBreak = EndEarlyModel(path: .steady, countedSeconds: 18 * 60, breakAvailable: false, stage: .asking)
+        let noBreak = EndEarlyModel(path: .steady, countedSeconds: 18 * 60, breakAvailable: false)
         #expect(noBreak.breakInsteadTitle == nil)
     }
 
-    @Test("After the hold, a quiet 15-second countdown that Keep going still cancels")
-    func steadyCountdown() {
-        #expect(EndEarlyModel.countdown(for: .steady) == 15)
-        let sheet = EndEarlyModel(path: .steady, countedSeconds: 18 * 60, breakAvailable: true, stage: .ending(secondsLeft: 15))
-        #expect(sheet.title == "Ending in 15s")
-        #expect(sheet.spokenTitle == "Ending in 15 seconds")
-        #expect(sheet.keepGoingTitle == "Keep going")
-        #expect(sheet.holdTitle == nil)
-        #expect(sheet.breakInsteadTitle == nil)
-        #expect(sheet.ringProgress == nil)
-        let later = EndEarlyModel(path: .steady, countedSeconds: 18 * 60, breakAvailable: true, stage: .ending(secondsLeft: 1))
-        #expect(later.title == "Ending in 1s")
-        #expect(later.spokenTitle == "Ending in 1 second")
-        // At the end itself the sheet is already closing: it still reads 1s, never "Ending in 0s".
-        let end = at(2026, 10, 23, 14, 20)
-        let closing = EndEarlyModel(path: .steady, countedSeconds: 18 * 60, breakAvailable: true,
-                                    stage: .ending(secondsLeft: EndEarlyModel.secondsLeft(until: end, now: end)))
-        #expect(closing.title == "Ending in 1s")
-        #expect(closing.spokenTitle == "Ending in 1 second")
-    }
-
-    @Test("Gentle: End session starts a 5-second breathing ring")
+    @Test("Gentle asks with End session, and offers no break instead")
     func gentle() {
-        let asking = EndEarlyModel(path: .gentle, countedSeconds: 10 * 60, breakAvailable: true, stage: .asking)
+        let asking = EndEarlyModel(path: .gentle, countedSeconds: 10 * 60, breakAvailable: true)
         #expect(asking.title == "End this session?")
         #expect(asking.endTitle == "End session")
         #expect(asking.holdTitle == nil)
         #expect(asking.breakInsteadTitle == nil)
-        #expect(EndEarlyModel.countdown(for: .gentle) == 5)
-        let ring = EndEarlyModel(path: .gentle, countedSeconds: 10 * 60, breakAvailable: true, stage: .ending(secondsLeft: 3))
-        #expect(ring.title == "Ending in 3s")
-        #expect(abs((ring.ringProgress ?? -1) - 0.4) < 1e-9)
-        #expect(ring.endTitle == nil)
-        #expect(EndEarlyModel.ringScale(progress: 0, reduceMotion: false) == 0.88)
-        #expect(EndEarlyModel.ringScale(progress: 0.5, reduceMotion: false) == 1)
-        #expect(EndEarlyModel.ringScale(progress: 0.2, reduceMotion: true) == 1)
     }
 
     @Test("Nothing counted yet reads plainly")
     func nothingCounted() {
-        let sheet = EndEarlyModel(path: .steady, countedSeconds: 0, breakAvailable: false, stage: .asking)
+        let sheet = EndEarlyModel(path: .steady, countedSeconds: 0, breakAvailable: false)
         #expect(sheet.body == "This session isn't counting toward leaves.")
-    }
-
-    @Test("The countdown's seconds round up, and stop at zero")
-    func secondsLeft() {
-        let end = at(2026, 10, 23, 14, 20)
-        #expect(EndEarlyModel.secondsLeft(until: end, now: end.addingTimeInterval(-15)) == 15)
-        #expect(EndEarlyModel.secondsLeft(until: end, now: end.addingTimeInterval(-14.2)) == 15)
-        #expect(EndEarlyModel.secondsLeft(until: end, now: end) == 0)
-        #expect(EndEarlyModel.secondsLeft(until: end, now: end.addingTimeInterval(3)) == 0)
     }
 
     @Test("No break instead when apps aren't locked: a plain timer, or a block lost mid-session")
@@ -87,7 +47,7 @@ struct EndEarlyModelTests {
         func sheet(_ session: SessionRecord, at minute: Double) -> EndEarlyModel {
             let now = session.countdownStart.addingTimeInterval(minute * 60)
             return EndEarlyModel(path: .steady, countedSeconds: 10 * 60,
-                                 breakAvailable: RunningSessionModel.breakAvailable(session, at: now), stage: .asking)
+                                 breakAvailable: RunningSessionModel.breakAvailable(session, at: now))
         }
         #expect(sheet(try record(), at: 18).breakInsteadTitle == "Take a 5-minute break instead")
         #expect(sheet(try record(kind: .plainTimer), at: 18).breakInsteadTitle == nil)
@@ -95,6 +55,105 @@ struct EndEarlyModelTests {
         // A used break, or no time left, offers none either.
         #expect(sheet(try record { $0.after(60, .breakStarted(seconds: 300)) }, at: 18).breakInsteadTitle == nil)
         #expect(sheet(try record(), at: 50).breakInsteadTitle == nil)
+    }
+}
+
+/// After the sheet's way out: the breath in the session's place, then the question again (F1-32).
+@Suite("End early breath")
+struct EndBreathModelTests {
+    private func model(
+        _ path: SessionEndPath = .gentle, seconds: Double, counted: Int = 18 * 60, canCount: Bool = true, reduceMotion: Bool = false
+    ) -> EndBreathModel {
+        EndBreathModel(path: path, countedSeconds: counted, focusedSeconds: 19 * 60 + 20, canCount: canCount, seconds: seconds,
+                       reduceMotion: reduceMotion, locale: enGB)
+    }
+
+    @Test("Gentle takes one slow breath, 4 seconds in and 4 out; Steady takes two")
+    func lengths() {
+        #expect(EndBreathModel.breathSeconds(for: .gentle) == 8)
+        #expect(EndBreathModel.breathSeconds(for: .steady) == 16)
+        #expect(model(seconds: 0).line == "One slow breath before you decide.")
+        #expect(model(.steady, seconds: 0).line == "Two slow breaths before you decide.")
+    }
+
+    @Test("The breath: Breathe in, then and out, with Keep going there throughout and End session not yet")
+    func breath() {
+        let inhale = model(seconds: 1)
+        #expect(inhale.centre == .breath("Breathe in"))
+        #expect(inhale.spoken == "Breathe in")
+        #expect(inhale.isBreathing && !inhale.isAsking)
+        #expect(inhale.keepGoingTitle == "Keep going")
+        #expect(inhale.endTitle == "End session")
+        #expect(inhale.askOpacity == 0)
+        #expect(inhale.title == nil && inhale.body == nil && inhale.timeLine == nil)
+        let exhale = model(seconds: 5)
+        #expect(exhale.centre == .breath("and out"))
+        #expect(exhale.askOpacity == 0)
+        // Steady's second breath starts again with Breathe in.
+        #expect(model(.steady, seconds: 9).centre == .breath("Breathe in"))
+        #expect(model(.steady, seconds: 13).centre == .breath("and out"))
+        #expect(model(.steady, seconds: 15.9).isBreathing)
+    }
+
+    @Test("The disc and the bloom swell to the turn of each breath and settle back: a transform and an opacity")
+    func swell() {
+        let start = model(seconds: 0), turn = model(seconds: 4), end = model(seconds: 7.999)
+        #expect(abs(start.discScale - 0.45) < 1e-9)
+        #expect(abs(turn.discScale - 1) < 1e-9)
+        #expect(abs(end.discScale - 0.45) < 1e-3)
+        #expect(start.discOpacity < turn.discOpacity)
+        #expect(start.bloomScale < turn.bloomScale && start.bloomOpacity < turn.bloomOpacity)
+        // Rising all the way in, falling all the way out.
+        let scales = stride(from: 0.0, through: 8.0, by: 0.25).map { model(seconds: $0).discScale }
+        #expect(zip(scales, scales.dropFirst()).prefix(16).allSatisfy { $0 < $1 })
+        #expect(zip(scales, scales.dropFirst()).dropFirst(16).dropLast().allSatisfy { $0 > $1 })
+        // Steady's second breath swells again.
+        #expect(abs(model(.steady, seconds: 12).discScale - 1) < 1e-9)
+    }
+
+    @Test("Under Reduce Motion nothing scales; the opacity still breathes")
+    func reduceMotion() {
+        let start = model(seconds: 0, reduceMotion: true), turn = model(seconds: 4, reduceMotion: true)
+        #expect(start.discScale == 1 && turn.discScale == 1)
+        #expect(start.bloomScale == 1 && turn.bloomScale == 1)
+        #expect(start.discOpacity < turn.discOpacity)
+    }
+
+    @Test("After the breath it asks again: Still want to end?, the minutes saved, Keep going and End session")
+    func askingAgain() {
+        let asking = model(seconds: 8)
+        #expect(asking.isAsking && !asking.isBreathing)
+        #expect(asking.centre == .asking(numeral: "18m", caption: "saved so far"))
+        #expect(asking.spoken == "18 minutes saved so far")
+        #expect(asking.title == "Still want to end?")
+        #expect(asking.body == "18 minutes saved so far. They stay yours either way.")
+        #expect(asking.timeLine == "18m saved so far")
+        #expect(asking.line == nil)
+        #expect(asking.keepGoingTitle == "Keep going")
+        #expect(asking.endTitle == "End session")
+        #expect(asking.askOpacity == 0)
+        #expect(abs(model(seconds: 8.3).askOpacity - 0.5) < 1e-9)
+        #expect(abs(model(seconds: 8.6).askOpacity - 1) < 1e-9)
+        #expect(model(seconds: 600).askOpacity == 1)
+        // Steady asks after its second breath, not its first.
+        #expect(!model(.steady, seconds: 8).isAsking)
+        #expect(model(.steady, seconds: 16).isAsking)
+    }
+
+    @Test("A session that can't count shows the minutes focused")
+    func notCounting() {
+        let asking = model(seconds: 9, counted: 0, canCount: false)
+        #expect(asking.centre == .asking(numeral: "19m", caption: "focused"))
+        #expect(asking.spoken == "19 minutes focused")
+        #expect(asking.body == "This session isn't counting toward leaves.")
+        #expect(asking.timeLine == "19m focused")
+    }
+
+    @Test("Odd times never break it")
+    func oddTimes() {
+        #expect(model(seconds: -3).centre == .breath("Breathe in"))
+        #expect(model(seconds: .nan).centre == .breath("Breathe in"))
+        #expect(model(seconds: .infinity).isAsking)
     }
 }
 

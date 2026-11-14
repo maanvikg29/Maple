@@ -107,3 +107,29 @@ struct SessionScreen<Dial: View, Lines: View, Controls: View>: View {
         return max(MinuteDialMetrics.minimumDiameter, fitted)
     }
 }
+
+/// A session screen's two secondary actions ("Take a break" and "End early") side by side, or stacked where they don't
+/// fit: large text, a long title.
+struct SessionActionRow<First: View, Second: View>: View {
+    @Environment(\.theme) private var theme
+    private let first: First
+    private let second: Second
+
+    init(@ViewBuilder first: () -> First, @ViewBuilder second: () -> Second) {
+        self.first = first()
+        self.second = second()
+    }
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: theme.spacing.sm) {
+                first
+                second
+            }
+            VStack(spacing: theme.spacing.sm) {
+                first
+                second
+            }
+        }
+    }
+}

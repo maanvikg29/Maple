@@ -3,8 +3,12 @@ import SwiftUI
 
 extension View {
     /// Turning the dial sets the session's length (F1 design §4.5): each 30° of turn is 5 minutes, so a full turn is
-    /// an hour, within 20 minutes to 3 hours. Each step plays the `.selection` haptic. VoiceOver reads the dial as
-    /// one adjustable element, "Session length, 50 minutes", which swipes up or down by 5 minutes (§4.9).
+    /// an hour, within 20 minutes to 3 hours. A step is taken at its halfway point, so the dial settles on the nearer
+    /// length when the finger lifts. Each step plays the `.selection` haptic. VoiceOver reads the dial as one
+    /// adjustable element, "Session length, 50 minutes", which swipes up or down by 5 minutes (§4.9).
+    ///
+    /// `turn` reports the part of a step the finger is through, -0.5…0.5, and 0 between touches, so the marks can
+    /// follow the finger between lengths (`MinuteDial.spread(_:follows:)`, F1-33).
     ///
     /// At accessibility sizes the start screen scrolls (§5.17), so only a band around the rim turns the dial
     /// (`DialTurnArea`): a drag that starts inside it scrolls the page. The adjustable action still turns it.
@@ -18,10 +22,13 @@ extension View {
     /// - Parameters:
     ///   - minutes: This session's length. Turning changes only it; holding a chip edits the preset.
     ///   - enabled: False while the start screen can't turn the dial (`StartScreenModel.canTurn`, e.g. locking). It then can't be turned but still reads "Session length, 50 minutes"; a caller that needs another reading labels it after this modifier.
+    ///   - turn: The part of a step under way, for the marks to follow; nil when nothing follows it.
     ///   - onTurn: Called after each step, by touch or by VoiceOver: the start screen's hint goes once the dial has
     ///     turned.
-    public func dialTurning(minutes: Binding<Int>, enabled: Bool, onTurn: (() -> Void)? = nil) -> some View {
-        modifier(DialTurningModifier(minutes: minutes, enabled: enabled, onTurn: onTurn))
+    public func dialTurning(
+        minutes: Binding<Int>, enabled: Bool, turn: Binding<Double>? = nil, onTurn: (() -> Void)? = nil
+    ) -> some View {
+        modifier(DialTurningModifier(minutes: minutes, enabled: enabled, turn: turn, onTurn: onTurn))
     }
 }
 
@@ -30,6 +37,7 @@ private struct DialTurningModifier: ViewModifier {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Binding var minutes: Int
     let enabled: Bool
+    let turn: Binding<Double>?
     let onTurn: (() -> Void)?
     @State private var tracker = DialTurnTracker()
     @State private var size = CGSize.zero
@@ -54,7 +62,7 @@ private struct DialTurningModifier: ViewModifier {
             .gesture(turnGesture, isEnabled: enabled)
             .onChange(of: isTurning) { _, turning in
                 // A turn that ended or was cancelled: the next one starts afresh, never from a stale angle.
-                if !turning { tracker.end() }
+                if !turning { endTurn() }
             }
             .sensoryFeedback(.selection, trigger: steps)
             .accessibilityElement(children: .ignore)
@@ -84,8 +92,15 @@ private struct DialTurningModifier: ViewModifier {
                     deadZone: min(size.width, size.height) * DialTurnTracker.deadZoneFraction
                 )
                 if turned != 0 { step(by: turned) }
+                turn?.wrappedValue = tracker.fraction
             }
-            .onEnded { _ in tracker.end() }
+            .onEnded { _ in endTurn() }
+    }
+
+    /// The finger lifted, or the turn was cancelled: the marks settle on the length.
+    private func endTurn() {
+        tracker.end()
+        if turn?.wrappedValue != 0 { turn?.wrappedValue = 0 }
     }
 
     /// Moves the length by `count` steps from where it is. Clamped at 20 minutes and 3 hours; a step that changes
@@ -124,15 +139,19 @@ nonisolated struct DialTurnArea: Shape {
 }
 
 /// Turns a touch moving around the dial's centre into whole 5-minute steps, from the length as it is now (so
-/// turning back right after a limit works at once). It is pure, so the arithmetic is tested without a gesture.
+/// turning back right after a limit works at once). Each step is taken halfway through its 30°, so what is left over
+/// is never more than half a step either way. It is pure, so the arithmetic is tested without a gesture.
 nonisolated struct DialTurnTracker: Sendable, Equatable {
     /// Touches nearer the centre than this share of the dial's side are ignored, because their angle swings wildly.
     static let deadZoneFraction: CGFloat = 0.15
 
     /// The touch's last angle in degrees clockwise from 12 o'clock; nil between touches.
     private(set) var lastAngle: Double?
-    /// Degrees turned that haven't made a whole step yet.
+    /// Degrees turned since the last step, -15…15: a step is taken at its halfway point.
     private(set) var pending: Double = 0
+
+    /// The part of a step the finger is through, -0.5…0.5.
+    var fraction: Double { pending / DialLayout.degreesPerStep }
 
     /// Degrees clockwise from 12 o'clock (0..<360) of `point` around `centre`, with y pointing down.
     static func angle(of point: CGPoint, around centre: CGPoint) -> Double {
@@ -160,8 +179,8 @@ nonisolated struct DialTurnTracker: Sendable, Equatable {
         }
         lastAngle = angle
         pending += delta
-        // A hair of slack, so exactly 30° makes a whole step through floating point.
-        let steps = Int(((pending + (pending >= 0 ? 1e-6 : -1e-6)) / DialLayout.degreesPerStep).rounded(.towardZero))
+        // A hair of slack, so exactly half a step makes one through floating point.
+        let steps = Int(((pending + (pending >= 0 ? 1e-6 : -1e-6)) / DialLayout.degreesPerStep).rounded(.toNearestOrAwayFromZero))
         pending -= Double(steps) * DialLayout.degreesPerStep
         return steps
     }

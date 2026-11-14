@@ -2,6 +2,14 @@
 
 Newest first. Each entry: what was decided, why, and what it affects.
 
+## 2026-11-14 — The owner's changes after using the build (F1-32 to F1-36)
+The owner tried the Focus tab in the simulator and asked for five changes, recorded as F1-32 to F1-36 in the F1 design's §2.2.
+- **F1-32, End early asks twice:** the sheet's way out (Gentle's "End session", Steady's 3-second hold) no longer ends the session. It leads to a breath in the session's place (`EndBreathView`, `EndBreathModel`): "Breathe in" for 4 seconds and "and out" for 4, once for Gentle and twice for Steady, with a disc that fills and empties the dial. Then "Still want to end?", with "Keep going" and "End session"; the session ends only there. Gentle's 5-second ring and Steady's 15-second "Ending in 15s" countdown are gone. Why: the ring was too slight to notice, and the owner wanted the choice put again after the pause.
+- **F1-33, turning the dial:** the marks follow the finger between lengths (`DialSpread`, `MinuteDial.spread(_:follows:)`), and a step is taken halfway through its 30° (`DialTurnTracker`), so the dial settles on the nearer length. The length still moves in 5-minute steps. Why: the ring jumped from one length's marks to the next, and nothing moved with the finger.
+- **F1-34, the Focus tab's backdrop:** still stars and a low glow in the season's tint behind every Focus screen (`FocusSky`). One still frame, so a long session never redraws it. Why: the running screen was a dial on an empty page.
+- **F1-35, session buttons:** "End early" is a glass capsule beside "Take a break" (`SessionActionRow`), and End early's sheet is only as tall as its content, over the session screen's own dark instead of the navy sheet surface. Why: "End early" was small text with no button, and the sheet was half empty and off-theme.
+- **F1-36, strictness in a free build:** the strictness chooser stays in the preset editor in a build without Family Controls. Nothing changes in the code.
+
 ## 2026-10-29 — The owner's five answers to the F1b final review (F1-27 to F1-31)
 The owner decided five behaviours the final review raised, recorded as F1-27 to F1-31 in the F1 design's §2.2.
 - **F1-27, the Live Activity's break line:** "Study · break until 14:28" on the Lock Screen and in the expanded view, read aloud as "Study, break until 14:28", in the app's clock format. Why: with Maple suspended nothing updates the activity when a break ends, so "Break · back at 14:28" went false and "break until" stays true. The app's own break screen and the Herbarium's mini bar, which Maple updates itself, are unchanged.

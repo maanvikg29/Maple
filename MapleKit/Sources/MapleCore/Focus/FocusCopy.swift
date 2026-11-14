@@ -185,14 +185,12 @@ public enum FocusCopy {
     public enum EndEarly {
         public static let title = "End this session?"
         public static let holdToEnd = "Hold to end"
-        /// Steady's hold, then its quiet countdown that "Keep going" still cancels.
+        /// Steady's hold, before its breaths.
         public static let holdSeconds = 3.0
-        public static let countdownSeconds = 15
         /// Offered while the preset's break is unused; it is cut short at the planned end.
         public static let takeBreakInstead = "Take a 5-minute break instead"
-        /// Gentle's way out: a 5-second breathing ring, then the session ends.
+        /// Gentle's way out of the sheet, and the last button after the breath.
         public static let gentleEnd = "End session"
-        public static let gentleBreathSeconds = 5.0
 
         /// From counted seconds only: "18 minutes saved so far. They stay yours either way."
         public static func savedLine(countedSeconds: Int) -> String {
@@ -203,9 +201,26 @@ public enum FocusCopy {
             return "\(minutes) minutes saved so far. They stay yours either way."
         }
 
-        /// "Ending in 15s".
-        public static func endingIn(seconds: Int) -> String {
-            "Ending in \(max(0, seconds))s"
+        // The breath, then the question again (F1-32).
+
+        /// Each half of a breath, in and out, as the emergency release's.
+        public static let breathHalfSeconds = 4.0
+        /// The dial's words through a breath.
+        public static var breatheIn: String { Emergency.breatheIn }
+        public static var breatheOut: String { Emergency.breatheOut }
+        /// Under the dial while breathing.
+        public static func breathLine(breaths: Int) -> String {
+            breaths == 1 ? "One slow breath before you decide." : "Two slow breaths before you decide."
+        }
+        /// The second question, once the breath is over.
+        public static let askAgain = "Still want to end?"
+        /// The dial's caption under the minutes while it asks again; "focused" when the session can't count.
+        public static let savedCaption = "saved so far"
+        public static let focusedCaption = "focused"
+
+        /// Slow breaths before the second question: Gentle's one, Steady's two.
+        public static func breaths(for path: SessionEndPath) -> Int {
+            path == .steady ? 2 : 1
         }
     }
 

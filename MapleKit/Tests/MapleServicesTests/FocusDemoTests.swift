@@ -94,7 +94,7 @@ struct FocusDemoArgumentTests {
         #expect(odd.focusAt == 180)
         #expect(odd.preset == nil)
         #expect(odd.holdAt == 1)
-        #expect(odd.endCountdown == 15)
+        #expect(odd.endCountdown == 16)
         #expect(odd.finishAt == nil)
         #expect(DemoLaunchOptions(arguments: ["-MapleDemoShip", "M1"]).ship == ShippedFeatures(releases: [.m1]))
         #expect(DemoLaunchOptions(arguments: ["-MapleDemoHoldAt", "nan"]).holdAt == nil)

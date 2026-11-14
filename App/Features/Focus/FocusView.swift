@@ -45,6 +45,8 @@ struct FocusView: View {
         let _ = tick
         destination(route, now: now)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // Still stars and a low glow in the season's tint (F1-34).
+            .background { FocusSky().ignoresSafeArea() }
             .background(theme.colors.background)
             .toolbarVisibility(.hidden, for: .navigationBar)
             .sheet(item: $tab.sheet) { sheet in

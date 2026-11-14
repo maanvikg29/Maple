@@ -15,9 +15,10 @@ import MapleServices
 /// - Each leaf opening is announced once, and so is the break running out (§4.9). A break that runs out in front of
 ///   the member also plays a soft haptic; one that ran out while Maple was away returns to the session quietly.
 /// - Magic Tap moves VoiceOver to the session's controls.
-/// - The way out (Task 12): End early's sheet (Gentle, Steady), or the emergency release in this screen's place
-///   (Locked). A plain timer locks nothing, so its way out is Gentle's whatever its preset (`SessionEndPath(_:)` on
-///   the plan). Settings' "Release all apps" arrives here during a session (`FocusTabState.releasesAll`).
+/// - The way out (Task 12): End early's sheet (Gentle, Steady), then the breath and the second question in this
+///   screen's place (`EndBreathView`, F1-32); or the emergency release in this screen's place (Locked). A plain timer
+///   locks nothing, so its way out is Gentle's whatever its preset (`SessionEndPath(_:)` on the plan). Settings'
+///   "Release all apps" arrives here during a session (`FocusTabState.releasesAll`).
 struct RunningSessionView: View {
     let sessionID: UUID
 
@@ -48,8 +49,12 @@ struct RunningSessionView: View {
     /// When the emergency hold completed, on trusted time: the breath starts at once, before the store has ended the
     /// session and the receipt has taken over.
     @State private var releasedAt: Date?
-    /// The sheet's countdown reached zero: the session ends once the sheet has gone.
-    @State private var endsWhenDismissed = false
+    /// The sheet's way out was taken: the breath starts once the sheet has gone.
+    @State private var breathesWhenDismissed = false
+    /// When the breath began, on trusted time: it and the second question take this screen's place (F1-32).
+    @State private var breathStartedAt: Date?
+    /// "End session" was tapped after the breath: the store is ending the session.
+    @State private var isEnding = false
     /// Settings' "Release all apps" came this way: completing the way out also clears every store (§5.12).
     @State private var releasesAll = false
 
@@ -64,6 +69,12 @@ struct RunningSessionView: View {
                     session: session, stage: emergencyStage, frozenSeconds: frozenBreath,
                     onKeepGoing: keepGoing, onRelease: release, onDone: releaseDone
                 )
+            } else if let breathStartedAt, let session {
+                EndBreathView(
+                    session: session, path: endPath, subtitle: model(session, now: sessions.now).restingLine,
+                    startedAt: breathStartedAt, frozenSecondsLeft: frozenBreathLeft,
+                    isEnding: isEnding, onKeepGoing: keepGoingAfterBreath, onEnd: endAfterBreath
+                )
             } else {
                 sessionScreen
             }
@@ -74,8 +85,8 @@ struct RunningSessionView: View {
                     session: session, path: endPath,
                     onKeepGoing: { showsEndEarly = false },
                     onBreakInstead: breakInstead,
-                    onEnd: {
-                        endsWhenDismissed = true
+                    onContinue: {
+                        breathesWhenDismissed = true
                         showsEndEarly = false
                     }
                 )
@@ -83,6 +94,10 @@ struct RunningSessionView: View {
                 .revealDemoMotion()
                 #endif
             }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            // Leaving the foreground cancels the way out, as it cancels a hold (§5.7): back to the session.
+            if phase != .active, breathStartedAt != nil, !isEnding, frozenBreathLeft == nil { keepGoingAfterBreath() }
         }
         .onChange(of: tab.releasesAll, initial: true) { _, asked in
             // Settings' "Release all apps" during this session (`FocusReleaseRouter`).
@@ -105,6 +120,16 @@ struct RunningSessionView: View {
         #if DEBUG
         let options = DemoLaunchOptions.current
         return options.focus == .emergency ? options.finishAt : nil
+        #else
+        return nil
+        #endif
+    }
+
+    /// DEBUG still frames: `-MapleDemoEndCountdown <s>` freezes the breath with that many seconds left (0 is the
+    /// second question). It never ends the session by itself.
+    private var frozenBreathLeft: Double? {
+        #if DEBUG
+        return DemoLaunchOptions.current.endCountdown.map(Double.init)
         #else
         return nil
         #endif
@@ -202,13 +227,18 @@ struct RunningSessionView: View {
             }
         } controls: {
             if let breakTitle = model.breakTitle {
-                Button(breakTitle, action: takeBreak)
-                    .buttonStyle(.glassCapsule)
-                    .disabled(isTakingBreak)
-                    .accessibilityFocused($controlsFocused)
-                TextLink(model.endPath.title, chevron: false, action: takeEndPath)
+                SessionActionRow {
+                    Button(breakTitle, action: takeBreak)
+                        .buttonStyle(.glassCapsule)
+                        .disabled(isTakingBreak)
+                        .accessibilityFocused($controlsFocused)
+                } second: {
+                    Button(model.endPath.title, action: takeEndPath)
+                        .buttonStyle(.glassCapsule)
+                }
             } else {
-                TextLink(model.endPath.title, chevron: false, action: takeEndPath)
+                Button(model.endPath.title, action: takeEndPath)
+                    .buttonStyle(.glassCapsule)
                     .accessibilityFocused($controlsFocused)
             }
         }
@@ -313,14 +343,31 @@ struct RunningSessionView: View {
         }
     }
 
-    /// The sheet has gone: the session ends if its countdown reached zero; otherwise the member kept going.
+    /// The sheet has gone: the breath starts if its way out was taken; otherwise the member kept going.
     private func endEarlyDismissed() {
         wake()
-        guard endsWhenDismissed else {
+        guard breathesWhenDismissed else {
             releasesAll = false
             return
         }
-        endsWhenDismissed = false
+        breathesWhenDismissed = false
+        isEnding = false
+        breathStartedAt = sessions.now
+    }
+
+    /// "Keep going", during the breath or at the second question: back to the session, nothing changed.
+    private func keepGoingAfterBreath() {
+        releasesAll = false
+        breathStartedAt = nil
+        isEnding = false
+        wake()
+    }
+
+    /// "End session" at the second question (F1-32): only now does the session end. The breath's screen stays until
+    /// the receipt takes over; if the store couldn't end it, the question is there to answer again.
+    private func endAfterBreath() {
+        guard !isEnding else { return }
+        isEnding = true
         let clearsAll = releasesAll
         releasesAll = false
         Task {
@@ -330,6 +377,7 @@ struct RunningSessionView: View {
             } else {
                 await sessions.end(.endedEarly)
             }
+            isEnding = false
         }
     }
 
@@ -381,8 +429,9 @@ struct RunningSessionView: View {
     /// Applied once per launch, so a demo's state doesn't come back after the member changes it.
     private static var demoApplied = false
 
-    /// `-MapleDemoFocus dimmed`: the screen as it is 30 seconds after the last touch. `-MapleDemoFocus endEarly` and
-    /// `-MapleDemoEndCountdown <s>`: End early's sheet over it. `-MapleDemoFocus emergency`: the emergency release.
+    /// `-MapleDemoFocus dimmed`: the screen as it is 30 seconds after the last touch. `-MapleDemoFocus endEarly`: End
+    /// early's sheet over it. `-MapleDemoEndCountdown <s>`: the breath after it, frozen with that many seconds left.
+    /// `-MapleDemoFocus emergency`: the emergency release.
     private func applyDemo() {
         guard !Self.demoApplied else { return }
         Self.demoApplied = true
@@ -390,7 +439,9 @@ struct RunningSessionView: View {
         if options.focus == .dimmed {
             lastTouch = sessions.now.addingTimeInterval(-FocusDimming.delay)
         }
-        if options.focus == .endEarly || options.endCountdown != nil {
+        if options.endCountdown != nil {
+            breathStartedAt = sessions.now
+        } else if options.focus == .endEarly {
             showsEndEarly = true
         }
         if options.focus == .emergency {
