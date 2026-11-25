@@ -12,6 +12,17 @@ private let small = WorkshopTuning(
     ]
 )
 
+/// A demo launch with seventeen days of sessions (`-MapleDemoHistory`) on Friday 23 October 2026, refreshed once as the
+/// app does at launch.
+@MainActor
+private func launchWithHistory(_ arguments: [String] = []) async throws -> MapleStores {
+    let all = ["-MapleDemoShip", "f1", "-MapleDemoFocus", "idle", "-MapleDemoHistory", "YES"] + arguments
+    let stores = MapleStores.make(DemoLaunchOptions(arguments: all), directory: try temporaryDirectory(), calendar: utc,
+                                  now: at(2026, 10, 23, 9))
+    await stores.focus.sessions.refresh()
+    return stores
+}
+
 @Suite("The syrup van's store")
 @MainActor
 struct WorkshopStoreTests {
@@ -108,5 +119,42 @@ struct WorkshopStoreTests {
         #expect(folder.contains { $0.hasPrefix("workshop.damaged-") })
         store.cook(2)
         #expect(open(file).leaves == 10)
+    }
+
+    @Test("History fills the van once: a second read of the same ledger brings nothing new")
+    func collects() async throws {
+        let stores = try await launchWithHistory()
+        let workshop = stores.focus.workshop
+        #expect(workshop.leaves == 0)
+        await stores.focus.sessions.loadHistory()
+        let history = try #require(stores.focus.sessions.history)
+        let running = stores.focus.sessions.running?.id
+
+        let gained = workshop.collect(from: history, running: running)
+        #expect(gained > 0)
+        #expect(gained == LeafEarnings.total(history.records, credits: history.credits, running: running))
+        #expect(workshop.leaves == gained)
+        #expect(workshop.collect(from: history, running: running) == 0)
+        #expect(workshop.leaves == gained)
+    }
+
+    @Test("In a free-tier build every session is a plain timer, and each still earns a leaf per 5 minutes focused")
+    func freeTier() async throws {
+        let stores = try await launchWithHistory(["-MapleDemoScreenTime", "unavailable"])
+        await stores.focus.sessions.loadHistory()
+        let history = try #require(stores.focus.sessions.history)
+        #expect(history.sessions.allSatisfy { $0.savedSeconds == 0 })
+        let expected = history.sessions.reduce(0) { $0 + $1.focusedSeconds / 300 }
+        #expect(expected > 0)
+        #expect(stores.focus.workshop.collect(from: history, running: nil) == expected)
+    }
+
+    @Test("Before History has been read, the van is left as it is")
+    func notLoaded() throws {
+        let store = open(try url())
+        store.noteEarned(12)
+        #expect(store.collect(from: nil, running: nil) == 0)
+        #expect(store.collect(from: FocusSessionStore.History(records: [], credits: [], sessions: []), running: nil) == 0)
+        #expect(store.leaves == 12)
     }
 }

@@ -2,6 +2,16 @@
 
 Newest first. Each entry: what was decided, why, and what it affects.
 
+## 2026-11-26 — The syrup van: the economy's rules (logic only, no screens yet)
+The owner approved the syrup van design (`docs/superpowers/specs/2026-11-26-syrup-van-design.md`) with "yes to all, drop the tab bar". This entry covers its step 2, the economy; nothing is on screen yet.
+- **Leaves.** One leaf for every 5 minutes, counted session by session. A session that blocked apps earns from its counted time; a plain timer earns from its time focused, so a free-tier build without Apple's Family Controls permission plays the whole game. A session ended early keeps the leaves that had fallen, and a session removed from History keeps what it earned. The running session's leaves arrive when it ends.
+- **No balance is stored.** `workshop.json` holds what the member did (cooked, spent, each machine's level) and the highest total the ledger has shown. Leaves in the van are that total minus what was cooked and spent, so a leaf can't be counted twice, and a short read of the ledger can't take leaves away.
+- **Syrup is counted in tenths of a bottle**, so an upgrade can add a fraction without rounding. One leaf is one bottle before any upgrade.
+- **Upgrades.** Two machines, the evaporator and the filter press. Each level costs leaves and adds syrup per leaf; the machines' bonuses add up. Cooking uses the yield at the moment of cooking; syrup already made never changes.
+- **The numbers are in one place,** `WorkshopTuning.starting`. The ladders' prices and bonuses are starting values: the design leaves the pace for its own pass (§14).
+- **Consequence to know:** counted time stops at 6 hours a day and shrinks with unlocks, and time focused does neither, so a plain timer can out-earn a blocking session on a heavy day. The rule is `LeafEarnings.seconds(of:credit:)`.
+- Spending syrup, decorations, special syrups and every screen come in later steps.
+
 ## 2026-11-15 — F2's first slice: the Study record (subjects and History)
 The owner chose the Study record as F2's first slice, and asked for code without a written spec or plan, so this entry is the record of what was agreed and what was decided while building it.
 - **Agreed with the owner:** a subject is picked at the start (a line on the start screen that remembers each preset's last subject; "No subject" is allowed). Subjects are a name only, up to 8, 24 characters. History's number is time focused, with time saved as a smaller second line. Exams are left out for now.

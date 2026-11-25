@@ -30,6 +30,7 @@ private struct ComposerStores {
             appSets: appSets,
             notes: SessionNotesStore(storage: JSONStorage(.memory)),
             subjects: SubjectStore(storage: JSONStorage(.memory)),
+            workshop: WorkshopStore(storage: JSONStorage(.memory)),
             mode: .live
         )
         settings.hasStartedFocus = started
