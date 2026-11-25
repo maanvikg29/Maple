@@ -48,12 +48,12 @@ public final class WorkshopStore {
     /// Leaves for the machine's next level; nil at the top.
     public func price(of machine: WorkshopMachine) -> Int? { bank.price(of: machine, tuning: tuning) }
 
-    /// Tells the van the ledger's total (`LeafEarnings.total`).
+    /// Tells the van the ledger's total (`LeafEarnings.total`), counted at this launch's pace.
     /// - Returns: The leaves newly in the van; 0 while the saved van still can't be read.
     @discardableResult
     public func noteEarned(_ total: Int) -> Int {
         guard isAvailable || reloadIfUnavailable() else { return 0 }
-        return change { $0.noteEarned(total) }
+        return change { $0.noteEarned(total, tuning: tuning) }
     }
 
     /// Cooks up to `count` leaves: one tap of the pot.

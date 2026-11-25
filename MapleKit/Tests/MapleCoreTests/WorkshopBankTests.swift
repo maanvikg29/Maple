@@ -182,6 +182,65 @@ struct WorkshopBankTests {
         #expect(!bank.decodedWithLosses)
     }
 
+    @Test("After the pace is slowed, leaves already earned stay and the next session still earns")
+    func slowerPace() {
+        var bank = WorkshopBank()
+        bank.noteEarned(600, tuning: small)
+        bank.cook(100, tuning: small)
+        var slower = small
+        slower.secondsPerLeaf = 360
+        #expect(bank.noteEarned(500, tuning: slower) == 0)
+        #expect(bank.leaves == 500)
+        #expect(bank.noteEarned(508, tuning: slower) == 8)
+        #expect(bank.leaves == 508)
+    }
+
+    @Test("After the pace is quickened, the same sessions don't pay out a second time")
+    func quickerPace() {
+        var bank = WorkshopBank()
+        bank.noteEarned(600, tuning: small)
+        var quicker = small
+        quicker.secondsPerLeaf = 240
+        #expect(bank.noteEarned(750, tuning: quicker) == 0)
+        #expect(bank.leaves == 600)
+        #expect(bank.noteEarned(762, tuning: quicker) == 12)
+        #expect(bank.leaves == 612)
+    }
+
+    @Test("A change to the earning rules starts a new count the same way: nothing lost, nothing paid twice")
+    func newRules() {
+        var bank = WorkshopBank()
+        bank.noteEarned(600, tuning: small, rules: 1)
+        #expect(bank.noteEarned(540, tuning: small, rules: 2) == 0)
+        #expect(bank.leaves == 600)
+        #expect(bank.noteEarned(550, tuning: small, rules: 2) == 10)
+        #expect(bank.leaves == 610)
+    }
+
+    @Test("The count the ledger was last seen at is saved with its pace, so a relaunch pays nothing twice")
+    func baselineSaved() throws {
+        var slower = small
+        slower.secondsPerLeaf = 360
+        var bank = WorkshopBank()
+        bank.noteEarned(600, tuning: small)
+        bank.noteEarned(500, tuning: slower)
+        var again = try reopened(bank)
+        #expect(again == bank)
+        #expect(again.noteEarned(500, tuning: slower) == 0)
+        #expect(again.noteEarned(503, tuning: slower) == 3)
+        #expect(again.leaves == 603)
+    }
+
+    @Test("A short read of the ledger at the same pace changes nothing, and the full read after it pays nothing twice")
+    func shortRead() {
+        var bank = WorkshopBank()
+        bank.noteEarned(600, tuning: small)
+        #expect(bank.noteEarned(450, tuning: small) == 0)
+        #expect(bank.noteEarned(600, tuning: small) == 0)
+        #expect(bank.noteEarned(604, tuning: small) == 4)
+        #expect(bank.leaves == 604)
+    }
+
     @Test("Two vans with the same contents are equal, whether or not one was read with losses")
     func equality() throws {
         #expect(try decode(#"{"earned":0,"cooked":-1}"#) == WorkshopBank())

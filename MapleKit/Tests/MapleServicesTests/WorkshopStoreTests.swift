@@ -107,6 +107,19 @@ struct WorkshopStoreTests {
         #expect(open(file).leaves == 26)
     }
 
+    @Test("The van counts the ledger at its own pace: after a retune, earned leaves stay and the next session still earns")
+    func retunedPace() throws {
+        let file = try url()
+        open(file).noteEarned(600)
+        var slower = small
+        slower.secondsPerLeaf = 360
+        let store = WorkshopStore(storage: JSONStorage(.file(file)), tuning: slower)
+        #expect(store.noteEarned(500) == 0)
+        #expect(store.leaves == 600)
+        #expect(store.noteEarned(510) == 10)
+        #expect(WorkshopStore(storage: JSONStorage(.file(file)), tuning: slower).leaves == 610)
+    }
+
     @Test("A file read with losses is copied aside before the van saves over it")
     func copiedAside() throws {
         let file = try url()

@@ -304,10 +304,12 @@ router.showFocus(.selectPreset(id))                            // or .needsScree
 The rules are pure and live in `MapleCore/Workshop/`; `WorkshopStore` (`focus.workshop` on `FocusStores`) saves them as `workshop.json`.
 
 - **Read:** `workshop.leaves` (in the van now), `workshop.syrupTenths` (tenths of a bottle; show `syrupTenths / 10` and one decimal), `workshop.tenthsPerLeaf`, `workshop.level(of:)`, and `workshop.price(of:)` (nil at the top of a ladder).
-- **Fill:** after `await sessions.loadHistory()`, call `workshop.collect(from: sessions.history, running: sessions.running?.id)`. It returns the leaves that are new, which is what Pip carries back. Call it at launch and when a session ends; calling it again changes nothing.
+- **Fill:** after the first `await sessions.refresh()` and a fresh `await sessions.loadHistory()`, call `workshop.collect(from: sessions.history, running: sessions.running?.id)`. It returns the leaves that are new, which is what Pip carries back. Call it at launch, when a session ends, and after `MapleStores.reloadIfUnavailable()` has read the van; calling it again changes nothing. Pass a history read after the session ended, or its last leaves arrive one read late.
 - **Act:** `workshop.cook()` cooks one leaf (pass a count for more) and returns the leaves cooked. `workshop.upgrade(.evaporator)` returns `.upgraded(level:)`, `.short(by:)` or `.atTop`.
 - **While the file can't be read** (a launch before the first unlock), `isAvailable` is false, the van shows empty, and every call changes nothing: `collect`, `noteEarned` and `cook` return 0, `upgrade` returns nil.
-- **One session's leaves,** for the running view and the summary: `LeafEarnings.leaves(of:credit:)`, or `LeafEarnings.leaves(forSeconds:)` for a length on the clock ("about 10 leaves").
+- **One ended session's leaves,** for the summary: `LeafEarnings.leaves(of:credit:)`. Don't use it for a session that is still running: a running plain timer has no time focused yet (`focusedSeconds` is 0 until it ends), so it would read 0 leaves for the whole session.
+- **Leaves for a length of time:** `LeafEarnings.leaves(forSeconds:)`, for a length on the clock ("about 10 leaves") and for the running view, which passes the seconds the running screen already counts: `sessions.countedSoFar(id)` for a session that blocks apps, and the time since the countdown's start without breaks for a plain timer.
+- **Retuning and rule changes.** The van counts the ledger at the launch's pace and under `LeafEarnings.rulesVersion`, and remembers both. Change the pace in `WorkshopTuning.starting` freely: leaves already earned stay, and nothing is paid twice. Raise `rulesVersion` with any other change that would give old sessions a different total.
 - **Numbers:** only in `WorkshopTuning.starting`. Never write a price or a pace into a screen.
 
 ## Files, unlocks and time zones

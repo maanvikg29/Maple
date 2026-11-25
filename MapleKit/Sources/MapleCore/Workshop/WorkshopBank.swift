@@ -3,15 +3,25 @@ import Foundation
 /// The van's saved state (`workshop.json`, syrup van design §2): what the member has earned, cooked and spent, and each
 /// machine's level. Pure.
 ///
-/// No balance is stored. Leaves in the van are `earned - cooked - spentOnUpgrades`, and `earned` is the highest total
-/// the session ledger has ever shown (`LeafEarnings.total`), so a leaf can't be counted twice or lost to a missed
-/// delivery, and a short read of the ledger can't take leaves away.
+/// No balance is stored. Leaves in the van are `earned - cooked - spentOnUpgrades`. `earned` grows by however much the
+/// session ledger's total (`LeafEarnings.total`) has grown since the van last looked (`ledgerSeen`), so a leaf can't be
+/// counted twice or lost to a missed delivery, and a short read of the ledger can't take leaves away.
+///
+/// The ledger's total depends on the pace and the earning rules it is counted with. The van remembers both, and when
+/// either changes it starts a new count from the ledger as it now reads: leaves already earned stay, the same sessions
+/// are never paid twice, and the next session earns as usual.
 public struct WorkshopBank: Sendable, Codable {
     /// No count is ever above this, so a damaged file can't overflow the sums.
     public static let limit = 1_000_000_000
 
     /// Leaves ever earned. It only goes up.
     public private(set) var earned = 0
+    /// The ledger's total when the van last looked, counted at `ledgerPace` and `ledgerRules`.
+    public private(set) var ledgerSeen = 0
+    /// Seconds per leaf `ledgerSeen` was counted at; nil until the first leaves arrive.
+    public private(set) var ledgerPace: Int?
+    /// The earning rules (`LeafEarnings.rulesVersion`) `ledgerSeen` was counted under; nil until the first leaves arrive.
+    public private(set) var ledgerRules: Int?
     /// Leaves cooked into syrup.
     public private(set) var cooked = 0
     /// Leaves spent on upgrades.
@@ -47,15 +57,28 @@ public struct WorkshopBank: Sendable, Codable {
         return tuning.tenthsPerLeaf(levels: current)
     }
 
-    /// Tells the van the ledger's total (`LeafEarnings.total`). A total below what the van already knows changes
-    /// nothing.
+    /// Tells the van the ledger's total (`LeafEarnings.total`), counted with `tuning`'s pace under `rules`. A total at
+    /// or below the one the van last saw changes nothing. A total counted at another pace or under other rules can't be
+    /// compared with the last one, so the van starts counting again from it and adds nothing this time.
     /// - Returns: The leaves newly in the van.
     @discardableResult
-    public mutating func noteEarned(_ total: Int) -> Int {
-        let total = min(total, Self.limit)
-        guard total > earned else { return 0 }
-        let new = total - earned
-        earned = total
+    public mutating func noteEarned(
+        _ total: Int, tuning: WorkshopTuning = .starting, rules: Int = LeafEarnings.rulesVersion
+    ) -> Int {
+        let total = min(max(0, total), Self.limit)
+        let pace = tuning.secondsPerLeaf
+        guard (ledgerPace ?? pace) == pace, (ledgerRules ?? rules) == rules else {
+            ledgerSeen = total
+            ledgerPace = pace
+            ledgerRules = rules
+            return 0
+        }
+        guard total > ledgerSeen else { return 0 }
+        let new = min(total - ledgerSeen, max(0, Self.limit - earned))
+        ledgerSeen = total
+        ledgerPace = pace
+        ledgerRules = rules
+        earned += new
         return new
     }
 
@@ -91,7 +114,7 @@ public struct WorkshopBank: Sendable, Codable {
     // MARK: Codable
 
     private enum CodingKeys: String, CodingKey {
-        case earned, cooked, spentOnUpgrades, syrupMadeTenths, levels
+        case earned, cooked, spentOnUpgrades, syrupMadeTenths, levels, ledgerSeen, ledgerPace, ledgerRules
     }
 
     /// Reads what it can. A missing number is 0; a number that is unreadable, negative or above `limit` is repaired and
@@ -114,6 +137,18 @@ public struct WorkshopBank: Sendable, Codable {
         let saved = amount(.earned)
         earned = max(saved, cooked + spentOnUpgrades)
         if earned != saved { losses = true }
+        // A van saved before the count was kept apart had seen the ledger at exactly what it had earned.
+        ledgerSeen = c.contains(.ledgerSeen) ? amount(.ledgerSeen) : earned
+        func measure(_ key: CodingKeys) -> Int? {
+            guard c.contains(key) else { return nil }
+            guard let value = try? c.decode(Int.self, forKey: key) else {
+                losses = true
+                return nil
+            }
+            return value
+        }
+        ledgerPace = measure(.ledgerPace)
+        ledgerRules = measure(.ledgerRules)
         if c.contains(.levels) {
             if let saved = try? c.decode([String: Int].self, forKey: .levels) {
                 if saved.values.contains(where: { $0 < 0 }) { losses = true }
@@ -132,12 +167,16 @@ public struct WorkshopBank: Sendable, Codable {
         try c.encode(spentOnUpgrades, forKey: .spentOnUpgrades)
         try c.encode(syrupMadeTenths, forKey: .syrupMadeTenths)
         try c.encode(levels, forKey: .levels)
+        try c.encode(ledgerSeen, forKey: .ledgerSeen)
+        try c.encodeIfPresent(ledgerPace, forKey: .ledgerPace)
+        try c.encodeIfPresent(ledgerRules, forKey: .ledgerRules)
     }
 }
 
 extension WorkshopBank: Equatable {
     public static func == (a: WorkshopBank, b: WorkshopBank) -> Bool {
         a.earned == b.earned && a.cooked == b.cooked && a.spentOnUpgrades == b.spentOnUpgrades
-            && a.syrupMadeTenths == b.syrupMadeTenths && a.levels == b.levels
+            && a.syrupMadeTenths == b.syrupMadeTenths && a.levels == b.levels && a.ledgerSeen == b.ledgerSeen
+            && a.ledgerPace == b.ledgerPace && a.ledgerRules == b.ledgerRules
     }
 }

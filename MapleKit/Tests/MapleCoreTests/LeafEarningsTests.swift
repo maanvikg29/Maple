@@ -107,12 +107,13 @@ struct LeafEarningsTests {
         #expect(fixture.total() == 20)
     }
 
-    @Test("The running session's leaves aren't in the van until it ends")
+    @Test("The running session's leaves aren't in the van until it ends, though its counted time so far would be 2")
     func running() {
         let fixture = EarningsFixture()
         fixture.add(day: 10)
-        let now = fixture.add(day: 11, ranSeconds: 1500, plain: true, ended: false)
+        let now = fixture.add(day: 11, ranSeconds: 1500, ended: false)
         #expect(fixture.total(running: now) == 10)
+        #expect(fixture.total(running: nil) == 12)
     }
 
     @Test("The pace comes from the tuning, and a pace of nothing earns nothing")

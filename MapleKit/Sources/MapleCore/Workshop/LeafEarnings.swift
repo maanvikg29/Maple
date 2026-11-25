@@ -5,6 +5,12 @@ import MapleFocusCore
 ///
 /// Special leaves are not this: the 155 species still come from the reward table's milestones.
 public enum LeafEarnings {
+    /// The version of the earning rules. Raise it with any change that would give sessions already in the ledger a
+    /// different total (what `seconds(of:credit:)` reads, or how leaves are rounded), so the van starts a new count
+    /// (`WorkshopBank.noteEarned`) instead of paying old sessions twice or holding new leaves back. A change of pace
+    /// needs no new version: the van notices that by itself.
+    public static let rulesVersion = 1
+
     /// The seconds of a session that earn leaves: its counted time when it blocked apps, its time focused when it was a
     /// plain timer (which counts nothing as saved).
     public static func seconds(of record: SessionRecord, credit: SessionCredit?) -> Int {
