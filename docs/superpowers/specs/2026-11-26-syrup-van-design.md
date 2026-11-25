@@ -1,10 +1,10 @@
 # The syrup van: design
 
-Status: **draft for the owner's review** (2026-11-26). Nothing in this document is built, and no code has changed.
+Status: **approved by the owner on 2026-11-26** ("yes to all, drop the tab bar"). Nothing in this document is built yet. The build plans are in `docs/superpowers/plans/`.
 
 Every rule below carries one of two marks:
 - **Decided**: the owner chose it in the 2026-11-26 design conversation.
-- **Proposed**: Claude's suggestion. It needs the owner's yes before it is built.
+- **Proposed**: Claude's suggestion. The owner approved all of them together on 2026-11-26, so they are binding too. The mark is kept so it stays clear which rules the owner shaped and which they accepted as written.
 
 **How it relates to the other specs.** This is a new look and a new reward layer for Maple. It sits on top of the focus logic that already exists and does not change it:
 - `2026-10-11-focus-hours-saved-design.md` and `2026-10-23-f1-focus-design.md` still decide what a session is, what blocking does, what counts as time saved, the streak, and the Lock Screen.
@@ -151,12 +151,14 @@ Everything about when a session counts is unchanged (F1 design §3). This sectio
 
 ### 6.2 Choosing how long
 
-**Proposed.** The gauge grows until it fills the width of the screen and becomes a dial.
+**Decided (owner, 2026-11-26):** the gauge grows until it fills the width of the screen and becomes **a drawn analog clock with depth**: a thick rim, a face set back inside it, hands that cast a little shadow. **The time shows as digits in the centre of the clock, in the hub the hands start from.**
 
-- **Turn the dial to set the length.** This is the gesture Maple already has (`MinuteDial`):
-  - from 20 minutes to 3 hours, in 5-minute steps (`DialLayout`);
-  - the marks follow the finger, and each step gives a small tick from the phone.
-- **The centre shows the length** in large numerals: "50m", "1h 30m".
+- **The long hand is minutes.** Dragging it round sets the length; one turn is an hour, and passing the top adds or takes away an hour. **Proposed.**
+- **The short hand is hours.** It follows by itself, as on any clock. **Proposed.**
+- **The limits stay as they are today:** from 20 minutes to 3 hours, in 5-minute steps (`DialLayout`), with a small tick from the phone at each step. **Proposed.**
+- **The hub reads "0:50", "1:30".** The start button below still reads "Start study · 50m". **Proposed.**
+- **The face fills with syrup colour** from the top to the long hand, and three drops on the face fill as each whole hour is passed, so the length reads at a glance without the digits. **Proposed.**
+- A first interactive mock-up was shown to the owner on 2026-11-26 (in the conversation, not saved in the repo).
 - **Under it, what that length earns:**
   - "about 10 leaves", which changes as the dial turns;
   - the special leaf line Maple already shows when one is in reach: "You'll reach Korean maple at minute 35".
@@ -252,7 +254,7 @@ Everything about when a session counts is unchanged (F1 design §3). This sectio
 | Profile and Settings | Stay, opened from home |
 | Sleep, wind-down, Apple Health | Stay. A leaf earned from sleep is waiting on the van's step in the morning. |
 
-Whether the three-tab bar stays is question 3 in §13.
+**The tab bar is dropped.** The scene is the navigation: enter, decorate, the shop, and the Herbarium as a leaf-press book. **Decided.**
 
 ---
 
@@ -295,14 +297,14 @@ The Study record (branch `maanvik/f2-study-record`) is finished and independent 
 
 ---
 
-## 13. Questions for the owner
+## 13. Questions, and the owner's answers (2026-11-26)
 
-1. **Plain timers.** In a free-tier build without Apple's Family Controls permission, sessions are plain timers and count nothing today. Do they earn leaves? Claude's suggestion: yes, from time focused, so the whole game works in that build; special leaves still need counted time.
-2. **The numbers in §2.** Is one leaf per 5 minutes the right pace?
-3. **The tab bar.** Keep Home · Focus · Herbarium at the bottom, or drop it and let the scene be the navigation (enter, decorate, shop, the Herbarium as a leaf-press book)? Claude's suggestion: drop it.
-4. **How special leaves are earned** (§3): unchanged from today?
-5. **Who draws the art** (§10)?
-6. **The opening entrance** (§5.3): is 1.2 seconds once a day right?
+1. **Plain timers.** In a free-tier build without Apple's Family Controls permission, sessions are plain timers and count nothing as time saved. **They earn plain leaves from time focused,** so the whole game works in that build. Special leaves still need counted time.
+2. **The pace.** **One leaf per 5 minutes,** as in §2.
+3. **The tab bar.** **Dropped** (§9).
+4. **How special leaves are earned.** **Unchanged from today** (§3).
+5. **Who draws the art.** **Still open.** The owner's "yes to all" doesn't answer it. Until it is answered, screens are built with stand-in art: the concept images as backdrops, and plain placeholders for pieces that have no image.
+6. **The entrance.** **About 1.2 seconds, in full once a day** (§5.3).
 
 ---
 
