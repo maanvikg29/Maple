@@ -4,9 +4,10 @@ import pathlib
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from vanart import build  # noqa: E402
+from vanart import build, workshop  # noqa: E402
 
 out = pathlib.Path(sys.argv[1])
 out.mkdir(parents=True, exist_ok=True)
 (out / "home-scene.svg").write_text(build.home_scene().text())
-print("wrote", out / "home-scene.svg")
+(out / "workshop-scene.svg").write_text(workshop.workshop_scene().text())
+print("wrote", out / "home-scene.svg", "and workshop-scene.svg")
