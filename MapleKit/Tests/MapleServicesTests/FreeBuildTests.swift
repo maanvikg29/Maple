@@ -13,7 +13,7 @@ struct FreeBuildTests {
 
     @Test("This build ships M1 and F1, never F2")
     func ships() {
-        #expect(ShippedFeatures.current == ShippedFeatures(releases: [.m1, .f1]))
+        #expect(ShippedFeatures.current.releases == [.m1, .f1])
         #expect(ShippedFeatures.current.focus && ShippedFeatures.current.screenTime)
         #expect(!ShippedFeatures.current.sleepSounds)
     }
