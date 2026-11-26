@@ -12,6 +12,6 @@ extension WorkshopStore {
     @discardableResult
     public func collect(from history: FocusSessionStore.History?, running: UUID?) -> Int {
         guard let history else { return 0 }
-        return noteEarned(LeafEarnings.total(history.records, credits: history.credits, running: running, tuning: tuning))
+        return noteEarned(LeafEarnings.total(history.records, running: running, tuning: tuning))
     }
 }

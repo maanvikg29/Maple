@@ -44,10 +44,12 @@ What stays exactly as it is: how a session starts, runs, breaks and ends; app bl
 5. **Syrup buys decorations.** **Decided.**
 6. **Nothing is ever bought with money.** Leaves and syrup come only from focusing. **Decided** (it is also an existing rule in `docs/decisions.md`).
 
-**Proposed starting numbers**, to be tuned in their own pass (§14):
-- One leaf for every 5 minutes of counted time. A 50-minute session gives 10 leaves.
-- One leaf cooks into one bottle of syrup before any upgrade.
-- A session ended early keeps the leaves that had already fallen.
+**The numbers:**
+- **0.8 leaves for every minute focused,** which is one leaf every 75 seconds. A 50-minute session gives 40 leaves. **Decided** (owner, 2026-11-26).
+- **A session's leaves are rounded up when it ends.** **Decided** (owner, 2026-11-26).
+- **Every session earns the same way, from its time focused,** whether it blocks apps or is a plain timer. Time saved, with its daily limit, still decides the special leaves. **Decided** (owner, 2026-11-26: the pace is per minute, with no difference between kinds of session).
+- A session ended early earns for the time it ran, rounded up. A start of under a minute earns nothing, as History doesn't list it either. **Proposed.**
+- One leaf cooks into one bottle of syrup before any upgrade. **Proposed**, to be tuned in its own pass (§14).
 
 ---
 
@@ -159,45 +161,40 @@ Everything about when a session counts is unchanged (F1 design §3). This sectio
 - **The hub reads "0:50", "1:30".** The start button below still reads "Start study · 50m". **Proposed.**
 - **The face fills with syrup colour** from the top to the long hand, and three drops on the face fill as each whole hour is passed, so the length reads at a glance without the digits. **Proposed.**
 - A first interactive mock-up was shown to the owner on 2026-11-26 (in the conversation, not saved in the repo).
-- **Under it, what that length earns:**
-  - "about 10 leaves", which changes as the dial turns;
-  - the special leaf line Maple already shows when one is in reach: "You'll reach Korean maple at minute 35".
-- **A bucket beside the dial grows with the length:** a small pail under 50 minutes, a bucket from 50 minutes, a big basket from 90.
-- **Recipe cards under the dial are the presets:** Study 50m · Quick 25m · Deep 1h 30m · Read 30m · a card to add one.
-  - Tapping a card sets the dial and that preset's blocking and break.
-  - Holding a card opens the preset editor that exists today.
-- **Minus and plus buttons** either side of the numerals move 5 minutes, for anyone who would rather not turn. VoiceOver adjusts the length the same way.
+- **The timer never shows a leaf count or a rate.** No "about 40 leaves", no "0.8 a minute". **Decided** (owner, 2026-11-26).
+- **There are no presets.** No Study, Quick, Deep or Read, and no recipe cards. The clock sets the length, and that is all there is to choose about time. **Decided** (owner, 2026-11-26).
+- **A bucket beside the clock grows with the length:** a small pail under 50 minutes, a bucket from 50 minutes, a big basket from 90. It is a picture, never a number. **Proposed.**
+- **Minus and plus buttons** either side of the clock move 5 minutes, for anyone who would rather not turn. VoiceOver adjusts the length the same way. **Proposed.**
 
 ### 6.3 The other options
 
-**Proposed.** Under the recipe cards, the lines the start screen has today:
-- **Subject:** "Maths ›" (from the Study record).
-- **What's this for?** A short note for this session.
-- **Blocking:** "Blocking 6 apps · Steady ›", which opens the Blocking sheet.
+- **One block mode.** **Decided** (owner, 2026-11-26: "just a block mode"). Under the clock, one control for blocking: which apps are blocked, opened from a line such as "Blocking 6 apps ›". **Still to settle with the owner** before this screen is built: whether block mode can be switched off for a session, what happens to breaks (they belonged to presets), and whether the three strictness levels stay.
+- **Subject:** "Maths ›" (from the Study record). **Proposed.**
+- **What's this for?** A short note for this session. **Proposed.**
 
 ### 6.4 Starting
 
 **Proposed.**
-- One button: "Start study · 50m". A Locked preset is a 1.5-second hold, as today.
+- One button: "Start · 50m".
 - On start, Pip picks up the bucket and hops out, and the camera rises into the tree.
 - In a free-tier build without Apple's Family Controls permission, the session starts as a plain timer, as today (see §13, question 1).
 
 ### 6.5 While it runs
 
 - **The view is the maple tree, and leaves fall as the animation.** The syrup bottle is not the timer. **Decided.**
+- **The falling leaves are only an animation.** They fall at random and don't match the leaves the session earns. **Decided** (owner, 2026-11-26).
+- **No leaf count while it runs.** The count appears when the session ends, as Pip tips the bucket into the basket (§6.7). **Proposed**, following the two rules above.
 - **Proposed** detail:
   - The time left is on a wooden sign on the trunk, in large numerals.
-  - The branch above Pip holds one leaf for each 5 minutes of the session. They drop into the bucket one at a time, so the branch is the countdown.
-  - A line under the bucket: "6 leaves so far".
   - The screen dims after 30 seconds, as today.
   - A way to minimise returns to home, where the gauge shows the time left.
-- **Away from the app:** the Lock Screen and the session-end notification work as today. The Lock Screen adds the leaves so far.
+- **Away from the app:** the Lock Screen and the session-end notification work as today.
 
 ### 6.6 Breaks and ending early
 
 **Proposed.** Both keep today's rules and today's two-step ending (the sheet, then the breath, then "Still want to end?").
 - **Break:** Pip sits on the branch with a flask. No leaves fall. Apps stay locked.
-- **End early:** the member keeps the leaves already in the bucket. The words never say "fail" or "quit".
+- **End early:** the member earns for the time the session ran, rounded up. The words never say "fail" or "quit".
 
 ### 6.7 When it ends
 
@@ -300,7 +297,7 @@ The Study record (branch `maanvik/f2-study-record`) is finished and independent 
 ## 13. Questions, and the owner's answers (2026-11-26)
 
 1. **Plain timers.** In a free-tier build without Apple's Family Controls permission, sessions are plain timers and count nothing as time saved. **They earn plain leaves from time focused,** so the whole game works in that build. Special leaves still need counted time.
-2. **The pace.** **One leaf per 5 minutes,** as in §2.
+2. **The pace.** First answered as one leaf per 5 minutes; **changed by the owner the same day to 0.8 leaves a minute, rounded up when the session ends** (§2).
 3. **The tab bar.** **Dropped** (§9).
 4. **How special leaves are earned.** **Unchanged from today** (§3).
 5. **Who draws the art.** **Still open.** The owner's "yes to all" doesn't answer it. Until it is answered, screens are built with stand-in art: the concept images as backdrops, and plain placeholders for pieces that have no image.

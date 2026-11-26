@@ -6,9 +6,9 @@ import Testing
 struct WorkshopTuningTests {
     private let small = WorkshopFixtures.small
 
-    @Test("The starting pace is the design's: a leaf every 5 minutes, and one bottle a leaf before any upgrade")
+    @Test("The starting pace is the owner's: 0.8 leaves a minute, a leaf every 75 seconds, and one bottle a leaf before any upgrade")
     func startingPace() {
-        #expect(WorkshopTuning.starting.secondsPerLeaf == 300)
+        #expect(WorkshopTuning.starting.secondsPerLeaf == 75)
         #expect(WorkshopTuning.starting.baseTenthsPerLeaf == 10)
     }
 

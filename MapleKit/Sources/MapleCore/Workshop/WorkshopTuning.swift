@@ -38,13 +38,14 @@ public struct WorkshopTuning: Sendable, Equatable {
         self.ladders = ladders
     }
 
-    /// The app's numbers. A leaf every 5 minutes and one bottle a leaf are the design's (§2); the ladders are starting
-    /// values for the tuning pass.
+    /// The app's numbers. The pace is the owner's: 0.8 leaves a minute, which is a leaf every 75 seconds. One bottle a
+    /// leaf is the design's (§2). The ladders are starting values for the tuning pass: the first evaporator level costs
+    /// one 50-minute session's leaves.
     public static let starting = WorkshopTuning(
-        secondsPerLeaf: 300, baseTenthsPerLeaf: 10,
+        secondsPerLeaf: 75, baseTenthsPerLeaf: 10,
         ladders: [
-            .evaporator: Ladder(prices: [10, 25, 50, 100, 200], bonusTenths: [2, 5, 10, 15, 20]),
-            .filterPress: Ladder(prices: [20, 60, 150], bonusTenths: [1, 3, 5]),
+            .evaporator: Ladder(prices: [40, 100, 200, 400, 800], bonusTenths: [2, 5, 10, 15, 20]),
+            .filterPress: Ladder(prices: [80, 240, 600], bonusTenths: [1, 3, 5]),
         ]
     )
 

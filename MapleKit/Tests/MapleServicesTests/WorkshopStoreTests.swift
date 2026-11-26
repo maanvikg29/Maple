@@ -145,19 +145,23 @@ struct WorkshopStoreTests {
 
         let gained = workshop.collect(from: history, running: running)
         #expect(gained > 0)
-        #expect(gained == LeafEarnings.total(history.records, credits: history.credits, running: running))
+        #expect(gained == LeafEarnings.total(history.records, running: running))
+        let pace = workshop.tuning.secondsPerLeaf
+        #expect(gained == history.sessions.reduce(0) { $0 + ($1.focusedSeconds + pace - 1) / pace },
+                "every listed session earns for its time focused, rounded up, whether or not it blocked apps")
         #expect(workshop.leaves == gained)
         #expect(workshop.collect(from: history, running: running) == 0)
         #expect(workshop.leaves == gained)
     }
 
-    @Test("In a free-tier build every session is a plain timer, and each still earns a leaf per 5 minutes focused")
+    @Test("In a free-tier build every session is a plain timer, and each earns for its time focused, rounded up")
     func freeTier() async throws {
         let stores = try await launchWithHistory(["-MapleDemoScreenTime", "unavailable"])
         await stores.focus.sessions.loadHistory()
         let history = try #require(stores.focus.sessions.history)
         #expect(history.sessions.allSatisfy { $0.savedSeconds == 0 })
-        let expected = history.sessions.reduce(0) { $0 + $1.focusedSeconds / 300 }
+        let pace = stores.focus.workshop.tuning.secondsPerLeaf
+        let expected = history.sessions.reduce(0) { $0 + ($1.focusedSeconds + pace - 1) / pace }
         #expect(expected > 0)
         #expect(stores.focus.workshop.collect(from: history, running: nil) == expected)
     }
