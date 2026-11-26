@@ -31,7 +31,7 @@ Every rule below carries one of two marks:
 | The timer | A dial on a dark page | A gauge in the workshop, then the tree |
 | Style | Dark, restrained, amber for rewards only | Warm, hand-drawn, thick outlines, busy with detail |
 
-What stays as it is: how a session starts and runs (without presets or breaks, §6.3); app blocking and the strictness levels; the counting rules for time saved; the streak; subjects and History; sleep and the schedule; Apple Health.
+What stays as it is: how a session starts and runs (without presets or breaks, §6.3); app blocking (without the strictness levels, §6.3); the counting rules for time saved; the streak; subjects and History; sleep and the schedule; Apple Health.
 
 ---
 
@@ -48,7 +48,7 @@ What stays as it is: how a session starts and runs (without presets or breaks, �
 - **0.9 leaves for every minute focused,** which is 54 an hour. A 50-minute session gives 45 leaves. **Decided** (owner, 2026-11-26; first 1 per 5 minutes, then 0.8 a minute, then this).
 - **A session's leaves are rounded up when it ends.** **Decided** (owner, 2026-11-26).
 - **Every session earns the same way, from its time focused,** whether it blocks apps or is a plain timer. Time saved, with its daily limit, still decides the special leaves. **Decided** (owner, 2026-11-26: the pace is per minute, with no difference between kinds of session).
-- **A session ended before its timer runs out earns nothing.** Every leaf of that session is lost, however long it ran, and Pip falls out of the tree (§6.6). The session is still in History, marked as ended early. **Decided** (owner, 2026-11-26). It holds for every way out before the end: End early, Locked's emergency release, and Release all apps. Time saved toward the special leaves keeps today's rule (an early end keeps its counted minutes) until the owner says otherwise.
+- **A session ended before its timer runs out earns nothing.** Every leaf of that session is lost, however long it ran, and Pip falls out of the tree (§6.6). The session is still in History, marked as ended early. **Decided** (owner, 2026-11-26). It holds for every way out before the end: End early, and Release all apps. Time saved toward the special leaves keeps today's rule (an early end keeps its counted minutes) until the owner says otherwise.
 - One leaf cooks into one bottle of syrup before any upgrade. **Proposed**, to be tuned in its own pass (§14).
 
 ---
@@ -170,8 +170,8 @@ Everything about when a session counts is unchanged (F1 design §3). This sectio
 
 - **One block mode.** **Decided** (owner, 2026-11-26: "just a block mode"). Under the clock, one control for blocking: which apps are blocked, opened from a line such as "Blocking 6 apps ›". **Decided** (owner, 2026-11-26, "yes to all"):
   - **Block mode can be switched off** with one switch, and the session then runs as a plain timer. It earns the same leaves.
-  - **The three strictness levels stay,** chosen inside the block mode sheet: Gentle, Steady, Locked. They set how hard it is to end a blocking session early (F1 design §5.6, §5.7). A plain timer is always Gentle (F1-30).
-  - **Breaks are dropped for now.** They belonged to the presets. Steady's "Take a 5-minute break instead" goes with them.
+  - **No strictness levels.** **Decided** (owner, 2026-11-26: "no strictness feature"; it replaces the same day's answer to keep them). Gentle, Steady and Locked are gone, with the chooser, the hold to start and the emergency release. Every session starts with one tap and has one way out, the same whether it blocks apps or not (§6.6).
+  - **Breaks are dropped for now.** They belonged to the presets.
 - **Subject:** "Maths ›" (from the Study record). **Decided** (owner, 2026-11-26).
 - **No "What's this for?" note.** **Decided** (owner, 2026-11-26).
 
@@ -197,7 +197,7 @@ Everything about when a session counts is unchanged (F1 design §3). This sectio
 
 - **Breaks are dropped for now** (§6.3), so there is no break view.
 - **End early: the session's leaves are lost.** **Decided** (owner, 2026-11-26). Pip falls out of the tree, the bucket tips and the leaves scatter. The session is saved in History as ended early, with its time focused.
-- The way out keeps today's two steps (the sheet, then the breath, then "Still want to end?"), and the second question says plainly that this session's leaves will be lost. **Proposed.**
+- **One way out for every session,** today's gentlest one: "End session" on the sheet, one slow breath, then "Still want to end?". The second question says plainly that this session's leaves will be lost. **Proposed.**
 - The fall is a soft tumble into a leaf pile, and Pip gets up again. The words never say "fail" or "quit". **Proposed.**
 
 ### 6.7 When it ends
