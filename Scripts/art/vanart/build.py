@@ -15,7 +15,7 @@ def home_scene():
     outdoor.trunk(s)
     outdoor.canopy(s)
     outdoor.string_lights(s)
-    outdoor.bunting(s, to=(776, 668))
+    outdoor.bunting(s, to=van.chimney_top())
     van.shadow(s)
     van.left_door(s)
     van.workshop(s)

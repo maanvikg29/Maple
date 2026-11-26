@@ -10,8 +10,11 @@ from .core import *  # noqa: F401,F403
 from .outdoor import basket, crate
 from .pip import cat, pip, tube
 
+# Lengths along the van are in its first, shorter numbers; `core.P` stretches the slice between the stove and the
+# boiler. As drawn, the body is L + STRETCH_ADD long and the workshop LC + STRETCH_ADD.
 L, W = 810.0, 340.0     # length and width of the body
 LC = 520.0              # where the workshop ends and the cab begins
+LONG = LC + STRETCH_ADD  # the workshop's length as drawn
 F = 50.0                # the workshop floor
 H = 430.0               # the roof
 T = 22.0                # how thick the shell is
@@ -71,8 +74,8 @@ def workshop_shell(s):
     """The three surfaces the workshop is built on: the far wall, the cab wall and the floor."""
     s.begin("workshop-walls")
     s.add(poly(face_y(0, 0, LC, F, CEIL)), fill=WOOD, sw=5)
-    for x in range(40, int(LC), 40):
-        s.line([P(x, 0, F), P(x, 0, CEIL)], sw=2.5, opacity=0.45)
+    for along in range(40, int(LONG), 40):
+        s.line([P(X(along), 0, F), P(X(along), 0, CEIL)], sw=2.5, opacity=0.45)
     s.add(poly(face_x(LC, 0, W, F, CEIL)), fill=WOOD_L, sw=5)
     for y in range(42, int(W), 42):
         s.line([P(LC, y, F), P(LC, y, CEIL)], sw=2.5, opacity=0.4)
@@ -81,8 +84,8 @@ def workshop_shell(s):
         s.line([P(0, y, F), P(LC, y, F)], sw=2.5, opacity=0.4)
     r = rng(5)
     for y in range(0, int(W), 42):
-        for _ in range(2):
-            x = r.uniform(30, LC - 30)
+        for _ in range(3):
+            x = X(r.uniform(30, LONG - 30))
             s.line([P(x, y, F), P(x, y + 42, F)], sw=2.5, opacity=0.4)
     # Skirting where the walls meet the floor.
     s.add(poly(face_y(0, 0, LC, F, F + 12)), fill=WOOD_D, sw=3)
@@ -297,6 +300,40 @@ def wall_fittings(s):
     s.end()
 
 
+def long_wall(s):
+    """What stands along the stretch of wall between the stove and the boiler."""
+    s.begin("tasting-shelf")
+    a, b, z = X(392), X(522), F + 262
+    for along in (404, 510):
+        s.add(poly([P(X(along), 0, z), P(X(along), 34, z), P(X(along), 0, z - 30)]), fill=WOOD_DD, sw=3)
+    box(s, a, 0, z, b - a, 38, 9, PLANK, WOOD_D, WOOD_D, sw=3.5)
+    for i, col in enumerate([SYRUP_L, LEAF_R, SYRUP, GOLD, SYRUP_D]):
+        bottle(s, P(X(412 + i * 24), 18, z + 9), 1.15, col, tall=(i % 2 == 1))
+    s.end()
+
+    s.begin("framed-leaf")
+    c = P(X(456), 0, F + 176)
+    s.add(round_poly([P(X(424), 0, F + 136), P(X(488), 0, F + 136), P(X(488), 0, F + 216), P(X(424), 0, F + 216)], 4), fill=WOOD_DD, sw=3.5)
+    s.add(poly([P(X(431), 0, F + 144), P(X(481), 0, F + 144), P(X(481), 0, F + 208), P(X(431), 0, F + 208)]), fill=CREAM, sw=2.5)
+    s.add(maple_leaf(c[0], c[1] - 2, 24, -0.25), fill=LEAF_O, sw=2.5)
+    s.end()
+
+    s.begin("syrup-barrel")
+    p = P(X(462), 44, F)
+    w, h = 44, 104
+    body = [(p[0] - w, p[1] - h + 8), (p[0] - w - 10, p[1] - h / 2), (p[0] - w, p[1] - 8), (p[0], p[1] + 4), (p[0] + w, p[1] - 8),
+            (p[0] + w + 10, p[1] - h / 2), (p[0] + w, p[1] - h + 8), (p[0], p[1] - h)]
+    s.add(smooth(body, tension=0.85), fill=WOOD, sw=4.5)
+    for dx in (-22, 0, 22):
+        s.curve([(p[0] + dx, p[1] - h + 6), (p[0] + dx * 1.25, p[1] - h / 2), (p[0] + dx, p[1])], sw=2.5, opacity=0.55)
+    for yy in (p[1] - h + 22, p[1] - 22):
+        s.curve([(p[0] - w - 4, yy), (p[0], yy + 9), (p[0] + w + 4, yy)], sw=7, stroke=OUT)
+        s.curve([(p[0] - w - 4, yy), (p[0], yy + 9), (p[0] + w + 4, yy)], sw=3, stroke=METAL)
+    s.add(ellipse(p[0], p[1] - h + 6, w - 2, 13), fill=PLANK, sw=4)
+    tube(s, [(p[0] + 8, p[1] - 44), (p[0] + 30, p[1] - 40), (p[0] + 32, p[1] - 28)], 8, GOLD, edge=3)
+    s.end()
+
+
 def boiler(s):
     cx, cy = 452.0, 60.0
     s.begin("boiler")
@@ -486,7 +523,7 @@ def rug(s):
     s.add(poly(face_z(F + 1, x0, x1, y0, y1)), fill=RUG, sw=4.5)
     s.add(poly(face_z(F + 1, x0 + 14, x1 - 14, y0 + 12, y1 - 12)), fill="none", sw=4, stroke=GOLD)
     s.add(poly(face_z(F + 1, x0 + 26, x1 - 26, y0 + 22, y1 - 22)), fill=RUG_D, sw=2.5)
-    mx, my = (x0 + x1) / 2, (y0 + y1) / 2
+    mx, my = X((x0 + x1 + STRETCH_ADD) / 2), (y0 + y1) / 2
     lo = [P(x0 + 44, my, F + 1), P(mx - 40, y0 + 34, F + 1), P(mx + 40, y0 + 34, F + 1), P(x1 - 44, my, F + 1), P(mx + 40, y1 - 34, F + 1),
           P(mx - 40, y1 - 34, F + 1)]
     s.add(poly(lo), fill=RUG, sw=3.5, stroke=GOLD)
@@ -504,6 +541,7 @@ def workshop(s, with_pip=True, steam=True):
     workshop_shell(s)
     roof_strip(s)
     wall_fittings(s)
+    long_wall(s)
     boiler(s)
     right_counter(s)
     stove(s, steam)
@@ -515,25 +553,19 @@ def workshop(s, with_pip=True, steam=True):
     s.end()
     rug(s)
     # Leaves not yet cooked wait in the basket by the doors.
-    c = P(60, 232, F)
+    c = P(116, 246, F)
     s.begin("leaf-basket", transform=f"translate({f(c[0])} {f(c[1] - 22)}) scale(0.58)")
     basket(s, 0, 0, name="leaf-basket-weave")
     s.end()
-    c = P(196, 250, F)
+    c = P(250, 262, F)
     cat(s, c[0], c[1] - 16, 1.12)
     if with_pip:
         pip_at_home(s)
 
 
 def pip_at_home(s):
-    c = P(366, 296, F)
+    c = P(X(452), 290, F)
     pip(s, c[0], c[1] + 2, 0.52)
-
-
-def pip_in_workshop(s):
-    """Pip in the side view: by the drawers, clear of the gauge and the stove's fire."""
-    c = P(404, 314, F)
-    pip(s, c[0], c[1] + 2, 0.44)
 
 
 def cab_and_sill(s):
@@ -618,6 +650,21 @@ def right_door(s):
     s.line([P(-74, W, 300), P(-50, W, 352)], sw=4.5, stroke=WHITE)
     s.line([P(-60, W, 298), P(-42, W, 334)], sw=3, stroke=WHITE)
     s.add(round_poly(face_y(W, -102, -80, 176, 190), 4), fill=METAL, sw=3)
+    s.end()
+
+
+def rear_closed(s):
+    """The rear doors shut. From this side they would hide half the room, so they are cut away low, as the near wall is."""
+    s.begin("doors-closed")
+    top = F + 62
+    s.add(poly(face_x(0, 0, W, F - 6, top)), fill=CREAM, sw=5)
+    s.add(poly(face_x(0, 0, W, F + 6, F + 30)), fill=STRIPE, sw=3.5)
+    s.line([P(0, W / 2, F - 6), P(0, W / 2, top)], sw=4)
+    for y in (W / 2 - 34, W / 2 + 12):
+        s.add(round_poly(face_x(0, y, y + 22, F + 40, F + 52), 3), fill=METAL, sw=3)
+    # The cut edge along their tops, and the corner post that carries the roof.
+    s.add(poly([P(0, 0, top), P(14, 0, top), P(14, W, top), P(0, W, top)]), fill=CREAM_D, sw=4)
+    s.add(poly(face_x(0, -8, 14, F, H)), fill=CREAM_DD, sw=4.5)
     s.end()
 
 
@@ -715,11 +762,7 @@ def chimney_smoke(s):
     s.end()
 
 
-def van(s, with_pip=True):
-    shadow(s)
-    left_door(s)
-    workshop(s, with_pip)
-    cab_and_sill(s)
-    right_door(s)
-    wheels(s)
-    roof_load(s)
+def chimney_top():
+    """Where the bunting ties on."""
+    c = P(452, 30, H + 60)
+    return (c[0] - 8, c[1])

@@ -97,7 +97,7 @@ The whole app is one place: the van parked under the maple tree. The camera has 
 | Camera | What it is for | How the member gets there |
 |---|---|---|
 | The whole scene | Home, and decorating | Opening the app; tapping "decorate" |
-| Inside the van, straight-on side view | The workshop: the timer, cooking, the shelf | Tapping the enter button on home |
+| Close in on the van's room, from home's angle | The workshop: the timer, cooking, the shelf | Tapping the enter button on home |
 | Up in the tree | A session that is running | Starting the timer |
 
 ### 5.1 Home
@@ -113,7 +113,9 @@ The whole app is one place: the van parked under the maple tree. The camera has 
 
 ### 5.2 The workshop
 
-- **A proper side view of the inside of the van.** **Decided.**
+- **The same picture as home, from the same angle, closer in and centred on the room, with both rear doors shut.** **Decided** (the owner saw a flat room and a turned side view first and turned both down; of home's close-up: "i like it").
+- **The van's room is long, not boxy.** The longer van is drawn in both views so they agree. **Decided** for the workshop; the home view following it is **Proposed**.
+- Shut doors would hide the left half of the room from this angle, so they are drawn shut but cut away low, the way the near wall is. **Proposed.**
 - **What is in it** (**Proposed**):
   - the boiler with its round gauge, which is the timer (§6);
   - the stove and the pot, which the member taps to cook;
@@ -127,7 +129,7 @@ The whole app is one place: the van parked under the maple tree. The camera has 
 **Proposed**, about 1.2 seconds in all:
 1. The enter button fades and a latch clicks, with a light tap from the phone.
 2. The camera pushes in toward the van.
-3. The view turns to the straight-on side view and warm light fills it.
+3. The rear doors swing shut, the view settles close on the room and warm light fills it.
 4. Pip hops in ahead.
 5. The gauge and the pot settle into place.
 
@@ -137,7 +139,7 @@ The full entrance plays once a day. After that it takes under half a second. Wit
 
 - **Tapping the decoration button goes back to the home view, where the van can be edited.** **Decided.**
 - In edit mode the member taps a place on the van, the roof or the grass and picks what goes there. **Proposed.**
-- Every indoor decoration is drawn twice: once at home's angle and once for the workshop's side view. The owner accepted this cost. **Decided.**
+- Every indoor decoration is drawn once: the workshop is home's own picture closer in, so one drawing serves both views. **Decided** by the choice of the workshop's angle (§5.2).
 
 ---
 

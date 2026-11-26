@@ -73,20 +73,35 @@ WHITE = "#fff4e2"
 BLACK = "#24120a"
 
 # The projection. In the van's space x runs along the van (rear to cab), y across it toward the camera, z up.
-# A camera says where each of those goes on the page. Two are used: the home view looks down on the van from behind
-# its near side; the side view has turned to face the cut-away side, so the long wall is almost straight-on.
-HOME_CAMERA = dict(ox=300.0, oy=1440.0, ax=1.0, ay=-0.5, bx=1.0, by=0.5, zk=1.118)
-SIDE_CAMERA = dict(ox=0.0, oy=0.0, ax=1.0, ay=-0.1, bx=0.36, by=0.44, zk=1.08)
-CAM = dict(HOME_CAMERA)
+# The camera looks down on the van from behind its near side: x goes up to the right, y down to the right.
+CAM = dict(ox=215.0, oy=1480.0, ax=1.0, ay=-0.5, bx=1.0, by=0.5, zk=1.118)
+
+# The van was first drawn shorter. It is lengthened by stretching one slice of its length, between the stove and the
+# boiler, so everything in front of the slice and behind it keeps its own numbers. Positions inside the new stretch of
+# wall are given by `X`, which takes a length along the van as it now is.
+STRETCH_FROM, STRETCH_TO, STRETCH_ADD = 356.0, 390.0, 170.0
 
 
-def set_camera(camera):
-    CAM.clear()
-    CAM.update(camera)
+def _along(x):
+    if x <= STRETCH_FROM:
+        return x
+    if x >= STRETCH_TO:
+        return x + STRETCH_ADD
+    return STRETCH_FROM + (x - STRETCH_FROM) * (STRETCH_TO - STRETCH_FROM + STRETCH_ADD) / (STRETCH_TO - STRETCH_FROM)
+
+
+def X(length):
+    """The x to give `P` for a point `length` along the van as it now is."""
+    if length <= STRETCH_FROM:
+        return length
+    if length >= STRETCH_TO + STRETCH_ADD:
+        return length - STRETCH_ADD
+    return STRETCH_FROM + (length - STRETCH_FROM) * (STRETCH_TO - STRETCH_FROM) / (STRETCH_TO - STRETCH_FROM + STRETCH_ADD)
 
 
 def P(x, y, z=0.0):
     """A point in the van's space, on the page."""
+    x = _along(x)
     return (CAM["ox"] + CAM["ax"] * x + CAM["bx"] * y, CAM["oy"] + CAM["ay"] * x + CAM["by"] * y - CAM["zk"] * z)
 
 
