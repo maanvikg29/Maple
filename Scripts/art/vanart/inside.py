@@ -1,5 +1,5 @@
-"""The workshop, zoomed in: the same van seen from the front, almost straight on, with both rear doors shut and the room
-across the middle of a phone-shaped canvas.
+"""The workshop, zoomed in: the same van seen from the front, straight on and at eye level, like a dollhouse, with the
+room across the middle of a phone-shaped canvas.
 
 The room is not redrawn for this view. It is `van.workshop`, the room the home scene shows, under another camera, so
 whatever stands in the van stands in both pictures. Only the garden round it is drawn here, because the home scene's
@@ -11,14 +11,16 @@ from .core import *  # noqa: F401,F403
 from .pip import pip
 
 # The canvas: a phone's shape (6:13). Its corner is (0, 0), so the app's numbers are the drawing's own.
-WIDTH, HEIGHT = 900, 1950
+WIDTH, HEIGHT = 852, 1846
 BOX = (0, 0, WIDTH, HEIGHT)
 
-# The camera stands in front of the cut-away side, turned a little toward the rear doors and looking slightly down:
-# between a flat dollhouse view and one that shows the window wall (the owner chose between those two).
-CAMERA = camera(turn=6, tilt=13.5, ox=35.0, oy=1150.0)
+# The camera stands straight in front of the cut-away side, at eye level: the floor is a thin strip and the walls at
+# either end are edge-on. (The owner chose this from five front views.)
+CAMERA = camera(turn=0, tilt=6, ox=30.0, oy=1122.0)
+# The grass in front is nearer and lower than the room, so it is seen from a little more above.
+GROUND = camera(turn=0, tilt=14, ox=30.0, oy=1061.0)
 
-PIP_STANDS = (480.0, 290.0)  # length along the van as drawn, and how far across
+PIP_STANDS = (500.0, 290.0)  # length along the van as drawn, and how far across
 
 
 def _canvas():
@@ -49,35 +51,36 @@ def backdrop(s):
 def garden(s):
     """The grass in front of the van, where the canvas runs on below it."""
     s.begin("lawn-patches")
-    for cx, cy, rx, ry in [(560, 1500, 170, 28), (200, 1590, 150, 30), (640, 1700, 210, 34), (230, 1830, 170, 30),
-                           (720, 1870, 170, 30)]:
+    for cx, cy, rx, ry in [(530, 1413, 160, 26), (189, 1500, 142, 28), (606, 1605, 200, 32), (218, 1731, 160, 28),
+                           (682, 1769, 160, 28)]:
         s.fill(ellipse(cx, cy, rx, ry), GRASS_L, opacity=0.55)
     s.end()
     # A path of stones from the rear doors, round to the front and off the bottom.
-    outdoor.stones(s, [(118, 1392, 56, 16, 0.05), (228, 1448, 60, 17, 0.08), (338, 1520, 66, 19, 0.06),
-                       (420, 1606, 72, 21, 0.03), (458, 1702, 78, 23, -0.02), (446, 1806, 84, 25, -0.04),
-                       (470, 1912, 90, 27, 0.02)])
+    outdoor.stones(s, [(112, 1309, 53, 15, 0.05), (216, 1363, 57, 16, 0.08), (320, 1432, 62, 18, 0.06),
+                       (398, 1515, 68, 20, 0.03), (434, 1607, 74, 22, -0.02), (422, 1707, 80, 24, -0.04),
+                       (445, 1809, 85, 26, 0.02)])
     s.begin("lawn-tufts")
-    outdoor.tufts(s, [(40, 1470), (330, 1420), (540, 1440), (640, 1560), (300, 1640), (60, 1560), (850, 1560),
-                      (620, 1790), (310, 1760), (260, 1900), (640, 1900), (860, 1840), (560, 1640), (40, 1930)], 23)
+    outdoor.tufts(s, [(38, 1384), (312, 1336), (511, 1355), (606, 1471), (284, 1548), (57, 1471), (805, 1471), (587, 1692),
+                      (293, 1663), (246, 1798), (606, 1798), (814, 1740), (530, 1548), (38, 1827)], 23)
     r = rng(29)
     cols = [LEAF_R, LEAF_O, LEAF_Y]
-    for i, (x, y) in enumerate([(430, 1470), (590, 1600), (270, 1560), (700, 1760), (330, 1850), (590, 1850), (250, 1720),
-                                (840, 1920)]):
+    for i, (x, y) in enumerate([(407, 1384), (559, 1509), (256, 1471), (663, 1663), (312, 1750), (559, 1750), (237, 1625),
+                                (795, 1817)]):
         outdoor.leaf(s, x, y, r.uniform(19, 26), r.uniform(-1.4, 1.4), cols[i % 3], sw=3)
     s.end()
     # A bench and the firewood on one side; a crate of gathered leaves and its mushrooms on the other.
-    # (The bench is drawn clear of the van's lengthened slice, then slid along to its place.)
-    s.begin("bench-place", transform="translate(404 0)")
-    outdoor.bench(s, x=120, y=700, z=van.G + 9)
-    s.end()
-    outdoor.log_stack(s, 792, 1690)
-    outdoor.crate(s, -170, 1560, van.G + 9, 130, 150, 80, "leaf-crate", 67)
-    outdoor.mushrooms(s, cx=226, cy=1762)
+    with using(GROUND):
+        # (The bench is drawn clear of the van's lengthened slice, then slid along to its place.)
+        s.begin("bench-place", transform="translate(437 0)")
+        outdoor.bench(s, x=120, y=625, z=van.G + 9)
+        s.end()
+        outdoor.crate(s, -2, 1472, van.G + 9, 130, 150, 80, "leaf-crate", 67)
+    outdoor.log_stack(s, 750, 1596)
+    outdoor.mushrooms(s, cx=214, cy=1665)
     s.begin("leaves-in-the-air")
-    outdoor.leaf(s, 842, 150, 30, 0.5, LEAF_Y)
-    outdoor.small_leaf(s, 640, 330, 22, -0.9, LEAF_O)
-    outdoor.small_leaf(s, 560, 560, 18, 0.7, LEAF_Y)
+    outdoor.leaf(s, 797, 145, 30, 0.5, LEAF_Y)
+    outdoor.small_leaf(s, 606, 320, 22, -0.9, LEAF_O)
+    outdoor.small_leaf(s, 530, 543, 18, 0.7, LEAF_Y)
     s.end()
 
 

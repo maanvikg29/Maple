@@ -23,8 +23,8 @@ G = -84.0               # the ground
 FLOOR = "#c58a58"
 DOOR_IN = "#bd825a"
 # Where loose things stand, as (x, y) in the van. The two views share these.
-LANTERN = (504.0, 166.0)   # on the right counter, at the back
-LOGBOOK = (476.0, 262.0)   # on the right counter, at the front
+LANTERN = (488.0, 160.0)   # on the right counter, at the back
+LOGBOOK = (468.0, 300.0)   # on the right counter, at the front
 CARRIER = (50.0, 196.0)    # on the floor
 
 
@@ -308,7 +308,7 @@ def wall_fittings(s):
 def long_wall(s):
     """What stands along the stretch of wall between the stove and the boiler."""
     s.begin("tasting-shelf")
-    a, b, z = X(392), X(522), F + 276
+    a, b, z = X(392), X(522), F + 284
     for along in (404, 510):
         s.add(poly([P(X(along), 0, z), P(X(along), 34, z), P(X(along), 0, z - 30)]), fill=WOOD_DD, sw=3)
     box(s, a, 0, z, b - a, 38, 9, PLANK, WOOD_D, WOOD_D, sw=3.5)
@@ -317,11 +317,11 @@ def long_wall(s):
     s.end()
 
     s.begin("framed-leaf")
-    x0, x1, z0, z1 = 394, 458, F + 156, F + 236
+    x0, x1, z0, z1 = 386, 446, F + 178, F + 250
     c = P(X((x0 + x1) / 2), 0, (z0 + z1) / 2)
     s.add(round_poly([P(X(x0), 0, z0), P(X(x1), 0, z0), P(X(x1), 0, z1), P(X(x0), 0, z1)], 4), fill=WOOD_DD, sw=3.5)
     s.add(poly([P(X(x0 + 7), 0, z0 + 8), P(X(x1 - 7), 0, z0 + 8), P(X(x1 - 7), 0, z1 - 8), P(X(x0 + 7), 0, z1 - 8)]), fill=CREAM, sw=2.5)
-    s.add(maple_leaf(c[0], c[1] - 2, 24, -0.25), fill=LEAF_O, sw=2.5)
+    s.add(maple_leaf(c[0], c[1] - 2, 21, -0.25), fill=LEAF_O, sw=2.5)
     s.end()
 
     s.begin("syrup-barrel")
@@ -472,38 +472,39 @@ def left_counter(s):
 
 
 def right_counter(s):
-    s.begin("round-window")
-    for r, col, sw in [(64, CREAM, 4.5), (50, GLASS, 4)]:
-        s.add(smooth(wall_circle("x", LC, 214, F + 236, r, 20)), fill=col, sw=sw)
-    s.line([P(LC, 214 - 50, F + 236), P(LC, 214 + 50, F + 236)], sw=9, stroke=OUT)
-    s.line([P(LC, 214, F + 186), P(LC, 214, F + 286)], sw=9, stroke=OUT)
-    s.line([P(LC, 214 - 50, F + 236), P(LC, 214 + 50, F + 236)], sw=4, stroke=CREAM)
-    s.line([P(LC, 214, F + 186), P(LC, 214, F + 286)], sw=4, stroke=CREAM)
-    s.line([P(LC, 188, F + 266), P(LC, 202, F + 250)], sw=3.5, stroke=WHITE)
-    s.end()
+    x0, y0, y1, h = 452.0, 146.0, 332.0, 98.0
+    if sees_rear():
+        s.begin("round-window")
+        for r, col, sw in [(64, CREAM, 4.5), (50, GLASS, 4)]:
+            s.add(smooth(wall_circle("x", LC, 214, F + 236, r, 20)), fill=col, sw=sw)
+        s.line([P(LC, 214 - 50, F + 236), P(LC, 214 + 50, F + 236)], sw=9, stroke=OUT)
+        s.line([P(LC, 214, F + 186), P(LC, 214, F + 286)], sw=9, stroke=OUT)
+        s.line([P(LC, 214 - 50, F + 236), P(LC, 214 + 50, F + 236)], sw=4, stroke=CREAM)
+        s.line([P(LC, 214, F + 186), P(LC, 214, F + 286)], sw=4, stroke=CREAM)
+        s.line([P(LC, 188, F + 266), P(LC, 202, F + 250)], sw=3.5, stroke=WHITE)
+        s.end()
 
     s.begin("counter-right")
-    x0, y0, y1, h = 452.0, 146.0, 332.0, 98.0
-    # The top's far part, then the face that looks at us.
-    s.add(poly(face_x(x0, y0, y1, F, F + h)), fill=WOOD, sw=4.5)
-    # A curtain over the open half.
-    cur = face_x(x0, y0 + 8, 226, F + 4, F + h - 6)
-    s.add(poly(cur), fill=CREAM, sw=3.5)
-    for y in range(int(y0) + 22, 226, 15):
-        s.line([P(x0, y, F + 6), P(x0, y - 2, F + h - 8)], sw=2.2, opacity=0.55)
-    # Drawers.
-    for z in (F + 8, F + 52):
-        s.add(round_poly(face_x(x0, 236, y1 - 8, z, z + 38), 4), fill=WOOD_L, sw=3.5)
-        c = P(x0, 280, z + 19)
-        s.add(ellipse(c[0], c[1], 5, 5), fill=GOLD, sw=2.5)
+    if sees_rear():
+        # The long face, which looks down the room: a curtain over the open half, and drawers.
+        s.add(poly(face_x(x0, y0, y1, F, F + h)), fill=WOOD, sw=4.5)
+        cur = face_x(x0, y0 + 8, 226, F + 4, F + h - 6)
+        s.add(poly(cur), fill=CREAM, sw=3.5)
+        for y in range(int(y0) + 22, 226, 15):
+            s.line([P(x0, y, F + 6), P(x0, y - 2, F + h - 8)], sw=2.2, opacity=0.55)
+        for z in (F + 8, F + 52):
+            s.add(round_poly(face_x(x0, 236, y1 - 8, z, z + 38), 4), fill=WOOD_L, sw=3.5)
+            c = P(x0, 280, z + 19)
+            s.add(ellipse(c[0], c[1], 5, 5), fill=GOLD, sw=2.5)
     # Its near end, where the cut through the van's side passes.
     s.add(poly(face_y(y1, x0, LC, F, F + h)), fill=WOOD_D, sw=4.5)
     s.add(round_poly(face_y(y1, x0 + 10, LC - 10, F + 12, F + h - 14), 4), fill="none", sw=2.5, opacity=0.55)
     s.add(poly([P(x0 - 6, y0 - 4, F + h + 9), P(LC, y0 - 4, F + h + 9), P(LC, y1 + 6, F + h + 9), P(x0 - 6, y1 + 6, F + h + 9)]), fill=PLANK, sw=4)
-    s.add(poly(face_x(x0 - 6, y0 - 4, y1 + 6, F + h, F + h + 9)), fill=WOOD_DD, sw=3.5)
+    if sees_rear():
+        s.add(poly(face_x(x0 - 6, y0 - 4, y1 + 6, F + h, F + h + 9)), fill=WOOD_DD, sw=3.5)
     s.add(poly(face_y(y1 + 6, x0 - 6, LC, F + h, F + h + 9)), fill=WOOD_DD, sw=3.5)
     top = F + h + 9
-    lantern(s, P(LANTERN[0], LANTERN[1], top), 1.15)
+    lantern(s, P(LANTERN[0], LANTERN[1], top), 1.0)
     # The logbook: the study record opens from here.
     s.begin("logbook")
     b = P(LOGBOOK[0], LOGBOOK[1], top)
@@ -565,7 +566,7 @@ def workshop(s, with_pip=True, steam=True):
     s.begin("hanging-plants")
     hanging_plant(s, 236, 70, 84, 71)
     hanging_plant(s, 330, 76, 50, 75, trail=False)
-    hanging_plant(s, 500, 132, 74, 79)
+    hanging_plant(s, 486, 132, 74, 79)
     s.end()
     rug(s)
     bottle_carrier(s)

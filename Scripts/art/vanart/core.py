@@ -104,6 +104,11 @@ class using:
         CAM.update(self.before)
 
 
+def sees_rear():
+    """Whether the camera is turned enough to see the faces that look toward the rear doors. Straight on, they are edge-on."""
+    return CAM["bx"] > 0.05
+
+
 # The van was first drawn shorter. It is lengthened by stretching one slice of its length, between the stove and the
 # boiler, so everything in front of the slice and behind it keeps its own numbers. Positions inside the new stretch of
 # wall are given by `X`, which takes a length along the van as it now is.

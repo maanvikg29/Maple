@@ -113,10 +113,10 @@ The whole app is one place: the van parked under the maple tree. The camera has 
 
 ### 5.2 The workshop
 
-- **The van's room seen from the front, not from above, with both rear doors shut.** The camera stands in front of the cut-away side, turned slightly toward the rear doors and looking slightly down, so the floor and the rug show and the window wall is a sliver. **Decided**: the owner turned down a flat room, a turned side view and home's angle closer in ("i dont want a top view like that i want a front view"), was shown five front views (`docs/design/art/2026-11-26-workshop-angles/`) and chose "between 2 and 3".
+- **The van's room seen straight on from the front at eye level, like a dollhouse, with both rear doors shut.** The floor is a thin strip, and the walls at either end are edge-on, so the round window does not show in this view. **Decided**: the owner turned down a flat room, a turned side view and home's angle closer in ("i dont want a top view like that i want a front view"), was shown five front views (`docs/design/art/2026-11-26-workshop-angles/`), tried one between the second and third, and settled on the first ("actually 1 works").
 - The room fills the screen's width. The maple and the sky are above it and the lawn below. **Proposed.**
 - **The van's room is long, not boxy.** The longer van is drawn in both views so they agree. **Decided** for the workshop; the home view following it is **Proposed**.
-- From the front the shut doors are nearly edge-on, at the room's left end. They are cut away low, the way the near wall is. **Proposed.**
+- From the front the shut doors are edge-on, at the room's left end, so they show only as the end of the room. **Proposed.**
 - **What is in it** (**Proposed**):
   - the boiler with its round gauge, which is the timer (§6);
   - the stove and the pot, which the member taps to cook;
