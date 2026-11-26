@@ -98,7 +98,7 @@ struct VanHomeView: View {
             .padding(.horizontal, 24)
             Spacer(minLength: 0)
             Button(action: onEnter) {
-                Text("Open the van")
+                Text(model.enterTitle)
                     .font(.system(.title3, design: .rounded).weight(.heavy))
                     .foregroundStyle(VanPalette.outline)
                     .lineLimit(1)

@@ -25,6 +25,7 @@ struct FocusView: View {
     @Environment(PresetStore.self) private var presets
     @Environment(AppSettings.self) private var settings
     @Environment(AppRouter.self) private var router
+    @Environment(CollectionStore.self) private var collection
     @State private var tab = FocusTabState()
     /// Bumped when the route can change with time alone (a break running out), so the route is read again.
     @State private var tick = 0
@@ -45,6 +46,11 @@ struct FocusView: View {
         let _ = tick
         destination(route, now: now)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // With the van, closing a receipt goes home to the van, not to the clock.
+            .onChange(of: route) { old, new in
+                guard collection.context.features.syrupVan, case .receipt = old, new == .start || new == .needsScreenTime else { return }
+                router.selectedTab = .home
+            }
             // Still stars and a low glow in the season's tint (F1-34).
             .background { FocusSky().ignoresSafeArea() }
             .background(theme.colors.background)
@@ -85,12 +91,23 @@ struct FocusView: View {
         switch route {
         case .settling:
             Color.clear
-        case .start:
-            FocusStartView()
+        case .start, .needsScreenTime:
+            // With the van, the clock stands where the start screen stood, and starts a plain timer when Maple can't
+            // block (syrup van design §6.4).
+            if collection.context.features.syrupVan {
+                ClockTimerView()
+            } else if route == .start {
+                FocusStartView()
+            } else {
+                NeedsScreenTimeView()
+            }
         case .minimised(let id):
-            FocusStartView(minimised: id)
-        case .needsScreenTime:
-            NeedsScreenTimeView()
+            if collection.context.features.syrupVan {
+                // A minimised session waits on the van's gauge (§6.5).
+                Color.clear.onAppear { router.selectedTab = .home }
+            } else {
+                FocusStartView(minimised: id)
+            }
         case .running(let id), .breakTime(let id):
             // One view for both, so the screen keeps its state as a break starts and runs out (§5.5).
             RunningSessionView(sessionID: id)

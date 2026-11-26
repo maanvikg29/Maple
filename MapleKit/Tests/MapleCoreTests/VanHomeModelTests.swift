@@ -30,6 +30,13 @@ struct VanHomeModelTests {
         #expect(!line.contains("leaf") && !line.contains("leaves"))
     }
 
+    @Test("The one button opens the van, or goes back to the session while one runs")
+    func enter() {
+        #expect(model().enterTitle == "Open the van")
+        #expect(model(left: 32).enterTitle == "Return to session")
+        #expect(model(available: false).enterTitle == "Open the van")
+    }
+
     @Test("The counters read whole leaves and syrup to one decimal")
     func counters() {
         let shown = model(leaves: 45, syrup: 127)

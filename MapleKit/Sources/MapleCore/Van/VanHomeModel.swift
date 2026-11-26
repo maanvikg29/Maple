@@ -8,6 +8,8 @@ public struct VanHomeModel: Sendable, Equatable {
     /// The counters; nil while the van's file can't be read, so nothing is shown rather than a zero that isn't true.
     public let leavesText: String?
     public let syrupText: String?
+    /// The one button: into the van, or back to the session while one runs.
+    public let enterTitle: String
 
     /// - Parameters:
     ///   - leaves: `WorkshopStore.leaves`.
@@ -34,6 +36,7 @@ public struct VanHomeModel: Sendable, Equatable {
             default: "\(leaves) leaves waiting to cook"
             }
         }
+        enterTitle = minutesLeft == nil ? "Open the van" : "Return to session"
         leavesText = isAvailable ? "\(max(0, leaves))" : nil
         let tenths = max(0, syrupTenths)
         syrupText = isAvailable ? "\(tenths / 10).\(tenths % 10)" : nil
