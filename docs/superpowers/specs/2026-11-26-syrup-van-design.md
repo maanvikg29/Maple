@@ -290,8 +290,8 @@ Everything about when a session counts is unchanged (F1 design §3). This sectio
 **Proposed.** Each step ends with something that runs in the simulator.
 
 1. **The art list.** Every object, pose and angle needed for steps 2 to 4, and a decision on who draws it.
-2. **The economy, in logic only.** Leaves, syrup, cooking, upgrades, with tests. No screens.
-3. **The scene shell.** The home view, the entrance and the workshop, with the gauge driving the timer that exists today.
+2. **The economy, in logic only.** Leaves, syrup, cooking, upgrades, with tests. No screens. **Built.**
+3. **The scene shell.** The home view, the entrance and the workshop, with the gauge opening the clock that sets the length. **Built** (plan: `docs/superpowers/plans/2026-11-26-syrup-van-scene.md`). The running session, End early and the receipt are still today's screens.
 4. **The session.** The tree view, the falling leaves, the walk back and the summary.
 5. **The shop and decorating.**
 6. **Special syrups, the tasting shelf and Pip's clothes.**

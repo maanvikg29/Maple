@@ -2,6 +2,17 @@
 
 Newest first. Each entry: what was decided, why, and what it affects.
 
+## 2026-11-26 — The syrup van: the scene and the clock timer (step 3)
+The owner approved the home view, Pip and the workshop's angle ("yes to all, build step 3"). This entry covers step 3 of the design (`docs/superpowers/specs/2026-11-26-syrup-van-design.md` §12); the plan is `docs/superpowers/plans/2026-11-26-syrup-van-scene.md`.
+- **The van is home, behind one switch.** `ShippedFeatures.syrupVan` is on in `.current`. The tree home, the tab bar and the Focus tab's start screen stay in the code and come back with DEBUG `-MapleDemoShip f1`. Why: the van replaces the app's front door in steps, and the old screens are the way to compare and to fall back.
+- **The tab bar is hidden, not removed.** The three tabs are still there, so the router and every request that names a tab keep working. The Herbarium gets a "Van" button, since there is no bar to leave it by.
+- **The workshop is seen straight on from the front at eye level.** The owner was shown five front views, tried "between 2 and 3" and settled on the first ("actually 1 works"). It is the home view's own room under a second camera, so furniture placed once shows in both views.
+- **The clock stands in the Focus tab's start route.** The gauge opens it; a drawn analog clock sets 20 minutes to 3 hours in 5-minute steps, with minus and plus buttons and VoiceOver's adjust for setting it without dragging. It shows the length only: no leaf count, no rate.
+- **A van session is always Gentle with no break.** It is made by copying the member's last preset (so its app list and subject carry on), because a start still needs a preset. There are no presets, breaks or strictness levels on the clock's screen. With block mode off, or in a free-tier build without Apple's Family Controls permission, it starts a plain timer.
+- **The art is drawn in code** (`Scripts/art/vanart/`) and generated into the asset catalog as layers, so Pip, the smoke and the leaves can move by themselves. A check fails when the catalog and the generator differ.
+- **The words over the scene stop growing at the second accessibility size.** Larger, each plate broke into one letter a line and covered the scene. The clock timer's rows grow all the way.
+- **What step 3 leaves on today's screens:** the running session, End early and the receipt. The tree view, the falling leaves, the walk back and the summary are step 4.
+
 ## 2026-11-26 — The syrup van: the economy's rules (logic only, no screens yet)
 The owner approved the syrup van design (`docs/superpowers/specs/2026-11-26-syrup-van-design.md`) with "yes to all, drop the tab bar". This entry covers its step 2, the economy; nothing is on screen yet.
 - **Leaves.** 0.9 leaves for every minute focused (54 an hour), rounded up when the session ends: the owner's numbers, given the same day and replacing first one leaf per 5 minutes and then 0.8 a minute. The pace is kept as whole leaves an hour (`WorkshopTuning.leavesPerHour`), so 0.9 a minute is exact.

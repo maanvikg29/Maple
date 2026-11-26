@@ -312,6 +312,21 @@ The rules are pure and live in `MapleCore/Workshop/`; `WorkshopStore` (`focus.wo
 - **Retuning and rule changes.** The van counts the ledger at the launch's pace and under `LeafEarnings.rulesVersion`, and remembers both. Change the pace in `WorkshopTuning.starting` freely: leaves already earned stay, and nothing is paid twice. Raise `rulesVersion` with any other change that would give old sessions a different total (what a session's seconds are, which sessions earn, the rounding).
 - **Numbers:** only in `WorkshopTuning.starting`. Never write a price or a pace into a screen.
 
+## The syrup van's screens
+
+The views are in `App/Features/Van/`; their logic is pure and lives in `MapleCore/Van/`.
+
+- **The switch** is `collection.context.features.syrupVan` (on in `ShippedFeatures.current`). Off, nothing of the van is on screen: the tree home, the tab bar and the Focus tab's start screen are as they were. DEBUG `-MapleDemoShip f1` turns it off.
+- **`VanSceneView` is Home's stage** and owns the two views, home and the workshop, and the entrance between them (`VanEntrance`: the full push-in once a day, a short one after that, a cross-fade with Reduce Motion). `HomeView` still owns the sheets, the covers and the cross-tab requests. With the van on, `RootView` hides the tab bar; the tabs are still there, so `router.selectedTab` and every `router.show…` call keep working.
+- **One canvas per view.** Every layer of a view is drawn on the same `VanCanvas` (`.home`, `.workshop`) and `VanLayers` stacks them to fill the screen. Place a tap target with `canvas.point(x, y, in: size)` using the drawing's own coordinates; for the workshop they are `marks` in `Scripts/art/vanart/inside.py` (the gauge, the pot, the logbook, the leaf basket).
+- **The workshop is not a separate drawing.** `inside.py` draws `van.workshop` under its own camera (`inside.CAMERA`, straight on from the front at eye level) with `van.rear_closed` in place of the open doors, so a piece added to `van.py` appears in both views. Only the garden round the room is drawn in `inside.py`.
+- **The art is generated.** `python3 -I Scripts/art/build_van_art.py` rewrites the image sets in `App/Resources/Assets.xcassets/Van/` (pass a folder to also get each view whole, for looking at), and `Scripts/art/check-van-art.sh` fails when they are stale. Never edit an SVG in the catalog by hand. The canvases' numbers are `build.HOME_BOX` and `inside.BOX`; `VanCanvas.home` and `.workshop` must match them.
+- **The words** on home come from `VanHomeModel` (the greeting by phase, the one status line, the counters, the button's title). The counters are nil while the van's file can't be read, so nothing is shown rather than a zero.
+- **The clock** is `ClockSetting` (pure: the hands, the hub's digits, turning past 12, the limits) drawn by `ClockFace`. `ClockTimerView` stands in the Focus tab's start route (`.start` and `.needsScreenTime`). A start goes through `VanTimer.preset(from:)`, which copies the member's last preset (its id and app list) and is always Gentle with no break; with block mode off, or when Maple can't block, it starts a plain timer.
+- **Filling the van.** `VanSceneView` calls `workshop.collect(from:)` after `loadHistory()`, when it appears and when the running session changes.
+- **Text sizes.** The words over the scene use `vanChrome()`: they grow to the second accessibility size and stop, because larger they cover the picture. The clock timer's rows grow all the way and the page scrolls.
+- **Still on the old screens** until step 4: the running session, End early and the receipt.
+
 ## Files, unlocks and time zones
 
 - `JSONStorage.read()` tells a missing file (`.absent`, a first run) from one that can't be read yet (`.unavailable`: a launch before the first unlock after a restart, or another I/O error). Only a file that reads but won't decode is set aside as `<name>.damaged-<time>.json`; an unreadable one is left alone and every save to it is refused until a read works. A missing file with a cleanly decoding set-aside copy beside it is restored; if a newer set-aside copy can't be read yet (a protection or permission error), the read is `.unavailable` rather than `.absent`, so no empty file is created in its place before the first unlock.
@@ -320,7 +335,7 @@ The rules are pure and live in `MapleCore/Workshop/`; `WorkshopStore` (`focus.wo
 
 ## Shipped features and permissions
 
-`collection.context.features` is `ShippedFeatures.current`, M1 and F1: `.focus` and `.screenTime` are true, `.sleepSounds` (F2) is false, and F2's categories (Phone-free mornings, Bedtime kept) are dormant ("Not earnable yet"). A feature that hasn't shipped is absent from every screen. DEBUG `-MapleDemoShip m1` shows the build before F1 in demo stores; tests of that build pass `ShippedFeatures(releases: [.m1])`.
+`collection.context.features` is `ShippedFeatures.current`, M1 and F1 with the syrup van (`.syrupVan`, see "The syrup van's screens"): `.focus` and `.screenTime` are true, `.sleepSounds` (F2) is false, and F2's categories (Phone-free mornings, Bedtime kept) are dormant ("Not earnable yet"). A feature that hasn't shipped is absent from every screen. DEBUG `-MapleDemoShip m1` shows the build before F1 in demo stores, and `f1` the app before the van; tests of that build pass `ShippedFeatures(releases: [.m1])`.
 
 `collection.context.blocking` (`BlockingCapability`) says what the build can block with: `.unavailableInBuild` on free builds (and paid ones until F1-paid), `.preview` in DEBUG demo and sandbox launches.
 

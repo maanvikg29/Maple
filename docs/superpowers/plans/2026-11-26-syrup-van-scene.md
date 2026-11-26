@@ -54,14 +54,14 @@ The generator already draws both views. Home is `Scripts/art/vanart/build.py`. T
 
 **Interfaces:**
 - Consumes (already in the repository): `Svg.text(viewbox=)`, `van.workshop(s, with_pip=, steam=)`, `van.roof_load(s, smoke=)`, `van.chimney_smoke(s)`, `van.pip_at_home(s)`, `inside.workshop_layers() -> (layers, marks)`, `inside.BOX`, `inside.CAMERA`, `core.using(camera)`.
-- Produces: image sets named `VanHomeScene`, `VanHomeSmoke`, `VanHomeLeaves`, `VanHomePip`, `VanWorkshopRoom`, `VanWorkshopSteam`, `VanWorkshopSmoke`, `VanWorkshopPip`. Home layers share the view box `0 -1000 1600 3460`; workshop layers share `inside.BOX`, which is `0 0 852 1846` (the workshop has its own camera, so its own coordinates, starting at its corner). In those units the gauge is at (720, 881) with radius 44, the pot at (361, 904), the logbook at (764, 958) and the leaf basket at (163, 1060) (`marks` in `inside.py`). In home units the maple's trunk is at (320, 1050).
+- Produces: image sets named `VanHomeScene`, `VanHomeSmoke`, `VanHomeLeaves`, `VanHomePip`, `VanWorkshopRoom`, `VanWorkshopSteam`, `VanWorkshopSmoke`, `VanWorkshopPip`. Home layers share the view box `0 -1120 1600 3460` (it was `0 -1000 …` as first written; in the simulator the status line sat on the canopy, so the window moved up 120); workshop layers share `inside.BOX`, which is `0 0 852 1846` (the workshop has its own camera, so its own coordinates, starting at its corner). In those units the gauge is at (720, 881) with radius 44, the pot at (361, 904), the logbook at (764, 958) and the leaf basket at (163, 1060) (`marks` in `inside.py`). In home units the maple's canopy and trunk are the box centred on (350, 400), 700 wide and 1000 tall.
 
 - [ ] **Step 1: Split the home scene into layers**
 
 In `Scripts/art/vanart/build.py`, replace `home_scene` with:
 
 ```python
-HOME_BOX = (0, -1000, 1600, 3460)
+HOME_BOX = (0, -1120, 1600, 3460)
 
 
 def home_layers():
@@ -845,7 +845,7 @@ public struct VanCanvas: Sendable, Equatable {
     }
 
     /// The home view: `Scripts/art/vanart/build.py`, `HOME_BOX`.
-    public static let home = VanCanvas(width: 1600, height: 3460, originX: 0, originY: -1000)
+    public static let home = VanCanvas(width: 1600, height: 3460, originX: 0, originY: -1120)
     /// The workshop, the same room from the front: `Scripts/art/vanart/inside.py`, `BOX`.
     public static let workshop = VanCanvas(width: 852, height: 1846, originX: 0, originY: 0)
 
