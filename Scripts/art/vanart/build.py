@@ -6,7 +6,7 @@ from .core import BG, Svg, poly
 W, H = 1600, 2000
 
 
-HOME_BOX = (0, -1000, 1600, 3460)
+HOME_BOX = (0, -1120, 1600, 3460)
 
 
 def home_layers():

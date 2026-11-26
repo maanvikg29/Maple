@@ -20,7 +20,7 @@ public struct VanCanvas: Sendable, Equatable {
     }
 
     /// The home view: `Scripts/art/vanart/build.py`, `HOME_BOX`.
-    public static let home = VanCanvas(width: 1600, height: 3460, originX: 0, originY: -1000)
+    public static let home = VanCanvas(width: 1600, height: 3460, originX: 0, originY: -1120)
     /// The workshop, the same room from the front: `Scripts/art/vanart/inside.py`, `BOX`.
     public static let workshop = VanCanvas(width: 852, height: 1846, originX: 0, originY: 0)
 
