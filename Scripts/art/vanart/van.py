@@ -22,6 +22,10 @@ CEIL = H - T
 G = -84.0               # the ground
 FLOOR = "#c58a58"
 DOOR_IN = "#bd825a"
+# Where loose things stand, as (x, y) in the van. The two views share these.
+LANTERN = (504.0, 166.0)   # on the right counter, at the back
+LOGBOOK = (476.0, 262.0)   # on the right counter, at the front
+CARRIER = (50.0, 196.0)    # on the floor
 
 
 def round_poly(pts, r):
@@ -279,8 +283,9 @@ def wall_fittings(s):
     s.end()
 
     s.begin("shelves")
-    for (x0, x1, z, items) in [(18, 214, F + 284, [("b", SYRUP), ("j", SYRUP_L), ("b", SYRUP_D), ("b", SYRUP), ("b", SYRUP_L)]),
-                               (226, 352, F + 316, [("b", SYRUP_D), ("b", IRON), ("b", SYRUP), ("b", SYRUP_D)])]:
+    # The shelf over the bricks carries short bottles, so that they clear the roof's cut edge from the front as well.
+    for (x0, x1, z, k, items) in [(18, 214, F + 284, 1.25, [("b", SYRUP), ("j", SYRUP_L), ("b", SYRUP_D), ("b", SYRUP), ("b", SYRUP_L)]),
+                                  (226, 352, F + 298, 1.1, [("s", SYRUP_D), ("s", IRON), ("s", SYRUP), ("s", SYRUP_D)])]:
         for bx in (x0 + 22, x1 - 22):
             s.add(poly([P(bx, 0, z), P(bx, 34, z), P(bx, 0, z - 30)]), fill=WOOD_DD, sw=3)
         box(s, x0, 0, z, x1 - x0, 38, 9, PLANK, WOOD_D, WOOD_D, sw=3.5)
@@ -290,7 +295,7 @@ def wall_fittings(s):
             if kind == "j":
                 jug(s, p, 0.8, col)
             else:
-                bottle(s, p, 1.25, col, tall=(i % 2 == 0))
+                bottle(s, p, k, col, tall=(kind == "b" and i % 2 == 0))
     # A plant trailing off the end of the low shelf.
     p = P(34, 20, F + 293)
     s.add(round_poly([(p[0] - 17, p[1] - 22), (p[0] + 17, p[1] - 22), (p[0] + 12, p[1]), (p[0] - 12, p[1])], 4), fill=TERRA, sw=3)
@@ -303,7 +308,7 @@ def wall_fittings(s):
 def long_wall(s):
     """What stands along the stretch of wall between the stove and the boiler."""
     s.begin("tasting-shelf")
-    a, b, z = X(392), X(522), F + 262
+    a, b, z = X(392), X(522), F + 276
     for along in (404, 510):
         s.add(poly([P(X(along), 0, z), P(X(along), 34, z), P(X(along), 0, z - 30)]), fill=WOOD_DD, sw=3)
     box(s, a, 0, z, b - a, 38, 9, PLANK, WOOD_D, WOOD_D, sw=3.5)
@@ -312,9 +317,10 @@ def long_wall(s):
     s.end()
 
     s.begin("framed-leaf")
-    c = P(X(456), 0, F + 176)
-    s.add(round_poly([P(X(424), 0, F + 136), P(X(488), 0, F + 136), P(X(488), 0, F + 216), P(X(424), 0, F + 216)], 4), fill=WOOD_DD, sw=3.5)
-    s.add(poly([P(X(431), 0, F + 144), P(X(481), 0, F + 144), P(X(481), 0, F + 208), P(X(431), 0, F + 208)]), fill=CREAM, sw=2.5)
+    x0, x1, z0, z1 = 394, 458, F + 156, F + 236
+    c = P(X((x0 + x1) / 2), 0, (z0 + z1) / 2)
+    s.add(round_poly([P(X(x0), 0, z0), P(X(x1), 0, z0), P(X(x1), 0, z1), P(X(x0), 0, z1)], 4), fill=WOOD_DD, sw=3.5)
+    s.add(poly([P(X(x0 + 7), 0, z0 + 8), P(X(x1 - 7), 0, z0 + 8), P(X(x1 - 7), 0, z1 - 8), P(X(x0 + 7), 0, z1 - 8)]), fill=CREAM, sw=2.5)
     s.add(maple_leaf(c[0], c[1] - 2, 24, -0.25), fill=LEAF_O, sw=2.5)
     s.end()
 
@@ -490,25 +496,35 @@ def right_counter(s):
         s.add(round_poly(face_x(x0, 236, y1 - 8, z, z + 38), 4), fill=WOOD_L, sw=3.5)
         c = P(x0, 280, z + 19)
         s.add(ellipse(c[0], c[1], 5, 5), fill=GOLD, sw=2.5)
+    # Its near end, where the cut through the van's side passes.
+    s.add(poly(face_y(y1, x0, LC, F, F + h)), fill=WOOD_D, sw=4.5)
+    s.add(round_poly(face_y(y1, x0 + 10, LC - 10, F + 12, F + h - 14), 4), fill="none", sw=2.5, opacity=0.55)
     s.add(poly([P(x0 - 6, y0 - 4, F + h + 9), P(LC, y0 - 4, F + h + 9), P(LC, y1 + 6, F + h + 9), P(x0 - 6, y1 + 6, F + h + 9)]), fill=PLANK, sw=4)
     s.add(poly(face_x(x0 - 6, y0 - 4, y1 + 6, F + h, F + h + 9)), fill=WOOD_DD, sw=3.5)
+    s.add(poly(face_y(y1 + 6, x0 - 6, LC, F + h, F + h + 9)), fill=WOOD_DD, sw=3.5)
     top = F + h + 9
-    lantern(s, P(486, 176, top), 1.15)
-    # A carrier of bottles, and a jar.
-    c = P(488, 286, top)
-    s.add(poly([(c[0] - 34, c[1] - 6), (c[0] + 30, c[1] - 30), (c[0] + 30, c[1] - 8), (c[0] - 34, c[1] + 16)]), fill=WOOD_D, sw=3.5)
-    bottle(s, (c[0] - 18, c[1] - 4), 0.9, SYRUP_L, label=False)
-    bottle(s, (c[0] + 4, c[1] - 12), 0.9, SYRUP, label=False, tall=True)
-    bottle(s, (c[0] + 22, c[1] - 20), 0.85, SYRUP_D, label=False)
-    s.add(poly([(c[0] - 38, c[1] + 2), (c[0] + 34, c[1] - 24), (c[0] + 34, c[1] - 4), (c[0] - 38, c[1] + 22)]), fill=WOOD, sw=3.5)
-    s.add(f"M{f(c[0] - 30)} {f(c[1] + 4)} Q{f(c[0] - 4)} {f(c[1] - 78)} {f(c[0] + 28)} {f(c[1] - 18)}", sw=4)
+    lantern(s, P(LANTERN[0], LANTERN[1], top), 1.15)
     # The logbook: the study record opens from here.
     s.begin("logbook")
-    b = P(490, 226, top)
+    b = P(LOGBOOK[0], LOGBOOK[1], top)
     s.add(round_poly([(b[0] - 27, b[1] - 36), (b[0] + 23, b[1] - 42), (b[0] + 27, b[1] - 4), (b[0] - 23, b[1] + 2)], 4), fill=STRIPE, sw=3.5)
     s.line([(b[0] - 19, b[1] - 34), (b[0] - 15, b[1])], sw=2.5, opacity=0.6)
     s.add(maple_leaf(b[0] + 3, b[1] - 19, 12, 0.1), fill=GOLD, sw=2)
     s.end()
+    s.end()
+
+
+def bottle_carrier(s):
+    """A carrier of bottles on the floor by the rear doors, ready to go out."""
+    s.begin("bottle-carrier")
+    c = P(CARRIER[0], CARRIER[1], F)
+    s.add(poly([(c[0] - 34, c[1] - 22), (c[0] + 34, c[1] - 22), (c[0] + 34, c[1]), (c[0] - 34, c[1])]), fill=WOOD_D, sw=3.5)
+    bottle(s, (c[0] - 21, c[1] - 12), 0.9, SYRUP_L, label=False)
+    bottle(s, (c[0], c[1] - 12), 0.9, SYRUP, label=False, tall=True)
+    bottle(s, (c[0] + 21, c[1] - 12), 0.85, SYRUP_D, label=False)
+    s.add(round_poly([(c[0] - 38, c[1] - 24), (c[0] + 38, c[1] - 24), (c[0] + 36, c[1] + 4), (c[0] - 36, c[1] + 4)], 4), fill=WOOD, sw=3.5)
+    s.line([(c[0] - 30, c[1] - 10), (c[0] + 30, c[1] - 10)], sw=2.2, opacity=0.5)
+    s.add(f"M{f(c[0] - 32)} {f(c[1] - 22)} Q{f(c[0])} {f(c[1] - 104)} {f(c[0] + 32)} {f(c[1] - 22)}", sw=4)
     s.end()
 
 
@@ -552,6 +568,7 @@ def workshop(s, with_pip=True, steam=True):
     hanging_plant(s, 500, 132, 74, 79)
     s.end()
     rug(s)
+    bottle_carrier(s)
     # Leaves not yet cooked wait in the basket by the doors.
     c = P(116, 246, F)
     s.begin("leaf-basket", transform=f"translate({f(c[0])} {f(c[1] - 22)}) scale(0.58)")

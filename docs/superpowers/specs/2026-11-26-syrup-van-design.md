@@ -97,7 +97,7 @@ The whole app is one place: the van parked under the maple tree. The camera has 
 | Camera | What it is for | How the member gets there |
 |---|---|---|
 | The whole scene | Home, and decorating | Opening the app; tapping "decorate" |
-| Close in on the van's room, from home's angle | The workshop: the timer, cooking, the shelf | Tapping the enter button on home |
+| The van's room, from the front | The workshop: the timer, cooking, the shelf | Tapping the enter button on home |
 | Up in the tree | A session that is running | Starting the timer |
 
 ### 5.1 Home
@@ -113,9 +113,10 @@ The whole app is one place: the van parked under the maple tree. The camera has 
 
 ### 5.2 The workshop
 
-- **The same picture as home, from the same angle, closer in and centred on the room, with both rear doors shut.** **Decided** (the owner saw a flat room and a turned side view first and turned both down; of home's close-up: "i like it").
+- **The van's room seen from the front, not from above, with both rear doors shut.** The camera stands in front of the cut-away side, turned slightly toward the rear doors and looking slightly down, so the floor and the rug show and the window wall is a sliver. **Decided**: the owner turned down a flat room, a turned side view and home's angle closer in ("i dont want a top view like that i want a front view"), was shown five front views (`docs/design/art/2026-11-26-workshop-angles/`) and chose "between 2 and 3".
+- The room fills the screen's width. The maple and the sky are above it and the lawn below. **Proposed.**
 - **The van's room is long, not boxy.** The longer van is drawn in both views so they agree. **Decided** for the workshop; the home view following it is **Proposed**.
-- Shut doors would hide the left half of the room from this angle, so they are drawn shut but cut away low, the way the near wall is. **Proposed.**
+- From the front the shut doors are nearly edge-on, at the room's left end. They are cut away low, the way the near wall is. **Proposed.**
 - **What is in it** (**Proposed**):
   - the boiler with its round gauge, which is the timer (§6);
   - the stove and the pot, which the member taps to cook;
@@ -129,7 +130,7 @@ The whole app is one place: the van parked under the maple tree. The camera has 
 **Proposed**, about 1.2 seconds in all:
 1. The enter button fades and a latch clicks, with a light tap from the phone.
 2. The camera pushes in toward the van.
-3. The rear doors swing shut, the view settles close on the room and warm light fills it.
+3. The picture cross-fades to the room seen from the front, its rear doors shut, and warm light fills it.
 4. Pip hops in ahead.
 5. The gauge and the pot settle into place.
 
@@ -139,7 +140,7 @@ The full entrance plays once a day. After that it takes under half a second. Wit
 
 - **Tapping the decoration button goes back to the home view, where the van can be edited.** **Decided.**
 - In edit mode the member taps a place on the van, the roof or the grass and picks what goes there. **Proposed.**
-- Every indoor decoration is drawn once: the workshop is home's own picture closer in, so one drawing serves both views. **Decided** by the choice of the workshop's angle (§5.2).
+- Every indoor decoration is placed once, in the van, and both views show it: the two views are the same room under two cameras. A flat picture (a bottle, a plant, the cat) serves both views as it is; a solid piece (a counter, a crate, the boiler) is drawn again for each camera by the art generator. **Proposed.**
 
 ---
 
@@ -267,7 +268,7 @@ Everything about when a session counts is unchanged (F1 design §3). This sectio
 - **It takes the format of cosy room games as inspiration and copies no other app's character or room.** **Decided.**
 - **The concept images are not the app's art.** They are single pictures. **Proposed** for the real thing:
   - every object is its own piece, so it can be placed, bought, animated and swapped;
-  - indoor objects have two drawings (§5.4);
+  - indoor objects are placed once and show in both views (§5.4);
   - Pip has a set of poses: standing, stirring, carrying the bucket, climbing, sitting, asleep;
   - everything has a night version, or is lit by the scene.
 - Who draws it: Claude, for now (§13, question 5).

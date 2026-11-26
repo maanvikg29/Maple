@@ -76,6 +76,34 @@ BLACK = "#24120a"
 # The camera looks down on the van from behind its near side: x goes up to the right, y down to the right.
 CAM = dict(ox=215.0, oy=1480.0, ax=1.0, ay=-0.5, bx=1.0, by=0.5, zk=1.118)
 
+HOME_CAMERA = dict(CAM)
+
+
+def camera(turn, tilt, scale=1.15, ox=0.0, oy=0.0):
+    """A camera facing the van's cut-away side. `turn` is how far it has swung round toward the rear (0 is straight
+    on, 45 is the home view's turn) and `tilt` how far it looks down (0 is eye level, 90 is from above), in degrees.
+    The van's rear bottom corner lands on (ox, oy). The drawing order suits turns from 0 to 45."""
+    a, e = math.radians(turn), math.radians(tilt)
+    return dict(ox=ox, oy=oy, ax=scale * math.cos(a), ay=-scale * math.sin(a) * math.sin(e), bx=scale * math.sin(a),
+                by=scale * math.cos(a) * math.sin(e), zk=scale * math.cos(e))
+
+
+class using:
+    """Draw with another camera for a while: `with using(cam): ...`. The home camera comes back afterwards."""
+
+    def __init__(self, cam):
+        self.cam = cam
+
+    def __enter__(self):
+        self.before = dict(CAM)
+        CAM.clear()
+        CAM.update(self.cam)
+
+    def __exit__(self, *exc):
+        CAM.clear()
+        CAM.update(self.before)
+
+
 # The van was first drawn shorter. It is lengthened by stretching one slice of its length, between the stove and the
 # boiler, so everything in front of the slice and behind it keeps its own numbers. Positions inside the new stretch of
 # wall are given by `X`, which takes a length along the van as it now is.

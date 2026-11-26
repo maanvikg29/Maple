@@ -266,9 +266,8 @@ def logs(s, cx=960, cy=1700):
     s.end()
 
 
-def bench(s):
+def bench(s, x=280, y=380, z=-75):
     s.begin("bench")
-    x, y, z = 280, 380, -75
     for (lx, ly) in [(x + 8, y + 6), (x + 172, y + 6)]:
         box(s, lx, ly, z, 14, 50, 38, WOOD_D, WOOD_DD, WOOD_D, sw=4)
     box(s, x, y, z + 38, 194, 62, 14, PLANK, WOOD_D, WOOD, sw=4.5)
@@ -306,5 +305,34 @@ def mushrooms(s, cx=1236, cy=1452):
     s.end()
 
 
-def firewood_on_grass(s):
-    pass
+def log_stack(s, cx, cy, r=27.0):
+    """Firewood stacked with its cut ends toward us: three, two, one. (cx, cy) is the middle of the bottom row."""
+    s.begin("log-stack")
+    rows = [[-2, 0, 2], [-1, 1], [0]]
+    for i, row in enumerate(rows):
+        for k in row:
+            x, y = cx + k * r * 0.98, cy - r - i * r * 1.72
+            s.add(ellipse(x + 5, y - 5, r, r), fill=TRUNK_L, sw=4.5)
+            s.add(ellipse(x, y, r, r), fill=PLANK, sw=4.5)
+            s.add(ellipse(x, y, r * 0.58, r * 0.58), fill="none", sw=2.5, opacity=0.8)
+            s.add(ellipse(x, y, r * 0.2, r * 0.2), fill=WOOD_D, sw=2)
+    s.end()
+
+
+def stones(s, places):
+    """Stepping stones lying on the grass. Each place is (cx, cy, rx, ry, turn)."""
+    s.begin("stepping-stones")
+    for cx, cy, rx, ry, rot in places:
+        s.add(ellipse(cx, cy + 7, rx, ry, rot), fill=METAL_D, sw=4)
+        s.add(ellipse(cx, cy, rx, ry, rot), fill=METAL_L, sw=4)
+        s.line([(cx - rx * 0.4, cy - 3), (cx - rx * 0.1, cy + 3)], sw=2.5, opacity=0.4)
+    s.end()
+
+
+def tufts(s, places, seed):
+    r = rng(seed)
+    for x, y in places:
+        k = r.uniform(0.8, 1.25)
+        s.line([(x - 9 * k, y), (x - 12 * k, y - 15 * k)], sw=3)
+        s.line([(x, y), (x + 1 * k, y - 20 * k)], sw=3)
+        s.line([(x + 9 * k, y), (x + 13 * k, y - 13 * k)], sw=3)
