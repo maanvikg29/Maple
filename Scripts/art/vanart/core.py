@@ -72,14 +72,22 @@ SMOKE_L = "#eadcd2"
 WHITE = "#fff4e2"
 BLACK = "#24120a"
 
-# The projection: x runs along the van (rear to cab) up to the right, y across it down to the right, z up.
-OX, OY = 300.0, 1440.0
-ZK = 1.118
+# The projection. In the van's space x runs along the van (rear to cab), y across it toward the camera, z up.
+# A camera says where each of those goes on the page. Two are used: the home view looks down on the van from behind
+# its near side; the side view has turned to face the cut-away side, so the long wall is almost straight-on.
+HOME_CAMERA = dict(ox=300.0, oy=1440.0, ax=1.0, ay=-0.5, bx=1.0, by=0.5, zk=1.118)
+SIDE_CAMERA = dict(ox=0.0, oy=0.0, ax=1.0, ay=-0.1, bx=0.36, by=0.44, zk=1.08)
+CAM = dict(HOME_CAMERA)
+
+
+def set_camera(camera):
+    CAM.clear()
+    CAM.update(camera)
 
 
 def P(x, y, z=0.0):
     """A point in the van's space, on the page."""
-    return (OX + x + y, OY + (y - x) * 0.5 - z * ZK)
+    return (CAM["ox"] + CAM["ax"] * x + CAM["bx"] * y, CAM["oy"] + CAM["ay"] * x + CAM["by"] * y - CAM["zk"] * z)
 
 
 def f(v):
@@ -166,8 +174,9 @@ class Svg:
         self.parts = []
         self.depth = 0
 
-    def begin(self, name):
-        self.parts.append(f'{"  " * self.depth}<g id="{name}">')
+    def begin(self, name, transform=None):
+        extra = f' transform="{transform}"' if transform else ""
+        self.parts.append(f'{"  " * self.depth}<g id="{name}"{extra}>')
         self.depth += 1
 
     def end(self):
@@ -195,9 +204,10 @@ class Svg:
     def curve(self, pts, sw=3.0, stroke=OUT, opacity=None):
         self.add(smooth(pts, close=False), stroke=stroke, sw=sw, opacity=opacity)
 
-    def text(self):
-        head = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {self.w} {self.h}" '
-                f'width="{self.w}" height="{self.h}">')
+    def text(self, viewbox=None):
+        x, y, w, h = viewbox or (0, 0, self.w, self.h)
+        head = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{f(x)} {f(y)} {f(w)} {f(h)}" '
+                f'width="{f(w)}" height="{f(h)}">')
         return "\n".join([head] + self.parts + ["</svg>"]) + "\n"
 
 
@@ -224,28 +234,47 @@ def face_z(z, x0, x1, y0, y1):
     return [P(x0, y0, z), P(x1, y0, z), P(x1, y1, z), P(x0, y1, z)]
 
 
+def hull(points):
+    """The convex outline of a set of points."""
+    pts = sorted(set((round(x, 2), round(y, 2)) for x, y in points))
+    if len(pts) < 3:
+        return pts
+
+    def half(seq):
+        out = []
+        for p in seq:
+            while len(out) >= 2 and (out[-1][0] - out[-2][0]) * (p[1] - out[-2][1]) - (out[-1][1] - out[-2][1]) * (p[0] - out[-2][0]) <= 0:
+                out.pop()
+            out.append(p)
+        return out
+    lower, upper = half(pts), half(reversed(pts))
+    return lower[:-1] + upper[:-1]
+
+
+def front_arc(ring):
+    """The part of a flat ring nearest the camera, from its left end to its right end."""
+    n = len(ring)
+    lo = min(range(n), key=lambda i: ring[i][0])
+    hi = max(range(n), key=lambda i: ring[i][0])
+    a = [ring[(lo + k) % n] for k in range((hi - lo) % n + 1)]
+    b = [ring[(lo - k) % n] for k in range((lo - hi) % n + 1)]
+    return a if sum(p[1] for p in a) / len(a) > sum(p[1] for p in b) / len(b) else b
+
+
 def cylinder(s, cx, cy, z, r, h, side, top, sw=4.0, shade=None, light=None):
-    """An upright cylinder. The side is drawn first, then the top."""
-    a = P(cx, cy, z)
-    b = P(cx, cy, z + h)
-    rx, ry = r * math.sqrt(2), r * math.sqrt(2) / 2
-    lower = ellipse_pts(a[0], a[1], rx, ry, 14, 0, 0, math.pi)
-    body = [(b[0] + rx, b[1])] + lower + [(b[0] - rx, b[1])]
-    d = (f"M{f(b[0] + rx)} {f(b[1])} L{f(a[0] + rx)} {f(a[1])} "
-         f"A{f(rx)} {f(ry)} 0 0 1 {f(a[0] - rx)} {f(a[1])} L{f(b[0] - rx)} {f(b[1])} Z")
-    s.add(d, fill=side, sw=sw)
+    """An upright cylinder, under whichever camera is set. The side is drawn first, then the top."""
+    lower, upper = ring3(cx, cy, z, r, 40), ring3(cx, cy, z + h, r, 40)
+    outline = poly(hull(lower + upper))
+    s.add(outline, fill=side, sw=sw)
+    fl, fu = front_arc(lower), front_arc(upper)
     if shade:
-        k = 0.42
-        d2 = (f"M{f(b[0] - rx)} {f(b[1])} L{f(a[0] - rx)} {f(a[1])} "
-              f"A{f(rx)} {f(ry)} 0 0 0 {f(a[0] - rx * k)} {f(a[1] + ry * math.sqrt(1 - k * k))} "
-              f"L{f(b[0] - rx * k)} {f(b[1] + ry * math.sqrt(1 - k * k))} Z")
-        s.fill(d2, shade)
-        s.add(d, sw=sw)
+        k = max(2, int(len(fl) * 0.3))
+        s.fill(poly(fu[:k] + list(reversed(fl[:k]))), shade)
+        s.add(outline, sw=sw)
     if light:
-        k = 0.55
-        s.line([(b[0] + rx * k, b[1] + ry * 0.9 + 8), (a[0] + rx * k, a[1] + ry * 0.6 - 8)], sw=6, stroke=light)
-    s.add(ellipse(b[0], b[1], rx, ry), fill=top, sw=sw)
-    return body
+        a, b = fu[int(len(fu) * 0.8)], fl[int(len(fl) * 0.8)]
+        s.line([(a[0], a[1] + 12), (b[0], b[1] - 12)], sw=6, stroke=light)
+    s.add(smooth(upper), fill=top, sw=sw)
 
 
 def rng(seed):

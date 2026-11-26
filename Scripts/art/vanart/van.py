@@ -7,7 +7,7 @@ the bottom of the body (0). The near wall and most of the roof over the workshop
 import math
 
 from .core import *  # noqa: F401,F403
-from .outdoor import crate
+from .outdoor import basket, crate
 from .pip import cat, pip, tube
 
 L, W = 810.0, 340.0     # length and width of the body
@@ -313,21 +313,22 @@ def boiler(s):
     # The tank.
     z0, h, r = base + 76, 190, 56
     cylinder(s, cx, cy, z0, r, h, COPPER, COPPER_L, sw=5, shade=COPPER_D, light=COPPER_L)
-    rx, ry = r * math.sqrt(2), r * math.sqrt(2) / 2
     for zz in (z0 + 16, z0 + h - 20):
-        c = P(cx, cy, zz)
-        s.add(f"M{f(c[0] - rx)} {f(c[1])} A{f(rx)} {f(ry)} 0 0 0 {f(c[0] + rx)} {f(c[1])}", sw=3.5)
+        arc = front_arc(ring3(cx, cy, zz, r, 40))
+        s.curve(arc, sw=3.5)
         for i in range(7):
-            t = math.pi * (0.1 + 0.8 * i / 6)
-            s.fill(ellipse(c[0] - rx * math.cos(t), c[1] + ry * math.sin(t) + 8, 2.6, 2.6), COPPER_D)
+            q = arc[int((len(arc) - 1) * (0.1 + 0.8 * i / 6))]
+            s.fill(ellipse(q[0], q[1] + 8, 2.6, 2.6), COPPER_D)
     # The dome.
     top = P(cx, cy, z0 + h)
-    dome = [(top[0] - rx, top[1]), (top[0] - rx * 0.78, top[1] - 34), (top[0] - rx * 0.3, top[1] - 54), (top[0] + rx * 0.3, top[1] - 54),
-            (top[0] + rx * 0.78, top[1] - 34), (top[0] + rx, top[1])]
-    lower = ellipse_pts(top[0], top[1], rx, ry, 12, 0, 0, math.pi)
-    s.add(smooth(dome, close=False) + " " + poly(lower, close=False).replace("M", "L", 1) + " Z", fill=COPPER_L, sw=5)
+    rim_arc = front_arc(ring3(cx, cy, z0 + h, r, 40))
+    left, right = rim_arc[0], rim_arc[-1]
+    rx = (right[0] - left[0]) / 2
+    dome = [lerp(left, right, t) for t in (0, 0.11, 0.35, 0.65, 0.89, 1)]
+    dome = [(q[0], q[1] - lift) for q, lift in zip(dome, (0, 34, 54, 54, 34, 0))]
+    s.add(smooth(dome, close=False) + " " + poly(list(reversed(rim_arc)), close=False).replace("M", "L", 1) + " Z", fill=COPPER_L, sw=5)
     s.curve([(top[0] - rx * 0.62, top[1] - 12), (top[0] - rx * 0.5, top[1] - 32), (top[0] - rx * 0.2, top[1] - 44)], sw=5, stroke=WHITE, opacity=0.7)
-    s.add(f"M{f(top[0] - rx)} {f(top[1])} A{f(rx)} {f(ry)} 0 0 0 {f(top[0] + rx)} {f(top[1])}", sw=3.5)
+    s.curve(rim_arc, sw=3.5)
     # The pipe from the dome, up through the roof to the chimney.
     neck = (top[0], top[1] - 50)
     up = P(cx, 30, CEIL + 6)
@@ -344,13 +345,13 @@ def boiler(s):
     s.line([(v[0], v[1] - 13), (v[0], v[1] + 13)], sw=3)
     # The gauge: this is the timer's dial in the workshop.
     g = P(cx - 22, cy + 46, z0 + 96)
-    s.add(ellipse(g[0], g[1], 31, 32), fill=GOLD, sw=4.5)
-    s.add(ellipse(g[0], g[1], 22, 23), fill=WHITE, sw=3)
+    s.add(ellipse(g[0], g[1], 44, 45), fill=GOLD, sw=4.5)
+    s.add(ellipse(g[0], g[1], 33, 34), fill=WHITE, sw=3)
     for i in range(8):
         t = math.tau * i / 8
-        s.line([(g[0] + 16 * math.cos(t), g[1] + 17 * math.sin(t)), (g[0] + 21 * math.cos(t), g[1] + 22 * math.sin(t))], sw=2)
-    s.line([g, (g[0] + 11, g[1] - 14)], sw=3.5, stroke=STRIPE)
-    s.fill(ellipse(g[0], g[1], 3.2, 3.2), OUT)
+        s.line([(g[0] + 25 * math.cos(t), g[1] + 26 * math.sin(t)), (g[0] + 31 * math.cos(t), g[1] + 32 * math.sin(t))], sw=2.5)
+    s.line([g, (g[0] + 15, g[1] - 19)], sw=4, stroke=STRIPE)
+    s.fill(ellipse(g[0], g[1], 4, 4), OUT)
     # The tap, toward the pot.
     tp = P(cx - 54, cy + 30, z0 + 30)
     tube(s, [tp, (tp[0] - 34, tp[1] + 2), (tp[0] - 40, tp[1] + 16)], 10, COPPER_D, edge=3)
@@ -359,7 +360,7 @@ def boiler(s):
     s.end()
 
 
-def stove(s):
+def stove(s, steam=True):
     s.begin("stove")
     x0, x1, y0, y1 = 228.0, 346.0, 22.0, 152.0
     bricks_x(s, x0, y0, y1, F, F + 112)
@@ -379,8 +380,9 @@ def stove(s):
     cx, cy, z = 288.0, 86.0, F + 126
     cylinder(s, cx, cy, z, 44, 50, METAL, METAL_L, sw=4.5, shade=METAL_D)
     top = P(cx, cy, z + 50)
-    rx, ry = 44 * math.sqrt(2), 44 * math.sqrt(2) / 2
-    s.add(ellipse(top[0], top[1], rx - 7, ry - 4), fill=SYRUP, sw=3.5)
+    mouth = ring3(cx, cy, z + 50, 44, 40)
+    rx = (max(q[0] for q in mouth) - min(q[0] for q in mouth)) / 2
+    s.add(smooth(ring3(cx, cy, z + 50, 38, 24)), fill=SYRUP, sw=3.5)
     s.fill(ellipse(top[0] - 12, top[1] + 2, 18, 7), SYRUP_L)
     s.fill(ellipse(top[0] + 22, top[1] - 5, 8, 3.5), SYRUP_L)
     for sx in (-1, 1):
@@ -388,7 +390,12 @@ def stove(s):
         s.add(ellipse(h[0], h[1], 11, 7), fill="none", sw=8, stroke=OUT)
         s.add(ellipse(h[0], h[1], 11, 7), fill="none", sw=3, stroke=METAL)
     s.end()
+    if steam:
+        pot_steam(s)
 
+
+def pot_steam(s):
+    top = P(288.0, 86.0, F + 176)
     s.begin("pot-steam")
     for dx, k in [(-16, 1.0), (14, 0.8), (34, 0.6)]:
         b = (top[0] + dx, top[1] - 16)
@@ -458,7 +465,13 @@ def right_counter(s):
     bottle(s, (c[0] + 22, c[1] - 20), 0.85, SYRUP_D, label=False)
     s.add(poly([(c[0] - 38, c[1] + 2), (c[0] + 34, c[1] - 24), (c[0] + 34, c[1] - 4), (c[0] - 38, c[1] + 22)]), fill=WOOD, sw=3.5)
     s.add(f"M{f(c[0] - 30)} {f(c[1] + 4)} Q{f(c[0] - 4)} {f(c[1] - 78)} {f(c[0] + 28)} {f(c[1] - 18)}", sw=4)
-    bottle(s, P(492, 226, top), 1.1, SYRUP, tall=False)
+    # The logbook: the study record opens from here.
+    s.begin("logbook")
+    b = P(490, 226, top)
+    s.add(round_poly([(b[0] - 27, b[1] - 36), (b[0] + 23, b[1] - 42), (b[0] + 27, b[1] - 4), (b[0] - 23, b[1] + 2)], 4), fill=STRIPE, sw=3.5)
+    s.line([(b[0] - 19, b[1] - 34), (b[0] - 15, b[1])], sw=2.5, opacity=0.6)
+    s.add(maple_leaf(b[0] + 3, b[1] - 19, 12, 0.1), fill=GOLD, sw=2)
+    s.end()
     s.end()
 
 
@@ -486,14 +499,14 @@ def rug(s):
     s.end()
 
 
-def workshop(s, with_pip=True):
+def workshop(s, with_pip=True, steam=True):
     """Everything inside, from the back to the front."""
     workshop_shell(s)
     roof_strip(s)
     wall_fittings(s)
     boiler(s)
     right_counter(s)
-    stove(s)
+    stove(s, steam)
     left_counter(s)
     s.begin("hanging-plants")
     hanging_plant(s, 236, 70, 84, 71)
@@ -501,11 +514,26 @@ def workshop(s, with_pip=True):
     hanging_plant(s, 500, 132, 74, 79)
     s.end()
     rug(s)
+    # Leaves not yet cooked wait in the basket by the doors.
+    c = P(60, 232, F)
+    s.begin("leaf-basket", transform=f"translate({f(c[0])} {f(c[1] - 22)}) scale(0.58)")
+    basket(s, 0, 0, name="leaf-basket-weave")
+    s.end()
     c = P(196, 250, F)
     cat(s, c[0], c[1] - 16, 1.12)
     if with_pip:
-        c = P(366, 296, F)
-        pip(s, c[0], c[1] + 2, 0.52)
+        pip_at_home(s)
+
+
+def pip_at_home(s):
+    c = P(366, 296, F)
+    pip(s, c[0], c[1] + 2, 0.52)
+
+
+def pip_in_workshop(s):
+    """Pip in the side view: by the drawers, clear of the gauge and the stove's fire."""
+    c = P(404, 314, F)
+    pip(s, c[0], c[1] + 2, 0.44)
 
 
 def cab_and_sill(s):
@@ -593,7 +621,7 @@ def right_door(s):
     s.end()
 
 
-def roof_load(s):
+def roof_load(s, smoke=True):
     """On the roof: the chimney and its smoke, a rack of crates, a blanket, pots of plants and a pennant."""
     s.begin("chimney")
     a, b = P(452, 30, H), P(452, 30, H + 112)
@@ -606,15 +634,8 @@ def roof_load(s):
     s.add(poly([(b[0] - 36, b[1] - 12), (b[0] + 36, b[1] - 12), (b[0], b[1] - 54)]), fill=METAL, sw=4.5)
     s.end()
 
-    s.begin("chimney-smoke")
-    t = (b[0] + 4, b[1] - 66)
-    puff = [(t[0] - 10, t[1] + 4), (t[0] - 6, t[1] - 34), (t[0] + 20, t[1] - 62), (t[0] + 14, t[1] - 100), (t[0] + 40, t[1] - 138),
-            (t[0] + 84, t[1] - 150), (t[0] + 118, t[1] - 180), (t[0] + 168, t[1] - 172), (t[0] + 186, t[1] - 132), (t[0] + 160, t[1] - 100),
-            (t[0] + 118, t[1] - 96), (t[0] + 92, t[1] - 70), (t[0] + 56, t[1] - 62), (t[0] + 40, t[1] - 24), (t[0] + 14, t[1] + 2)]
-    s.add(smooth(puff), fill=SMOKE, sw=4.5)
-    s.curve([(t[0] + 58, t[1] - 122), (t[0] + 96, t[1] - 128), (t[0] + 120, t[1] - 150)], sw=3.5, stroke=SMOKE_L)
-    s.curve([(t[0] + 10, t[1] - 30), (t[0] + 30, t[1] - 52)], sw=3.5, stroke=SMOKE_L)
-    s.end()
+    if smoke:
+        chimney_smoke(s)
 
     s.begin("roof-rack")
     x0, x1, y0, y1, z = 528.0, 704.0, 0.0, 304.0, H + 9
@@ -678,6 +699,19 @@ def roof_load(s):
         vine(s, [(p[0] + 16 * k, p[1] - 30 * k), (p[0] + 32 * k, p[1] + 12), (p[0] + 26 * k, p[1] + 54), (p[0] + 36 * k, p[1] + 100),
                  (p[0] + 30 * k, p[1] + 140)], seed + 5, size=11)
         vine(s, [(p[0] - 4 * k, p[1] - 24 * k), (p[0] + 4, p[1] + 26), (p[0] + 10, p[1] + 70)], seed + 6, size=10)
+    s.end()
+
+
+def chimney_smoke(s):
+    b = P(452, 30, H + 112)
+    s.begin("chimney-smoke")
+    t = (b[0] + 4, b[1] - 66)
+    puff = [(t[0] - 10, t[1] + 4), (t[0] - 6, t[1] - 34), (t[0] + 20, t[1] - 62), (t[0] + 14, t[1] - 100), (t[0] + 40, t[1] - 138),
+            (t[0] + 84, t[1] - 150), (t[0] + 118, t[1] - 180), (t[0] + 168, t[1] - 172), (t[0] + 186, t[1] - 132), (t[0] + 160, t[1] - 100),
+            (t[0] + 118, t[1] - 96), (t[0] + 92, t[1] - 70), (t[0] + 56, t[1] - 62), (t[0] + 40, t[1] - 24), (t[0] + 14, t[1] + 2)]
+    s.add(smooth(puff), fill=SMOKE, sw=4.5)
+    s.curve([(t[0] + 58, t[1] - 122), (t[0] + 96, t[1] - 128), (t[0] + 120, t[1] - 150)], sw=3.5, stroke=SMOKE_L)
+    s.curve([(t[0] + 10, t[1] - 30), (t[0] + 30, t[1] - 52)], sw=3.5, stroke=SMOKE_L)
     s.end()
 
 

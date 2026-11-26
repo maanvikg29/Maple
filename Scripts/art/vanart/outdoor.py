@@ -223,8 +223,8 @@ def crate(s, x, y, z, dx, dy, dz, name, seed, leaves=True):
     s.end()
 
 
-def basket(s, cx=270, cy=1590):
-    s.begin("leaf-basket-outside")
+def basket(s, cx=270, cy=1590, name="leaf-basket-outside"):
+    s.begin(name)
     # The handle, behind.
     s.add(f"M{cx - 62} {cy - 64} C{cx - 60} {cy - 150} {cx + 60} {cy - 150} {cx + 62} {cy - 64}", stroke=OUT, sw=17)
     s.add(f"M{cx - 62} {cy - 64} C{cx - 60} {cy - 150} {cx + 60} {cy - 150} {cx + 62} {cy - 64}", stroke=GOLD, sw=8)

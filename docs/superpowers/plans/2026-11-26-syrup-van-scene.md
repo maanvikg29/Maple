@@ -43,33 +43,20 @@
 
 ### Task 1: Export the art as layers into the asset catalog
 
-The generator already draws both views (`Scripts/art/vanart/build.py`, `workshop.py`). The app needs them as layers on a tall canvas, so Pip, the smoke and the drifting leaves can move by themselves and the canopy isn't cut off at the top of the screen.
+The generator already draws both views. Home is `Scripts/art/vanart/build.py`. The workshop is `Scripts/art/vanart/side.py`: the same van and the same pieces with the camera turned to face the cut-away side (the owner asked for a side view of the same scene, not a separate flat room). `side.workshop_layers()` already returns the workshop as layers. This task splits home the same way and writes both into the asset catalog, so Pip, the smoke and the drifting leaves can move by themselves and the canopy isn't cut off at the top of the screen.
 
 **Files:**
-- Modify: `Scripts/art/vanart/core.py` (the `Svg.text` method)
 - Modify: `Scripts/art/vanart/build.py`
-- Modify: `Scripts/art/vanart/workshop.py` (the `workshop_scene` function)
 - Create: `Scripts/art/vanart/export.py`
 - Modify: `Scripts/art/build_van_art.py`
 - Create: `Scripts/art/check-van-art.sh`
 - Create (generated): `App/Resources/Assets.xcassets/Van/*.imageset/`
 
 **Interfaces:**
-- Produces: image sets named `VanHomeScene`, `VanHomeSmoke`, `VanHomeLeaves`, `VanHomePip`, `VanWorkshopRoom`, `VanWorkshopSteam`, `VanWorkshopPip`. Home layers share the view box `0 -1000 1600 3460`; workshop layers share `0 -620 1200 2600`. The gauge sits at (905, 742) with radius 104 in workshop units, the pot at (605, 800), the logbook at (350, 808), and the maple's trunk at (320, 1050) in home units.
+- Consumes (already in the repository): `Svg.text(viewbox=)`, `van.workshop(s, with_pip=, steam=)`, `van.roof_load(s, smoke=)`, `van.chimney_smoke(s)`, `van.pip_at_home(s)`, `side.workshop_layers() -> (layers, marks)`, `side.BOX`.
+- Produces: image sets named `VanHomeScene`, `VanHomeSmoke`, `VanHomeLeaves`, `VanHomePip`, `VanWorkshopRoom`, `VanWorkshopSteam`, `VanWorkshopSmoke`, `VanWorkshopPip`. Home layers share the view box `0 -1000 1600 3460`; workshop layers share `side.BOX`, which is `-20 -905 680 1473`. In workshop units the gauge is at (468, -236) with radius 44, the pot at (319, -207), the logbook at (571, -100) and the leaf basket at (144, 10) (`marks` in `side.py`). In home units the maple's trunk is at (320, 1050).
 
-- [ ] **Step 1: Let a drawing be written with its own view box**
-
-In `Scripts/art/vanart/core.py`, replace `Svg.text`:
-
-```python
-    def text(self, viewbox=None):
-        x, y, w, h = viewbox or (0, 0, self.w, self.h)
-        head = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{f(x)} {f(y)} {f(w)} {f(h)}" '
-                f'width="{f(w)}" height="{f(h)}">')
-        return "\n".join([head] + self.parts + ["</svg>"]) + "\n"
-```
-
-- [ ] **Step 2: Split the home scene into layers**
+- [ ] **Step 1: Split the home scene into layers**
 
 In `Scripts/art/vanart/build.py`, replace `home_scene` with:
 
@@ -121,65 +108,7 @@ def home_scene():
     return s
 ```
 
-In `Scripts/art/vanart/van.py`:
-- In `roof_load`, change the signature to `def roof_load(s, smoke=True):`, move the block from `s.begin("chimney-smoke")` to its `s.end()` into a new function `def chimney_smoke(s):` (it needs `b = P(452, 30, H + 112)` as its first line), and call `chimney_smoke(s)` from `roof_load` only `if smoke:`.
-- Add, after `workshop`:
-
-```python
-def pip_at_home(s):
-    c = P(366, 296, F)
-    pip(s, c[0], c[1] + 2, 0.52)
-```
-
-and make `workshop`'s `if with_pip:` branch call `pip_at_home(s)`.
-
-- [ ] **Step 3: Split the workshop into layers**
-
-In `Scripts/art/vanart/workshop.py`, replace `workshop_scene` with:
-
-```python
-WORKSHOP_BOX = (0, -620, 1200, 2600)
-
-
-def workshop_layers():
-    room = Svg(W_, H_)
-    room.begin("workshop-wheels")
-    for x in (250, 950):
-        for r, col, sw in [(92, IRON, 6), (56, METAL, 5), (36, METAL_L, 4), (13, METAL_D, 3)]:
-            room.add(ellipse(x, 1420, r, r), fill=col, sw=sw)
-    room.end()
-    shell(room)
-    round_window(room)
-    shelf_and_pegboard(room)
-    hanging(room)
-    stove(room, steam=False)
-    boiler(room)
-    counter(room)
-    floor_things(room, with_pip=False)
-
-    steam = Svg(W_, H_)
-    pot_steam(steam)
-    pip_layer = Svg(W_, H_)
-    pip(pip_layer, 700, 1244, 0.6, ladle=True, name="workshop-pip", flip=True)
-    return {"VanWorkshopRoom": room, "VanWorkshopSteam": steam, "VanWorkshopPip": pip_layer}
-
-
-def workshop_scene():
-    """Everything in one drawing with a backdrop, for looking at outside the app."""
-    s = Svg(W_, H_)
-    s.begin("workshop-backdrop")
-    s.fill(poly(rect(0, 0, W_, H_)), BG)
-    s.fill(smooth([(0, 1380), (300, 1360), (900, 1360), (1200, 1380), (1200, 1500), (0, 1500)]), GRASS)
-    s.end()
-    layers = workshop_layers()
-    for name in ("VanWorkshopRoom", "VanWorkshopSteam", "VanWorkshopPip"):
-        s.parts += layers[name].parts
-    return s
-```
-
-In the same file, change `def stove(s):` to `def stove(s, steam=True):`, move the block from `s.begin("workshop-steam")` to its `s.end()` into a new `def pot_steam(s):`, and call `pot_steam(s)` from `stove` only `if steam:`.
-
-- [ ] **Step 4: Write the exporter**
+- [ ] **Step 2: Write the exporter**
 
 Create `Scripts/art/vanart/export.py`:
 
@@ -189,7 +118,7 @@ Create `Scripts/art/vanart/export.py`:
 import json
 import pathlib
 
-from . import build, workshop
+from . import build, side
 
 
 def write_imagesets(catalog: pathlib.Path):
@@ -197,7 +126,7 @@ def write_imagesets(catalog: pathlib.Path):
     folder.mkdir(parents=True, exist_ok=True)
     (folder / "Contents.json").write_text(json.dumps({"info": {"author": "xcode", "version": 1}}, indent=2) + "\n")
     written = []
-    for layers, box in ((build.home_layers(), build.HOME_BOX), (workshop.workshop_layers(), workshop.WORKSHOP_BOX)):
+    for layers, box in ((build.home_layers(), build.HOME_BOX), (side.workshop_layers()[0], side.BOX)):
         for name, drawing in layers.items():
             imageset = folder / f"{name}.imageset"
             imageset.mkdir(exist_ok=True)
@@ -215,7 +144,7 @@ def write_imagesets(catalog: pathlib.Path):
 Replace the body of `Scripts/art/build_van_art.py` after the `sys.path.insert` line with:
 
 ```python
-from vanart import build, export, workshop  # noqa: E402
+from vanart import build, export, side  # noqa: E402
 
 repo = pathlib.Path(__file__).resolve().parents[2]
 names = export.write_imagesets(repo / "App" / "Resources" / "Assets.xcassets")
@@ -224,11 +153,11 @@ if len(sys.argv) > 1:
     out = pathlib.Path(sys.argv[1])
     out.mkdir(parents=True, exist_ok=True)
     (out / "home-scene.svg").write_text(build.home_scene().text())
-    (out / "workshop-scene.svg").write_text(workshop.workshop_scene().text())
+    (out / "workshop-scene.svg").write_text(side.workshop_scene().text(viewbox=side.BOX))
     print("previews in", out)
 ```
 
-- [ ] **Step 5: Write the check that the committed art matches the generator**
+- [ ] **Step 3: Write the check that the committed art matches the generator**
 
 Create `Scripts/art/check-van-art.sh` and make it executable (`chmod +x`):
 
@@ -246,17 +175,17 @@ fi
 echo "The van's image sets match the generator."
 ```
 
-- [ ] **Step 6: Generate, and see the check pass**
+- [ ] **Step 4: Generate, and see the check pass**
 
-Run: `python3 -I Scripts/art/build_van_art.py docs/design/art/2026-11-26-home-scene/tmp && rm -r docs/design/art/2026-11-26-home-scene/tmp && git add App/Resources/Assets.xcassets/Van && Scripts/art/check-van-art.sh`
-Expected: `image sets: VanHomeScene, VanHomeSmoke, VanHomeLeaves, VanHomePip, VanWorkshopRoom, VanWorkshopSteam, VanWorkshopPip`, then `The van's image sets match the generator.`
+Run: `python3 -I Scripts/art/build_van_art.py && git add App/Resources/Assets.xcassets/Van && Scripts/art/check-van-art.sh`
+Expected: `image sets: VanHomeScene, VanHomeSmoke, VanHomeLeaves, VanHomePip, VanWorkshopRoom, VanWorkshopSteam, VanWorkshopSmoke, VanWorkshopPip`, then `The van's image sets match the generator.`
 
-- [ ] **Step 7: Build, to prove the catalog accepts the SVGs**
+- [ ] **Step 5: Build, to prove the catalog accepts the SVGs**
 
 Run: `SIMULATOR="iPhone 17" Scripts/build.sh 2>&1 | grep -E "error|warning: |BUILD"`
-Expected: `** BUILD SUCCEEDED **`, and no line naming an `.svg`. If the asset compiler rejects a file, it names the element; remove that SVG feature in the generator (the drawings use only `path`, `g`, fills, strokes, `opacity`, `fill-rule` and `stroke-dasharray`).
+Expected: `** BUILD SUCCEEDED **`, and no line naming an `.svg`. If the asset compiler rejects a file, it names the element; remove that SVG feature in the generator. The drawings use only `path`, `g` (one with a `transform`, for the leaf basket and the side view's tree), fills, strokes, `opacity`, `fill-rule` and `stroke-dasharray`. If `transform` on a group is what it rejects, draw those two pieces at their final place instead: give `outdoor.basket` and `outdoor.trunk`/`canopy` an offset and scale argument.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add Scripts/art App/Resources/Assets.xcassets/Van
@@ -596,7 +525,7 @@ git commit -m "Syrup van: the clock's logic (hands, hub digits, turning past the
   - `VanHomeModel(phase: NowPhase, leaves: Int, syrupTenths: Int, isAvailable: Bool, minutesLeft: Int?)` with `greeting: String`, `status: String`, `leavesText: String?`, `syrupText: String?`, `gaugeText: String(minutes:)` as a static.
   - `VanTimer.preset(from: FocusPreset?) -> FocusPreset`, `VanTimer.startTitle(minutes: Int) -> String`, `VanTimer.blockingLine(canBlock: Bool, wantsBlock: Bool, hasApps: Bool) -> String`
   - `VanEntrance { full, short, crossFade }` with `seconds: Double` and `static func style(lastFull: Date?, now: Date, calendar: Calendar, reduceMotion: Bool) -> VanEntrance`
-  - `VanCanvas(width:height:originY:)` with `.home`, `.workshop`, `scale(width:height:) -> Double`, `point(x:y:width:height:) -> (x: Double, y: Double)`, `length(_:width:height:) -> Double`
+  - `VanCanvas(width:height:originX:originY:)` with `.home`, `.workshop`, `scale(width:height:) -> Double`, `point(x:y:width:height:) -> (x: Double, y: Double)`, `length(_:width:height:) -> Double`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -731,7 +660,7 @@ import Testing
 struct VanCanvasTests {
     @Test("The art fills the screen: it is scaled by whichever side needs more, and centred")
     func fills() {
-        let canvas = VanCanvas(width: 1600, height: 3460, originY: -1000)
+        let canvas = VanCanvas(width: 1600, height: 3460, originX: 0, originY: -1000)
         // A screen of the same shape: scale is exact and nothing is cut.
         #expect(canvas.scale(width: 400, height: 865) == 0.25)
         let origin = canvas.point(x: 0, y: -1000, width: 400, height: 865)
@@ -743,11 +672,19 @@ struct VanCanvasTests {
         #expect(canvas.length(104, width: 400, height: 865) == 26)
     }
 
+    @Test("A canvas that doesn't start at zero on the left places its own left edge at the screen's")
+    func leftEdge() {
+        let corner = VanCanvas.workshop.point(x: -20, y: -905, width: 340, height: 736.5)
+        #expect(corner.x == 0 && corner.y == 0)
+        let gauge = VanCanvas.workshop.point(x: 468, y: -236, width: 340, height: 736.5)
+        #expect(gauge.x == 244 && gauge.y == 334.5)
+    }
+
     @Test("A screen with no size places everything at the origin instead of dividing by nothing")
     func empty() {
         let canvas = VanCanvas.workshop
         #expect(canvas.scale(width: 0, height: 0) == 0)
-        let point = canvas.point(x: 905, y: 742, width: 0, height: 0)
+        let point = canvas.point(x: 468, y: -236, width: 0, height: 0)
         #expect(point.x == 0 && point.y == 0)
     }
 }
@@ -888,20 +825,22 @@ import Foundation
 public struct VanCanvas: Sendable, Equatable {
     public let width: Double
     public let height: Double
-    /// The y of the canvas's top edge in the drawing's own units: the drawings keep their coordinates and gain room
-    /// above.
+    /// The canvas's left and top edges in the drawing's own units: the drawings keep their coordinates, and the canvas
+    /// is a window onto them.
+    public let originX: Double
     public let originY: Double
 
-    public init(width: Double, height: Double, originY: Double) {
+    public init(width: Double, height: Double, originX: Double, originY: Double) {
         self.width = width
         self.height = height
+        self.originX = originX
         self.originY = originY
     }
 
     /// The home view: `Scripts/art/vanart/build.py`, `HOME_BOX`.
-    public static let home = VanCanvas(width: 1600, height: 3460, originY: -1000)
-    /// The workshop: `Scripts/art/vanart/workshop.py`, `WORKSHOP_BOX`.
-    public static let workshop = VanCanvas(width: 1200, height: 2600, originY: -620)
+    public static let home = VanCanvas(width: 1600, height: 3460, originX: 0, originY: -1000)
+    /// The workshop, the van's cut-away side: `Scripts/art/vanart/side.py`, `BOX`.
+    public static let workshop = VanCanvas(width: 680, height: 1473, originX: -20, originY: -905)
 
     public func scale(width screenWidth: Double, height screenHeight: Double) -> Double {
         guard width > 0, height > 0, screenWidth > 0, screenHeight > 0 else { return 0 }
@@ -912,7 +851,7 @@ public struct VanCanvas: Sendable, Equatable {
     public func point(x: Double, y: Double, width screenWidth: Double, height screenHeight: Double) -> (x: Double, y: Double) {
         let scale = scale(width: screenWidth, height: screenHeight)
         guard scale > 0 else { return (0, 0) }
-        return ((screenWidth - width * scale) / 2 + x * scale, (screenHeight - height * scale) / 2 + (y - originY) * scale)
+        return ((screenWidth - width * scale) / 2 + (x - originX) * scale, (screenHeight - height * scale) / 2 + (y - originY) * scale)
     }
 
     /// A length in the drawing's units, on that screen.
@@ -1179,7 +1118,7 @@ import MapleDesign
 import MapleServices
 import SwiftUI
 
-/// The workshop: the inside of the van, straight-on (syrup van design §5.2). The gauge is the Focus button, the pot
+/// The workshop: the van's cut-away side, seen from the side (syrup van design §5.2). The gauge is the Focus button, the pot
 /// cooks a leaf, and the logbook opens History.
 struct VanWorkshopView: View {
     let model: VanHomeModel
@@ -1197,50 +1136,49 @@ struct VanWorkshopView: View {
     var body: some View {
         ZStack {
             VanPalette.sky.ignoresSafeArea()
-            VanLayers(canvas: .workshop, names: ["VanWorkshopRoom", "VanWorkshopSteam", "VanWorkshopPip"]) { name, image in
+            VanLayers(canvas: .workshop, names: ["VanWorkshopRoom", "VanWorkshopSteam", "VanWorkshopSmoke", "VanWorkshopPip"]) { name, image in
                 switch name {
                 case "VanWorkshopPip": image.offset(y: breathes ? -3 : 0)
                 case "VanWorkshopSteam": image.offset(y: breathes ? -6 : 0).opacity(breathes ? 0.7 : 1)
+                case "VanWorkshopSmoke": image.offset(x: breathes ? 4 : -1, y: breathes ? -6 : 0).opacity(breathes ? 0.82 : 1)
                 default: image
                 }
             }
             .ignoresSafeArea()
             GeometryReader { proxy in
                 let canvas = VanCanvas.workshop
-                let radius = canvas.length(104, width: proxy.size.width, height: proxy.size.height)
+                let radius = canvas.length(44, width: proxy.size.width, height: proxy.size.height)
                 Button(action: onGauge) {
-                    VStack(spacing: 0) {
-                        Text(gaugeText)
-                            .font(.system(size: max(13, radius * 0.42), weight: .heavy, design: .rounded))
-                            .minimumScaleFactor(0.5)
-                            .lineLimit(1)
-                        Text("focus")
-                            .font(.system(size: max(10, radius * 0.2), weight: .bold, design: .rounded))
-                    }
-                    .foregroundStyle(VanPalette.outline)
-                    .frame(width: radius * 1.5, height: radius * 1.5)
-                    .contentShape(Circle())
+                    // The face is small on a phone, so it carries the length alone; the line under the room names it.
+                    Text(gaugeText)
+                        .font(.system(size: max(11, radius * 0.5), weight: .heavy, design: .rounded))
+                        .minimumScaleFactor(0.5)
+                        .lineLimit(1)
+                        .foregroundStyle(VanPalette.outline)
+                        .frame(width: radius * 1.4, height: radius * 1.4)
+                        .background(VanPalette.face, in: Circle())
+                        .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
                 .frame(width: max(44, radius * 2), height: max(44, radius * 2))
-                .position(canvas.point(905, 742, in: proxy.size))
+                .position(canvas.point(468, -236, in: proxy.size))
                 .accessibilityLabel("Focus timer, \(gaugeText)")
                 .accessibilityHint("Opens the clock")
 
                 Button(action: cook) { Color.clear }
-                    .frame(width: max(44, canvas.length(210, width: proxy.size.width, height: proxy.size.height)),
-                           height: max(44, canvas.length(150, width: proxy.size.width, height: proxy.size.height)))
+                    .frame(width: max(44, canvas.length(120, width: proxy.size.width, height: proxy.size.height)),
+                           height: max(44, canvas.length(90, width: proxy.size.width, height: proxy.size.height)))
                     .contentShape(Rectangle())
-                    .position(canvas.point(605, 800, in: proxy.size))
+                    .position(canvas.point(319, -207, in: proxy.size))
                     .accessibilityLabel("Cooking pot")
                     .accessibilityHint(workshop.leaves > 0 ? "Cooks one leaf into syrup" : "No leaves to cook")
                     .sensoryFeedback(.impact(weight: .light), trigger: cooked)
 
                 Button { showsHistory = true } label: { Color.clear }
-                    .frame(width: max(44, canvas.length(150, width: proxy.size.width, height: proxy.size.height)),
-                           height: max(44, canvas.length(120, width: proxy.size.width, height: proxy.size.height)))
+                    .frame(width: max(44, canvas.length(70, width: proxy.size.width, height: proxy.size.height)),
+                           height: max(44, canvas.length(60, width: proxy.size.width, height: proxy.size.height)))
                     .contentShape(Rectangle())
-                    .position(canvas.point(350, 808, in: proxy.size))
+                    .position(canvas.point(571, -100, in: proxy.size))
                     .accessibilityLabel("Logbook")
                     .accessibilityHint("Opens your study record")
             }
@@ -1255,7 +1193,7 @@ struct VanWorkshopView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
                 Spacer(minLength: 0)
-                Text(workshop.leaves > 0 ? "Tap the pot to cook a leaf" : model.status)
+                Text(workshop.leaves > 0 ? "Tap the gauge to set the timer, or the pot to cook a leaf" : "Tap the gauge to set the timer")
                     .font(.system(.subheadline, design: .rounded).weight(.semibold))
                     .foregroundStyle(VanPalette.outline)
                     .multilineTextAlignment(.center)
@@ -1451,15 +1389,15 @@ Expected: `** BUILD SUCCEEDED **` and only the `appintentsmetadataprocessor` lin
 
 Then launch in the simulator and take screenshots (attach the simulator panel first; `docs/debug-launch-arguments.md` has the launch recipe the other screens use):
 1. `-MapleDemoTab home -MapleDemoSpecies 12` — home: the van under the tree fills the screen, the canopy runs off the top, greeting and time are readable over the sky, "Open the van" is at the bottom.
-2. Tap "Open the van" — the camera pushes in and the workshop appears: the room fills the screen, the gauge reads a length and "focus".
+2. Tap "Open the van" — the camera pushes in and the workshop appears: the van's cut-away side fills the width, with the maple above and grass below, and the gauge on the boiler reads a length.
 3. `-MapleDemoTab home -MapleDemoPresent van:workshop` — opens straight in the workshop.
 4. `-MapleDemoTab home -UIPreferredContentSizeCategoryName UICTContentSizeCategoryAccessibilityXXXL` — nothing is clipped; the time may shrink.
 5. `-MapleDemoShip f1 -MapleDemoTab home` — the tree home and the tab bar, exactly as before.
 
 What to adjust if a screenshot shows it, each in the named place and nowhere else:
-- The van is too small or too low on screen: change `HOME_BOX` in `build.py` (a smaller height zooms in; `originY` moves the scene), re-run Task 1 step 6, and change `VanCanvas.home` to the same numbers.
+- The van is too small or too low on screen: change `HOME_BOX` in `build.py` or `BOX` in `side.py` (a smaller box zooms in; its first two numbers move the scene), re-run Task 1 step 4, and change `VanCanvas.home` or `.workshop` to the same numbers.
 - The status bar's white text is hard to read on the sky: add `.overlay(alignment: .top) { LinearGradient(colors: [VanPalette.outline.opacity(0.35), .clear], startPoint: .top, endPoint: .bottom).frame(height: 110).ignoresSafeArea().allowsHitTesting(false) }` to `VanHomeView`'s and `VanWorkshopView`'s `ZStack`.
-- A tap target misses its picture: the numbers passed to `canvas.point` are the drawing's own coordinates; read them off `docs/design/art/2026-11-26-workshop/workshop-scene.svg`.
+- A tap target misses its picture: the numbers passed to `canvas.point` are the drawing's own coordinates. For the workshop they are `marks` in `Scripts/art/vanart/side.py`; print them with `python3 -I -c "import sys; sys.path.insert(0,'Scripts/art'); from vanart import side; print(side.workshop_layers()[1])"`.
 
 - [ ] **Step 8: Commit**
 
@@ -1860,7 +1798,8 @@ git commit -m "Syrup van: the drawn clock sets the length and starts the session
 `docs/core-api.md`: add a section "The syrup van's screens" after "The syrup van's economy", saying:
 - the switch is `collection.context.features.syrupVan`; off, nothing of the van is on screen;
 - `VanSceneView` is Home's stage and owns the two cameras; `HomeView` still owns the sheets and covers;
-- every layer of a view is drawn on one `VanCanvas`; a tap target is placed with `canvas.point(x, y, in: size)` using the drawing's own coordinates;
+- every layer of a view is drawn on one `VanCanvas`; a tap target is placed with `canvas.point(x, y, in: size)` using the drawing's own coordinates (`marks` in `Scripts/art/vanart/side.py` for the workshop);
+- the workshop is not a separate drawing: `side.py` turns the camera on the same van (`SIDE_CAMERA` in `core.py`), so a piece added to `van.py` appears in both views;
 - the art is generated: `python3 -I Scripts/art/build_van_art.py` rewrites the image sets, and `Scripts/art/check-van-art.sh` fails when they are stale; never edit an SVG in the catalog by hand;
 - the clock is `ClockSetting` (pure) drawn by `ClockFace`; a start goes through `VanTimer.preset(from:)`, which is always Gentle with no break;
 - `workshop.collect(from:)` is called by `VanSceneView` after `loadHistory()`, at appearance and when the running session changes.
@@ -1898,4 +1837,4 @@ git commit -m "Syrup van: documents for the scene and the clock timer"
 
 - **Spec coverage.** §5.1 home (Task 5 step 3), §5.2 workshop (step 4), §5.3 entering (step 5 and `VanEntrance`), §6.1 the gauge (step 4), §6.2 the clock (Tasks 3 and 6), §6.3 options (Task 6 step 2, `VanTimer`), §6.4 starting (Task 6), §9 the tab bar (Task 5 step 6), §10 art as separate pieces (Task 1), §11 accessibility (labels, the adjustable clock, Reduce Motion in the entrance and the idle motion, text sizes). Not built here, on purpose: §5.4 decorating, §6.5 to §6.7, §7, §8, the bucket picture.
 - **Names.** `ClockSetting`, `VanHomeModel`, `VanTimer`, `VanEntrance`, `VanCanvas`, `VanLayers`, `VanPalette`, `VanPlate`, `VanBackButton`, `VanHomeView`, `VanWorkshopView`, `VanSceneView`, `ClockSector`, `ClockFace`, `ClockTimerView` are each defined once and used with the same spelling.
-- **One thing a reader may trip on.** The art tasks give drawing code only where it changes structure (layers, view boxes). The drawings themselves are already in the repository and were checked by eye against the concept image; changing how they look is a matter of editing `Scripts/art/vanart/*.py`, rendering, and looking.
+- **One thing a reader may trip on.** The art task gives drawing code only where it changes structure (layers, view boxes). The drawings themselves are already in the repository and were checked by eye against the concept image; changing how they look is a matter of editing `Scripts/art/vanart/*.py`, rendering, and looking.
