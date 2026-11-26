@@ -18,7 +18,7 @@ public struct WorkshopBank: Sendable, Codable {
     public private(set) var earned = 0
     /// The ledger's total when the van last looked, counted at `ledgerPace` and `ledgerRules`.
     public private(set) var ledgerSeen = 0
-    /// Seconds per leaf `ledgerSeen` was counted at; nil until the first leaves arrive.
+    /// The pace (`WorkshopTuning.leavesPerHour`) `ledgerSeen` was counted at; nil until the first leaves arrive.
     public private(set) var ledgerPace: Int?
     /// The earning rules (`LeafEarnings.rulesVersion`) `ledgerSeen` was counted under; nil until the first leaves arrive.
     public private(set) var ledgerRules: Int?
@@ -66,7 +66,7 @@ public struct WorkshopBank: Sendable, Codable {
         _ total: Int, tuning: WorkshopTuning = .starting, rules: Int = LeafEarnings.rulesVersion
     ) -> Int {
         let total = min(max(0, total), Self.limit)
-        let pace = tuning.secondsPerLeaf
+        let pace = tuning.leavesPerHour
         guard (ledgerPace ?? pace) == pace, (ledgerRules ?? rules) == rules else {
             ledgerSeen = total
             ledgerPace = pace

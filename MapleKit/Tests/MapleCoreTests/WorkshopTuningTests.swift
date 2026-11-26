@@ -6,9 +6,9 @@ import Testing
 struct WorkshopTuningTests {
     private let small = WorkshopFixtures.small
 
-    @Test("The starting pace is the owner's: 0.8 leaves a minute, a leaf every 75 seconds, and one bottle a leaf before any upgrade")
+    @Test("The starting pace is the owner's: 0.9 leaves a minute, which is 54 an hour, and one bottle a leaf before any upgrade")
     func startingPace() {
-        #expect(WorkshopTuning.starting.secondsPerLeaf == 75)
+        #expect(WorkshopTuning.starting.leavesPerHour == 54)
         #expect(WorkshopTuning.starting.baseTenthsPerLeaf == 10)
     }
 
@@ -50,7 +50,7 @@ struct WorkshopTuningTests {
 
     @Test("A machine with no ladder can't be upgraded and adds nothing")
     func noLadder() {
-        let bare = WorkshopTuning(secondsPerLeaf: 300, baseTenthsPerLeaf: 10, ladders: [:])
+        let bare = WorkshopTuning(leavesPerHour: 12, baseTenthsPerLeaf: 10, ladders: [:])
         #expect(bare.topLevel(of: .evaporator) == 0)
         #expect(bare.price(of: .evaporator, after: 0) == nil)
         #expect(bare.tenthsPerLeaf(levels: [.evaporator: 2]) == 10)

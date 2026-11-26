@@ -188,7 +188,7 @@ struct WorkshopBankTests {
         bank.noteEarned(600, tuning: small)
         bank.cook(100, tuning: small)
         var slower = small
-        slower.secondsPerLeaf = 360
+        slower.leavesPerHour = 10
         #expect(bank.noteEarned(500, tuning: slower) == 0)
         #expect(bank.leaves == 500)
         #expect(bank.noteEarned(508, tuning: slower) == 8)
@@ -200,7 +200,7 @@ struct WorkshopBankTests {
         var bank = WorkshopBank()
         bank.noteEarned(600, tuning: small)
         var quicker = small
-        quicker.secondsPerLeaf = 240
+        quicker.leavesPerHour = 15
         #expect(bank.noteEarned(750, tuning: quicker) == 0)
         #expect(bank.leaves == 600)
         #expect(bank.noteEarned(762, tuning: quicker) == 12)
@@ -220,7 +220,7 @@ struct WorkshopBankTests {
     @Test("The count the ledger was last seen at is saved with its pace, so a relaunch pays nothing twice")
     func baselineSaved() throws {
         var slower = small
-        slower.secondsPerLeaf = 360
+        slower.leavesPerHour = 10
         var bank = WorkshopBank()
         bank.noteEarned(600, tuning: small)
         bank.noteEarned(500, tuning: slower)

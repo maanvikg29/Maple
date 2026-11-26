@@ -31,7 +31,7 @@ Every rule below carries one of two marks:
 | The timer | A dial on a dark page | A gauge in the workshop, then the tree |
 | Style | Dark, restrained, amber for rewards only | Warm, hand-drawn, thick outlines, busy with detail |
 
-What stays exactly as it is: how a session starts, runs, breaks and ends; app blocking and the strictness levels; the counting rules for time saved; the streak; subjects and History; sleep and the schedule; Apple Health.
+What stays as it is: how a session starts and runs (without presets or breaks, §6.3); app blocking and the strictness levels; the counting rules for time saved; the streak; subjects and History; sleep and the schedule; Apple Health.
 
 ---
 
@@ -45,10 +45,10 @@ What stays exactly as it is: how a session starts, runs, breaks and ends; app bl
 6. **Nothing is ever bought with money.** Leaves and syrup come only from focusing. **Decided** (it is also an existing rule in `docs/decisions.md`).
 
 **The numbers:**
-- **0.8 leaves for every minute focused,** which is one leaf every 75 seconds. A 50-minute session gives 40 leaves. **Decided** (owner, 2026-11-26).
+- **0.9 leaves for every minute focused,** which is 54 an hour. A 50-minute session gives 45 leaves. **Decided** (owner, 2026-11-26; first 1 per 5 minutes, then 0.8 a minute, then this).
 - **A session's leaves are rounded up when it ends.** **Decided** (owner, 2026-11-26).
 - **Every session earns the same way, from its time focused,** whether it blocks apps or is a plain timer. Time saved, with its daily limit, still decides the special leaves. **Decided** (owner, 2026-11-26: the pace is per minute, with no difference between kinds of session).
-- A session ended early earns for the time it ran, rounded up. A start of under a minute earns nothing, as History doesn't list it either. **Proposed.**
+- **A session ended before its timer runs out earns nothing.** Every leaf of that session is lost, however long it ran, and Pip falls out of the tree (§6.6). The session is still in History, marked as ended early. **Decided** (owner, 2026-11-26). It holds for every way out before the end: End early, Locked's emergency release, and Release all apps. Time saved toward the special leaves keeps today's rule (an early end keeps its counted minutes) until the owner says otherwise.
 - One leaf cooks into one bottle of syrup before any upgrade. **Proposed**, to be tuned in its own pass (§14).
 
 ---
@@ -161,16 +161,19 @@ Everything about when a session counts is unchanged (F1 design §3). This sectio
 - **The hub reads "0:50", "1:30".** The start button below still reads "Start study · 50m". **Proposed.**
 - **The face fills with syrup colour** from the top to the long hand, and three drops on the face fill as each whole hour is passed, so the length reads at a glance without the digits. **Proposed.**
 - A first interactive mock-up was shown to the owner on 2026-11-26 (in the conversation, not saved in the repo).
-- **The timer never shows a leaf count or a rate.** No "about 40 leaves", no "0.8 a minute". **Decided** (owner, 2026-11-26).
+- **The timer never shows a leaf count or a rate.** No "about 45 leaves", no "0.9 a minute". **Decided** (owner, 2026-11-26).
 - **There are no presets.** No Study, Quick, Deep or Read, and no recipe cards. The clock sets the length, and that is all there is to choose about time. **Decided** (owner, 2026-11-26).
 - **A bucket beside the clock grows with the length:** a small pail under 50 minutes, a bucket from 50 minutes, a big basket from 90. It is a picture, never a number. **Proposed.**
 - **Minus and plus buttons** either side of the clock move 5 minutes, for anyone who would rather not turn. VoiceOver adjusts the length the same way. **Proposed.**
 
 ### 6.3 The other options
 
-- **One block mode.** **Decided** (owner, 2026-11-26: "just a block mode"). Under the clock, one control for blocking: which apps are blocked, opened from a line such as "Blocking 6 apps ›". **Still to settle with the owner** before this screen is built: whether block mode can be switched off for a session, what happens to breaks (they belonged to presets), and whether the three strictness levels stay.
-- **Subject:** "Maths ›" (from the Study record). **Proposed.**
-- **What's this for?** A short note for this session. **Proposed.**
+- **One block mode.** **Decided** (owner, 2026-11-26: "just a block mode"). Under the clock, one control for blocking: which apps are blocked, opened from a line such as "Blocking 6 apps ›". **Decided** (owner, 2026-11-26, "yes to all"):
+  - **Block mode can be switched off** with one switch, and the session then runs as a plain timer. It earns the same leaves.
+  - **The three strictness levels stay,** chosen inside the block mode sheet: Gentle, Steady, Locked. They set how hard it is to end a blocking session early (F1 design §5.6, §5.7). A plain timer is always Gentle (F1-30).
+  - **Breaks are dropped for now.** They belonged to the presets. Steady's "Take a 5-minute break instead" goes with them.
+- **Subject:** "Maths ›" (from the Study record). **Decided** (owner, 2026-11-26).
+- **No "What's this for?" note.** **Decided** (owner, 2026-11-26).
 
 ### 6.4 Starting
 
@@ -192,9 +195,10 @@ Everything about when a session counts is unchanged (F1 design §3). This sectio
 
 ### 6.6 Breaks and ending early
 
-**Proposed.** Both keep today's rules and today's two-step ending (the sheet, then the breath, then "Still want to end?").
-- **Break:** Pip sits on the branch with a flask. No leaves fall. Apps stay locked.
-- **End early:** the member earns for the time the session ran, rounded up. The words never say "fail" or "quit".
+- **Breaks are dropped for now** (§6.3), so there is no break view.
+- **End early: the session's leaves are lost.** **Decided** (owner, 2026-11-26). Pip falls out of the tree, the bucket tips and the leaves scatter. The session is saved in History as ended early, with its time focused.
+- The way out keeps today's two steps (the sheet, then the breath, then "Still want to end?"), and the second question says plainly that this session's leaves will be lost. **Proposed.**
+- The fall is a soft tumble into a leaf pile, and Pip gets up again. The words never say "fail" or "quit". **Proposed.**
 
 ### 6.7 When it ends
 
@@ -264,7 +268,7 @@ Everything about when a session counts is unchanged (F1 design §3). This sectio
   - indoor objects have two drawings (§5.4);
   - Pip has a set of poses: standing, stirring, carrying the bucket, climbing, sitting, asleep;
   - everything has a night version, or is lit by the scene.
-- Who draws it is question 5 in §13.
+- Who draws it: Claude, for now (§13, question 5).
 
 ---
 
@@ -297,10 +301,10 @@ The Study record (branch `maanvik/f2-study-record`) is finished and independent 
 ## 13. Questions, and the owner's answers (2026-11-26)
 
 1. **Plain timers.** In a free-tier build without Apple's Family Controls permission, sessions are plain timers and count nothing as time saved. **They earn plain leaves from time focused,** so the whole game works in that build. Special leaves still need counted time.
-2. **The pace.** First answered as one leaf per 5 minutes; **changed by the owner the same day to 0.8 leaves a minute, rounded up when the session ends** (§2).
+2. **The pace.** First answered as one leaf per 5 minutes; **changed by the owner the same day to 0.8 and then 0.9 leaves a minute, rounded up when the session ends, and nothing for a session ended early** (§2).
 3. **The tab bar.** **Dropped** (§9).
 4. **How special leaves are earned.** **Unchanged from today** (§3).
-5. **Who draws the art.** **Still open.** The owner's "yes to all" doesn't answer it. Until it is answered, screens are built with stand-in art: the concept images as backdrops, and plain placeholders for pieces that have no image.
+5. **Who draws the art.** **Claude draws it for now** (owner, 2026-11-26: "u draw the art for now"). The pieces are drawn in code as separate objects, with the concept images as the reference. Whether a person or an image tool redraws them later is left open.
 6. **The entrance.** **About 1.2 seconds, in full once a day** (§5.3).
 
 ---

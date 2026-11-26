@@ -26,23 +26,24 @@ public struct WorkshopTuning: Sendable, Equatable {
         public var topLevel: Int { min(prices.count, bonusTenths.count) }
     }
 
-    /// Seconds of a session for one leaf.
-    public var secondsPerLeaf: Int
+    /// Leaves an hour of a session gives: 54 is 0.9 a minute. Whole leaves an hour, so a pace like 0.9 a minute is
+    /// exact.
+    public var leavesPerHour: Int
     /// Syrup one leaf cooks into before any upgrade, in tenths of a bottle.
     public var baseTenthsPerLeaf: Int
     public var ladders: [WorkshopMachine: Ladder]
 
-    public init(secondsPerLeaf: Int, baseTenthsPerLeaf: Int, ladders: [WorkshopMachine: Ladder]) {
-        self.secondsPerLeaf = secondsPerLeaf
+    public init(leavesPerHour: Int, baseTenthsPerLeaf: Int, ladders: [WorkshopMachine: Ladder]) {
+        self.leavesPerHour = leavesPerHour
         self.baseTenthsPerLeaf = baseTenthsPerLeaf
         self.ladders = ladders
     }
 
-    /// The app's numbers. The pace is the owner's: 0.8 leaves a minute, which is a leaf every 75 seconds. One bottle a
-    /// leaf is the design's (§2). The ladders are starting values for the tuning pass: the first evaporator level costs
-    /// one 50-minute session's leaves.
+    /// The app's numbers. The pace is the owner's: 0.9 leaves a minute. One bottle a leaf is the design's (§2). The
+    /// ladders are starting values for the tuning pass: the first evaporator level costs a little under one 50-minute
+    /// session's 45 leaves.
     public static let starting = WorkshopTuning(
-        secondsPerLeaf: 75, baseTenthsPerLeaf: 10,
+        leavesPerHour: 54, baseTenthsPerLeaf: 10,
         ladders: [
             .evaporator: Ladder(prices: [40, 100, 200, 400, 800], bonusTenths: [2, 5, 10, 15, 20]),
             .filterPress: Ladder(prices: [80, 240, 600], bonusTenths: [1, 3, 5]),

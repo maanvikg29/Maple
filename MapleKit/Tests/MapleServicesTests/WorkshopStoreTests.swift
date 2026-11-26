@@ -5,7 +5,7 @@ import Testing
 
 /// Evaporator: level 1 for 5 leaves (+0.2 bottles a leaf). Filter press: level 1 for 3 (+0.1).
 private let small = WorkshopTuning(
-    secondsPerLeaf: 300, baseTenthsPerLeaf: 10,
+    leavesPerHour: 12, baseTenthsPerLeaf: 10,
     ladders: [
         .evaporator: WorkshopTuning.Ladder(prices: [5], bonusTenths: [2]),
         .filterPress: WorkshopTuning.Ladder(prices: [3], bonusTenths: [1]),
@@ -112,7 +112,7 @@ struct WorkshopStoreTests {
         let file = try url()
         open(file).noteEarned(600)
         var slower = small
-        slower.secondsPerLeaf = 360
+        slower.leavesPerHour = 10
         let store = WorkshopStore(storage: JSONStorage(.file(file)), tuning: slower)
         #expect(store.noteEarned(500) == 0)
         #expect(store.leaves == 600)
@@ -141,37 +141,38 @@ struct WorkshopStoreTests {
         #expect(workshop.leaves == 0)
         await stores.focus.sessions.loadHistory()
         let history = try #require(stores.focus.sessions.history)
-        let running = stores.focus.sessions.running?.id
 
-        let gained = workshop.collect(from: history, running: running)
+        let gained = workshop.collect(from: history)
         #expect(gained > 0)
-        #expect(gained == LeafEarnings.total(history.records, running: running))
-        let pace = workshop.tuning.secondsPerLeaf
-        #expect(gained == history.sessions.reduce(0) { $0 + ($1.focusedSeconds + pace - 1) / pace },
-                "every listed session earns for its time focused, rounded up, whether or not it blocked apps")
+        let finished = history.records.filter { $0.endReason == .completed }
+        #expect(finished.count < history.records.count, "the demo's history has a session that didn't reach its end")
+        let pace = workshop.tuning.leavesPerHour
+        #expect(gained == finished.reduce(0) { $0 + ($1.focusedSeconds * pace + 3599) / 3600 },
+                "every session that reached its end earns for its time focused, rounded up; the others earn nothing")
         #expect(workshop.leaves == gained)
-        #expect(workshop.collect(from: history, running: running) == 0)
+        #expect(workshop.collect(from: history) == 0)
         #expect(workshop.leaves == gained)
     }
 
-    @Test("In a free-tier build every session is a plain timer, and each earns for its time focused, rounded up")
+    @Test("In a free-tier build every session is a plain timer, and each that reached its end earns for its time focused, rounded up")
     func freeTier() async throws {
         let stores = try await launchWithHistory(["-MapleDemoScreenTime", "unavailable"])
         await stores.focus.sessions.loadHistory()
         let history = try #require(stores.focus.sessions.history)
         #expect(history.sessions.allSatisfy { $0.savedSeconds == 0 })
-        let pace = stores.focus.workshop.tuning.secondsPerLeaf
-        let expected = history.sessions.reduce(0) { $0 + ($1.focusedSeconds + pace - 1) / pace }
+        let pace = stores.focus.workshop.tuning.leavesPerHour
+        let expected = history.records.filter { $0.endReason == .completed }
+            .reduce(0) { $0 + ($1.focusedSeconds * pace + 3599) / 3600 }
         #expect(expected > 0)
-        #expect(stores.focus.workshop.collect(from: history, running: nil) == expected)
+        #expect(stores.focus.workshop.collect(from: history) == expected)
     }
 
     @Test("Before History has been read, the van is left as it is")
     func notLoaded() throws {
         let store = open(try url())
         store.noteEarned(12)
-        #expect(store.collect(from: nil, running: nil) == 0)
-        #expect(store.collect(from: FocusSessionStore.History(records: [], credits: [], sessions: []), running: nil) == 0)
+        #expect(store.collect(from: nil) == 0)
+        #expect(store.collect(from: FocusSessionStore.History(records: [], credits: [], sessions: [])) == 0)
         #expect(store.leaves == 12)
     }
 }

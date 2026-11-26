@@ -8,7 +8,7 @@
 
 **Tech Stack:** Swift 6 (strict concurrency), Foundation, Observation, Swift Testing, the repo's `JSONStorage`. iOS 27, iPhone only.
 
-> **Carried out on 2026-11-26, then changed.** After this plan ran, the final review and the owner changed three things the text below still describes the old way: the van keeps its own count of the ledger with the pace it was measured at; every session earns from its time focused; and the pace is 0.8 leaves a minute, rounded up when the session ends. `docs/decisions.md` (2026-11-26) and `docs/core-api.md` describe the code as it is.
+> **Carried out on 2026-11-26, then changed.** After this plan ran, the final review and the owner changed three things the text below still describes the old way: the van keeps its own count of the ledger with the pace it was measured at; every session earns from its time focused; and the pace is 0.9 leaves a minute (kept as leaves an hour), rounded up when the session ends, with nothing for a session ended before its timer ran out. `docs/decisions.md` (2026-11-26) and `docs/core-api.md` describe the code as it is.
 
 **Spec:** `docs/superpowers/specs/2026-11-26-syrup-van-design.md` (§2 the loop, §13 answers 1 and 2, §14 what is left for later). This plan is step 2 of that document's §12.
 
