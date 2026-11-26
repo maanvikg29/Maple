@@ -35,40 +35,53 @@ struct ClockSettingTests {
 
     @Test("Turning the long hand moves by the shortest way, and passing the top adds or takes away an hour")
     func turning() {
+        var moved = false
         var clock = ClockSetting(minutes: 50)
-        #expect(clock.turn(toAngle: 330))
+        moved = clock.turn(toAngle: 330)
+        #expect(moved)
         #expect(clock.minutes == 55)
-        #expect(clock.turn(toAngle: 0))
+        moved = clock.turn(toAngle: 0)
+        #expect(moved)
         #expect(clock.minutes == 60)
-        #expect(clock.turn(toAngle: 30))
+        moved = clock.turn(toAngle: 30)
+        #expect(moved)
         #expect(clock.minutes == 65)
-        #expect(clock.turn(toAngle: 330))
+        moved = clock.turn(toAngle: 330)
+        #expect(moved)
         #expect(clock.minutes == 55)
-        #expect(!clock.turn(toAngle: 331))
+        moved = clock.turn(toAngle: 331)
+        #expect(!moved)
         #expect(clock.minutes == 55)
     }
 
     @Test("An angle outside one turn, or a touch that isn't a number, is handled")
     func oddAngles() {
+        var moved = false
         var clock = ClockSetting(minutes: 50)
         clock.turn(toAngle: 690)
         #expect(clock.minutes == 55)
         clock.turn(toAngle: -60)
         #expect(clock.minutes == 50)
-        #expect(!clock.turn(toAngle: .nan))
-        #expect(!clock.turn(toAngle: .infinity))
+        moved = clock.turn(toAngle: .nan)
+        #expect(!moved)
+        moved = clock.turn(toAngle: .infinity)
+        #expect(!moved)
         #expect(clock.minutes == 50)
     }
 
     @Test("The hand stops at 3 hours and at 20 minutes and never wraps round")
     func limits() {
+        var moved = false
         var long = ClockSetting(minutes: 180)
-        #expect(!long.turn(toAngle: 90))
+        moved = long.turn(toAngle: 90)
+        #expect(!moved)
         #expect(long.minutes == 180)
-        #expect(long.turn(toAngle: 270))
+        moved = long.turn(toAngle: 270)
+        #expect(moved)
         #expect(long.minutes == 165)
         var short = ClockSetting(minutes: 20)
-        #expect(!short.turn(toAngle: 0))
+        moved = short.turn(toAngle: 0)
+        #expect(!moved)
         #expect(short.minutes == 20)
         for _ in 0 ..< 100 { long.turn(toAngle: 90); long.turn(toAngle: 180); long.turn(toAngle: 270); long.turn(toAngle: 0) }
         #expect(long.minutes == 180)
@@ -76,13 +89,18 @@ struct ClockSettingTests {
 
     @Test("The minus and plus buttons move 5 minutes and stop at the limits")
     func nudging() {
+        var moved = false
         var clock = ClockSetting(minutes: 50)
-        #expect(clock.nudge(1))
+        moved = clock.nudge(1)
+        #expect(moved)
         #expect(clock.minutes == 55)
-        #expect(clock.nudge(-10))
+        moved = clock.nudge(-10)
+        #expect(moved)
         #expect(clock.minutes == 20)
-        #expect(!clock.nudge(-1))
-        #expect(clock.nudge(100))
+        moved = clock.nudge(-1)
+        #expect(!moved)
+        moved = clock.nudge(100)
+        #expect(moved)
         #expect(clock.minutes == 180)
     }
 
