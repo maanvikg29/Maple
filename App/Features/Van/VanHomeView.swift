@@ -2,7 +2,8 @@ import MapleCore
 import MapleDesign
 import SwiftUI
 
-/// Home: the van under the maple, a welcome, the time, what is waiting, and one way in (syrup van design §5.1).
+/// Home: the van under the maple (the concept picture itself), a welcome, the time, what is waiting, and one way in
+/// (syrup van design §5.1).
 struct VanHomeView: View {
     let model: VanHomeModel
     let now: Date
@@ -20,35 +21,36 @@ struct VanHomeView: View {
         let action: () -> Void
     }
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @State private var breathes = false
-
     var body: some View {
         ZStack {
-            VanPalette.sky.ignoresSafeArea()
-            VanLayers(canvas: .home, names: ["VanHomeScene", "VanHomeSmoke", "VanHomePip", "VanHomeLeaves"]) { name, image in
-                switch name {
-                case "VanHomePip": image.offset(y: breathes ? -2 : 0)
-                case "VanHomeSmoke": image.offset(x: breathes ? 3 : -1, y: breathes ? -5 : 0).opacity(breathes ? 0.82 : 1)
-                case "VanHomeLeaves": image.offset(y: breathes ? 6 : -4)
-                default: image
-                }
-            }
-            .ignoresSafeArea()
-            // The maple opens the tree and its leaves, as the old home's tree did.
+            // The picture is the concept art itself, untouched: its full width at the top of the screen, and its own
+            // sky colour carrying on below it, where the words are.
             GeometryReader { proxy in
-                // The canopy and the trunk, in the drawing's own units: left of the van's roof, above its door.
                 let canvas = VanCanvas.home
-                VanHotspot(
-                    width: canvas.length(700, width: proxy.size.width, height: proxy.size.height),
-                    height: canvas.length(1000, width: proxy.size.width, height: proxy.size.height), action: onTree
-                )
-                .position(canvas.point(350, 400, in: proxy.size))
-                    .accessibilityLabel("Your maple")
+                let scale = canvas.scale(width: proxy.size.width, height: proxy.size.height)
+                let length = { (value: Double) in value * scale }
+                ZStack {
+                    VanPalette.sky
+                    Image("VanHomePicture")
+                        .resizable()
+                        .frame(width: length(canvas.width), height: length(VanCanvas.homePictureHeight))
+                        .position(canvas.point(canvas.width / 2, VanCanvas.homePictureHeight / 2, in: proxy.size))
+                        .accessibilityHidden(true)
+                    // The maple opens the tree and its leaves, as the old home's tree did: its canopy and trunk, in
+                    // the picture's own pixels.
+                    VanHotspot(width: length(1000), height: length(900), action: onTree)
+                        .position(canvas.point(500, 560, in: proxy.size))
+                        .accessibilityLabel("Your maple")
+                    // The van is the way in, like the button below.
+                    VanHotspot(width: length(1400), height: length(1000), action: onEnter)
+                        .position(canvas.point(880, 1560, in: proxy.size))
+                        .accessibilityHidden(true)
+                }
+                .frame(width: proxy.size.width, height: proxy.size.height)
+                .clipped()
             }
             .ignoresSafeArea()
-            // The system's clock and battery are white: a soft shade keeps them readable on the pale sky.
+            // The system's clock and battery are white: a soft shade keeps them readable on the canopy.
             LinearGradient(colors: [VanPalette.outline.opacity(0.35), .clear], startPoint: .top, endPoint: .bottom)
                 .frame(height: 110)
                 .frame(maxHeight: .infinity, alignment: .top)
@@ -56,14 +58,10 @@ struct VanHomeView: View {
                 .allowsHitTesting(false)
             words
         }
-        .onAppear {
-            guard !reduceMotion else { return }
-            withAnimation(.easeInOut(duration: 2.6).repeatForever(autoreverses: true)) { breathes = true }
-        }
     }
 
     private var words: some View {
-        VStack(spacing: 0) {
+        ZStack {
             // One row when it fits, tighter when the numbers are long; at large text sizes the counters go above the
             // buttons.
             ViewThatFits(in: .horizontal) {
@@ -85,56 +83,72 @@ struct VanHomeView: View {
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)
-            VStack(spacing: 2) {
-                Text(model.greeting)
-                    .font(.system(.title3, design: .rounded).weight(.bold))
-                Text(now, format: .dateTime.hour().minute())
-                    .font(.system(size: 60, weight: .heavy, design: .rounded))
-                    .minimumScaleFactor(0.6)
-                    .lineLimit(1)
-                if !model.status.isEmpty {
-                    Text(model.status)
-                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                        .multilineTextAlignment(.center)
+            .frame(maxHeight: .infinity, alignment: .top)
+            GeometryReader { proxy in
+                // Where the picture's grass ends, below this view's top: the welcome sits in the middle of the sky
+                // colour between there and the button.
+                let insets = proxy.safeAreaInsets
+                let scale = VanCanvas.home.scale(width: proxy.size.width, height: proxy.size.height + insets.top + insets.bottom)
+                let grassEnds = max(0, VanHomeView.grassEnds * scale - insets.top)
+                VStack(spacing: 0) {
+                    Spacer(minLength: 0)
+                    welcome
+                    Spacer(minLength: 0)
+                    enter
                 }
+                .padding(.top, grassEnds)
+                .frame(maxWidth: .infinity)
             }
-            .foregroundStyle(VanPalette.outline)
-            // At the accessibility sizes the words reach the canopy, so they sit on a plate there.
-            .padding(.horizontal, dynamicTypeSize.isAccessibilitySize ? 14 : 0)
-            .padding(.vertical, dynamicTypeSize.isAccessibilitySize ? 8 : 0)
-            .background {
-                if dynamicTypeSize.isAccessibilitySize {
-                    RoundedRectangle(cornerRadius: 22, style: .continuous).fill(VanPalette.cream.opacity(0.92))
-                }
+        }
+        .vanChrome()
+    }
+
+    /// The bottom of the grass in the picture, in its own pixels.
+    private static let grassEnds = 2150.0
+
+    private var welcome: some View {
+        VStack(spacing: 0) {
+            Text(model.greeting)
+                .font(.system(.title3, design: .rounded).weight(.bold))
+            Text(now, format: .dateTime.hour().minute())
+                .font(.system(size: 56, weight: .heavy, design: .rounded))
+                .minimumScaleFactor(0.6)
+                .lineLimit(1)
+            if !model.status.isEmpty {
+                Text(model.status)
+                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                    .multilineTextAlignment(.center)
             }
-            .padding(.top, 10)
-            .padding(.horizontal, 24)
-            Spacer(minLength: 0)
-            if let prompt {
-                Button(action: prompt.action) {
-                    Text(prompt.title)
-                        .font(.system(.subheadline, design: .rounded).weight(.heavy))
-                        .foregroundStyle(VanPalette.outline)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                        .modifier(VanPlate())
-                }
-                .buttonStyle(.plain)
-                .padding(.bottom, 10)
-            }
-            Button(action: onEnter) {
-                Text(model.enterTitle)
-                    .font(.system(.title3, design: .rounded).weight(.heavy))
+        }
+        .foregroundStyle(VanPalette.outline)
+        .padding(.horizontal, 24)
+    }
+
+    @ViewBuilder
+    private var enter: some View {
+        if let prompt {
+            Button(action: prompt.action) {
+                Text(prompt.title)
+                    .font(.system(.subheadline, design: .rounded).weight(.heavy))
                     .foregroundStyle(VanPalette.outline)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
-                    .frame(maxWidth: 260)
-                    .modifier(VanPlate(fill: VanPalette.goldLight))
+                    .modifier(VanPlate())
             }
             .buttonStyle(.plain)
-            .padding(.bottom, 20)
+            .padding(.bottom, 10)
         }
-        .vanChrome()
+        Button(action: onEnter) {
+            Text(model.enterTitle)
+                .font(.system(.title3, design: .rounded).weight(.heavy))
+                .foregroundStyle(VanPalette.outline)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .frame(maxWidth: 260)
+                .modifier(VanPlate(fill: VanPalette.goldLight))
+        }
+        .buttonStyle(.plain)
+        .padding(.bottom, 20)
     }
 
     @ViewBuilder

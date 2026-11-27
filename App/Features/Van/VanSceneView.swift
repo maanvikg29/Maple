@@ -49,7 +49,8 @@ struct VanSceneView: View {
                     onHerbarium: { router.showHerbarium() }, onProfile: onProfile, onTree: onTree, onStreak: onStreak
                 )
                 // The camera pushes in toward the van before the cut.
-                .scaleEffect(1 + pushIn * 0.9, anchor: UnitPoint(x: 0.55, y: 0.62))
+                // Toward the open side of the van, where the picture has it.
+                .scaleEffect(1 + pushIn * 0.9, anchor: UnitPoint(x: 0.47, y: 0.36))
                 .transition(.opacity)
             }
         }

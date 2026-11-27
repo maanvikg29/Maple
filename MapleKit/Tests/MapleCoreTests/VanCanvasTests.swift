@@ -32,6 +32,18 @@ struct VanCanvasTests {
         #expect(gauge.x == 360 && gauge.y == 440.5)
     }
 
+    @Test("Home is the concept picture at the top of a tall page: its full width, its corner at the screen's")
+    func homePicture() {
+        let canvas = VanCanvas.home
+        #expect(canvas.width == 1856 && VanCanvas.homePictureHeight == 2304)
+        // A phone's shape: the picture's width is the screen's, and the sky's colour carries on below it.
+        let scale = canvas.scale(width: 464, height: 1009)
+        #expect(scale == 0.25)
+        let corner = canvas.point(x: 0, y: 0, width: 464, height: 1009)
+        #expect(corner.x == 0 && corner.y == 0)
+        #expect(VanCanvas.homePictureHeight * scale < 1009 * 0.6)
+    }
+
     @Test("A screen with no size places everything at the origin instead of dividing by nothing")
     func empty() {
         let canvas = VanCanvas.workshop

@@ -198,11 +198,36 @@ struct RunningSessionView: View {
         }
     }
 
+    /// With the syrup van the running session is the maple with Pip in it; otherwise the dial.
+    @ViewBuilder
     private func running(_ model: RunningSessionModel, session: SessionRecord, now: Date) -> some View {
         let dimmed = FocusDimming.isDimmed(
             idleFor: now.timeIntervalSince(lastTouch ?? now), voiceOver: voiceOver, increasedContrast: contrast == .increased
         )
-        return SessionScreen(title: model.title, subtitle: model.restingLine, onMinimise: minimise) { diameter in
+        Group {
+            if collection.context.features.syrupVan {
+                VanTreeSessionView(
+                    title: model.title, subtitle: model.restingLine, time: model.remaining, caption: model.caption,
+                    spoken: model.spoken, endTitle: model.endPath.title, breakTitle: isTakingBreak ? nil : model.breakTitle,
+                    dimmed: dimmed, onMinimise: minimise, onEnd: takeEndPath, onBreak: takeBreak, controlsFocused: $controlsFocused
+                )
+            } else {
+                dialScreen(model, session: session, now: now, dimmed: dimmed)
+            }
+        }
+        .overlay {
+            if dimmed {
+                // While dimmed, the first touch only wakes the screen (§4.6).
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture(perform: wake)
+                    .accessibilityHidden(true)
+            }
+        }
+    }
+
+    private func dialScreen(_ model: RunningSessionModel, session: SessionRecord, now: Date, dimmed: Bool) -> some View {
+        SessionScreen(title: model.title, subtitle: model.restingLine, onMinimise: minimise) { diameter in
             dial(model, session: session, now: now, diameter: diameter, dimmed: dimmed)
         } lines: {
             if dynamicTypeSize.isAccessibilitySize {
@@ -241,15 +266,6 @@ struct RunningSessionView: View {
                 Button(model.endPath.title, action: takeEndPath)
                     .buttonStyle(.glassCapsule)
                     .accessibilityFocused($controlsFocused)
-            }
-        }
-        .overlay {
-            if dimmed {
-                // While dimmed, the first touch only wakes the screen (§4.6).
-                Color.clear
-                    .contentShape(Rectangle())
-                    .onTapGesture(perform: wake)
-                    .accessibilityHidden(true)
             }
         }
     }
