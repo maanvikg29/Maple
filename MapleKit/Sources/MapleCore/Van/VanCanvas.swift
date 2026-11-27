@@ -39,6 +39,13 @@ public struct VanCanvas: Sendable, Equatable {
         return ((screenWidth - width * scale) / 2 + (x - originX) * scale, (screenHeight - height * scale) / 2 + (y - originY) * scale)
     }
 
+    /// The other way: the place in the drawing that is under the screen's point (x, y).
+    public func source(x: Double, y: Double, width screenWidth: Double, height screenHeight: Double) -> (x: Double, y: Double) {
+        let scale = scale(width: screenWidth, height: screenHeight)
+        guard scale > 0 else { return (0, 0) }
+        return ((x - (screenWidth - width * scale) / 2) / scale + originX, (y - (screenHeight - height * scale) / 2) / scale + originY)
+    }
+
     /// A length in the drawing's units, on that screen.
     public func length(_ value: Double, width screenWidth: Double, height screenHeight: Double) -> Double {
         value * scale(width: screenWidth, height: screenHeight)

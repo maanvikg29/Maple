@@ -27,14 +27,21 @@ struct VanHomeView: View {
         let action: () -> Void
     }
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// How the picture is being looked at: pinched in, dragged about.
+    @State private var view = VanView.fit
+    /// Where it was when the fingers came down.
+    @State private var held: VanView?
+
     var body: some View {
         ZStack {
             // The picture is the concept art itself, untouched: its full width at the top of the screen, and its own
-            // sky colour carrying on below it, where the words are.
+            // sky colour carrying on below it, where the words are. It can be pinched closer and dragged about.
             GeometryReader { proxy in
                 let canvas = VanCanvas.home
                 let scale = canvas.scale(width: proxy.size.width, height: proxy.size.height)
                 let length = { (value: Double) in value * scale }
+                let shown = view.shown(width: proxy.size.width, height: proxy.size.height)
                 ZStack {
                     VanPalette.sky
                     Image("VanHomePicture")
@@ -42,28 +49,36 @@ struct VanHomeView: View {
                         .frame(width: length(canvas.width), height: length(VanCanvas.homePictureHeight))
                         .position(canvas.point(canvas.width / 2, VanCanvas.homePictureHeight / 2, in: proxy.size))
                         .accessibilityHidden(true)
-                    // The maple opens the tree and its leaves, as the old home's tree did: its canopy and trunk, in
-                    // the picture's own pixels.
-                    VanHotspot(width: length(1000), height: length(900), action: onTree)
+                    // For VoiceOver, which can't tap a place in a picture: the maple and the pot. (The timer and the
+                    // machines have their own buttons below.)
+                    spoken("Your maple", hint: "Opens the tree and its leaves", width: length(1000), height: length(900), action: onTree)
                         .position(canvas.point(500, 560, in: proxy.size))
-                        .accessibilityLabel("Your maple")
-                    // The van is the timer's button too, like the one below.
-                    VanHotspot(width: length(1400), height: length(1000), action: onEnter)
-                        .position(canvas.point(880, 1560, in: proxy.size))
-                        .accessibilityHidden(true)
-                    // The boiler in the corner: the machines.
-                    VanHotspot(width: length(190), height: length(300), action: onMachines)
-                        .position(canvas.point(990, 1130, in: proxy.size))
-                        .accessibilityHidden(true)
-                    // The pot on the stove cooks a leaf.
-                    VanHotspot(width: length(210), height: length(180), action: onCook)
-                        .position(canvas.point(764, 1220, in: proxy.size))
-                        .accessibilityLabel("Cooking pot")
-                        .accessibilityHint(model.potHint == nil ? "No leaves to cook" : "Cooks one leaf into syrup")
-                        .sensoryFeedback(.impact(weight: .light), trigger: cooked)
+                    spoken(
+                        "Cooking pot", hint: model.potHint == nil ? "No leaves to cook" : "Cooks one leaf into syrup",
+                        width: length(210), height: length(180), action: onCook
+                    )
+                    .position(canvas.point(764, 1220, in: proxy.size))
                 }
                 .frame(width: proxy.size.width, height: proxy.size.height)
+                // A tap is a place in the picture, wherever the picture has been moved to.
+                .contentShape(Rectangle())
+                .gesture(SpatialTapGesture().onEnded { tap in
+                    let at = canvas.source(x: tap.location.x, y: tap.location.y, width: proxy.size.width, height: proxy.size.height)
+                    switch VanHomeTarget.at(x: at.x, y: at.y) {
+                    case .pot: onCook()
+                    case .machines: onMachines()
+                    case .timer: onEnter()
+                    case .maple: onTree()
+                    case nil: break
+                    }
+                })
+                .scaleEffect(shown.zoom)
+                .offset(x: shown.x, y: shown.y)
+                .frame(width: proxy.size.width, height: proxy.size.height)
                 .clipped()
+                .contentShape(Rectangle())
+                .gesture(looking(in: proxy.size))
+                .sensoryFeedback(.impact(weight: .light), trigger: cooked)
             }
             .ignoresSafeArea()
             // The system's clock and battery are white: a soft shade keeps them readable on the canopy.
@@ -74,6 +89,48 @@ struct VanHomeView: View {
                 .allowsHitTesting(false)
             words
         }
+    }
+
+    /// Pinch to zoom about the fingers, drag to move; letting go settles the picture back inside its limits.
+    private func looking(in size: CGSize) -> some Gesture {
+        MagnifyGesture()
+            .simultaneously(with: DragGesture(minimumDistance: 8))
+            .onChanged { value in
+                let from = held ?? view
+                held = from
+                var next = from
+                if let pinch = value.first {
+                    next = next.zoomed(
+                        by: pinch.magnification, aroundX: pinch.startLocation.x, y: pinch.startLocation.y,
+                        width: size.width, height: size.height
+                    )
+                }
+                if let drag = value.second {
+                    next = next.moved(byX: drag.translation.width, y: drag.translation.height)
+                }
+                view = next
+            }
+            .onEnded { _ in
+                held = nil
+                let rest = view.settled(width: size.width, height: size.height)
+                if reduceMotion {
+                    view = rest
+                } else {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { view = rest }
+                }
+            }
+    }
+
+    /// A place in the picture that VoiceOver can find and press. Touches go to the picture's own tap, not to this.
+    private func spoken(_ label: String, hint: String, width: CGFloat, height: CGFloat, action: @escaping () -> Void) -> some View {
+        Color.clear
+            .frame(width: max(44, width), height: max(44, height))
+            .allowsHitTesting(false)
+            .accessibilityElement()
+            .accessibilityLabel(label)
+            .accessibilityHint(hint)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { action() }
     }
 
     private var words: some View {
@@ -108,7 +165,11 @@ struct VanHomeView: View {
                 let grassEnds = max(0, VanHomeView.grassEnds * scale - insets.top)
                 VStack(spacing: 0) {
                     Spacer(minLength: 0)
+                    // Zoomed in, the picture is under these words: they step aside until it is back.
                     welcome
+                        .opacity(view.isFit ? 1 : 0)
+                        .animation(.easeInOut(duration: 0.2), value: view.isFit)
+                        .accessibilityHidden(!view.isFit)
                     Spacer(minLength: 0)
                     enter
                 }

@@ -81,20 +81,3 @@ struct VanBackButton: View {
         .buttonStyle(.plain)
     }
 }
-
-/// A button with nothing drawn: the picture under it is the button (the pot, the logbook, the maple). The tap area is
-/// inside the label, because a button takes its taps from its label and a clear colour alone takes none.
-struct VanHotspot: View {
-    let width: CGFloat
-    let height: CGFloat
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Color.clear
-                .frame(width: max(44, width), height: max(44, height))
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-}
