@@ -42,28 +42,29 @@ struct VanWorkshopView: View {
                         .foregroundStyle(VanPalette.outline)
                         .frame(width: radius * 1.4, height: radius * 1.4)
                         .background(VanPalette.face, in: Circle())
+                        // The whole drawn gauge takes the tap, and never less than 44 points.
+                        .frame(width: max(44, radius * 2), height: max(44, radius * 2))
                         .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
-                .frame(width: max(44, radius * 2), height: max(44, radius * 2))
                 .position(canvas.point(720, 881, in: proxy.size))
                 .accessibilityLabel("Focus timer, \(gaugeText)")
-                .accessibilityHint("Opens the clock")
+                .accessibilityHint(model.gaugeHint)
 
-                Button(action: cook) { Color.clear }
-                    .frame(width: max(44, canvas.length(120, width: proxy.size.width, height: proxy.size.height)),
-                           height: max(44, canvas.length(90, width: proxy.size.width, height: proxy.size.height)))
-                    .contentShape(Rectangle())
-                    .position(canvas.point(361, 904, in: proxy.size))
+                VanHotspot(
+                    width: canvas.length(120, width: proxy.size.width, height: proxy.size.height),
+                    height: canvas.length(90, width: proxy.size.width, height: proxy.size.height), action: cook
+                )
+                .position(canvas.point(361, 904, in: proxy.size))
                     .accessibilityLabel("Cooking pot")
                     .accessibilityHint(workshop.leaves > 0 ? "Cooks one leaf into syrup" : "No leaves to cook")
                     .sensoryFeedback(.impact(weight: .light), trigger: cooked)
 
-                Button { showsHistory = true } label: { Color.clear }
-                    .frame(width: max(44, canvas.length(70, width: proxy.size.width, height: proxy.size.height)),
-                           height: max(44, canvas.length(60, width: proxy.size.width, height: proxy.size.height)))
-                    .contentShape(Rectangle())
-                    .position(canvas.point(764, 958, in: proxy.size))
+                VanHotspot(
+                    width: canvas.length(70, width: proxy.size.width, height: proxy.size.height),
+                    height: canvas.length(60, width: proxy.size.width, height: proxy.size.height)
+                ) { showsHistory = true }
+                .position(canvas.point(764, 958, in: proxy.size))
                     .accessibilityLabel("Logbook")
                     .accessibilityHint("Opens your study record")
             }
@@ -85,7 +86,7 @@ struct VanWorkshopView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
                 Spacer(minLength: 0)
-                Text(workshop.leaves > 0 ? "Tap the gauge to set the timer, or the pot to cook a leaf" : "Tap the gauge to set the timer")
+                Text(model.workshopHint)
                     .font(.system(.subheadline, design: .rounded).weight(.semibold))
                     .foregroundStyle(VanPalette.outline)
                     .multilineTextAlignment(.center)

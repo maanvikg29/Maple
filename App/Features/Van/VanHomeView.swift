@@ -7,11 +7,18 @@ struct VanHomeView: View {
     let model: VanHomeModel
     let now: Date
     let streak: Int
+    let prompt: Prompt?
     let onEnter: () -> Void
     let onHerbarium: () -> Void
     let onProfile: () -> Void
     let onTree: () -> Void
     let onStreak: () -> Void
+
+    /// One more thing to do from home, above the van's own button: a waiting leaf's reveal, or wind-down.
+    struct Prompt {
+        let title: String
+        let action: () -> Void
+    }
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -33,11 +40,11 @@ struct VanHomeView: View {
             GeometryReader { proxy in
                 // The canopy and the trunk, in the drawing's own units: left of the van's roof, above its door.
                 let canvas = VanCanvas.home
-                Button(action: onTree) { Color.clear }
-                    .frame(width: canvas.length(700, width: proxy.size.width, height: proxy.size.height),
-                           height: canvas.length(1000, width: proxy.size.width, height: proxy.size.height))
-                    .contentShape(Rectangle())
-                    .position(canvas.point(350, 400, in: proxy.size))
+                VanHotspot(
+                    width: canvas.length(700, width: proxy.size.width, height: proxy.size.height),
+                    height: canvas.length(1000, width: proxy.size.width, height: proxy.size.height), action: onTree
+                )
+                .position(canvas.point(350, 400, in: proxy.size))
                     .accessibilityLabel("Your maple")
             }
             .ignoresSafeArea()
@@ -57,16 +64,22 @@ struct VanHomeView: View {
 
     private var words: some View {
         VStack(spacing: 0) {
-            // One row when it fits; at large text sizes the counters go above the buttons.
+            // One row when it fits, tighter when the numbers are long; at large text sizes the counters go above the
+            // buttons.
             ViewThatFits(in: .horizontal) {
-                HStack(spacing: 10) {
-                    counters
+                HStack(spacing: 8) {
+                    counters(compact: false)
                     Spacer(minLength: 0)
-                    buttons
+                    buttons(compact: false)
+                }
+                HStack(spacing: 6) {
+                    counters(compact: true)
+                    Spacer(minLength: 0)
+                    buttons(compact: true)
                 }
                 VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 10) { counters }
-                    HStack(spacing: 10) { buttons }
+                    HStack(spacing: 8) { counters(compact: false) }
+                    HStack(spacing: 8) { buttons(compact: false) }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -97,6 +110,18 @@ struct VanHomeView: View {
             .padding(.top, 10)
             .padding(.horizontal, 24)
             Spacer(minLength: 0)
+            if let prompt {
+                Button(action: prompt.action) {
+                    Text(prompt.title)
+                        .font(.system(.subheadline, design: .rounded).weight(.heavy))
+                        .foregroundStyle(VanPalette.outline)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .modifier(VanPlate())
+                }
+                .buttonStyle(.plain)
+                .padding(.bottom, 10)
+            }
             Button(action: onEnter) {
                 Text(model.enterTitle)
                     .font(.system(.title3, design: .rounded).weight(.heavy))
@@ -112,14 +137,16 @@ struct VanHomeView: View {
         .vanChrome()
     }
 
-    @ViewBuilder private var counters: some View {
-        if let leaves = model.leavesText { VanCounter(value: leaves, image: "leaf.fill", label: "leaves") }
-        if let syrup = model.syrupText { VanCounter(value: syrup, image: "drop.fill", label: "bottles of syrup") }
+    @ViewBuilder
+    private func counters(compact: Bool) -> some View {
+        if let leaves = model.leavesText { VanCounter(value: leaves, image: "leaf.fill", label: "leaves", compact: compact) }
+        if let syrup = model.syrupText { VanCounter(value: syrup, image: "drop.fill", label: "bottles of syrup", compact: compact) }
     }
 
-    @ViewBuilder private var buttons: some View {
+    @ViewBuilder
+    private func buttons(compact: Bool) -> some View {
         if streak >= 2 {
-            Button(action: onStreak) { VanCounter(value: "\(streak)", image: "flame.fill", label: "day streak") }
+            Button(action: onStreak) { VanCounter(value: "\(streak)", image: "flame.fill", label: "day streak", compact: compact) }
                 .buttonStyle(.plain)
         }
         roundButton("book.closed.fill", label: "Herbarium", action: onHerbarium)

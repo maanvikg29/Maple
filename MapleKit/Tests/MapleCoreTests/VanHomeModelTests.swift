@@ -4,16 +4,52 @@ import Testing
 
 @Suite("The van's home view: its words")
 struct VanHomeModelTests {
-    private func model(_ phase: NowPhase = .day, leaves: Int = 0, syrup: Int = 0, available: Bool = true, left: Int? = nil) -> VanHomeModel {
-        VanHomeModel(phase: phase, leaves: leaves, syrupTenths: syrup, isAvailable: available, minutesLeft: left)
+    private func model(
+        _ phase: NowPhase = .day, hour: Int = 15, leaves: Int = 0, syrup: Int = 0, available: Bool = true, left: Int? = nil
+    ) -> VanHomeModel {
+        VanHomeModel(phase: phase, hour: hour, leaves: leaves, syrupTenths: syrup, isAvailable: available, minutesLeft: left)
     }
 
-    @Test("The greeting follows the member's own day", arguments: [
-        (NowPhase.morning, "Good morning"), (.day, "Good afternoon"), (.evening, "Good evening"), (.windDown, "Winding down"),
-        (.night, "Good night"),
+    @Test("The end of the day follows the member's own schedule: evening, winding down, night", arguments: [
+        (NowPhase.evening, "Good evening"), (.windDown, "Winding down"), (.night, "Good night"),
     ])
     func greeting(phase: NowPhase, words: String) {
-        #expect(model(phase).greeting == words)
+        #expect(model(phase, hour: 22).greeting == words)
+    }
+
+    @Test("Before the evening the greeting follows the clock, so 10 in the morning never reads afternoon")
+    func greetingByTheClock() {
+        // Up at 7: the schedule's day starts at 10, and it is still the morning.
+        #expect(model(.day, hour: 10).greeting == "Good morning")
+        #expect(model(.morning, hour: 7).greeting == "Good morning")
+        // Up at noon: the schedule's morning runs to 3 in the afternoon.
+        #expect(model(.morning, hour: 13).greeting == "Good afternoon")
+        #expect(model(.day, hour: 12).greeting == "Good afternoon")
+        #expect(model(.day, hour: 17).greeting == "Good afternoon")
+        #expect(model(.day, hour: 18).greeting == "Good evening")
+        #expect(model(.day, hour: 99).greeting == "Good evening")
+        #expect(model(.day, hour: -3).greeting == "Good morning")
+    }
+
+    @Test("In the workshop one line says what the gauge does now, and carries the time left while a session runs")
+    func workshop() {
+        #expect(model(leaves: 0).workshopHint == "Tap the gauge to set the timer")
+        #expect(model(leaves: 3).workshopHint == "Tap the gauge to set the timer, or the pot to cook a leaf")
+        let running = model(leaves: 3, left: 32)
+        #expect(running.workshopHint == "Session running · \(FocusTimeText.length(minutes: 32)) left. Tap the gauge to go back to it")
+        #expect(!running.workshopHint.contains("leaf"))
+        #expect(model().gaugeHint == "Opens the clock")
+        #expect(running.gaugeHint == "Returns to your session")
+        #expect(model(leaves: 3, available: false).workshopHint == "Tap the gauge to set the timer")
+    }
+
+    @Test("Home still offers the reveal and wind-down, which the tree home's one button did; the van's own button is the timer's")
+    func prompts() {
+        #expect(NowState.Action.openReveals(count: 2).showsOnVan)
+        #expect(NowState.Action.startWindDown.showsOnVan)
+        #expect(NowState.Action.returnToWindDown.showsOnVan)
+        #expect(!NowState.Action.returnToSession.showsOnVan)
+        #expect(!NowState.Action.turnOnBlocking.showsOnVan)
     }
 
     @Test("One line says what is waiting: no leaves, one leaf, several")

@@ -87,6 +87,61 @@ struct ClockSettingTests {
         #expect(long.minutes == 180)
     }
 
+    @Test("Spinning on past 3 hours keeps the hand at 3 hours at every step of the way, not only at the end")
+    func spinningPastTheTop() {
+        var clock = ClockSetting(minutes: 170)
+        var seen: [Int] = []
+        // Three more turns clockwise, a touch every 5 minutes of the face.
+        for step in 1 ... 36 * 3 {
+            clock.turn(toAngle: Double(170 % 60 + step * 5) * 6)
+            seen.append(clock.minutes)
+        }
+        #expect(seen.prefix(3) == [175, 180, 180])
+        #expect(seen.dropFirst(1).allSatisfy { $0 == 180 })
+    }
+
+    @Test("Spinning back past 20 minutes keeps the hand at 20 minutes at every step")
+    func spinningPastTheBottom() {
+        var clock = ClockSetting(minutes: 30)
+        var seen: [Int] = []
+        for step in 1 ... 36 * 3 {
+            clock.turn(toAngle: Double(30 - step * 5) * 6)
+            seen.append(clock.minutes)
+        }
+        #expect(seen.prefix(3) == [25, 20, 20])
+        #expect(seen.dropFirst(1).allSatisfy { $0 == 20 })
+    }
+
+    @Test("After spinning past the limit, the hand moves again when the finger comes back round to it")
+    func comingBack() {
+        var clock = ClockSetting(minutes: 180)
+        // A quarter turn past the top: the hand waits at 12.
+        for minute in [5, 10, 15] { clock.turn(toAngle: Double(minute) * 6) }
+        #expect(clock.minutes == 180)
+        // Back to the hand: still 3 hours. Past it: the length comes down.
+        for minute in [10, 5, 0] { clock.turn(toAngle: Double(minute) * 6) }
+        #expect(clock.minutes == 180)
+        clock.turn(toAngle: 55 * 6)
+        #expect(clock.minutes == 175)
+    }
+
+    @Test("Lifting the finger forgets how far past the limit it went, so the next touch starts from the hand")
+    func settling() {
+        var clock = ClockSetting(minutes: 180)
+        for minute in [5, 10, 15, 20, 25] { clock.turn(toAngle: Double(minute) * 6) }
+        clock.settle()
+        // A new touch at 8 on the face: the shortest way from 12 is 20 minutes back.
+        clock.turn(toAngle: 40 * 6)
+        #expect(clock.minutes == 160)
+    }
+
+    @Test("The long hand's turn keeps counting past each hour, so it never swings back the long way at 12")
+    func turnKeepsCounting() {
+        #expect(ClockSetting(minutes: 55).minuteTurn == 330)
+        #expect(ClockSetting(minutes: 60).minuteTurn == 360)
+        #expect(ClockSetting(minutes: 90).minuteTurn == 540)
+    }
+
     @Test("The minus and plus buttons move 5 minutes and stop at the limits")
     func nudging() {
         var moved = false

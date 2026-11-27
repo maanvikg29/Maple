@@ -1,6 +1,6 @@
 # The syrup van: design
 
-Status: **approved by the owner on 2026-11-26** ("yes to all, drop the tab bar"). Nothing in this document is built yet. The build plans are in `docs/superpowers/plans/`.
+Status: **approved by the owner on 2026-11-26** ("yes to all, drop the tab bar"). Steps 2 and 3 of §12 are built (the economy, and the scene with the clock timer); the rest is not. The build plans are in `docs/superpowers/plans/`.
 
 Every rule below carries one of two marks:
 - **Decided**: the owner chose it in the 2026-11-26 design conversation.

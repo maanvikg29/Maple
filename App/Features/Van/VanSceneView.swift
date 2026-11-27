@@ -7,6 +7,8 @@ import SwiftUI
 struct VanSceneView: View {
     let now: Date
     let streak: Int
+    /// The reveal or wind-down, when the tree home's one button would have offered it now (`NowState.Action.showsOnVan`).
+    let prompt: VanHomeView.Prompt?
     let onProfile: () -> Void
     let onTree: () -> Void
     let onStreak: () -> Void
@@ -18,6 +20,8 @@ struct VanSceneView: View {
     @Environment(WorkshopStore.self) private var workshop
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage("van.lastFullEntrance") private var lastFullEntrance = 0.0
+    /// The length last set on the clock, which the gauge shows (`ClockTimerView` writes it).
+    @AppStorage("van.minutes") private var savedMinutes = 0
     @State private var isInside = VanSceneView.startsInside
     @State private var pushIn = 0.0
 
@@ -25,10 +29,11 @@ struct VanSceneView: View {
         let running = sessions.running
         let minutesLeft = running.map { max(0, Int(($0.plannedEnd.timeIntervalSince(now) / 60).rounded(.up))) }
         let model = VanHomeModel(
-            phase: collection.phase(at: now), leaves: workshop.leaves, syrupTenths: workshop.syrupTenths,
-            isAvailable: workshop.isAvailable, minutesLeft: minutesLeft
+            phase: collection.phase(at: now), hour: collection.context.calendar.component(.hour, from: now),
+            leaves: workshop.leaves, syrupTenths: workshop.syrupTenths, isAvailable: workshop.isAvailable, minutesLeft: minutesLeft
         )
-        let length = presets.presets.first { $0.id == presets.lastUsedID }?.minutes ?? presets.presets.first?.minutes ?? 50
+        let preset = presets.presets.first { $0.id == presets.lastUsedID } ?? presets.presets.first
+        let length = VanTimer.length(saved: savedMinutes, preset: preset?.minutes)
         ZStack {
             if isInside {
                 VanWorkshopView(
@@ -39,7 +44,7 @@ struct VanSceneView: View {
                 .transition(.opacity)
             } else {
                 VanHomeView(
-                    model: model, now: now, streak: streak,
+                    model: model, now: now, streak: streak, prompt: prompt,
                     onEnter: { running == nil ? move(inside: true) : openTimer() },
                     onHerbarium: { router.showHerbarium() }, onProfile: onProfile, onTree: onTree, onStreak: onStreak
                 )
@@ -65,9 +70,10 @@ struct VanSceneView: View {
     private func openTimer() {
         if sessions.running != nil {
             router.showFocus(.returnToSession)
-        } else {
+        } else if sessions.isLoaded, sessions.isLedgerReadable {
             router.selectedTab = .focus
         }
+        // Until the sessions have been read there is no clock to show (`FocusRoute.settling`): the tap does nothing.
     }
 
     private func move(inside: Bool) {

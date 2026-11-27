@@ -9,9 +9,18 @@ The owner approved the home view, Pip and the workshop's angle ("yes to all, bui
 - **The workshop is seen straight on from the front at eye level.** The owner was shown five front views, tried "between 2 and 3" and settled on the first ("actually 1 works"). It is the home view's own room under a second camera, so furniture placed once shows in both views.
 - **The clock stands in the Focus tab's start route.** The gauge opens it; a drawn analog clock sets 20 minutes to 3 hours in 5-minute steps, with minus and plus buttons and VoiceOver's adjust for setting it without dragging. It shows the length only: no leaf count, no rate.
 - **A van session is always Gentle with no break.** It is made by copying the member's last preset (so its app list and subject carry on), because a start still needs a preset. There are no presets, breaks or strictness levels on the clock's screen. With block mode off, or in a free-tier build without Apple's Family Controls permission, it starts a plain timer.
-- **The art is drawn in code** (`Scripts/art/vanart/`) and generated into the asset catalog as layers, so Pip, the smoke and the leaves can move by themselves. A check fails when the catalog and the generator differ.
+- **The art is drawn in code** (`Scripts/art/vanart/`) and generated into the asset catalog as layers, so Pip, the smoke and the leaves can move by themselves. `Scripts/art/check-van-art.sh` regenerates and fails when a committed image set has changed; it does not notice a new image set that was never added to git.
 - **The words over the scene stop growing at the second accessibility size.** Larger, each plate broke into one letter a line and covered the scene. The clock timer's rows grow all the way.
 - **What step 3 leaves on today's screens:** the running session, End early and the receipt. The tree view, the falling leaves, the walk back and the summary are step 4.
+- **After the final review** (one critical and eleven important findings, all about how the new screens meet the old ones):
+  - **The receipt's "Again" is not offered with the van.** It started the member's old preset (its break, its strictness), or opened the start screen, which the clock has replaced. The summary replaces the receipt in step 4.
+  - **Minimising a session goes home to the van** and nothing stays minimised: the Focus tab keeps the session's screen, so anything that selects that tab again finds the session, never a blank page.
+  - **The hand waits at a limit** however far the finger spins on, and moves again when the finger comes back round to it.
+  - **The clock remembers the length last set** (`van.minutes`), and the gauge shows that same length. Why: presets can no longer be edited, so without it a member who always studies 90 minutes would turn the clock every time.
+  - **Block mode has five states** (`VanBlocking`): not in this build, Screen Time off (the row turns it on), off, on with no apps (the row and Start open the app list), on.
+  - **Home still offers the reveal and wind-down** as a small button above "Open the van", when the tree home's one button would have (`NowState.Action.showsOnVan`).
+  - **The greeting follows the clock before the evening,** so 10 in the morning never reads "Good afternoon"; the evening, winding down and night still follow the member's schedule.
+  - **Not on the van's home yet, and for the owner to place:** Saved today (still opened from a receipt), the next-leaf row with its Apple Health "Turn on", and the no-sleep hint. The design's §9 says they stay but not where.
 
 ## 2026-11-26 — The syrup van: the economy's rules (logic only, no screens yet)
 The owner approved the syrup van design (`docs/superpowers/specs/2026-11-26-syrup-van-design.md`) with "yes to all, drop the tab bar". This entry covers its step 2, the economy; nothing is on screen yet.

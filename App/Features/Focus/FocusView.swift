@@ -17,6 +17,10 @@ import MapleServices
 ///   remembers the plain timer once picked, so from then on its Focus tab goes straight to the plain timer's start
 ///   screen; a build that can block asks again after each start, since Screen Time may be turned on (owner, 2026-10-29).
 ///
+/// With the syrup van as home (`ShippedFeatures.syrupVan`) the clock (`ClockTimerView`) stands where the start screen
+/// and Needs Screen Time stood, a minimised session goes home to the van instead of to the start screen, and closing a
+/// receipt goes home too. The running session, its break and the receipt are the same screens either way.
+///
 /// Cross-tab requests arrive through `AppRouter.focusRequest` and are applied once. The tab's own choices live in
 /// `FocusTabState`, which every Focus screen reads from the environment, and its one sheet is `FocusTabState.sheet`.
 struct FocusView: View {
@@ -46,6 +50,13 @@ struct FocusView: View {
         let _ = tick
         destination(route, now: now)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // With the van, minimising a session is going home to the van, where the gauge and the button lead back
+            // (syrup van design §6.5). The tab keeps the session's screen, so whatever selects it again finds it there.
+            .onChange(of: tab.isMinimised, initial: true) { _, minimised in
+                guard minimised, collection.context.features.syrupVan else { return }
+                tab.isMinimised = false
+                router.selectedTab = .home
+            }
             // With the van, closing a receipt goes home to the van, not to the clock.
             .onChange(of: route) { old, new in
                 guard collection.context.features.syrupVan, case .receipt = old, new == .start || new == .needsScreenTime else { return }
@@ -90,7 +101,14 @@ struct FocusView: View {
     private func destination(_ route: FocusRoute, now: Date) -> some View {
         switch route {
         case .settling:
+            // Nothing to draw yet. With the van there is no tab bar to leave by, so the way home is always there.
             Color.clear
+                .overlay(alignment: .topLeading) {
+                    if collection.context.features.syrupVan {
+                        VanBackButton(title: "Van") { router.selectedTab = .home }
+                            .padding(16)
+                    }
+                }
         case .start, .needsScreenTime:
             // With the van, the clock stands where the start screen stood, and starts a plain timer when Maple can't
             // block (syrup van design §6.4).
@@ -103,8 +121,10 @@ struct FocusView: View {
             }
         case .minimised(let id):
             if collection.context.features.syrupVan {
-                // A minimised session waits on the van's gauge (§6.5).
-                Color.clear.onAppear { router.selectedTab = .home }
+                // With the van nothing stays minimised (see `leaveForVan`): the session's screen holds for the frame
+                // before home shows.
+                RunningSessionView(sessionID: id)
+                    .id(id)
             } else {
                 FocusStartView(minimised: id)
             }

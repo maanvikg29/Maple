@@ -7,13 +7,20 @@ import Foundation
 /// step (`DialLayout`).
 public struct ClockSetting: Sendable, Equatable {
     public private(set) var minutes: Int
+    /// Where the finger has turned the hand to during a drag. It can run up to a turn past a limit while the hand waits
+    /// there, so the hand stays put however far the finger spins on, and moves again when the finger comes back to it.
+    private var wanted: Int
 
     public init(minutes: Int) {
         self.minutes = Self.allowed(minutes)
+        wanted = self.minutes
     }
 
     /// The long hand, in degrees clockwise from 12.
     public var minuteAngle: Double { Double(minutes % 60) * 6 }
+    /// The long hand's whole turn since zero, for drawing: it keeps counting past each hour (1 hour is 360), so an
+    /// animation from 0:55 to 1:00 goes forward through 12 and not back the long way.
+    public var minuteTurn: Double { Double(minutes) * 6 }
     /// The short hand, in degrees clockwise from 12: 30 degrees an hour.
     public var hourAngle: Double { Double(minutes) * 0.5 }
     /// The digits in the hub: "0:50", "1:30".
@@ -35,16 +42,26 @@ public struct ClockSetting: Sendable, Equatable {
         let wrapped = (degrees.truncatingRemainder(dividingBy: 360) + 360).truncatingRemainder(dividingBy: 360)
         let step = DialLayout.stepMinutes
         let target = (Int((wrapped / 6 / Double(step)).rounded()) * step) % 60
-        var delta = (target - minutes % 60 + 60) % 60
+        let position = (wanted % 60 + 60) % 60
+        var delta = (target - position + 60) % 60
         if delta >= 30 { delta -= 60 }
-        return set(minutes + delta)
+        // One turn of slack past each limit is enough: half a turn ahead of the hand is the most a touch can be.
+        wanted = min(max(wanted + delta, DialLayout.minimumMinutes - 60), DialLayout.maximumMinutes + 60)
+        return set(wanted)
+    }
+
+    /// The finger has lifted: the next touch starts from where the hand is.
+    public mutating func settle() {
+        wanted = minutes
     }
 
     /// Moves by whole steps of 5 minutes: the minus and plus buttons, and VoiceOver's adjust.
     @discardableResult
     public mutating func nudge(_ steps: Int) -> Bool {
         let (moved, overflow) = steps.multipliedReportingOverflow(by: DialLayout.stepMinutes)
-        return set(overflow ? (steps < 0 ? DialLayout.minimumMinutes : DialLayout.maximumMinutes) : minutes + moved)
+        let changed = set(overflow ? (steps < 0 ? DialLayout.minimumMinutes : DialLayout.maximumMinutes) : minutes + moved)
+        wanted = minutes
+        return changed
     }
 
     /// The angle of a touch `dx` to the right of and `dy` below the clock's centre, clockwise from 12.

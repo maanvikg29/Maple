@@ -14,12 +14,21 @@ struct ClockTimerView: View {
     @Environment(SubjectStore.self) private var subjects
     @Environment(AppSettings.self) private var settings
     @Environment(AppRouter.self) private var router
+    @Environment(NotificationScheduler.self) private var reminders
     @AppStorage("van.blocksApps") private var wantsBlock = true
+    /// The length last set, which the gauge shows too (`VanSceneView`); 0 until the clock has been turned.
+    @AppStorage("van.minutes") private var savedMinutes = 0
     @State private var setting = ClockSetting(minutes: 50)
     @State private var notice: String?
 
     private var base: FocusPreset? { presets.presets.first { $0.id == presets.lastUsedID } ?? presets.presets.first }
-    private var canBlock: Bool { sessions.blocking.capability.canBlock && sessions.probe.isAllowed }
+
+    private func blocking(_ appSet: AppSet?) -> VanBlocking {
+        VanBlocking(
+            buildCanBlock: sessions.blocking.capability.canBlock, isAllowed: sessions.probe.isAllowed, wantsBlock: wantsBlock,
+            hasApps: !(appSet?.summary.isEmpty ?? true)
+        )
+    }
 
     var body: some View {
         let preset = VanTimer.preset(from: base)
@@ -42,7 +51,7 @@ struct ClockTimerView: View {
                         }
                     }
                     .frame(maxWidth: 420)
-                    options(preset: preset, hasApps: appSet != nil)
+                    options(preset: preset, blocking: blocking(appSet))
                     if let notice {
                         Text(notice)
                             .font(.system(.footnote, design: .rounded).weight(.semibold))
@@ -67,30 +76,38 @@ struct ClockTimerView: View {
             .scrollBounceBehavior(.basedOnSize)
         }
         .toolbarVisibility(.hidden, for: .navigationBar)
-        .onAppear { setting = ClockSetting(minutes: tab.minutes ?? base?.minutes ?? 50) }
-        .onChange(of: setting.minutes) { _, minutes in tab.minutes = minutes }
+        .onAppear { setting = ClockSetting(minutes: VanTimer.length(saved: savedMinutes, preset: base?.minutes)) }
+        .onChange(of: setting.minutes) { _, minutes in savedMinutes = minutes }
     }
 
-    private func options(preset: FocusPreset, hasApps: Bool) -> some View {
+    private func options(preset: FocusPreset, blocking: VanBlocking) -> some View {
         VStack(spacing: 0) {
             Button { tab.selectedPresetID = preset.id; tab.sheet = .subject } label: {
                 row("Subject", value: subjects.name(for: tab.subjectID(preset: preset.id, subjects: subjects)) ?? "None")
             }
             .buttonStyle(.plain)
             Divider().overlay(VanPalette.outline.opacity(0.25))
-            Toggle(isOn: Binding(get: { canBlock && wantsBlock }, set: { wantsBlock = $0 })) {
+            Toggle(isOn: Binding(get: { blocking.canSwitch && wantsBlock }, set: { wantsBlock = $0 })) {
                 Text("Block mode")
                     .font(.system(.body, design: .rounded).weight(.bold))
                     .foregroundStyle(VanPalette.outline)
             }
             .tint(VanPalette.syrup)
-            .disabled(!canBlock)
+            .disabled(!blocking.canSwitch)
             .padding(.vertical, 12)
-            Button { tab.selectedPresetID = preset.id; tab.sheet = .blocking } label: {
-                row(VanTimer.blockingLine(canBlock: canBlock, wantsBlock: wantsBlock, hasApps: hasApps), value: canBlock && wantsBlock ? "Change" : "")
+            Button {
+                if blocking == .needsScreenTime {
+                    // Apple's own prompt, asked once; after that iOS sends the member to Settings.
+                    Task { _ = await sessions.requestAuthorization() }
+                } else {
+                    tab.selectedPresetID = preset.id
+                    tab.sheet = .blocking
+                }
+            } label: {
+                row(blocking.line, value: blocking.rowAction ?? "")
             }
             .buttonStyle(.plain)
-            .disabled(!(canBlock && wantsBlock))
+            .disabled(blocking.rowAction == nil)
         }
         .padding(.horizontal, 16)
         .background(VanPalette.cream, in: RoundedRectangle(cornerRadius: 22))
@@ -150,13 +167,15 @@ struct ClockTimerView: View {
 
     private func start(preset: FocusPreset, appSet: AppSet?) {
         guard let focusStores, !sessions.isStarting else { return }
-        let plain = !(canBlock && wantsBlock)
+        let blocking = blocking(appSet)
         // Block mode with no apps chosen: choosing them comes first.
-        if !plain, appSet == nil {
+        if blocking == .chooseApps {
             tab.selectedPresetID = preset.id
             tab.sheet = .blocking
             return
         }
+        let plain = blocking.startsPlainTimer
+        let isFirstStart = !settings.hasStartedFocus
         let request = FocusSessionStore.StartRequest(
             preset: preset, minutes: setting.minutes, appSet: plain ? nil : appSet, plainTimer: plain, from: .focusTab,
             subject: tab.subjectID(preset: preset.id, subjects: subjects)
@@ -166,8 +185,11 @@ struct ClockTimerView: View {
             switch await focusStores.start(request, intention: nil, settings: settings) {
             case .started(let id):
                 tab.lastStarted = id
-                tab.minutes = nil
                 tab.subjectPick = nil
+                // F1-23: asked once, at the first start, if iOS hasn't asked yet; never on a demo launch.
+                if isFirstStart, reminders.schedulesReminders, reminders.authorization == .notDetermined {
+                    await reminders.requestAuthorization()
+                }
             case .alreadyRunning:
                 break
             case .blockingFailed:

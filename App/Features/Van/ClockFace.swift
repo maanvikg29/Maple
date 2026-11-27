@@ -55,7 +55,7 @@ struct ClockFace: View {
                 ticks(side: side)
                 drops(side: side)
                 hand(length: side * 0.2, width: side * 0.042, angle: setting.hourAngle, side: side)
-                hand(length: side * 0.32, width: side * 0.03, angle: setting.minuteAngle, side: side)
+                hand(length: side * 0.32, width: side * 0.03, angle: setting.minuteTurn, side: side)
                 // The hub, with the length in it.
                 Circle().fill(VanPalette.outline).frame(width: side * 0.3, height: side * 0.3)
                 Circle().fill(VanPalette.cream).frame(width: side * 0.272, height: side * 0.272)
@@ -78,6 +78,7 @@ struct ClockFace: View {
                         guard (dx * dx + dy * dy).squareRoot() > side * 0.16 else { return }
                         setting.turn(toAngle: ClockSetting.angle(dx: dx, dy: dy))
                     }
+                    .onEnded { _ in setting.settle() }
             )
             .animation(.snappy(duration: 0.18), value: setting.minutes)
             .sensoryFeedback(.selection, trigger: setting.minutes)
