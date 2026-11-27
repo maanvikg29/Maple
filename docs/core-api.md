@@ -327,6 +327,7 @@ The views are in `App/Features/Van/`; their logic is pure and lives in `MapleCor
 - **Text sizes.** The words over the scene use `vanChrome()`: they grow to the second accessibility size and stop, because larger they cover the picture. The clock timer's rows grow all the way and the page scrolls.
 - **Minimising** a session selects the home tab and leaves nothing minimised (`FocusView`), so the Focus tab always holds the session's screen while one runs. The receipt has no "Again" with the van (`ReceiptFlow.offersAgain`).
 - **Picture buttons** with nothing drawn (the pot, the logbook, the maple) are `VanHotspot`: the tap area must be inside the button's label.
+- **Machines.** `VanUpgradesView` (the wrench button and the boiler's dome in the workshop) lists each machine from `VanUpgradesModel(leaves:levels:tuning:)` and buys a level with `workshop.upgrade(_:)`. Every number on it comes from `WorkshopTuning`.
 - **Still on the old screens** until step 4: the running session, End early and the receipt.
 
 ## Files, unlocks and time zones

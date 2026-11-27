@@ -16,6 +16,7 @@ struct VanWorkshopView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var breathes = false
     @State private var showsHistory = false
+    @State private var showsMachines = false
     @State private var cooked = 0
 
     var body: some View {
@@ -60,6 +61,15 @@ struct VanWorkshopView: View {
                     .accessibilityHint(workshop.leaves > 0 ? "Cooks one leaf into syrup" : "No leaves to cook")
                     .sensoryFeedback(.impact(weight: .light), trigger: cooked)
 
+                // The boiler's dome, above its gauge: the machines.
+                VanHotspot(
+                    width: canvas.length(130, width: proxy.size.width, height: proxy.size.height),
+                    height: canvas.length(110, width: proxy.size.width, height: proxy.size.height)
+                ) { showsMachines = true }
+                .position(canvas.point(748, 770, in: proxy.size))
+                .accessibilityLabel("Machines")
+                .accessibilityHint("Opens the upgrades")
+
                 VanHotspot(
                     width: canvas.length(70, width: proxy.size.width, height: proxy.size.height),
                     height: canvas.length(60, width: proxy.size.width, height: proxy.size.height)
@@ -72,14 +82,18 @@ struct VanWorkshopView: View {
             VStack {
                 // One row when it fits; at large text sizes the counters go under the way out.
                 ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 10) {
+                    HStack(spacing: 8) {
                         VanBackButton(title: "Outside", action: onBack)
                         Spacer(minLength: 0)
                         counters
+                        machinesButton
                     }
                     VStack(alignment: .leading, spacing: 8) {
                         VanBackButton(title: "Outside", action: onBack)
-                        HStack(spacing: 10) { counters }
+                        HStack(spacing: 8) {
+                            counters
+                            machinesButton
+                        }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -103,10 +117,29 @@ struct VanWorkshopView: View {
         .sheet(isPresented: $showsHistory) {
             NavigationStack { HistoryView() }
         }
+        .sheet(isPresented: $showsMachines) {
+            VanUpgradesView()
+                .presentationDetents([.large])
+        }
     }
 
     private func cook() {
         if workshop.cook() > 0 { cooked += 1 }
+    }
+
+    /// The machines, as a button that can be seen: the boiler's dome opens them too.
+    private var machinesButton: some View {
+        Button { showsMachines = true } label: {
+            Image(systemName: "wrench.and.screwdriver.fill")
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(VanPalette.outline)
+                .frame(width: 44, height: 44)
+                .background(VanPalette.cream, in: Circle())
+                .overlay(Circle().strokeBorder(VanPalette.outline, lineWidth: 2.5))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Machines")
+        .accessibilityHint("Opens the upgrades")
     }
 
     @ViewBuilder private var counters: some View {

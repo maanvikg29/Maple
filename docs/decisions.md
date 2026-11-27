@@ -2,6 +2,9 @@
 
 Newest first. Each entry: what was decided, why, and what it affects.
 
+## 2026-11-27 — The syrup van: the machines screen (upgrades)
+The owner, after seeing step 3: "theres no upgrade syrup production feature". The rules were built in step 2 with no screen. Now the workshop has a wrench button (and the boiler's dome) that opens "Machines": what a leaf cooks into now, and for each machine its level, what it adds, what the next level adds and costs, and one button that spends the leaves. A machine the van can't pay for says how many leaves are still to go. The machines don't change how they look yet (design §7, Proposed), and the prices are still the starting values (§14).
+
 ## 2026-11-26 — The syrup van: the scene and the clock timer (step 3)
 The owner approved the home view, Pip and the workshop's angle ("yes to all, build step 3"). This entry covers step 3 of the design (`docs/superpowers/specs/2026-11-26-syrup-van-design.md` §12); the plan is `docs/superpowers/plans/2026-11-26-syrup-van-scene.md`.
 - **The van is home, behind one switch.** `ShippedFeatures.syrupVan` is on in `.current`. The tree home, the tab bar and the Focus tab's start screen stay in the code and come back with DEBUG `-MapleDemoShip f1`. Why: the van replaces the app's front door in steps, and the old screens are the way to compare and to fall back.
