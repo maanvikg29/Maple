@@ -1,7 +1,7 @@
 import MapleDesign
 import SwiftUI
 
-/// The van's colours, the same values the art is drawn with (`Scripts/art/vanart/core.py`).
+/// The van's colours, sampled from the concept picture.
 enum VanPalette {
     static let sky = Color(hex: 0xFFDDC2)
     static let outline = Color(hex: 0x3A1C0E)

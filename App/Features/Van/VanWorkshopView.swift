@@ -3,11 +3,14 @@ import MapleDesign
 import MapleServices
 import SwiftUI
 
-/// The workshop: the van's cut-away room, seen from the front (syrup van design §5.2). The gauge is the Focus button, the pot
-/// cooks a leaf, and the logbook opens History.
+/// The workshop: the concept picture closer in, turned a little toward the front (syrup van design §5.2). The dial on
+/// the boiler is the Focus button, the pot cooks a leaf, and the top row opens the machines and the study record.
+///
+/// The room is the concept picture's own pixels (`Scripts/art/concept/build_concept_art.py`); Pip is laid over it
+/// upright and untouched. The points below are in that picture's units (`VanCanvas.workshop`), printed by the script.
 struct VanWorkshopView: View {
     let model: VanHomeModel
-    /// The gauge's face: the length that would start, or the time left while a session runs.
+    /// The dial's face: the length that would start, or the time left while a session runs.
     let gaugeText: String
     let onGauge: () -> Void
     let onBack: () -> Void
@@ -22,77 +25,82 @@ struct VanWorkshopView: View {
     var body: some View {
         ZStack {
             VanPalette.sky.ignoresSafeArea()
-            VanLayers(canvas: .workshop, names: ["VanWorkshopRoom", "VanWorkshopSteam", "VanWorkshopSmoke", "VanWorkshopPip"]) { name, image in
-                switch name {
-                case "VanWorkshopPip": image.offset(y: breathes ? -3 : 0)
-                case "VanWorkshopSteam": image.offset(y: breathes ? -6 : 0).opacity(breathes ? 0.7 : 1)
-                case "VanWorkshopSmoke": image.offset(x: breathes ? 4 : -1, y: breathes ? -6 : 0).opacity(breathes ? 0.82 : 1)
-                default: image
-                }
-            }
-            .ignoresSafeArea()
             GeometryReader { proxy in
                 let canvas = VanCanvas.workshop
-                let radius = canvas.length(44, width: proxy.size.width, height: proxy.size.height)
-                Button(action: onGauge) {
-                    // The face is small on a phone, so it carries the length alone; the line under the room names it.
-                    Text(gaugeText)
-                        .font(.system(size: max(11, radius * 0.5), weight: .heavy, design: .rounded))
-                        .minimumScaleFactor(0.5)
-                        .lineLimit(1)
-                        .foregroundStyle(VanPalette.outline)
-                        .frame(width: radius * 1.4, height: radius * 1.4)
-                        .background(VanPalette.face, in: Circle())
-                        // The whole drawn gauge takes the tap, and never less than 44 points.
-                        .frame(width: max(44, radius * 2), height: max(44, radius * 2))
-                        .contentShape(Circle())
+                let scale = canvas.scale(width: proxy.size.width, height: proxy.size.height)
+                ZStack {
+                    Image("VanWorkshopScene")
+                        .resizable()
+                        .frame(width: canvas.width * scale, height: canvas.height * scale)
+                        .position(x: proxy.size.width / 2, y: proxy.size.height / 2)
+                        .accessibilityHidden(true)
+                    Image("VanWorkshopPip")
+                        .resizable()
+                        .frame(width: 285 * scale, height: 285 * scale)
+                        .offset(y: breathes ? -2 : 0)
+                        .position(canvas.point(832.5, 1419.8, in: proxy.size))
+                        .accessibilityHidden(true)
+
+                    // The pot on the stove.
+                    VanHotspot(width: 200 * scale, height: 170 * scale, action: cook)
+                        .position(canvas.point(420, 1016, in: proxy.size))
+                        .accessibilityLabel("Cooking pot")
+                        .accessibilityHint(workshop.leaves > 0 ? "Cooks one leaf into syrup" : "No leaves to cook")
+                        .sensoryFeedback(.impact(weight: .light), trigger: cooked)
+
+                    // The boiler's dome, above its gauge: the machines.
+                    VanHotspot(width: 170 * scale, height: 110 * scale) { showsMachines = true }
+                        .position(canvas.point(645, 885, in: proxy.size))
+                        .accessibilityHidden(true)
+
+                    // The boiler's gauge is the timer: its face is drawn large enough to read and to tap.
+                    Button(action: onGauge) {
+                        Text(gaugeText)
+                            .font(.system(size: 17, weight: .heavy, design: .rounded))
+                            .minimumScaleFactor(0.5)
+                            .lineLimit(1)
+                            .foregroundStyle(VanPalette.outline)
+                            .padding(.horizontal, 5)
+                            .frame(width: 54, height: 54)
+                            .background(VanPalette.face, in: Circle())
+                            .overlay(Circle().strokeBorder(VanPalette.outline, lineWidth: 2.5))
+                            .contentShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .position(canvas.point(645, 1023, in: proxy.size))
+                    .accessibilityLabel("Focus timer, \(gaugeText)")
+                    .accessibilityHint(model.gaugeHint)
                 }
-                .buttonStyle(.plain)
-                .position(canvas.point(720, 881, in: proxy.size))
-                .accessibilityLabel("Focus timer, \(gaugeText)")
-                .accessibilityHint(model.gaugeHint)
-
-                VanHotspot(
-                    width: canvas.length(120, width: proxy.size.width, height: proxy.size.height),
-                    height: canvas.length(90, width: proxy.size.width, height: proxy.size.height), action: cook
-                )
-                .position(canvas.point(361, 904, in: proxy.size))
-                    .accessibilityLabel("Cooking pot")
-                    .accessibilityHint(workshop.leaves > 0 ? "Cooks one leaf into syrup" : "No leaves to cook")
-                    .sensoryFeedback(.impact(weight: .light), trigger: cooked)
-
-                // The boiler's dome, above its gauge: the machines.
-                VanHotspot(
-                    width: canvas.length(130, width: proxy.size.width, height: proxy.size.height),
-                    height: canvas.length(110, width: proxy.size.width, height: proxy.size.height)
-                ) { showsMachines = true }
-                .position(canvas.point(748, 770, in: proxy.size))
-                .accessibilityLabel("Machines")
-                .accessibilityHint("Opens the upgrades")
-
-                VanHotspot(
-                    width: canvas.length(70, width: proxy.size.width, height: proxy.size.height),
-                    height: canvas.length(60, width: proxy.size.width, height: proxy.size.height)
-                ) { showsHistory = true }
-                .position(canvas.point(764, 958, in: proxy.size))
-                    .accessibilityLabel("Logbook")
-                    .accessibilityHint("Opens your study record")
+                .frame(width: proxy.size.width, height: proxy.size.height)
+                .clipped()
             }
             .ignoresSafeArea()
+            // The system's clock and battery are white: a soft shade keeps them readable on the canopy.
+            LinearGradient(colors: [VanPalette.outline.opacity(0.35), .clear], startPoint: .top, endPoint: .bottom)
+                .frame(height: 110)
+                .frame(maxHeight: .infinity, alignment: .top)
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
             VStack {
                 // One row when it fits; at large text sizes the counters go under the way out.
                 ViewThatFits(in: .horizontal) {
                     HStack(spacing: 8) {
                         VanBackButton(title: "Outside", action: onBack)
                         Spacer(minLength: 0)
-                        counters
-                        machinesButton
+                        counters(compact: false)
+                        roundButtons
+                    }
+                    HStack(spacing: 6) {
+                        VanBackButton(title: "Outside", action: onBack)
+                        Spacer(minLength: 0)
+                        counters(compact: true)
+                        roundButtons
                     }
                     VStack(alignment: .leading, spacing: 8) {
                         VanBackButton(title: "Outside", action: onBack)
                         HStack(spacing: 8) {
-                            counters
-                            machinesButton
+                            counters(compact: false)
+                            roundButtons
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -127,10 +135,15 @@ struct VanWorkshopView: View {
         if workshop.cook() > 0 { cooked += 1 }
     }
 
-    /// The machines, as a button that can be seen: the boiler's dome opens them too.
-    private var machinesButton: some View {
-        Button { showsMachines = true } label: {
-            Image(systemName: "wrench.and.screwdriver.fill")
+    /// The study record and the machines, as buttons that can be seen.
+    @ViewBuilder private var roundButtons: some View {
+        roundButton("clock.arrow.circlepath", label: "Study record", hint: "Opens your past sessions") { showsHistory = true }
+        roundButton("wrench.and.screwdriver.fill", label: "Machines", hint: "Opens the upgrades") { showsMachines = true }
+    }
+
+    private func roundButton(_ image: String, label: String, hint: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: image)
                 .font(.system(size: 16, weight: .bold))
                 .foregroundStyle(VanPalette.outline)
                 .frame(width: 44, height: 44)
@@ -138,12 +151,13 @@ struct VanWorkshopView: View {
                 .overlay(Circle().strokeBorder(VanPalette.outline, lineWidth: 2.5))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Machines")
-        .accessibilityHint("Opens the upgrades")
+        .accessibilityLabel(label)
+        .accessibilityHint(hint)
     }
 
-    @ViewBuilder private var counters: some View {
-        if let leaves = model.leavesText { VanCounter(value: leaves, image: "leaf.fill", label: "leaves") }
-        if let syrup = model.syrupText { VanCounter(value: syrup, image: "drop.fill", label: "bottles of syrup") }
+    @ViewBuilder
+    private func counters(compact: Bool) -> some View {
+        if let leaves = model.leavesText { VanCounter(value: leaves, image: "leaf.fill", label: "leaves", compact: compact) }
+        if let syrup = model.syrupText { VanCounter(value: syrup, image: "drop.fill", label: "bottles of syrup", compact: compact) }
     }
 }

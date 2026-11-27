@@ -226,8 +226,8 @@ def tree_scene(van):
 PIP_BOX = (190, 135, 800, 715)
 
 
-def pip_cutout():
-    src = Image.open(CONCEPTS / "pip-from-van.jpg").convert("RGB")
+def pip_mask(src, ladle):
+    """Pip in his close-up (`pip-from-van.jpg`), as a mask; with `ladle`, the ladle in his paw too."""
     a = np.asarray(src).astype(np.int32)
     luma = (a[..., 0] * 299 + a[..., 1] * 587 + a[..., 2] * 114) // 1000
     dark = luma < 72
@@ -241,9 +241,77 @@ def pip_cutout():
     mask = mask | ~outside(~mask)
     # Other things' lines touch his outline (the rug's fringe, a drawer): thin stubs, which opening takes off.
     mask = grow(shrink(mask, 4), 4) & mask
+    if ladle:
+        metal = np.zeros(dark.shape, bool)
+        # Its handle, the front of its bowl, and the inside of the bowl.
+        for x, y in [(648, 400), (700, 530), (690, 505)]:
+            part = lab == lab[y, x]
+            assert 0 < part.sum() < 9000, (x, y, int(part.sum()))
+            metal |= part
+        metal = metal | (dark & grow(metal, 9))
+        metal = metal | ~outside(~metal)
+        mask |= grow(shrink(metal, 2), 2) & metal
+    return mask
+
+
+def pip_cutout(ladle=False):
+    src = Image.open(CONCEPTS / "pip-from-van.jpg").convert("RGB")
     out = src.convert("RGBA")
-    out.putalpha(as_image(mask).filter(ImageFilter.GaussianBlur(0.8)))
+    out.putalpha(as_image(pip_mask(src, ladle)).filter(ImageFilter.GaussianBlur(0.8)))
     return out
+
+
+# ---------- inside the van ----------
+
+# The close-up of Pip is the van picture's own pixels at twice the size: its corner in the van picture.
+CLOSEUP = (940, 1310)
+# The workshop's canvas (`VanCanvas.workshop`): a phone-shaped window onto the van picture, closer in, turned a little
+# toward the front. Turning is a shear: what stands upright stays upright, and the van's long side (the wall with the
+# pegboard, the stove and the boiler, which climbs to the right in the picture) lies flatter.
+SHOP_W, SHOP_H = 1000, 2174
+SHOP_LEFT, SHOP_TOP = 345, 300
+SHOP_TURN = -0.24
+
+
+def shop_point(x, y):
+    """Where a point of the van picture is on the workshop's canvas."""
+    return (x - SHOP_LEFT, y - SHOP_TOP - SHOP_TURN * (x - SHOP_LEFT))
+
+
+def fill_in(image, hole):
+    """Paints a hole with the colours round it, working inwards."""
+    a = np.asarray(image).astype(np.float32)
+    known = ~hole
+    a = a * known[..., None]
+    hole = hole.copy()
+    while hole.any():
+        total = np.zeros_like(a)
+        count = np.zeros(hole.shape, np.float32)
+        for dy in (-1, 0, 1):
+            for dx in (-1, 0, 1):
+                total += np.roll(np.roll(a, dy, 0), dx, 1)
+                count += np.roll(np.roll(known, dy, 0), dx, 1)
+        ring = hole & (count > 0)
+        a[ring] = total[ring] / count[ring][:, None]
+        known = known | ring
+        hole = hole & ~ring
+    return Image.fromarray(a.round().astype(np.uint8))
+
+
+def workshop_scene(van, turn=SHOP_TURN):
+    # Pip is laid on top by the app, upright and untouched, so the picture under him has him painted out. He covers
+    # that patch again; only a sliver of it shows beside him.
+    closeup = Image.open(CONCEPTS / "pip-from-van.jpg").convert("RGB")
+    mask = as_image(pip_mask(closeup, ladle=True)).resize((closeup.width // 2, closeup.height // 2), Image.LANCZOS)
+    hole = np.zeros((van.height, van.width), bool)
+    hole[CLOSEUP[1]:CLOSEUP[1] + mask.height, CLOSEUP[0]:CLOSEUP[0] + mask.width] = np.asarray(mask) > 40
+    hole = grow(hole, 4)
+    box = (900, 1270, 1420, 1790)
+    patch = fill_in(van.crop(box), hole[box[1]:box[3], box[0]:box[2]])
+    without = van.copy()
+    without.paste(patch, box[:2])
+    return without.transform((SHOP_W, SHOP_H), Image.AFFINE, (1, 0, SHOP_LEFT, turn, 1, SHOP_TOP), resample=Image.BICUBIC,
+                             fillcolor=PEACH)
 
 
 def pip_with_pail(leaves):
@@ -280,6 +348,17 @@ def pip_with_pail(leaves):
     return sprite
 
 
+# Pip with his ladle, in his close-up's pixels.
+SHOP_PIP_BOX = (190, 135, 760, 705)
+
+
+def shop_pip_centre():
+    """The middle of that box on the workshop's canvas. He is not turned with the room: he stands where he stood."""
+    x = CLOSEUP[0] + (SHOP_PIP_BOX[0] + SHOP_PIP_BOX[2]) / 4
+    y = CLOSEUP[1] + (SHOP_PIP_BOX[1] + SHOP_PIP_BOX[3]) / 4
+    return shop_point(x, y)
+
+
 # ---------- writing ----------
 
 def imageset(name, filename, image=None, copy=None, quality=None):
@@ -309,6 +388,10 @@ def main():
     imageset("VanHomePicture", "syrup-van.jpg", copy=CONCEPTS / "syrup-van.jpg")
     imageset("VanTreeScene", "tree-scene.jpg", scene, quality=93)
     imageset("VanTreePip", "pip-pail.png", pip)
+    shop = workshop_scene(van)
+    shop_pip = pip_cutout(ladle=True).crop(SHOP_PIP_BOX)
+    imageset("VanWorkshopScene", "workshop-scene.jpg", shop, quality=93)
+    imageset("VanWorkshopPip", "pip-ladle.png", shop_pip)
     for name, leaf in zip(["VanLeafOrange", "VanLeafYellow", "VanLeafRed"], leaves):
         imageset(name, name.lower() + ".png", leaf)
 
@@ -325,7 +408,19 @@ def main():
         pip.save(out / "pip-pail.png")
         for i, leaf in enumerate(leaves):
             leaf.save(out / f"leaf-{i}.png")
+        for turn in (0.0, SHOP_TURN):
+            room = workshop_scene(van, turn).convert("RGBA")
+            half = shop_pip.resize((shop_pip.width // 2, shop_pip.height // 2), Image.LANCZOS)
+            cx = CLOSEUP[0] + (SHOP_PIP_BOX[0] + SHOP_PIP_BOX[2]) / 4 - SHOP_LEFT
+            cy = CLOSEUP[1] + (SHOP_PIP_BOX[1] + SHOP_PIP_BOX[3]) / 4 - SHOP_TOP - turn * cx
+            room.alpha_composite(half, (round(cx - half.width / 2), round(cy - half.height / 2)))
+            room.convert("RGB").save(out / f"workshop-turn-{round(-turn * 100):02d}.png")
+        workshop_scene(van).save(out / "workshop-without-pip.png")
     print("pip sprite", pip.size, "scene", scene.size, "leaves", [leaf.size for leaf in leaves])
+    print("workshop: pip centre", shop_pip_centre(), "size", (shop_pip.width / 2, shop_pip.height / 2))
+    for name, at in [("gauge", (990, 1168)), ("pot", (765, 1215)), ("boiler dome", (990, 1045)), ("lantern", (1140, 1195)),
+                     ("jars on the bench", (410, 1390)), ("stove door", (850, 1395))]:
+        print("workshop:", name, tuple(round(v) for v in shop_point(*at)))
 
 
 if __name__ == "__main__":

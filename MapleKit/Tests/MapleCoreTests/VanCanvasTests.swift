@@ -26,10 +26,10 @@ struct VanCanvasTests {
         #expect(inside.x == 192.75 && inside.y == 266.25)
     }
 
-    @Test("The workshop's gauge lands where it is drawn")
+    @Test("The workshop's timer lands on the boiler's gauge, where the turned picture has it")
     func workshopGauge() {
-        let gauge = VanCanvas.workshop.point(x: 720, y: 881, width: 426, height: 923)
-        #expect(gauge.x == 360 && gauge.y == 440.5)
+        let gauge = VanCanvas.workshop.point(x: 645, y: 1023, width: 500, height: 1087)
+        #expect(gauge.x == 322.5 && gauge.y == 511.5)
     }
 
     @Test("Home is the concept picture at the top of a tall page: its full width, its corner at the screen's")

@@ -23,8 +23,9 @@ public struct VanCanvas: Sendable, Equatable {
     /// phone, in the picture's own pixels. Below the picture the page is the picture's sky colour.
     public static let home = VanCanvas(width: 1856, height: 4036, originX: 0, originY: 0)
     public static let homePictureHeight = 2304.0
-    /// The workshop, the same room from the front: `Scripts/art/vanart/inside.py`, `BOX`.
-    public static let workshop = VanCanvas(width: 852, height: 1846, originX: 0, originY: 0)
+    /// The workshop: the same picture closer in and turned a little toward the front
+    /// (`Scripts/art/concept/build_concept_art.py`, `SHOP_W` and `SHOP_H`).
+    public static let workshop = VanCanvas(width: 1000, height: 2174, originX: 0, originY: 0)
 
     /// The maple while a session runs, cut from the same picture in its own pixels:
     /// `Scripts/art/concept/build_concept_art.py`, `TREE_W` and `TREE_H`.
