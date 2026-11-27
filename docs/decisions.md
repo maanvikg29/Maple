@@ -2,6 +2,12 @@
 
 Newest first. Each entry: what was decided, why, and what it affects.
 
+## 2026-11-27 — Home's picture moves, and Pip's two moments at the tree
+- **The picture can be pinched and dragged.** The owner: "why cant i move it around its just a fixed image". Home's picture zooms about the fingers (up to three times), pans when zoomed and settles back when the fingers lift (`VanView`). A tap is read in the picture's own space (`VanHomeTarget`), so the pot, the boiler, the van and the maple answer wherever it has been moved to.
+- **Ending early: the tumble** (design §6.6, built as decided). Pip slips out of the tree, turns over once, lands upright on the grass and the pail's leaves scatter; then the receipt. The pail in his paw still shows its leaves after the fall (it is one picture with him).
+- **Finishing: the walk back** (design §6.7, simpler than its proposed detail). Pip hops down and walks off the right of the tree view toward the van; the receipt follows, and home shows him in the van. The proposed pull-back to home, the walk across home's grass and the bucket tipping into the basket are not built: home's picture already has Pip standing in the van, so a second Pip walking there would need him painted out of it.
+Affects: `VanView`, `VanHomeTarget`, `VanCanvas.source`, `PipFall`, `PipWalk`, `VanTreeMomentView`, `RunningSessionView`, `FocusView`, `VanHomeView`.
+
 ## 2026-11-27 — No view inside the van: everything is done from home
 The owner, after seeing the zoomed-in view built from the real picture (closer in, turned, then longer and further back): "actually leave this zoomed in feature scrap it". So the workshop view, its entrance animation and its pictures are removed. Home is the one view: its gold button is the timer's ("Set the timer"; "Return to session" while one runs), the pot on the picture's stove cooks a leaf (a line says so when there are leaves), and round buttons beside the gold one open the study record and the machines (the boiler in the picture opens them too). The session's tree view is unchanged. This replaces the "enter the van" step of the design (§5.2, §5.3). Affects: `VanHomeView`, `VanSceneView`, `VanHomeModel` (`enterTitle`, `enterHint`, `potHint`); removed `VanWorkshopView`, `VanEntrance`, `VanCanvas.workshop`.
 

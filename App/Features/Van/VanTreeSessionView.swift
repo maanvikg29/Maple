@@ -29,14 +29,6 @@ struct VanTreeSessionView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var bobs = false
 
-    /// Pip's picture on the tree's canvas: his feet in the fork of the trunk (`PIP_FEET`, `PIP_SCALE`, `PIP_BOX`).
-    private enum Pip {
-        static let width = 610 * 0.61
-        static let height = 580 * 0.61
-        static let centreX = 440 + (305 - 310) * 0.61
-        static let centreY = 668 + (290 - 555) * 0.61
-    }
-
     var body: some View {
         ZStack {
             VanPalette.sky.ignoresSafeArea()
@@ -52,9 +44,9 @@ struct VanTreeSessionView: View {
                     VanFallingLeaves(canvas: canvas, isPaused: dimmed)
                     Image("VanTreePip")
                         .resizable()
-                        .frame(width: Pip.width * scale, height: Pip.height * scale)
+                        .frame(width: VanTreePip.width * scale, height: VanTreePip.height * scale)
                         .offset(y: bobs ? -2.5 : 0)
-                        .position(canvas.point(Pip.centreX, Pip.centreY, in: proxy.size))
+                        .position(canvas.point(VanTreePip.centreX, VanTreePip.centreY, in: proxy.size))
                 }
                 .frame(width: proxy.size.width, height: proxy.size.height)
                 .clipped()
