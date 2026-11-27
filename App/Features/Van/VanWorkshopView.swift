@@ -3,7 +3,8 @@ import MapleDesign
 import MapleServices
 import SwiftUI
 
-/// The workshop: the concept picture closer in, turned a little toward the front (syrup van design §5.2). The dial on
+/// The workshop: the concept picture closer in, turned a little toward the front, the van drawn a little longer (syrup
+/// van design §5.2). The dial on
 /// the boiler is the Focus button, the pot cooks a leaf, and the top row opens the machines and the study record.
 ///
 /// The room is the concept picture's own pixels (`Scripts/art/concept/build_concept_art.py`); Pip is laid over it
@@ -36,38 +37,38 @@ struct VanWorkshopView: View {
                         .accessibilityHidden(true)
                     Image("VanWorkshopPip")
                         .resizable()
-                        .frame(width: 285 * scale, height: 285 * scale)
+                        .frame(width: 228 * scale, height: 228 * scale)
                         .offset(y: breathes ? -2 : 0)
-                        .position(canvas.point(832.5, 1419.8, in: proxy.size))
+                        .position(canvas.point(807.3, 1272.5, in: proxy.size))
                         .accessibilityHidden(true)
 
                     // The pot on the stove.
-                    VanHotspot(width: 200 * scale, height: 170 * scale, action: cook)
-                        .position(canvas.point(420, 1016, in: proxy.size))
+                    VanHotspot(width: 185 * scale, height: 140 * scale, action: cook)
+                        .position(canvas.point(428, 949, in: proxy.size))
                         .accessibilityLabel("Cooking pot")
                         .accessibilityHint(workshop.leaves > 0 ? "Cooks one leaf into syrup" : "No leaves to cook")
                         .sensoryFeedback(.impact(weight: .light), trigger: cooked)
 
                     // The boiler's dome, above its gauge: the machines.
-                    VanHotspot(width: 170 * scale, height: 110 * scale) { showsMachines = true }
-                        .position(canvas.point(645, 885, in: proxy.size))
+                    VanHotspot(width: 160 * scale, height: 90 * scale) { showsMachines = true }
+                        .position(canvas.point(635, 842, in: proxy.size))
                         .accessibilityHidden(true)
 
                     // The boiler's gauge is the timer: its face is drawn large enough to read and to tap.
                     Button(action: onGauge) {
                         Text(gaugeText)
-                            .font(.system(size: 17, weight: .heavy, design: .rounded))
+                            .font(.system(size: 16, weight: .heavy, design: .rounded))
                             .minimumScaleFactor(0.5)
                             .lineLimit(1)
                             .foregroundStyle(VanPalette.outline)
                             .padding(.horizontal, 5)
-                            .frame(width: 54, height: 54)
+                            .frame(width: 48, height: 48)
                             .background(VanPalette.face, in: Circle())
                             .overlay(Circle().strokeBorder(VanPalette.outline, lineWidth: 2.5))
                             .contentShape(Circle())
                     }
                     .buttonStyle(.plain)
-                    .position(canvas.point(645, 1023, in: proxy.size))
+                    .position(canvas.point(635, 955, in: proxy.size))
                     .accessibilityLabel("Focus timer, \(gaugeText)")
                     .accessibilityHint(model.gaugeHint)
                 }

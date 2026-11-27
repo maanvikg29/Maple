@@ -269,13 +269,18 @@ CLOSEUP = (940, 1310)
 # toward the front. Turning is a shear: what stands upright stays upright, and the van's long side (the wall with the
 # pegboard, the stove and the boiler, which climbs to the right in the picture) lies flatter.
 SHOP_W, SHOP_H = 1000, 2174
-SHOP_LEFT, SHOP_TOP = 345, 300
+SHOP_LEFT, SHOP_TOP = 300, 140
 SHOP_TURN = -0.24
+# The van is drawn a little longer than in the picture (stretched along the screen's width; Pip is not), and the
+# camera stands a little further back: one pixel of the canvas is this many of the picture's.
+SHOP_LONGER = 1.15
+SHOP_BACK = 1.25
 
 
-def shop_point(x, y):
+def shop_point(x, y, turn=SHOP_TURN):
     """Where a point of the van picture is on the workshop's canvas."""
-    return (x - SHOP_LEFT, y - SHOP_TOP - SHOP_TURN * (x - SHOP_LEFT))
+    along = x - SHOP_LEFT
+    return (along * SHOP_LONGER / SHOP_BACK, (y - SHOP_TOP - turn * along) / SHOP_BACK)
 
 
 def fill_in(image, hole):
@@ -310,8 +315,13 @@ def workshop_scene(van, turn=SHOP_TURN):
     patch = fill_in(van.crop(box), hole[box[1]:box[3], box[0]:box[2]])
     without = van.copy()
     without.paste(patch, box[:2])
-    return without.transform((SHOP_W, SHOP_H), Image.AFFINE, (1, 0, SHOP_LEFT, turn, 1, SHOP_TOP), resample=Image.BICUBIC,
-                             fillcolor=PEACH)
+    # Turned, the top of the window looks a little above the picture's top edge, where the canopy carries on: the top
+    # row is carried up to cover it.
+    above = 320
+    taller = Image.fromarray(np.pad(np.asarray(without), ((above, 0), (0, 0), (0, 0)), mode="edge"))
+    step = SHOP_BACK / SHOP_LONGER
+    return taller.transform((SHOP_W, SHOP_H), Image.AFFINE, (step, 0, SHOP_LEFT, turn * step, SHOP_BACK, SHOP_TOP + above),
+                            resample=Image.BICUBIC, fillcolor=PEACH)
 
 
 def pip_with_pail(leaves):
@@ -352,11 +362,16 @@ def pip_with_pail(leaves):
 SHOP_PIP_BOX = (190, 135, 760, 705)
 
 
-def shop_pip_centre():
-    """The middle of that box on the workshop's canvas. He is not turned with the room: he stands where he stood."""
+def shop_pip_centre(turn=SHOP_TURN):
+    """The middle of that box on the workshop's canvas. He is not turned or stretched with the room: he stands where
+    he stood, upright, only smaller as the camera steps back."""
     x = CLOSEUP[0] + (SHOP_PIP_BOX[0] + SHOP_PIP_BOX[2]) / 4
     y = CLOSEUP[1] + (SHOP_PIP_BOX[1] + SHOP_PIP_BOX[3]) / 4
-    return shop_point(x, y)
+    return shop_point(x, y, turn)
+
+
+def shop_pip_size():
+    return ((SHOP_PIP_BOX[2] - SHOP_PIP_BOX[0]) / 2 / SHOP_BACK, (SHOP_PIP_BOX[3] - SHOP_PIP_BOX[1]) / 2 / SHOP_BACK)
 
 
 # ---------- writing ----------
@@ -410,14 +425,13 @@ def main():
             leaf.save(out / f"leaf-{i}.png")
         for turn in (0.0, SHOP_TURN):
             room = workshop_scene(van, turn).convert("RGBA")
-            half = shop_pip.resize((shop_pip.width // 2, shop_pip.height // 2), Image.LANCZOS)
-            cx = CLOSEUP[0] + (SHOP_PIP_BOX[0] + SHOP_PIP_BOX[2]) / 4 - SHOP_LEFT
-            cy = CLOSEUP[1] + (SHOP_PIP_BOX[1] + SHOP_PIP_BOX[3]) / 4 - SHOP_TOP - turn * cx
+            half = shop_pip.resize(tuple(round(v) for v in shop_pip_size()), Image.LANCZOS)
+            cx, cy = shop_pip_centre(turn)
             room.alpha_composite(half, (round(cx - half.width / 2), round(cy - half.height / 2)))
             room.convert("RGB").save(out / f"workshop-turn-{round(-turn * 100):02d}.png")
         workshop_scene(van).save(out / "workshop-without-pip.png")
     print("pip sprite", pip.size, "scene", scene.size, "leaves", [leaf.size for leaf in leaves])
-    print("workshop: pip centre", shop_pip_centre(), "size", (shop_pip.width / 2, shop_pip.height / 2))
+    print("workshop: pip centre", shop_pip_centre(), "size", shop_pip_size())
     for name, at in [("gauge", (990, 1168)), ("pot", (765, 1215)), ("boiler dome", (990, 1045)), ("lantern", (1140, 1195)),
                      ("jars on the bench", (410, 1390)), ("stove door", (850, 1395))]:
         print("workshop:", name, tuple(round(v) for v in shop_point(*at)))
