@@ -26,10 +26,10 @@ struct VanCanvasTests {
         #expect(inside.x == 192.75 && inside.y == 266.25)
     }
 
-    @Test("The workshop's timer lands on the boiler's gauge, where the turned picture has it")
-    func workshopGauge() {
-        let gauge = VanCanvas.workshop.point(x: 635, y: 955, width: 500, height: 1087)
-        #expect(gauge.x == 317.5 && gauge.y == 477.5)
+    @Test("The pot on home's stove lands where the picture has it")
+    func homePot() {
+        let pot = VanCanvas.home.point(x: 764, y: 1220, width: 464, height: 1009)
+        #expect(pot.x == 191 && pot.y == 305)
     }
 
     @Test("Home is the concept picture at the top of a tall page: its full width, its corner at the screen's")
@@ -46,7 +46,7 @@ struct VanCanvasTests {
 
     @Test("A screen with no size places everything at the origin instead of dividing by nothing")
     func empty() {
-        let canvas = VanCanvas.workshop
+        let canvas = VanCanvas.home
         #expect(canvas.scale(width: 0, height: 0) == 0)
         let point = canvas.point(x: 720, y: 881, width: 0, height: 0)
         #expect(point.x == 0 && point.y == 0)

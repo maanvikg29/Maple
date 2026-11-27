@@ -31,16 +31,14 @@ struct VanHomeModelTests {
         #expect(model(.day, hour: -3).greeting == "Good morning")
     }
 
-    @Test("In the workshop one line says what the gauge does now, and carries the time left while a session runs")
-    func workshop() {
-        #expect(model(leaves: 0).workshopHint == "Tap the gauge to set the timer")
-        #expect(model(leaves: 3).workshopHint == "Tap the gauge to set the timer, or the pot to cook a leaf")
-        let running = model(leaves: 3, left: 32)
-        #expect(running.workshopHint == "Session running · \(FocusTimeText.length(minutes: 32)) left. Tap the gauge to go back to it")
-        #expect(!running.workshopHint.contains("leaf"))
-        #expect(model().gaugeHint == "Opens the clock")
-        #expect(running.gaugeHint == "Returns to your session")
-        #expect(model(leaves: 3, available: false).workshopHint == "Tap the gauge to set the timer")
+    @Test("With leaves to cook and no session running, home says the pot cooks one; otherwise it says nothing about it")
+    func pot() {
+        #expect(model(leaves: 3).potHint == "Tap the pot to cook a leaf")
+        #expect(model(leaves: 0).potHint == nil)
+        #expect(model(leaves: 3, left: 32).potHint == nil)
+        #expect(model(leaves: 3, available: false).potHint == nil)
+        #expect(model().enterHint == "Opens the clock")
+        #expect(model(left: 32).enterHint == "Returns to your session")
     }
 
     @Test("Home still offers the reveal and wind-down, which the tree home's one button did; the van's own button is the timer's")
@@ -66,11 +64,11 @@ struct VanHomeModelTests {
         #expect(!line.contains("leaf") && !line.contains("leaves"))
     }
 
-    @Test("The one button opens the van, or goes back to the session while one runs")
+    @Test("The one button sets the timer, or goes back to the session while one runs")
     func enter() {
-        #expect(model().enterTitle == "Open the van")
+        #expect(model().enterTitle == "Set the timer")
         #expect(model(left: 32).enterTitle == "Return to session")
-        #expect(model(available: false).enterTitle == "Open the van")
+        #expect(model(available: false).enterTitle == "Set the timer")
     }
 
     @Test("The counters read whole leaves and syrup to one decimal")
@@ -88,10 +86,5 @@ struct VanHomeModelTests {
         #expect(shown.leavesText == nil)
         #expect(shown.syrupText == nil)
         #expect(shown.status.isEmpty)
-    }
-
-    @Test("The gauge's face reads the length that would start now")
-    func gauge() {
-        #expect(VanHomeModel.gaugeText(minutes: 50) == FocusTimeText.length(minutes: 50))
     }
 }

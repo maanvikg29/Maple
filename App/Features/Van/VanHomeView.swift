@@ -2,14 +2,20 @@ import MapleCore
 import MapleDesign
 import SwiftUI
 
-/// Home: the van under the maple (the concept picture itself), a welcome, the time, what is waiting, and one way in
-/// (syrup van design §5.1).
+/// Home: the van under the maple (the concept picture itself), a welcome, the time, what is waiting, and the timer's
+/// button (syrup van design §5.1). Everything is done from here: the pot on the stove cooks a leaf, and the round
+/// buttons beside the timer's open the study record and the machines.
 struct VanHomeView: View {
     let model: VanHomeModel
     let now: Date
     let streak: Int
     let prompt: Prompt?
+    /// How many leaves have been cooked from here: each one is a light tap in the hand.
+    let cooked: Int
     let onEnter: () -> Void
+    let onCook: () -> Void
+    let onMachines: () -> Void
+    let onHistory: () -> Void
     let onHerbarium: () -> Void
     let onProfile: () -> Void
     let onTree: () -> Void
@@ -41,10 +47,20 @@ struct VanHomeView: View {
                     VanHotspot(width: length(1000), height: length(900), action: onTree)
                         .position(canvas.point(500, 560, in: proxy.size))
                         .accessibilityLabel("Your maple")
-                    // The van is the way in, like the button below.
+                    // The van is the timer's button too, like the one below.
                     VanHotspot(width: length(1400), height: length(1000), action: onEnter)
                         .position(canvas.point(880, 1560, in: proxy.size))
                         .accessibilityHidden(true)
+                    // The boiler in the corner: the machines.
+                    VanHotspot(width: length(190), height: length(300), action: onMachines)
+                        .position(canvas.point(990, 1130, in: proxy.size))
+                        .accessibilityHidden(true)
+                    // The pot on the stove cooks a leaf.
+                    VanHotspot(width: length(210), height: length(180), action: onCook)
+                        .position(canvas.point(764, 1220, in: proxy.size))
+                        .accessibilityLabel("Cooking pot")
+                        .accessibilityHint(model.potHint == nil ? "No leaves to cook" : "Cooks one leaf into syrup")
+                        .sensoryFeedback(.impact(weight: .light), trigger: cooked)
                 }
                 .frame(width: proxy.size.width, height: proxy.size.height)
                 .clipped()
@@ -119,6 +135,13 @@ struct VanHomeView: View {
                     .font(.system(.subheadline, design: .rounded).weight(.semibold))
                     .multilineTextAlignment(.center)
             }
+            if let hint = model.potHint {
+                Text(hint)
+                    .font(.system(.footnote, design: .rounded).weight(.semibold))
+                    .multilineTextAlignment(.center)
+                    .opacity(0.7)
+                    .padding(.top, 2)
+            }
         }
         .foregroundStyle(VanPalette.outline)
         .padding(.horizontal, 24)
@@ -138,16 +161,22 @@ struct VanHomeView: View {
             .buttonStyle(.plain)
             .padding(.bottom, 10)
         }
-        Button(action: onEnter) {
-            Text(model.enterTitle)
-                .font(.system(.title3, design: .rounded).weight(.heavy))
-                .foregroundStyle(VanPalette.outline)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-                .frame(maxWidth: 260)
-                .modifier(VanPlate(fill: VanPalette.goldLight))
+        HStack(spacing: 12) {
+            roundButton("clock.arrow.circlepath", label: "Study record", action: onHistory)
+            Button(action: onEnter) {
+                Text(model.enterTitle)
+                    .font(.system(.title3, design: .rounded).weight(.heavy))
+                    .foregroundStyle(VanPalette.outline)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .frame(maxWidth: 220)
+                    .modifier(VanPlate(fill: VanPalette.goldLight))
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint(model.enterHint)
+            roundButton("wrench.and.screwdriver.fill", label: "Machines", action: onMachines)
         }
-        .buttonStyle(.plain)
+        .padding(.horizontal, 16)
         .padding(.bottom, 20)
     }
 

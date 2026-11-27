@@ -38,7 +38,7 @@ struct ClockTimerView: View {
             ScrollView {
                 VStack(spacing: 20) {
                     HStack {
-                        VanBackButton(title: "Workshop") { router.selectedTab = .home }
+                        VanBackButton(title: "Van") { router.selectedTab = .home }
                         Spacer(minLength: 0)
                     }
                     // The clock takes the whole width; minus and plus sit in the corners its circle leaves free.
