@@ -21,6 +21,11 @@ struct VanSceneView: View {
     @State private var showsHistory = false
     @State private var showsMachines = false
     @State private var cooked = 0
+    @State private var cheers = 0
+    /// The last finished session whose walk back from the maple was shown (`FocusView`), and the last one Pip danced
+    /// for here: when they differ, he has just come home.
+    @AppStorage("van.walkedBack") private var walkedBack = ""
+    @AppStorage("van.dancedFor") private var dancedFor = ""
 
     var body: some View {
         let running = sessions.running
@@ -30,7 +35,7 @@ struct VanSceneView: View {
             leaves: workshop.leaves, syrupTenths: workshop.syrupTenths, isAvailable: workshop.isAvailable, minutesLeft: minutesLeft
         )
         VanHomeView(
-            model: model, now: now, streak: streak, prompt: prompt, cooked: cooked,
+            model: model, now: now, streak: streak, prompt: prompt, cooked: cooked, cheers: cheers, isSessionRunning: running != nil,
             onEnter: openTimer,
             onCook: { if workshop.cook() > 0 { cooked += 1 } },
             onMachines: { showsMachines = true }, onHistory: { showsHistory = true },
@@ -42,6 +47,12 @@ struct VanSceneView: View {
         .sheet(isPresented: $showsMachines) {
             VanUpgradesView()
                 .presentationDetents([.large])
+        }
+        .onAppear {
+            if !walkedBack.isEmpty, walkedBack != dancedFor {
+                dancedFor = walkedBack
+                cheers += 1
+            }
         }
         .task {
             // The van's leaves come from the whole ledger; a second look at the same ledger adds nothing.

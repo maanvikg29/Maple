@@ -2,6 +2,15 @@
 
 Newest first. Each entry: what was decided, why, and what it affects.
 
+## 2026-11-28 — Pip is alive at home: nine playful things, in his own pixels
+The owner: "pip has no animations also like playful animation doing random stuff", then picked all eight ideas shown and added "him randomly raking up leafs".
+- **What he does.** Always: he breathes, his tail swishes, one ear flicks. Tapped: he hops and hearts pop. Syrup cooked, or home after a finished session: a happy dance. Every 20 to 40 seconds, one of six at random, never the same twice running: juggles three leaves, runs out and jumps for a falling leaf, naps by the cat (a tap wakes him), leaps into the leaf basket and pops up with a leaf on his head, twirls his ladle, rakes the fallen leaves into a pile. While a session runs he only stands and breathes (he is at the maple then), and with Reduce Motion he is the picture as it is.
+- **He is still the one picture.** He slides, hops, tilts, squashes, flips and (in the basket only) is made smaller; nothing bends him. His tail and one ear are cut apart from him so they can swing.
+- **What is not the picture's.** To let him leave his place, a patch of the van that was behind him lies over it: the cabinet's lines, the drawers, the rug's edges and fringe carried on, the flat colours spread, and the second drawer's knob copied from the first. The hidden edge of his tail and ear is painted in their own fur. Drawn outright: his closed eyelids, the rake, the hearts, the music notes, the z's, and his shadow (the picture's own was removed with him).
+- **Found on the way.** The cut-out of Pip had been missing his far foot and a strip of his side; both are back, in the session's tree view too.
+- **Not built.** Blinking, and any pose that would need him redrawn (bent arms, walking legs).
+Affects: `PipAct`, `PipStage`, `PipIdle`, `PipDirector`, `PipHomePose`, `VanPipLayer`, `VanHomeView`, `VanSceneView`, `Scripts/art/concept/build_concept_art.py`, the `VanHome…` and `VanPip…` image sets, `VanTreePip`.
+
 ## 2026-11-27 — Home's picture moves, and Pip's two moments at the tree
 - **The picture can be pinched and dragged.** The owner: "why cant i move it around its just a fixed image". Home's picture zooms about the fingers (up to three times), pans when zoomed and settles back when the fingers lift (`VanView`). A tap is read in the picture's own space (`VanHomeTarget`), so the pot, the boiler, the van and the maple answer wherever it has been moved to.
 - **Ending early: the tumble** (design §6.6, built as decided). Pip slips out of the tree, turns over once, lands upright on the grass and the pail's leaves scatter; then the receipt. The pail in his paw still shows its leaves after the fall (it is one picture with him).

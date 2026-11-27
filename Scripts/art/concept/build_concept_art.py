@@ -4,7 +4,13 @@
 The van, the maple and Pip are the concept pictures themselves: nothing here redraws them. The home picture is the
 concept file, copied byte for byte. The maple of the session view is the same picture with the van, the bunting and
 the smoke painted out in the sky's colour, its trunk carried on down to a patch of the same grass. Pip is cut along
-his own outline; the pail in his paw is the one thing drawn here.
+his own outline; the pail in his paw is drawn here.
+
+For home, where Pip moves about (`PipAct`), he is lifted out of the picture in pieces that are still his own pixels
+(his body, his tail, one ear, the ladle), and the patch of van that was behind him is made here: the picture's own
+lines carried on (the cabinet, the drawers, the rug's edges and fringe), its flat colours spread, and nothing else.
+The few things the picture does not have are drawn here in its colours: his closed eyelids, a rake, a heart, a
+music note and a "z".
 
 Needs Pillow and numpy (the vector drawings in `Scripts/art/vanart` need neither):
 
@@ -224,6 +230,9 @@ def tree_scene(van):
 # ---------- Pip ----------
 
 PIP_BOX = (190, 135, 800, 715)
+# One point inside each closed part of him in his close-up: an ear, the tail, the body, the other ear, and his far
+# side and foot.
+PIP_PARTS = [(530, 195), (250, 250), (400, 550), (420, 220), (560, 640)]
 
 
 def pip_mask(src):
@@ -233,8 +242,7 @@ def pip_mask(src):
     dark = luma < 72
     lab = label(~dark)
     fur = np.zeros(dark.shape, bool)
-    # One point inside each closed part of him: an ear, the tail, the body, the other ear.
-    for x, y in [(530, 195), (250, 250), (400, 550), (420, 220)]:
+    for x, y in PIP_PARTS:
         fur |= lab == lab[y, x]
     # His own outline is the dark line hugging those parts; the eyes and the leaf's veins are the holes it leaves.
     mask = fur | (dark & grow(fur, 10))
@@ -285,6 +293,348 @@ def pip_with_pail(leaves):
     return sprite
 
 
+# ---------- Pip at home, in pieces, and the van behind him ----------
+
+# His close-up's place in the home picture: the pieces are all this size, so they lie on one another as they are.
+HOME_BOX = (940, 1310, 1380, 1750)
+PATCH_BOX = (1020, 1370, 1340, 1700)
+BASKET_BOX = (212, 1668, 422, 1876)
+
+
+def steps_from(mask, limit=24):
+    """How many pixels each pixel is from the mask (about: steps alternate between 4 and 8 neighbours)."""
+    far = np.full(mask.shape, limit + 1, np.int32)
+    far[mask] = 0
+    reached = mask.copy()
+    for step in range(1, limit + 1):
+        if step % 2:
+            wider = reached | np.roll(reached, 1, 0) | np.roll(reached, -1, 0) | np.roll(reached, 1, 1) | np.roll(reached, -1, 1)
+        else:
+            wider = grow(reached, 1)
+        far[wider & ~reached] = step
+        reached = wider
+    return far
+
+
+def home_masks():
+    """Pip's close-up split into its parts, at the close-up's own size: body, tail, ear, ladle."""
+    src = Image.open(CONCEPTS / "pip-from-van.jpg").convert("RGB")
+    a = np.asarray(src).astype(np.int32)
+    luma = (a[..., 0] * 299 + a[..., 1] * 587 + a[..., 2] * 114) // 1000
+    dark = luma < 72
+    lab = label(~dark)
+    pip = pip_mask(src)
+    # The fringe of the rug touches his tail: the cut is evened out there.
+    pip = np.asarray(as_image(pip).filter(ImageFilter.GaussianBlur(3))) > 127
+    metal = np.zeros(dark.shape, bool)
+    for x, y in [(648, 400), (700, 530), (690, 505)]:
+        metal |= lab == lab[y, x]
+    metal = metal | (dark & grow(metal, 9))
+    metal = metal | ~outside(~metal)
+    metal = (grow(shrink(metal, 2), 2) & metal) & ~pip
+
+    fills = {seed: lab == lab[seed[1], seed[0]] for seed in PIP_PARTS}
+
+    def part(seed, reach):
+        """A closed part of him with its own outline, lifted off. Where the rest of him lies over it the picture
+        shows none of it: `under` is that hidden stretch, `reach` pixels in, to be painted in the part's own fur so
+        no gap opens when it moves. The line the two share stays with the rest of him."""
+        fill = fills[seed]
+        others = np.zeros(fill.shape, bool)
+        for other, region in fills.items():
+            if other != seed:
+                others |= region
+        to_part, to_rest = steps_from(fill, max(24, 2 * reach)), steps_from(others)
+        own = fill | (pip & (to_part <= 14) & (to_rest > 11))
+        return own, shrink(pip, 6) & (to_part <= 2 * reach) & ~own
+
+    tail, tail_under = part((250, 250), 20)
+    ear, ear_under = part((530, 195), 6)
+    body = pip & ~tail & ~ear
+    return {"body": body, "tail": tail, "tail under": tail_under, "ear": ear, "ear under": ear_under, "ladle": metal,
+            "all": pip | metal}
+
+
+def small(mask):
+    """A close-up mask at the picture's own size, soft at its edge."""
+    return as_image(mask).resize((HOME_BOX[2] - HOME_BOX[0], HOME_BOX[3] - HOME_BOX[1]), Image.LANCZOS)
+
+
+def home_piece(van, mask, under=None):
+    """A part of Pip in the picture's own pixels. `under` is the stretch of it the picture hides behind the rest of
+    him: that is painted in the part's own fur colour, taken from beside it."""
+    out = van.crop(HOME_BOX).convert("RGBA")
+    alpha = small(mask)
+    if under is not None:
+        own = np.asarray(alpha) > 200
+        hidden = np.asarray(small(under)) > 30
+        pixels = np.asarray(out).copy()
+        # The fur nearest the hidden stretch, away from the outline.
+        beside = shrink(own, 3) & grow(hidden, 9)
+        fur = np.median(pixels[beside][:, :3], axis=0)
+        pixels[grow(hidden & ~own, 2), :3] = fur
+        out = Image.fromarray(pixels)
+        alpha = Image.fromarray(np.maximum(np.asarray(alpha), np.asarray(small(under))))
+    out.putalpha(alpha)
+    return out
+
+
+def behind_pip(van_image, masks):
+    """The home picture with Pip, his ladle and his shadow gone, and what was behind them put back."""
+    van = np.asarray(van_image).astype(np.float32)
+    height, width = van.shape[:2]
+    luma = (van[..., 0] * 299 + van[..., 1] * 587 + van[..., 2] * 114) / 1000
+    yy, xx = np.mgrid[0:height, 0:width]
+    inside = np.zeros((height, width), bool)
+    inside[HOME_BOX[1]:HOME_BOX[3], HOME_BOX[0]:HOME_BOX[2]] = np.asarray(small(masks["all"])) > 40
+    hidden = grow(inside, 5)
+
+    # The picture's straight lines there, measured from the parts of them that show.
+    cabinet = lambda x: 1407.5 + (1538.4 - 1407.5) / (1290 - 1052) * (x - 1052)   # the cabinet's foot  # noqa: E731
+    drawer_top = lambda x: 1429.62 + 0.555 * (x - 1290)  # noqa: E731
+    drawer_mid = lambda x: 1461.48 + 0.553 * (x - 1290)  # noqa: E731
+    drawer_foot = lambda x: 1501.16 + 0.559 * (x - 1290)  # noqa: E731
+    rug_long = lambda x: 2242.26 - 0.578 * x  # noqa: E731
+    sill = lambda x: 1652 - 0.54 * (x - 1215)  # noqa: E731
+    points = []
+    for x in range(962, 1030, 3):
+        guess = 1449 + 0.5 * (x - 960)
+        found = np.where(luma[int(guess) - 6:int(guess) + 8, x] < 70)[0]
+        if len(found) >= 3:
+            points.append((x, int(guess) - 6 + found.mean()))
+    slope, start = np.polyfit([p[0] for p in points], [p[1] for p in points], 1)
+    rug_short = lambda x: slope * x + start  # noqa: E731
+    corner_x = (2242.26 - start) / (slope + 0.578)
+    corner_y = rug_long(corner_x)
+
+    below_cabinet = yy > cabinet(xx) + 2.5
+    in_rug = (yy > rug_short(xx) - 3) & (yy < rug_long(xx) + 4) & (xx < corner_x + 2)
+    on_floor = below_cabinet & (yy < sill(xx) - 3) & (xx < 1319) & ~in_rug & ~((xx < 1105) & (yy > rug_long(xx)))
+    is_floor = (abs(van[..., 0] - 199) < 12) & (abs(van[..., 1] - 136) < 12) & (abs(van[..., 2] - 94) < 14)
+    # His shadow, and anything else of his on the floor: whatever there is not the floor's own colour.
+    near_feet = (xx > 1112) & (xx < 1318) & (yy > 1545) & (yy < 1700) & (yy > cabinet(xx) + 7) & (yy < sill(xx) - 6)
+    shadow = grow(on_floor & near_feet & ~hidden & ~is_floor & (luma < 175), 6) & on_floor & (yy < sill(xx) - 4)
+    # The last tassels beside his tail are half hidden: they are made again with the rest.
+    fringe = (yy - rug_short(xx) > -27) & (yy - rug_short(xx) < 4) & (xx >= 1026) & (xx < 1062)
+    hole = hidden | shadow | fringe
+    seen = ~hole
+    out = van.copy()
+
+    def spread(region, known):
+        """The region in the colours around it: nearest first, then evened until it meets them without a seam."""
+        box = np.argwhere(region)
+        (y0, x0), (y1, x1) = box.min(0) - 3, box.max(0) + 4
+        sub = out[y0:y1, x0:x1].copy()
+        todo = region[y0:y1, x0:x1].copy()
+        have = known[y0:y1, x0:x1] & ~todo
+
+        def around(values, weight):
+            total = np.zeros_like(values)
+            count = np.zeros(weight.shape, np.float32)
+            for dy, dx in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                total += np.roll(np.roll(values, dy, 0), dx, 1)
+                count += np.roll(np.roll(weight, dy, 0), dx, 1)
+            return total, count
+
+        sub = sub * have[..., None]
+        while todo.any():
+            total, count = around(sub, have.astype(np.float32))
+            ring = todo & (count > 0)
+            if not ring.any():
+                break
+            sub[ring] = total[ring] / count[ring][:, None]
+            have |= ring
+            todo &= ~ring
+        filled = region[y0:y1, x0:x1] & have
+        weight = have.astype(np.float32)
+        for _ in range(400):
+            total, count = around(sub * weight[..., None], weight)
+            sub[filled] = total[filled] / np.maximum(count[filled], 1)[:, None]
+        out[y0:y1, x0:x1][filled] = sub[filled]
+
+    def carried(region, dx, dy, source):
+        """Each pixel of the region is the picture's own pixel a whole number of steps back along (dx, dy)."""
+        ys, xs = np.nonzero(region)
+        sx, sy = xs.astype(np.float32), ys.astype(np.float32)
+        done = np.zeros(len(xs), bool)
+        for _ in range(8):
+            sx = np.where(done, sx, sx - dx)
+            sy = np.where(done, sy, sy - dy)
+            ix = np.clip(np.round(sx).astype(int), 0, width - 2)
+            iy = np.clip(np.round(sy).astype(int), 0, height - 2)
+            done |= source[iy, ix] & source[iy + 1, ix] & source[iy, ix + 1]
+        sx, sy = sx[done], sy[done]
+        x0, y0 = np.floor(sx).astype(int), np.floor(sy).astype(int)
+        fx, fy = (sx - x0)[:, None], (sy - y0)[:, None]
+        out[ys[done], xs[done]] = (out[y0, x0] * (1 - fx) * (1 - fy) + out[y0, x0 + 1] * fx * (1 - fy)
+                                   + out[y0 + 1, x0] * (1 - fx) * fy + out[y0 + 1, x0 + 1] * fx * fy)
+
+    # 1. The cabinet's pale front: each column carries on down in its own colour.
+    panel = hole & (xx >= 1053) & (xx < 1198) & (yy < cabinet(xx) + 3)
+    colours = {}
+    for x in range(1053, 1198):
+        if panel[:, x].any():
+            top = int(np.argmax(panel[:, x]))
+            above = [van[y, x] for y in range(top - 1, top - 22, -1) if seen[y, x] and luma[y, x] > 158][:5]
+            if len(above) == 5:
+                colours[x] = np.mean(np.array(above), axis=0)
+    known_columns = sorted(colours)
+    for x in range(1053, 1198):
+        if panel[:, x].any():
+            out[panel[:, x], x] = [np.interp(x, known_columns, [colours[k][c] for k in known_columns]) for c in range(3)]
+    area = (slice(1380, 1500), slice(1040, 1210))
+    soft = np.asarray(Image.fromarray(out[area].clip(0, 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(3))).astype(np.float32)
+    inner = shrink(panel, 3)[area]
+    out[area][inner] = soft[inner]
+
+    # 2. The drawers' darker wood.
+    face = hole & (xx >= 1198) & (xx < 1320) & (yy < cabinet(xx) + 3)
+    spread(face, seen & (luma > 112) & (van[..., 0] < 200) & (xx >= 1203) & (xx < 1318)
+           & (yy < cabinet(xx) - 4) & (yy > drawer_top(xx) + 4))
+
+    # 3. The floor. Up against the sill, only what is not the sill's own dark line.
+    floor = hole & below_cabinet & ~in_rug & (yy < sill(xx) + 1) & ~((xx < 1105) & (yy > rug_long(xx) + 4))
+    floor &= ~((yy > sill(xx) - 6) & (luma < 110) & ~hidden)
+    spread(floor, seen & is_floor & (yy > cabinet(xx) + 6) & (xx > 990) & (xx < 1320) & (yy < 1705))
+
+    # 4. The rug: its plain red, then its two edges carried on along themselves to the corner they must meet at.
+    is_red = (abs(van[..., 0] - 174) < 12) & (abs(van[..., 1] - 68) < 12)
+    spread(hole & in_rug, seen & is_red & (xx > 1028) & (xx < 1075) & (yy > 1520) & (yy < 1600))
+    mitre = lambda x: corner_y + 0.03 * (corner_x - x)  # noqa: E731
+    from_short = yy - rug_short(xx)
+    tassel_step = 6.4 * 8
+    carried(hole & (from_short > -27) & (from_short < 36) & (xx < corner_x - 1) & ((yy < mitre(xx)) | (from_short < 4))
+            & (yy < rug_long(xx) + 2), tassel_step, tassel_step * slope, seen & (xx < 1026))
+    from_long = rug_long(xx) - yy
+    carried(hole & (from_long > -5) & (from_long < 36) & (xx < corner_x + 3) & (yy >= mitre(xx)) & (yy > rug_short(xx) + 2),
+            70, -70 * 0.578, seen & (xx > 990) & (xx < 1066))
+
+    # 5. The lines, drawn where he hid them, in the picture's own line colour and width.
+    line = (54, 21, 7)
+    x0, y0 = PATCH_BOX[0], PATCH_BOX[1]
+    ink = Ink((PATCH_BOX[2] - x0, PATCH_BOX[3] - y0))
+    at = lambda pts: [(x - x0, y - y0) for x, y in pts]  # noqa: E731
+    ink.line(at([(1052, cabinet(1052)), (1320, cabinet(1320))]), line, 4.6)
+    ink.line(at([(1199, 1388), (1199, cabinet(1199))]), line, 4.4)
+    ink.line(at([(1210.5, drawer_top(1210.5)), (1210.5, drawer_foot(1210.5))]), line, 4.6)
+    ink.line(at([(1210.5, drawer_mid(1210.5)), (1240, drawer_mid(1240))]), line, 4.0)
+    ink.line(at([(1210.5, drawer_foot(1210.5)), (1290, drawer_foot(1290))]), line, 4.0)
+    # The grain of the pale front: the strokes he cut short, a little longer, and three more like them.
+    grain = (118, 72, 40)
+    for x, top, bottom in [(1081, 1392, 1411), (1117, 1392, 1422), (1156.5, 1396, 1430), (1099, 1410, 1424),
+                           (1137, 1424, 1445), (1176, 1430, 1462)]:
+        ink.line(at([(x, top), (x + 0.6, bottom)]), grain, 1.5)
+    drawn = np.asarray(ink.layer.resize(ink.size, Image.LANCZOS)).astype(np.float32)
+    alpha = drawn[..., 3:] / 255
+    sub = out[y0:PATCH_BOX[3], x0:PATCH_BOX[2]]
+    here = hole[y0:PATCH_BOX[3], x0:PATCH_BOX[2]]
+    sub[here] = (sub * (1 - alpha) + drawn[..., :3] * alpha)[here]
+
+    # The second drawer's knob, which the ladle hangs on: the first one's own pixels.
+    kx0, ky0, kx1, ky1 = 1244, 1414, 1272, 1442
+    ky, kx = np.mgrid[ky0:ky1, kx0:kx1]
+    ring = ((kx - 1257.5) ** 2 + (ky - 1428) ** 2) < 11.5 ** 2
+    there = (slice(ky0 + 35, ky1 + 35), slice(kx0 + 6, kx1 + 6))
+    ring &= hole[there]
+    out[there][ring] = van[ky0:ky1, kx0:kx1][ring]
+
+    # Where the wall ends beside him, its own corner is kept; just behind him it is the same dark line.
+    corner = (xx > 1084) & (xx < 1105) & (yy > rug_long(xx) + 4) & hole
+    out[corner & inside] = line
+    # Only what he and his shadow covered is replaced: everything else stays the picture's own pixel.
+    replaced = grow(inside, 2) | shadow | (fringe & ~seen)
+    replaced &= ~((xx > 1084) & (xx < 1107) & (yy > 1611) & (yy < 1640) & ~inside)
+    patch = Image.fromarray(np.where(replaced[..., None], out, van).clip(0, 255).astype(np.uint8)).convert("RGBA")
+    patch.putalpha(as_image(replaced).filter(ImageFilter.GaussianBlur(0.6)))
+    return patch.crop(PATCH_BOX)
+
+
+def eyelids(van):
+    """His eyes, closed: each covered in the fur's colour beside it, with one dark curve. Drawn."""
+    x0, y0 = HOME_BOX[0], HOME_BOX[1]
+    size = (HOME_BOX[2] - x0, HOME_BOX[3] - y0)
+    ink = Ink(size)
+    pixels = np.asarray(van).astype(np.int32)
+    for cx, cy in [(1184.5, 1468.2), (1225.4, 1460.3)]:
+        # The pale fur around the eye: the lightest pixels in a ring about it.
+        ring = [pixels[round(cy + 10 * np.sin(t)), round(cx + 9 * np.cos(t))] for t in np.linspace(0, 2 * np.pi, 24, endpoint=False)]
+        ring = [c for c in ring if c.sum() > 430]
+        fur = tuple(int(v) for v in np.median(np.array(ring), axis=0))
+        ink.ellipse(cx - x0, cy - y0, 6.6, 8.2, fur)
+        lid = curve([(cx - 5.6, cy + 0.5), (cx, cy + 4.2), (cx + 5.6, cy + 0.5)])
+        ink.line([(x - x0, y - y0) for x, y in lid], LINE, 2.6)
+    out = Image.new("RGBA", size, (0, 0, 0, 0))
+    ink.onto(out)
+    return out
+
+
+def basket_front(van):
+    """The leaf basket's front and the leaves heaped at it, for Pip to pop up behind."""
+    piece = van.crop(BASKET_BOX).convert("RGBA")
+    parts = label(~is_grass(np.asarray(piece.convert("RGB")).astype(np.int32)))
+    solid = parts == parts[1800 - BASKET_BOX[1], 316 - BASKET_BOX[0]]
+    piece.putalpha(as_image(solid).filter(ImageFilter.GaussianBlur(0.7)))
+    yy, xx = np.mgrid[BASKET_BOX[1]:BASKET_BOX[3], BASKET_BOX[0]:BASKET_BOX[2]]
+    # Below a curve through the heap, sagging like the basket's own rim.
+    line = 1716 + 30 * np.sqrt(np.clip(1 - ((xx - 316) / 100.0) ** 2, 0, 1))
+    alpha = np.asarray(piece.getchannel("A")).astype(np.float32) * np.clip(yy - line, 0, 1)
+    piece.putalpha(Image.fromarray(alpha.astype(np.uint8)))
+    return piece
+
+
+def props():
+    """The things the picture has none of, drawn in its colours, at twice their size in the picture."""
+    import math
+    out = {}
+    # A heart.
+    ink = Ink((96, 88))
+    shape = []
+    for i in range(80):
+        t = 2 * math.pi * i / 80
+        shape.append((48 + 38 * math.sin(t) ** 3,
+                      40 - 2.45 * (13 * math.cos(t) - 5 * math.cos(2 * t) - 2 * math.cos(3 * t) - math.cos(4 * t))))
+    ink.fill(shape, (214, 70, 58))
+    ink.line(shape + shape[:1], LINE, 6)
+    ink.line(curve([(26, 30), (30, 22), (38, 20)]), (244, 150, 130), 4)
+    image = Image.new("RGBA", (96, 88), (0, 0, 0, 0))
+    ink.onto(image)
+    out["VanPipHeart"] = image
+    # A music note.
+    ink = Ink((80, 104))
+    ink.line([(34, 82), (34, 18), (66, 10), (66, 70)], LINE, 7)
+    ink.line([(34, 30), (66, 22)], LINE, 9)
+    ink.ellipse(24, 84, 14, 10, LINE)
+    ink.ellipse(56, 72, 14, 10, LINE)
+    image = Image.new("RGBA", (80, 104), (0, 0, 0, 0))
+    ink.onto(image)
+    out["VanPipNote"] = image
+    # A "z".
+    ink = Ink((72, 72))
+    ink.line([(14, 16), (56, 16), (16, 56), (58, 56)], LINE, 9)
+    image = Image.new("RGBA", (72, 72), (0, 0, 0, 0))
+    ink.onto(image)
+    out["VanPipZed"] = image
+    # A rake, held at the top of its handle: a wooden shaft and a fan of bamboo tines.
+    w, h = 240, 600
+    ink = Ink((w, h), k=2)
+    hub = (120, 470)
+    ink.line([(120, 14), hub], LINE, 22)
+    ink.line([(120, 14), hub], (190, 128, 74), 12)
+    tips = [(hub[0] + 104 * math.sin(math.radians(a)), hub[1] + 104 * math.cos(math.radians(a))) for a in range(-48, 49, 16)]
+    for tip in tips:
+        ink.line([hub, tip], LINE, 13)
+    for tip in tips:
+        ink.line([hub, tip], (226, 176, 96), 5.5)
+    band = [((hub[0] + t[0]) / 2, (hub[1] + t[1]) / 2 + 4) for t in tips]
+    ink.line(curve(band, 6), LINE, 12)
+    ink.line(curve(band, 6), (226, 176, 96), 4.5)
+    ink.ellipse(hub[0], hub[1], 15, 15, (190, 128, 74), LINE, 5.5)
+    image = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    ink.onto(image)
+    out["VanPipRake"] = image
+    return out
+
+
 # ---------- writing ----------
 
 def imageset(name, filename, image=None, copy=None, quality=None):
@@ -317,6 +667,17 @@ def main():
     for name, leaf in zip(["VanLeafOrange", "VanLeafYellow", "VanLeafRed"], leaves):
         imageset(name, name.lower() + ".png", leaf)
 
+    masks = home_masks()
+    behind = behind_pip(van, masks)
+    pieces = {"VanHomeBehindPip": behind, "VanHomePip": home_piece(van, masks["body"]),
+              "VanHomePipTail": home_piece(van, masks["tail"], masks["tail under"]),
+              "VanHomePipEar": home_piece(van, masks["ear"], masks["ear under"]),
+              "VanHomeLadle": home_piece(van, masks["ladle"]), "VanHomePipLids": eyelids(van),
+              "VanHomeBasketFront": basket_front(van)}
+    pieces.update(props())
+    for name, piece in pieces.items():
+        imageset(name, name.lower() + ".png", piece)
+
     if len(sys.argv) > 1:
         out = pathlib.Path(sys.argv[1])
         out.mkdir(parents=True, exist_ok=True)
@@ -330,6 +691,23 @@ def main():
         pip.save(out / "pip-pail.png")
         for i, leaf in enumerate(leaves):
             leaf.save(out / f"leaf-{i}.png")
+        for name, piece in pieces.items():
+            piece.save(out / f"{name}.png")
+        # Home with Pip gone, and home with his pieces laid back: the second must be the picture itself.
+        empty = van.convert("RGBA")
+        empty.alpha_composite(behind, PATCH_BOX[:2])
+        view = (1000, 1350, 1360, 1740)
+        empty.crop(view).resize((1080, 1170), Image.LANCZOS).convert("RGB").save(out / "home-empty.png")
+        whole = empty.copy()
+        for name in ("VanHomePipTail", "VanHomePipEar", "VanHomePip", "VanHomeLadle"):
+            whole.alpha_composite(pieces[name], HOME_BOX[:2])
+        whole.crop(view).resize((1080, 1170), Image.LANCZOS).convert("RGB").save(out / "home-whole.png")
+        for name in ("tail", "tail under", "ear", "ear under", "ladle", "body"):
+            ys, xs = np.nonzero(masks[name])
+            print(name, "in the picture: x", HOME_BOX[0] + xs.min() / 2, HOME_BOX[0] + xs.max() / 2, "y", HOME_BOX[1] + ys.min() / 2,
+                  HOME_BOX[1] + ys.max() / 2, "middle", HOME_BOX[0] + xs.mean() / 2, HOME_BOX[1] + ys.mean() / 2)
+        apart = np.abs(np.asarray(whole.convert("RGB")).astype(int) - np.asarray(van).astype(int)).max(axis=2)
+        print("home put back together: differs by more than 12 at", int((apart > 12).sum()), "pixels, most", int(apart.max()))
     print("pip sprite", pip.size, "scene", scene.size, "leaves", [leaf.size for leaf in leaves])
 
 

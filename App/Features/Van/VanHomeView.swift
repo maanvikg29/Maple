@@ -5,13 +5,21 @@ import SwiftUI
 /// Home: the van under the maple (the concept picture itself), a welcome, the time, what is waiting, and the timer's
 /// button (syrup van design §5.1). Everything is done from here: the pot on the stove cooks a leaf, and the round
 /// buttons beside the timer's open the study record and the machines.
+///
+/// Pip is alive in the picture (`PipStage`): he breathes and his tail swishes, a tap makes him hop, cooking and a
+/// finished session make him dance, and now and then he does something of his own. While a session runs, and with
+/// Reduce Motion, he keeps to his place.
 struct VanHomeView: View {
     let model: VanHomeModel
     let now: Date
     let streak: Int
     let prompt: Prompt?
-    /// How many leaves have been cooked from here: each one is a light tap in the hand.
+    /// How many leaves have been cooked from here: each one is a light tap in the hand, and a dance from Pip.
     let cooked: Int
+    /// How many finished sessions Pip has come home from while this view has been up: each one is a dance.
+    let cheers: Int
+    /// A session is running: Pip is at the maple with his pail, so here he only stands and breathes.
+    let isSessionRunning: Bool
     let onEnter: () -> Void
     let onCook: () -> Void
     let onMachines: () -> Void
@@ -32,6 +40,15 @@ struct VanHomeView: View {
     @State private var view = VanView.fit
     /// Where it was when the fingers came down.
     @State private var held: VanView?
+    /// What Pip is doing.
+    @State private var pip = PipStage()
+    /// DEBUG `-MapleDemoPip <act>:<seconds>`: one frame of him, held.
+    @State private var heldPip: PipScene?
+
+    /// He does things of his own, and can be tapped.
+    private var pipPlays: Bool { !reduceMotion && !isSessionRunning && heldPip == nil }
+
+    private static func moment() -> Double { Date().timeIntervalSinceReferenceDate }
 
     var body: some View {
         ZStack {
@@ -49,8 +66,14 @@ struct VanHomeView: View {
                         .frame(width: length(canvas.width), height: length(VanCanvas.homePictureHeight))
                         .position(canvas.point(canvas.width / 2, VanCanvas.homePictureHeight / 2, in: proxy.size))
                         .accessibilityHidden(true)
-                    // For VoiceOver, which can't tap a place in a picture: the maple and the pot. (The timer and the
-                    // machines have their own buttons below.)
+                    TimelineView(.animation(minimumInterval: 1.0 / 60, paused: reduceMotion || heldPip != nil)) { timeline in
+                        VanPipLayer(
+                            scene: heldPip ?? pip.scene(at: timeline.date.timeIntervalSinceReferenceDate, still: reduceMotion),
+                            canvas: canvas, size: proxy.size
+                        )
+                    }
+                    // For VoiceOver, which can't tap a place in a picture: the maple, the pot and Pip. (The timer and
+                    // the machines have their own buttons below.)
                     spoken("Your maple", hint: "Opens the tree and its leaves", width: length(1000), height: length(900), action: onTree)
                         .position(canvas.point(500, 560, in: proxy.size))
                     spoken(
@@ -58,12 +81,22 @@ struct VanHomeView: View {
                         width: length(210), height: length(180), action: onCook
                     )
                     .position(canvas.point(764, 1220, in: proxy.size))
+                    if pipPlays {
+                        spoken("Pip", hint: "Makes him hop", width: length(220), height: length(260)) { pip.tapped(at: Self.moment()) }
+                            .position(canvas.point(PipHome.standX - 25, PipHome.standY - 125, in: proxy.size))
+                    }
                 }
                 .frame(width: proxy.size.width, height: proxy.size.height)
                 // A tap is a place in the picture, wherever the picture has been moved to.
                 .contentShape(Rectangle())
                 .gesture(SpatialTapGesture().onEnded { tap in
                     let at = canvas.source(x: tap.location.x, y: tap.location.y, width: proxy.size.width, height: proxy.size.height)
+                    // Pip first, wherever he has got to: he stands inside the van, whose tap is the timer.
+                    let moment = Self.moment()
+                    if pipPlays, pip.scene(at: moment).pose.contains(x: at.x, y: at.y) {
+                        pip.tapped(at: moment)
+                        return
+                    }
                     switch VanHomeTarget.at(x: at.x, y: at.y) {
                     case .pot: onCook()
                     case .machines: onMachines()
@@ -89,7 +122,51 @@ struct VanHomeView: View {
                 .allowsHitTesting(false)
             words
         }
+        // Syrup cooked, or home from a finished session: a happy dance, unless he is in the middle of something.
+        .onChange(of: cooked) { _, _ in
+            if pipPlays { pip.play(.dance, at: Self.moment() + 0.15) }
+        }
+        .onChange(of: cheers) { _, _ in
+            if pipPlays { pip.play(.dance, at: Self.moment() + 0.7) }
+        }
+        // Now and then, something of his own.
+        .task(id: pipPlays) {
+            guard pipPlays else { return }
+            var last: PipAct?
+            while !Task.isCancelled {
+                let next = PipDirector.next(after: last, roll: UInt64.random(in: .min ... .max))
+                try? await Task.sleep(for: .seconds(next.wait))
+                guard !Task.isCancelled else { return }
+                let moment = Self.moment()
+                guard !pip.isBusy(at: moment) else { continue }
+                pip.play(next.act, at: moment)
+                last = next.act
+                try? await Task.sleep(for: .seconds(next.act.seconds))
+            }
+        }
+        #if DEBUG
+        .onAppear(perform: showDemoPip)
+        #endif
     }
+
+    #if DEBUG
+    /// `-MapleDemoPip <act>` plays that act a second after home opens; `<act>:<seconds>` holds its frame that far in.
+    /// `idle:<seconds>` holds a frame of him just standing.
+    private func showDemoPip() {
+        guard let value = UserDefaults.standard.string(forKey: "MapleDemoPip") else { return }
+        let parts = value.split(separator: ":").map(String.init)
+        let seconds = parts.count > 1 ? Double(parts[1]) : nil
+        if parts.first == "idle" {
+            heldPip = PipScene(pose: PipIdle.pose(at: seconds ?? 0))
+        } else if let act = parts.first.flatMap(PipAct.init(rawValue:)) {
+            if let seconds {
+                heldPip = act.scene(at: seconds)
+            } else {
+                pip.play(act, at: Self.moment() + 1, cuttingIn: true)
+            }
+        }
+    }
+    #endif
 
     /// Pinch to zoom about the fingers, drag to move; letting go settles the picture back inside its limits.
     private func looking(in size: CGSize) -> some Gesture {
