@@ -2,6 +2,10 @@
 
 Newest first. Each entry: what was decided, why, and what it affects.
 
+## 2026-11-28 — Home's buttons are windows onto the picture; three looks for the top bar
+The owner: "the buttons look very ai and the hud at the top of screen give options to replace". The system symbols in outlined circles (a leaf, a drop, a flame, a book, a person, a clock, a wrench) are gone from home. Each button and counter now shows one thing from the concept picture in a round window with the picture's outline (`VanMedallion`, `HUD_ICONS` in the art script): the leaf basket for the leaves waiting, the syrup jug for the syrup, the stove's fire for the streak, a sky leaf for the Herbarium, Pip's face for Profile, the boiler's gauge for the study record, and the pegboard's tools for the machines. Nothing in them is drawn. Three looks for how they sit over the scene, for the owner to pick (`VanHud`, DEBUG `-MapleDemoHud`): `plates` (each number on a small cream plate; the default for now), `board` (one wooden board across the top and one along the bottom, drawn by Maple in the picture's wood), and `floating` (no plates; the numbers have a cream edge). The two not picked will be removed.
+Affects: `VanCounter`, `VanMedallion`, `VanHud`, `VanBoard`, `VanHomeView`, the `VanIcon…` image sets, `Scripts/art/concept/build_concept_art.py`.
+
 ## 2026-11-28 — Moving between the van's places is animated
 The owner: "no transitin animations are there". With the van the tab bar is gone and the places were switched with a cut. Now each place arrives as it is shown (`VanArrival`): home settles from a little closer, as if the camera were pulling back out of the van; the clock (and whatever the timer is showing) comes up from the gauge; the Herbarium rises into view. Inside the timer, each screen gives way to the next with a half-second cross-fade: the clock to the maple, the maple to Pip's walk back, the walk to the receipt. With Reduce Motion each is a short fade. The Herbarium's way back to the van moved to its top-left, as on the clock, so it no longer covers a leaf or a line.
 Affects: `VanArrival` (new), `RootView`, `FocusView`.

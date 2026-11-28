@@ -52,6 +52,9 @@ struct VanHomeView: View {
     /// When home came up: the picture's movement counts from here.
     @State private var appeared = Date()
 
+    /// How the counters and buttons sit over the picture (`VanHud`).
+    private let hud = VanHud.current
+
     /// He does things of his own, and can be tapped.
     private var pipPlays: Bool { !reduceMotion && !isSessionRunning && heldPip == nil }
 
@@ -250,7 +253,10 @@ struct VanHomeView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, hud == .board ? 12 : 0)
+            .padding(.vertical, hud == .board ? 6 : 0)
+            .background { if hud == .board { VanBoard() } }
+            .padding(.horizontal, hud == .board ? 10 : 16)
             .padding(.top, 8)
             .frame(maxHeight: .infinity, alignment: .top)
             GeometryReader { proxy in
@@ -335,7 +341,7 @@ struct VanHomeView: View {
             .padding(.bottom, 10)
         }
         HStack(spacing: 12) {
-            roundButton("clock.arrow.circlepath", label: "Study record", action: onHistory)
+            roundButton("VanIconGauge", label: "Study record", action: onHistory)
             Button(action: onEnter) {
                 Text(model.enterTitle)
                     .font(.system(.title3, design: .rounded).weight(.heavy))
@@ -347,36 +353,36 @@ struct VanHomeView: View {
             }
             .buttonStyle(.plain)
             .accessibilityHint(model.enterHint)
-            roundButton("wrench.and.screwdriver.fill", label: "Machines", action: onMachines)
+            roundButton("VanIconTools", label: "Machines", action: onMachines)
         }
+        .padding(.horizontal, hud == .board ? 10 : 0)
+        .padding(.vertical, hud == .board ? 8 : 0)
+        .background { if hud == .board { VanBoard() } }
         .padding(.horizontal, 16)
         .padding(.bottom, 20)
     }
 
     @ViewBuilder
     private func counters(compact: Bool) -> some View {
-        if let leaves = model.leavesText { VanCounter(value: leaves, image: "leaf.fill", label: "leaves", compact: compact) }
-        if let syrup = model.syrupText { VanCounter(value: syrup, image: "drop.fill", label: "bottles of syrup", compact: compact) }
+        if let leaves = model.leavesText { VanCounter(value: leaves, icon: "VanIconBasket", label: "leaves", compact: compact, hud: hud) }
+        if let syrup = model.syrupText { VanCounter(value: syrup, icon: "VanIconJug", label: "bottles of syrup", compact: compact, hud: hud) }
     }
 
     @ViewBuilder
     private func buttons(compact: Bool) -> some View {
         if streak >= 2 {
-            Button(action: onStreak) { VanCounter(value: "\(streak)", image: "flame.fill", label: "day streak", compact: compact) }
+            Button(action: onStreak) { VanCounter(value: "\(streak)", icon: "VanIconFire", label: "day streak", compact: compact, hud: hud) }
                 .buttonStyle(.plain)
         }
-        roundButton("book.closed.fill", label: "Herbarium", action: onHerbarium)
-        roundButton("person.fill", label: "Profile and settings", action: onProfile)
+        roundButton("VanIconLeaf", label: "Herbarium", action: onHerbarium)
+        roundButton("VanIconPip", label: "Profile and settings", action: onProfile)
     }
 
-    private func roundButton(_ image: String, label: String, action: @escaping () -> Void) -> some View {
+    /// A round window onto the picture, as a button.
+    private func roundButton(_ icon: String, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: image)
-                .font(.system(.body, design: .rounded).weight(.bold))
-                .foregroundStyle(VanPalette.outline)
-                .frame(width: 44, height: 44)
-                .background(VanPalette.cream, in: Circle())
-                .overlay(Circle().strokeBorder(VanPalette.outline, lineWidth: 2.5))
+            VanMedallion(name: icon, size: hud == .floating ? 46 : 44)
+                .contentShape(Circle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)

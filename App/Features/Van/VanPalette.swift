@@ -37,24 +37,128 @@ struct VanPlate: ViewModifier {
     private var shape: RoundedRectangle { RoundedRectangle(cornerRadius: 22, style: .continuous) }
 }
 
-/// A number with its picture, on a plate: the leaves, the syrup, the streak.
+/// A number with its picture: the leaves, the syrup, the streak. The picture is a round window onto the concept
+/// (`VanMedallion`); how the number sits over the scene is the HUD's look (`VanHud`).
 struct VanCounter: View {
     let value: String
-    let image: String
+    /// A `VanIcon…` picture.
+    let icon: String
     /// What the number counts, for VoiceOver: "leaves".
     let label: String
-    /// A tighter plate, for a row that has more on it than fits at full size.
+    /// Tighter, for a row that has more on it than fits at full size.
     var compact = false
+    var hud = VanHud.current
 
     var body: some View {
-        Label(value, systemImage: image)
+        Group {
+            switch hud {
+            case .plates:
+                HStack(spacing: 6) {
+                    VanMedallion(name: icon, size: compact ? 24 : 28)
+                    number
+                }
+                .padding(.leading, 5)
+                .padding(.trailing, compact ? 10 : 12)
+                .padding(.vertical, 5)
+                .background(VanPalette.cream, in: Capsule())
+                .overlay(Capsule().strokeBorder(VanPalette.outline, lineWidth: 2.5))
+            case .board:
+                HStack(spacing: 5) {
+                    VanMedallion(name: icon, size: compact ? 26 : 30)
+                    number
+                }
+            case .floating:
+                HStack(spacing: 5) {
+                    VanMedallion(name: icon, size: compact ? 32 : 38)
+                    number
+                        // A cream edge round the dark numerals, so they read on the canopy and the sky alike.
+                        .shadow(color: VanPalette.cream, radius: 0.6)
+                        .shadow(color: VanPalette.cream, radius: 1.4)
+                        .shadow(color: VanPalette.cream, radius: 2.4)
+                }
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(value) \(label)")
+    }
+
+    private var number: some View {
+        Text(value)
             .font(.system(compact ? .footnote : .subheadline, design: .rounded).weight(.heavy))
-            .labelStyle(.titleAndIcon)
+            .monospacedDigit()
             .foregroundStyle(VanPalette.outline)
             .lineLimit(1)
             .fixedSize()
-            .modifier(VanPlate(horizontal: compact ? 9 : 12))
-            .accessibilityLabel("\(value) \(label)")
+    }
+}
+
+/// A round window onto the concept picture, centred on one thing in it (`HUD_ICONS` in the art script), with the
+/// picture's own outline round it: the buttons' and counters' pictures.
+struct VanMedallion: View {
+    let name: String
+    var size: CGFloat = 44
+
+    var body: some View {
+        Image(name)
+            .resizable()
+            .scaledToFill()
+            .frame(width: size, height: size)
+            .clipShape(Circle())
+            .overlay(Circle().strokeBorder(VanPalette.outline, lineWidth: size >= 34 ? 2.5 : 2))
+            .accessibilityHidden(true)
+    }
+}
+
+/// How home's counters and buttons sit over the picture. Three looks, while the owner picks one (the owner, 28 Nov
+/// 2026: "the hud at the top of screen give options to replace"); DEBUG `-MapleDemoHud plates|board|floating` shows
+/// each.
+enum VanHud: String, CaseIterable {
+    /// Each number on its own small cream plate, the buttons round windows onto the picture.
+    case plates
+    /// Everything on one wooden board across the top, and one along the bottom.
+    case board
+    /// No plates at all: the pictures and numbers stand on the scene.
+    case floating
+
+    static var current: VanHud {
+        #if DEBUG
+        if let value = UserDefaults.standard.string(forKey: "MapleDemoHud"), let hud = VanHud(rawValue: value) { return hud }
+        #endif
+        return .plates
+    }
+}
+
+/// A wooden board, drawn in the picture's wood with its outline, a few grain lines and a nail at each end: the
+/// `board` HUD's backing.
+struct VanBoard: View {
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
+        shape
+            .fill(VanPalette.wood)
+            .overlay {
+                Canvas { context, size in
+                    // Grain: three long, gently waving lines in the wood's darker tone.
+                    for (index, height) in [0.3, 0.55, 0.8].enumerated() {
+                        var line = Path()
+                        let y = size.height * height
+                        line.move(to: CGPoint(x: 14, y: y))
+                        let wave = index.isMultiple(of: 2) ? 2.0 : -2.0
+                        line.addCurve(
+                            to: CGPoint(x: size.width - 14, y: y + wave), control1: CGPoint(x: size.width * 0.35, y: y - wave),
+                            control2: CGPoint(x: size.width * 0.65, y: y + 2 * wave)
+                        )
+                        context.stroke(line, with: .color(VanPalette.copper.opacity(0.55)), lineWidth: 1.5)
+                    }
+                    // A nail at each end.
+                    for x in [9.0, size.width - 9] {
+                        let nail = CGRect(x: x - 2.5, y: size.height / 2 - 2.5, width: 5, height: 5)
+                        context.fill(Path(ellipseIn: nail), with: .color(VanPalette.outline.opacity(0.8)))
+                    }
+                }
+                .clipShape(shape)
+            }
+            .overlay(shape.strokeBorder(VanPalette.outline, lineWidth: 2.5))
+            .accessibilityHidden(true)
     }
 }
 
