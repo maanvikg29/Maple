@@ -218,7 +218,7 @@ struct RunningSessionView: View {
                 VanTreeSessionView(
                     title: model.title, subtitle: model.restingLine, time: model.remaining, caption: model.caption,
                     // Breaks are dropped with the van (syrup van design §6.3).
-                    spoken: model.spoken, endTitle: endPath.title, breakTitle: nil,
+                    spoken: model.spoken, progress: Self.progress(session, at: now), endTitle: endPath.title, breakTitle: nil,
                     dimmed: dimmed, onMinimise: minimise, onEnd: takeEndPath, onBreak: takeBreak, controlsFocused: $controlsFocused
                 )
             } else {
@@ -234,6 +234,13 @@ struct RunningSessionView: View {
                     .accessibilityHidden(true)
             }
         }
+    }
+
+    /// How far through its planned length the session is, 0 to 1.
+    private static func progress(_ session: SessionRecord, at now: Date) -> Double {
+        let length = session.plannedEnd.timeIntervalSince(session.countdownStart)
+        guard length > 0 else { return 1 }
+        return min(1, max(0, now.timeIntervalSince(session.countdownStart) / length))
     }
 
     private func dialScreen(_ model: RunningSessionModel, session: SessionRecord, now: Date, dimmed: Bool) -> some View {

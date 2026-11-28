@@ -171,62 +171,6 @@ class Ink:
         image.alpha_composite(small, at)
 
 
-# ---------- the maple, for the session view ----------
-
-def blob(cx, cy, a, b, n=2.6, steps=240):
-    import math
-    out = []
-    for i in range(steps):
-        t = 2 * math.pi * i / steps
-        c, s = math.cos(t), math.sin(t)
-        out.append((cx + a * abs(c) ** (2 / n) * (1 if c >= 0 else -1), cy + b * abs(s) ** (2 / n) * (1 if s >= 0 else -1)))
-    return out
-
-
-def tree_scene(van):
-    tree = van.crop((0, 0, TREE_W, TREE_CUT)).copy()
-    d = ImageDraw.Draw(tree)
-    # Everything that is not the tree, painted out in the sky's colour: the bunting, the wire to the van, the smoke
-    # and the chimney. The line runs a few pixels outside the tree's own outline and never crosses it.
-    d.polygon([(536, 682), (545, 669), (880, 669), (880, 428), (1012, 428), (1045, 395), (1045, 318), (TREE_W, 318),
-               (TREE_W, TREE_CUT), (483, TREE_CUT), (483, 862), (485, 822), (489, 783), (497, 763), (508, 738),
-               (524, 704)], fill=PEACH)
-    # The one loose leaf the cut would slice.
-    d.rectangle([70, 950, 180, TREE_CUT], fill=PEACH)
-
-    scene = Image.new("RGBA", (TREE_W, TREE_H), PEACH + (255,))
-    scene.paste(tree, (0, 0))
-    # The trunk below the cut is hidden by the van in the concept. Its sides are straight there, so each column of
-    # the last clear rows carries straight on down.
-    band = np.asarray(tree.crop((228, TREE_CUT - 16, 492, TREE_CUT - 2))).astype(np.float32).mean(axis=0)
-    column = Image.fromarray(band.round().astype(np.uint8)[None, :, :])
-    scene.paste(column.resize((492 - 228, 1470 - TREE_CUT + 2), Image.NEAREST), (228, TREE_CUT - 2))
-
-    # Where the outline's two dark lines are in that band: the foot's own outline starts on them.
-    darkness = 255 - band.mean(axis=1)
-    lx = 228 + float(np.average(np.arange(0, 40), weights=np.clip(darkness[:40] - 190, 0, None)))
-    rx = 228 + float(np.average(np.arange(224, 264), weights=np.clip(darkness[224:] - 190, 0, None)))
-
-    ink = Ink((TREE_W, TREE_H), k=4)
-    ink.fill(blob(600, 1674, 565, 172), GRASS_RIM)
-    ink.fill(blob(600, 1640, 565, 172), GRASS)
-    # The foot of the trunk, flaring into the grass.
-    left = [(lx, 1400)] + curve([(lx, 1440), (lx - 3, 1492), (lx - 20, 1538), (lx - 58, 1566), (lx - 94, 1578)])
-    right = [(rx, 1400)] + curve([(rx, 1440), (rx + 3, 1492), (rx + 20, 1538), (rx + 58, 1566), (rx + 94, 1578)])
-    foot = curve([(lx - 94, 1578), (lx + 10, 1590), ((lx + rx) / 2, 1594), (rx - 10, 1590), (rx + 94, 1578)])
-    ink.fill(left + foot + right[::-1], BARK)
-    ink.line(left + foot[1:] + right[::-1][1:], LINE, 3.6)
-    ink.onto(scene)
-
-    # Mushrooms and a fallen leaf from the concept's own grass.
-    mushrooms = cut_from(van, (1372, 1606, 1502, 1734), is_grass)
-    scene.alpha_composite(mushrooms, (700, 1568))
-    leaf = cut_from(van, (1632, 1574, 1722, 1660), is_grass)
-    scene.alpha_composite(leaf, (250, 1668))
-    scene.alpha_composite(leaf.transpose(Image.FLIP_LEFT_RIGHT).rotate(24, resample=Image.BICUBIC, expand=True), (905, 1640))
-    return scene.convert("RGB")
-
-
 # ---------- Pip ----------
 
 PIP_BOX = (190, 135, 800, 715)
@@ -259,15 +203,8 @@ def pip_cutout():
     return out
 
 
-def pip_with_pail(leaves):
-    """Pip as he stands in the concept, the ladle gone, a pail of leaves hanging from the same paw."""
-    sprite = pail_alone(leaves)
-    sprite.alpha_composite(pip_alone())
-    return sprite
-
-
 def pip_alone():
-    """Pip without his pail, in the same square: for the tumble, where the pail flies off on its own."""
+    """Pip on his own, in his square: the basket is drawn apart (`session_scene.py`), so it can fill and fly off."""
     return pip_cutout().crop(PIP_BOX)
 
 
@@ -293,44 +230,6 @@ def tree_eyelids():
     out = Image.new("RGBA", size, (0, 0, 0, 0))
     ink.onto(out)
     return out
-
-
-# The pail's middle and its mouth's middle, upright, in Pip's square (`PailPose` turns it about the first).
-PAIL_MIDDLE = (494, 476)
-PAIL_MOUTH = (494, 397)
-
-
-def pail_alone(leaves):
-    """The pail of leaves he holds, drawn by Maple (the leaves are the concept's), in Pip's square."""
-    x0, y0 = PIP_BOX[0], PIP_BOX[1]
-    size = (PIP_BOX[2] - x0, PIP_BOX[3] - y0)
-    sprite = Image.new("RGBA", size, (0, 0, 0, 0))
-    at = lambda pts: [(x - x0, y - y0) for x, y in pts]  # noqa: E731
-    grip, cx, rim, bottom, half = (636, 430), 684, 532, 690, 80
-
-    back = Ink(size)
-    for end in (cx - half + 4, cx + half - 4):
-        bend = 10 if end > cx else -6
-        handle = curve([(end, rim), ((end + grip[0]) / 2 + bend, (rim + grip[1]) / 2 + 4), grip])
-        back.line(at(handle), LINE, 13)
-        back.line(at(handle), METAL, 5.5)
-    back.ellipse(cx - x0, rim - y0, half, 21, METAL_DARK, LINE, 5)
-    back.onto(sprite)
-    # The heap: the concept's own leaves.
-    for leaf, (lx, ly), turn, k in [(leaves[1], (620, 468), 30, 0.8), (leaves[0], (676, 446), -24, 0.86),
-                                    (leaves[2], (634, 476), 4, 0.95), (leaves[0], (700, 472), -52, 0.7)]:
-        small = leaf.resize((round(leaf.width * k), round(leaf.height * k)), Image.LANCZOS)
-        sprite.alpha_composite(small.rotate(turn, resample=Image.BICUBIC, expand=True), (lx - x0, ly - y0))
-    front = Ink(size)
-    foot = half - 22
-    side = [(cx - half, rim), (cx - foot, bottom - 8)] + curve([(cx - foot, bottom - 8), (cx, bottom + 4), (cx + foot, bottom - 8)]) + [(cx + half, rim)]
-    lip = curve([(cx - half, rim), (cx - 40, rim + 17), (cx, rim + 21), (cx + 40, rim + 17), (cx + half, rim)])
-    front.fill(at(side + lip[::-1]), METAL)
-    front.line(at(side), LINE, 5)
-    front.line(at(lip), LINE, 5)
-    front.line(at(curve([(cx - 68, rim + 58), (cx, rim + 76), (cx + 68, rim + 58)])), METAL_DARK, 3.5)
-    front.onto(sprite)
-    return sprite
 
 
 # ---------- Pip at home, in pieces, and the van behind him ----------
@@ -913,14 +812,8 @@ def main():
     leaves = [cut_from(van, (1474, 410, 1606, 536), is_sky),   # an orange maple leaf
               cut_from(van, (1284, 262, 1396, 356), is_sky),   # a plain yellow one
               cut_from(van, (1632, 1574, 1722, 1660), is_grass)]  # a red maple leaf
-    scene = tree_scene(van)
-    pip = pip_with_pail(leaves)
-
     imageset("VanHomePicture", "syrup-van.jpg", copy=CONCEPTS / "syrup-van.jpg")
-    imageset("VanTreeScene", "tree-scene.jpg", scene, quality=93)
-    imageset("VanTreePip", "pip-pail.png", pip)
     imageset("VanTreePipAlone", "pip-alone.png", pip_alone())
-    imageset("VanTreePail", "pail.png", pail_alone(leaves))
     lids = tree_eyelids()
     imageset("VanTreePipLids", "pip-lids.png", lids)
     for name, leaf in zip(["VanLeafOrange", "VanLeafYellow", "VanLeafRed"], leaves):
@@ -946,15 +839,7 @@ def main():
     if len(sys.argv) > 1:
         out = pathlib.Path(sys.argv[1])
         out.mkdir(parents=True, exist_ok=True)
-        whole = scene.convert("RGBA")
-        w = round(pip.width * PIP_SCALE)
-        small = pip.resize((w, round(pip.height * PIP_SCALE)), Image.LANCZOS)
-        # His feet (500, 690 in his own picture) stand on PIP_FEET.
-        whole.alpha_composite(small, (round(PIP_FEET[0] - (500 - PIP_BOX[0]) * PIP_SCALE), round(PIP_FEET[1] - (690 - PIP_BOX[1]) * PIP_SCALE)))
-        whole.convert("RGB").save(out / "tree-scene.png")
-        scene.save(out / "tree-only.png")
-        pip.save(out / "pip-pail.png")
-        blink = pip.copy()
+        blink = pip_alone()
         blink.alpha_composite(lids)
         blink.crop((200, 100, 480, 260)).resize((840, 480), Image.LANCZOS).save(out / "pip-blink.png")
         for i, leaf in enumerate(leaves):
@@ -983,7 +868,7 @@ def main():
             piece.save(out / f"{name}.png")
         apart = np.abs(np.asarray(whole.convert("RGB")).astype(int) - np.asarray(van).astype(int)).max(axis=2)
         print("home put back together: differs by more than 12 at", int((apart > 12).sum()), "pixels, most", int(apart.max()))
-    print("pip sprite", pip.size, "scene", scene.size, "leaves", [leaf.size for leaf in leaves])
+    print("leaves", [leaf.size for leaf in leaves])
 
 
 if __name__ == "__main__":

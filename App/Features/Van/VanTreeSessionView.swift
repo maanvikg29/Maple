@@ -2,12 +2,12 @@ import MapleCore
 import MapleDesign
 import SwiftUI
 
-/// A running session with the van: Pip up in the maple with his pail, leaves coming down, and the time left under
-/// the tree (syrup van design §6.5).
+/// A running session with the van: Pip up in the maple collecting leaves in his wicker basket, leaves coming down,
+/// and the time left over the meadow (syrup van design §6.5).
 ///
-/// The maple, Pip and the leaves are cut from the concept picture, pixel for pixel
-/// (`Scripts/art/concept/build_concept_art.py`). The leaves in the air are an animation only: the screen never shows
-/// how many leaves the session has earned, or how fast.
+/// The maple, Pip and the leaves are cut from the concept picture, pixel for pixel; the land round them and the basket
+/// are drawn (`Scripts/art/concept/session_scene.py`). The leaves in the air and in the basket are a picture only:
+/// the screen never shows how many leaves the session has earned, or how fast.
 struct VanTreeSessionView: View {
     let title: String
     let subtitle: String?
@@ -17,6 +17,8 @@ struct VanTreeSessionView: View {
     let caption: String
     /// What VoiceOver reads for the time.
     let spoken: String
+    /// How far through the session, 0 to 1: Pip's basket fills with it.
+    let progress: Double
     let endTitle: String
     let breakTitle: String?
     /// After 30 seconds without a touch the scene goes dim.
@@ -35,31 +37,19 @@ struct VanTreeSessionView: View {
             GeometryReader { proxy in
                 let canvas = VanCanvas.tree
                 let scale = canvas.scale(width: proxy.size.width, height: proxy.size.height)
-                ZStack {
-                    Image("VanTreeScene")
-                        .resizable()
-                        .frame(width: canvas.width * scale, height: canvas.height * scale)
-                        .position(x: proxy.size.width / 2, y: proxy.size.height / 2)
-                    // Pip breathes and blinks, and the string lights twinkle; dimmed, all of it rests.
-                    TimelineView(.animation(minimumInterval: 1.0 / 30, paused: dimmed || reduceMotion)) { timeline in
-                        let time = reduceMotion ? 0 : timeline.date.timeIntervalSince(start)
-                        let idle = PipIdle.pose(at: time)
-                        ZStack {
-                            VanTreeLights(time: time, canvas: canvas)
-                            // The leaves come down behind Pip, so none lands on his face.
-                            VanFallingLeaves(canvas: canvas, time: time, count: 13)
-                            ZStack {
-                                Image("VanTreePip")
-                                    .resizable()
-                                if idle.asleep {
-                                    Image("VanTreePipLids")
-                                        .resizable()
-                                }
-                            }
-                            .frame(width: VanTreePip.width * scale, height: VanTreePip.height * scale)
-                            .scaleEffect(x: idle.stretchX, y: idle.stretchY, anchor: VanTreePip.feet)
-                            .position(canvas.point(VanTreePip.centreX, VanTreePip.centreY, in: proxy.size))
-                        }
+                // The clouds drift, Pip breathes, blinks and catches leaves for his basket, and the string lights
+                // twinkle; dimmed, all of it rests.
+                TimelineView(.animation(minimumInterval: 1.0 / 30, paused: dimmed || reduceMotion)) { timeline in
+                    let time = reduceMotion ? 0 : timeline.date.timeIntervalSince(start)
+                    ZStack {
+                        VanTreeLandscape(canvas: canvas, size: proxy.size, time: time)
+                        VanTreeLights(time: time, canvas: canvas)
+                        // The leaves come down behind Pip, so none lands on his face.
+                        VanFallingLeaves(canvas: canvas, time: time, count: 13)
+                        VanTreePipCollecting(
+                            fraction: progress, time: time, still: reduceMotion || dimmed, idle: PipIdle.pose(at: time), scale: scale
+                        )
+                        .position(canvas.point(VanTreePip.centreX, VanTreePip.centreY, in: proxy.size))
                     }
                 }
                 .frame(width: proxy.size.width, height: proxy.size.height)

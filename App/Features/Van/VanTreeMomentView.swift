@@ -8,9 +8,9 @@ import SwiftUI
 /// It plays once and calls `onDone`. A tap skips the walk. With Reduce Motion it is one still frame, held a moment.
 struct VanTreeMomentView: View {
     enum Kind {
-        /// Ended early: the tumble, and the pail's leaves scattering. The session's leaves are lost.
+        /// Ended early: the tumble, and the basket's leaves scattering. The session's leaves are lost.
         case tumble
-        /// Finished: the walk back with the pail.
+        /// Finished: the walk back with the basket.
         case walkBack
 
         var seconds: Double {
@@ -50,10 +50,7 @@ struct VanTreeMomentView: View {
                     let pose = kind == .tumble ? PipFall.pose(at: time) : PipWalk.pose(at: time)
                     let place = { (x: Double, y: Double) in canvas.point(VanTreePip.centreX + x, VanTreePip.centreY + y, in: proxy.size) }
                     ZStack {
-                        Image("VanTreeScene")
-                            .resizable()
-                            .frame(width: canvas.width * scale, height: canvas.height * scale)
-                            .position(x: proxy.size.width / 2, y: proxy.size.height / 2)
+                        VanTreeLandscape(canvas: canvas, size: proxy.size, time: time)
                         if kind == .tumble {
                             // Dust where he and the pail land (drawn by Maple, in the grass's colour made pale).
                             ForEach(Array(PipFall.dust(at: time).enumerated()), id: \.offset) { _, puff in
@@ -63,9 +60,9 @@ struct VanTreeMomentView: View {
                                     .opacity(puff.opacity)
                                     .position(place(puff.x, puff.y))
                             }
-                            // The pail, out of his paw: it turns about its own middle.
+                            // The basket, out of his paw: it turns about its own middle.
                             let pail = PipFall.pail(at: time)
-                            Image("VanTreePail")
+                            Image("VanTreeBasket")
                                 .resizable()
                                 .frame(width: VanTreePip.width * scale, height: VanTreePip.height * scale)
                                 .rotationEffect(.radians(pail.turn), anchor: VanTreePip.pailMiddle)
@@ -79,7 +76,7 @@ struct VanTreeMomentView: View {
                             .rotationEffect(.radians(pose.turn))
                             .position(place(pose.x, pose.y))
                         if kind == .tumble {
-                            // The pail's leaves, out of its mouth and fluttering down over everything.
+                            // The basket's leaves, out of its mouth and fluttering down over everything.
                             ForEach(Array(PipFall.spill(at: time).enumerated()), id: \.offset) { _, leaf in
                                 Image(Self.leaves[leaf.colour])
                                     .resizable()
@@ -104,7 +101,7 @@ struct VanTreeMomentView: View {
             if kind == .walkBack { finish() }
         }
         .accessibilityElement()
-        .accessibilityLabel(kind == .tumble ? "Pip tumbles out of the tree onto the grass" : "Pip walks back to the van with his pail of leaves")
+        .accessibilityLabel(kind == .tumble ? "Pip tumbles out of the tree onto the grass" : "Pip walks back to the van with his basket of leaves")
         .accessibilityAddTraits(kind == .walkBack ? .isButton : [])
         .task {
             start = Date()
@@ -128,7 +125,7 @@ enum VanTreePip {
     static let height = 580 * 0.61
     static let centreX = 440 + (305 - 310) * 0.61
     static let centreY = 668 + (290 - 555) * 0.61
-    /// The pail's middle in his square (`PAIL_MIDDLE`), which it turns about once it flies.
+    /// The basket's middle in his square (`PAIL_MIDDLE`), which it turns about once it flies.
     static let pailMiddle = UnitPoint(x: 494.0 / 610, y: 476.0 / 580)
     /// His feet in his square, which he breathes up from.
     static let feet = UnitPoint(x: 310.0 / 610, y: 555.0 / 580)
