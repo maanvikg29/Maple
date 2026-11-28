@@ -4,6 +4,13 @@ import MapleFocusCore
 /// What the receipt does around `ReceiptModel` (F1 design §5.8, F1-20): which leaves this session opened, Again by
 /// start readiness, and the intention Again carries forward.
 public enum ReceiptFlow {
+    /// Whether the receipt offers "Again". It starts the member's preset as the start screen did (its break, its
+    /// strictness, its name), and the van starts every session Gentle with no break from its clock, so while the van is
+    /// home Again is not offered (syrup van design §6.3; the summary in §6.7 replaces the receipt).
+    public static func offersAgain(_ features: ShippedFeatures) -> Bool {
+        !features.syrupVan
+    }
+
     /// What "Again · 50m" does, from the start readiness of the session's preset at its planned length, now.
     public enum Again: Sendable, Equatable {
         /// One tap starts it.

@@ -46,7 +46,9 @@ struct LaunchModeTests {
         JSONStorage(.file(presets)).save(PresetsFile(presets: [essay], lastUsedID: essay.id))
         JSONStorage(.file(appSets)).save(AppSetsFile(sets: [AppSet(id: AppSet.distractionsID, name: "Distractions", summary: summary)]))
         JSONStorage(.file(notes)).save(SessionNotesFile(notes: [session.uuidString.lowercased(): SessionNote(text: "Chemistry", at: at(2026, 10, 22, 9))]))
-        let files = [presets, appSets, notes]
+        let workshop = folder.appending(path: WorkshopStore.file)
+        WorkshopStore(storage: JSONStorage(.file(workshop))).noteEarned(12)
+        let files = [presets, appSets, notes, workshop]
         func setPermissions(_ mode: Int) throws {
             for file in files { try FileManager.default.setAttributes([.posixPermissions: mode], ofItemAtPath: file.path) }
         }
@@ -55,6 +57,7 @@ struct LaunchModeTests {
         defer { try? setPermissions(0o644) }
         let stores = MapleStores.live(directory: folder, calendar: utc, now: at(2026, 10, 23, 9), healthAuthorizer: FakeHealthAuthorizer())
         #expect(!stores.focus.presets.isAvailable && !stores.focus.appSets.isAvailable && !stores.focus.notes.isAvailable)
+        #expect(!stores.focus.workshop.isAvailable && stores.focus.workshop.leaves == 0)
         #expect(!stores.reloadIfUnavailable(), "still locked: nothing to report")
 
         try setPermissions(0o644)
@@ -64,6 +67,8 @@ struct LaunchModeTests {
         #expect(stores.focus.presets.lastUsedID == essay.id)
         #expect(stores.focus.appSets.set(id: AppSet.distractionsID)?.summary == summary)
         #expect(stores.focus.notes.intention(for: session) == "Chemistry")
+        #expect(stores.focus.workshop.isAvailable, "the van shows what it holds without being tapped first")
+        #expect(stores.focus.workshop.leaves == 12)
         #expect(!stores.reloadIfUnavailable(), "everything is read: nothing more to report")
     }
 

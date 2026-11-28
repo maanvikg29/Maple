@@ -48,6 +48,8 @@ public struct FocusStores {
     public let appSets: AppSetStore
     public let notes: SessionNotesStore
     public let subjects: SubjectStore
+    /// The syrup van's leaves, syrup and machines.
+    public let workshop: WorkshopStore
     public let mode: LaunchMode
 
     /// Files in `directory`. The blocker follows the build's tier (an ordinary DEBUG launch behaves like its tier).
@@ -81,6 +83,7 @@ public struct FocusStores {
             appSets: AppSetStore(storage: JSONStorage(.file(directory.appending(path: AppSetStore.file)))),
             notes: SessionNotesStore(storage: JSONStorage(.file(directory.appending(path: SessionNotesStore.file)))),
             subjects: SubjectStore(storage: JSONStorage(.file(directory.appending(path: SubjectStore.file)))),
+            workshop: WorkshopStore(storage: JSONStorage(.file(directory.appending(path: WorkshopStore.file)))),
             mode: mode
         )
     }
@@ -120,6 +123,7 @@ public struct FocusStores {
             appSets: AppSetStore(storage: JSONStorage(.memory, initial: seed?.appSets)),
             notes: SessionNotesStore(storage: JSONStorage(.memory, initial: seed?.notes)),
             subjects: SubjectStore(storage: JSONStorage(.memory, initial: seed?.subjects)),
+            workshop: WorkshopStore(storage: JSONStorage(.memory)),
             mode: .demo
         )
     }

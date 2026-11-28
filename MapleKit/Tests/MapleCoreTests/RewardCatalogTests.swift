@@ -192,7 +192,7 @@ struct FocusCategoryTests {
 
     @Test("Focus and Screen Time ship with F1, sounds with F2; this build ships F1")
     func releases() {
-        #expect(ShippedFeatures.current == ShippedFeatures(releases: [.m1, .f1]))
+        #expect(ShippedFeatures.current.releases == [.m1, .f1])
         #expect(ShippedFeatures.current.focus && ShippedFeatures.current.screenTime && !ShippedFeatures.current.sleepSounds)
         let f1 = ShippedFeatures(releases: [.m1, .f1])
         #expect(f1.focus && f1.screenTime && !f1.sleepSounds)

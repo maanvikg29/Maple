@@ -104,6 +104,7 @@ struct MapleApp: App {
                 .environment(stores.focus.appSets)
                 .environment(stores.focus.notes)
                 .environment(stores.focus.subjects)
+                .environment(stores.focus.workshop)
                 .environment(\.focusStores, stores.focus)
                 .environment(\.mapleClock, clock)
                 #if DEBUG

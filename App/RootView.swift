@@ -13,6 +13,8 @@ struct RootView: View {
     @Environment(\.theme) private var theme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(NotificationRouter.self) private var notifications
+    @Environment(CollectionStore.self) private var collection
+    @Environment(FocusSessionStore.self) private var sessions
     @State private var router = AppRouter(selectedTab: .initial)
     /// Latched at launch and cleared only by onboarding's `onFinish`: the First-steps leaf is placed mid-flow, and
     /// the seedling it grows still has to be shown before Home takes over.
@@ -46,17 +48,28 @@ struct RootView: View {
         TabView(selection: $router.selectedTab) {
             // Each tab owns its navigation stack, so screens can push, present sheets and add toolbars.
             Tab("Home", image: "maple.tree", value: AppTab.home) {
-                NavigationStack { HomeView() }
+                NavigationStack { HomeView().toolbarVisibility(hidesTabBar, for: .tabBar) }
             }
             Tab(value: AppTab.focus) {
-                NavigationStack { FocusView() }
+                NavigationStack { FocusView().toolbarVisibility(hidesTabBar, for: .tabBar) }
             } label: {
                 // SF `timer` (P10), selected or not. Given the symbol itself, the bar can draw another variant when
                 // selected, so it gets the outline as a plain template image, as the Rest tab's moon did.
                 Label { Text("Focus") } icon: { Self.timerIcon }
             }
             Tab("Herbarium", image: "maple.herbarium", value: AppTab.herbarium) {
-                NavigationStack { HerbariumView() }
+                NavigationStack {
+                    HerbariumView()
+                        .toolbarVisibility(hidesTabBar, for: .tabBar)
+                        .overlay(alignment: .bottomLeading) {
+                            if collection.context.features.syrupVan {
+                                VanBackButton(title: "Van") { router.selectedTab = .home }
+                                    .padding(16)
+                                    // Clear of the Herbarium's session bar, which sits along the bottom while one runs.
+                                    .padding(.bottom, sessions.running == nil ? 0 : 56)
+                            }
+                        }
+                }
             }
         }
         .tint(theme.colors.textPrimary)
@@ -74,6 +87,9 @@ struct RootView: View {
         .revealDemoMotion()
         #endif
     }
+
+    /// With the van as home, the scene is the navigation and the tab bar is gone (syrup van design §9).
+    private var hidesTabBar: Visibility { collection.context.features.syrupVan ? .hidden : .automatic }
 
     /// SF `timer` (regular) drawn once into a template bitmap, so no symbol variant can replace it.
     private static let timerIcon: Image = {

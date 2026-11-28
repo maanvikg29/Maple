@@ -25,6 +25,7 @@ struct EndEarlySheet: View {
     @Environment(\.theme) private var theme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(FocusSessionStore.self) private var sessions
+    @Environment(CollectionStore.self) private var collection
 
     @State private var holdProgress = 0.0
     /// The content's own height: the sheet is exactly that tall.
@@ -105,7 +106,8 @@ struct EndEarlySheet: View {
         // The running screen's own rule: no break for a plain timer or a lost block.
         EndEarlyModel(
             path: path, countedSeconds: sessions.countedSoFar(session.id),
-            breakAvailable: RunningSessionModel.breakAvailable(session, at: now)
+            breakAvailable: RunningSessionModel.breakAvailable(session, at: now),
+            losesLeaves: collection.context.features.syrupVan
         )
     }
 

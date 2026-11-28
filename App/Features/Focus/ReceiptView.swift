@@ -188,7 +188,7 @@ struct ReceiptView: View {
                 .buttonStyle(.moonlight)
                 .opacity(finish.actionsOpacity)
                 .offset(y: finish.actionsRise)
-            if let title = model.again, let again {
+            if ReceiptFlow.offersAgain(collection.context.features), let title = model.again, let again {
                 againControl(title, spoken: model.againSpoken ?? title, again: again, session: session)
                     .opacity(finish.actionsOpacity)
                     .offset(y: finish.actionsRise)

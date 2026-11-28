@@ -126,6 +126,7 @@ nonisolated public struct DemoLaunchOptions: Sendable, Equatable {
         ship = switch value("MapleDemoShip")?.lowercased() {
         case "f1": ShippedFeatures(releases: [.m1, .f1])
         case "m1": ShippedFeatures(releases: [.m1])
+        case "van": ShippedFeatures(releases: [.m1, .f1], syrupVan: true)
         default: nil
         }
         focus = choice("MapleDemoFocus")
