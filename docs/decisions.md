@@ -2,6 +2,14 @@
 
 Newest first. Each entry: what was decided, why, and what it affects.
 
+## 2026-11-28 — Home's picture is alive; the breath and the old tree go with the van
+The owner: "none of the leafs are falling theres no animation", and "why is there still a maple tree from the old version of the app and a breath in breath out feature remove it".
+- **What moves on home.** Leaves come down from the maple over everything, seven at a time, each on its own path to the grass. The leaves already in the sky drift a little. The chimney's smoke leans with the wind and puffs of its cloud rise away. The flag flaps and each pennant of the bunting swings on its own beat. The string lights twinkle. The stove's fire and the lantern flicker and light the room round them. Steam rises off the pot, and the cat breathes. Pip blinks; his first act comes 3 to 7 seconds after home opens, then one every 10 to 20 seconds (it was 20 to 40, and he looked still). With Reduce Motion all of it is the picture as it is.
+- **What is the picture's.** The smoke, flag, pennants, sky leaves, fire, flame and cat are cut from the picture and moved. Under each piece that swings over the sky lies its shape in the sky's own colour, so its still copy never shows. Drawn by Maple: the glows of the fire, the lantern and the lights, and the steam (soft white puffs).
+- **The breath is skipped with the van.** After "End early", Pip's tumble plays and then the receipt, with no breathing screen between them.
+- **The old tree is not reachable from the van.** Tapping the maple opens the Herbarium, and a leaf's "Show on my maple" link is hidden.
+Affects: `VanAmbience`, `VanAmbientLayer`, `VanHomeView`, `PipIdle`, `PipDirector`, `RunningSessionView`, `HomeView`, `StatusTile`, `LeafDetailView`, the `VanAmb…` image sets, `Scripts/art/concept/build_concept_art.py`.
+
 ## 2026-11-28 — The van's home shows today's saved time
 The owner chose "saved today" on home and the next leaf in the Herbarium (which already has it, in its "Almost there" rail). Under the clock, "1h 20m saved today ›" shows once a minute has been saved today, as the tree home's numeral did (only once blocking is ready); a tap opens Saved today. It is left off while a session runs, whose own line says how long is left. The tree home's next-leaf row has no place on the van's home: beside "leaves waiting to cook" it would read as the same kind of leaf.
 Affects: `VanHomeModel.savedToday`, `VanHomeView`, `VanSceneView`, `HomeView`.

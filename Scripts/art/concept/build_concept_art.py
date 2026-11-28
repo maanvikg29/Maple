@@ -635,6 +635,141 @@ def props():
     return out
 
 
+# ---------- home, alive ----------
+
+# The pieces of the home picture that move (`VanAmbience`), each cut along its own outline and saved with the box
+# it was cut from, so it lies exactly where the picture has it. Those that sway over the sky also get a "gap": the
+# piece's shape in the sky's own colour there, laid under the moving copy so the picture's still one never shows.
+AMBIENT_BOXES = {
+    "Smoke": (1004, 334, 1200, 538),
+    "Flag": (1167, 512, 1292, 594),
+    "Fire": (808, 1366, 888, 1438),
+    "Flame": (1132, 1198, 1164, 1236),
+    "Cat": (782, 1572, 992, 1700),
+    "SkyLeaf0": (1290, 262, 1406, 372),
+    "SkyLeaf1": (1490, 420, 1610, 540),
+    "SkyLeaf2": (1640, 770, 1740, 880),
+    "SkyLeaf3": (40, 925, 200, 1075),
+}
+PENNANT_SEEDS = [(580, 735), (650, 760), (735, 765), (800, 745), (880, 735)]
+BUNTING_BAND = (550, 672, 915, 812)
+
+
+def outlined(src_box_pixels, seeds, reach=8, dark_below=72):
+    """A part of the picture with its own dark outline: the closed regions round the seeds, the outline that hugs
+    them, and anything they enclose."""
+    a = src_box_pixels.astype(np.int32)
+    luma = (a[..., 0] * 299 + a[..., 1] * 587 + a[..., 2] * 114) // 1000
+    dark = luma < dark_below
+    lab = label(~dark)
+    fill = np.zeros(dark.shape, bool)
+    for x, y in seeds:
+        if not dark[y, x]:
+            fill |= lab == lab[y, x]
+    mask = fill | (dark & grow(fill, reach))
+    return mask | ~outside(~mask)
+
+
+def sky_colour(van, box, mask):
+    """The sky round a piece: the median of the sky-coloured pixels just outside it."""
+    pad = 16
+    wide = (box[0] - pad, box[1] - pad, box[2] + pad, box[3] + pad)
+    pixels = np.asarray(van.crop(wide)).astype(np.int32)
+    placed = np.zeros(pixels.shape[:2], bool)
+    placed[pad:pad + mask.shape[0], pad:pad + mask.shape[1]] = mask
+    ring = grow(placed, 12) & ~grow(placed, 3)
+    sky = near(PEACH, 30)(pixels) & ring
+    chosen = pixels[sky] if sky.sum() > 20 else np.array([PEACH])
+    return tuple(int(v) for v in np.median(chosen.reshape(-1, 3), axis=0))
+
+
+def piece_and_gap(van, box, mask, gap=True, soften=0.7):
+    crop = van.crop(box)
+    piece = crop.convert("RGBA")
+    piece.putalpha(as_image(mask).filter(ImageFilter.GaussianBlur(soften)))
+    if not gap:
+        return piece, None
+    hole = grow(mask, 3)
+    colour = sky_colour(van, box, mask)
+    filler = Image.new("RGBA", crop.size, colour + (255,))
+    filler.putalpha(as_image(hole).filter(ImageFilter.GaussianBlur(1.2)))
+    return piece, filler
+
+
+def home_ambience(van):
+    """{name: (image, box)} for every moving piece of home and its gap."""
+    out = {}
+    is_sky = near(PEACH, 30)
+
+    def crop_pixels(box):
+        return np.asarray(van.crop(box)).astype(np.int32)
+
+    # The chimney's smoke and the flag on the roof: whatever is not sky round a point inside them.
+    for name, seed in [("Smoke", (1100, 420)), ("Flag", (1225, 545))]:
+        box = AMBIENT_BOXES[name]
+        pixels = crop_pixels(box)
+        parts = label(~is_sky(pixels))
+        mask = parts == parts[seed[1] - box[1], seed[0] - box[0]]
+        mask = mask | ~outside(~mask)
+        piece, gap = piece_and_gap(van, box, mask)
+        out[f"VanAmb{name}"] = (piece, box)
+        out[f"VanAmb{name}Gap"] = (gap, box)
+
+    # The leaves hanging in the open sky.
+    for index in range(4):
+        name = f"SkyLeaf{index}"
+        box = AMBIENT_BOXES[name]
+        pixels = crop_pixels(box)
+        solid = ~outside(is_sky(pixels))
+        solid &= ~outside(solid)
+        piece, gap = piece_and_gap(van, box, solid)
+        out[f"VanAmb{name}"] = (piece, box)
+        out[f"VanAmb{name}Gap"] = (gap, box)
+
+    # The bunting: each pennant below the line it hangs from, so the line itself never moves or breaks.
+    band = BUNTING_BAND
+    pixels = crop_pixels(band)
+    luma = (pixels[..., 0] * 299 + pixels[..., 1] * 587 + pixels[..., 2] * 114) // 1000
+    dark = luma < 80
+    line_y = np.full(pixels.shape[1], pixels.shape[0], int)
+    for x in range(pixels.shape[1]):
+        found = np.nonzero(dark[:, x])[0]
+        if len(found):
+            line_y[x] = found[0]
+    below = np.arange(pixels.shape[0])[:, None] >= (line_y[None, :] + 6)
+    for index, seed in enumerate(PENNANT_SEEDS):
+        mask = outlined(pixels, [(seed[0] - band[0], seed[1] - band[1])], reach=7, dark_below=80) & below
+        ys, xs = np.nonzero(mask)
+        box = (int(band[0] + xs.min() - 4), int(band[1] + ys.min() - 2), int(band[0] + xs.max() + 5), int(band[1] + ys.max() + 5))
+        # The band with a margin round it, so the box can reach a little past it.
+        pad = 12
+        padded = np.zeros((mask.shape[0] + 2 * pad, mask.shape[1] + 2 * pad), bool)
+        padded[pad:-pad, pad:-pad] = mask
+        lines = np.concatenate([np.full(pad, line_y[0]), line_y, np.full(pad, line_y[-1])])
+        x0, y0 = box[0] - band[0] + pad, box[1] - band[1] + pad
+        local = padded[y0:y0 + box[3] - box[1], x0:x0 + box[2] - box[0]]
+        piece, gap = piece_and_gap(van, box, local)
+        # The gap never reaches above the line.
+        gap_alpha = np.asarray(gap.getchannel("A")).copy()
+        top = lines[x0:x0 + box[2] - box[0]] + band[1] - box[1] + 6
+        rows = np.arange(gap_alpha.shape[0])[:, None]
+        gap_alpha[rows < top[None, :]] = 0
+        gap.putalpha(Image.fromarray(gap_alpha))
+        out[f"VanAmbPennant{index}"] = (piece, box)
+        out[f"VanAmbPennant{index}Gap"] = (gap, box)
+
+    # The stove's fire, the lantern's flame and the cat: they only ever grow from how they are drawn, so no gap.
+    for name, seeds, reach in [("Fire", [(852, 1410), (830, 1412), (868, 1392), (840, 1426)], 6),
+                               ("Flame", [(1148, 1222)], 4),
+                               ("Cat", [(900, 1625), (830, 1650), (960, 1655), (880, 1684), (812, 1624), (845, 1610)], 8)]:
+        box = AMBIENT_BOXES[name]
+        local = [(x - box[0], y - box[1]) for x, y in seeds]
+        mask = outlined(crop_pixels(box), local, reach=reach)
+        piece, _ = piece_and_gap(van, box, mask, gap=False)
+        out[f"VanAmb{name}"] = (piece, box)
+    return out
+
+
 # ---------- writing ----------
 
 def imageset(name, filename, image=None, copy=None, quality=None):
@@ -677,6 +812,10 @@ def main():
     pieces.update(props())
     for name, piece in pieces.items():
         imageset(name, name.lower() + ".png", piece)
+    ambience = home_ambience(van)
+    for name, (piece, box) in ambience.items():
+        imageset(name, name.lower() + ".png", piece)
+    print("ambient boxes:", {name: box for name, (_, box) in ambience.items() if not name.endswith("Gap")})
 
     if len(sys.argv) > 1:
         out = pathlib.Path(sys.argv[1])
@@ -706,6 +845,13 @@ def main():
             ys, xs = np.nonzero(masks[name])
             print(name, "in the picture: x", HOME_BOX[0] + xs.min() / 2, HOME_BOX[0] + xs.max() / 2, "y", HOME_BOX[1] + ys.min() / 2,
                   HOME_BOX[1] + ys.max() / 2, "middle", HOME_BOX[0] + xs.mean() / 2, HOME_BOX[1] + ys.mean() / 2)
+        alive = van.convert("RGBA")
+        for name, (piece, box) in ambience.items():
+            if name.endswith("Gap"):
+                alive.alpha_composite(piece, box[:2])
+        alive.save(out / "home-gaps.png")
+        for name, (piece, box) in ambience.items():
+            piece.save(out / f"{name}.png")
         apart = np.abs(np.asarray(whole.convert("RGB")).astype(int) - np.asarray(van).astype(int)).max(axis=2)
         print("home put back together: differs by more than 12 at", int((apart > 12).sum()), "pixels, most", int(apart.max()))
     print("pip sprite", pip.size, "scene", scene.size, "leaves", [leaf.size for leaf in leaves])

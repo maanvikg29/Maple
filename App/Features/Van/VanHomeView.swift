@@ -47,6 +47,10 @@ struct VanHomeView: View {
     @State private var pip = PipStage()
     /// DEBUG `-MapleDemoPip <act>:<seconds>`: one frame of him, held.
     @State private var heldPip: PipScene?
+    /// DEBUG `-MapleDemoAmbience <seconds>`: the picture's movement held at that moment.
+    @State private var heldAmbience: Double?
+    /// When home came up: the picture's movement counts from here.
+    @State private var appeared = Date()
 
     /// He does things of his own, and can be tapped.
     private var pipPlays: Bool { !reduceMotion && !isSessionRunning && heldPip == nil }
@@ -69,15 +73,26 @@ struct VanHomeView: View {
                         .frame(width: length(canvas.width), height: length(VanCanvas.homePictureHeight))
                         .position(canvas.point(canvas.width / 2, VanCanvas.homePictureHeight / 2, in: proxy.size))
                         .accessibilityHidden(true)
+                    // The picture, alive: its smoke, flags, fire, lights and cat, Pip, and the maple's leaves coming
+                    // down over everything. With Reduce Motion the picture is as it is, and Pip with it.
                     TimelineView(.animation(minimumInterval: 1.0 / 60, paused: reduceMotion || heldPip != nil)) { timeline in
-                        VanPipLayer(
-                            scene: heldPip ?? pip.scene(at: timeline.date.timeIntervalSinceReferenceDate, still: reduceMotion),
-                            canvas: canvas, size: proxy.size
-                        )
+                        let alive = timeline.date.timeIntervalSince(appeared)
+                        ZStack {
+                            if !reduceMotion {
+                                VanAmbientLayer(part: .behind, time: heldAmbience ?? alive, canvas: canvas, size: proxy.size)
+                            }
+                            VanPipLayer(
+                                scene: heldPip ?? pip.scene(at: timeline.date.timeIntervalSinceReferenceDate, still: reduceMotion),
+                                canvas: canvas, size: proxy.size
+                            )
+                            if !reduceMotion {
+                                VanAmbientLayer(part: .front, time: heldAmbience ?? alive, canvas: canvas, size: proxy.size)
+                            }
+                        }
                     }
                     // For VoiceOver, which can't tap a place in a picture: the maple, the pot and Pip. (The timer and
                     // the machines have their own buttons below.)
-                    spoken("Your maple", hint: "Opens the tree and its leaves", width: length(1000), height: length(900), action: onTree)
+                    spoken("Your maple", hint: "Opens your leaves", width: length(1000), height: length(900), action: onTree)
                         .position(canvas.point(500, 560, in: proxy.size))
                     spoken(
                         "Cooking pot", hint: model.potHint == nil ? "No leaves to cook" : "Cooks one leaf into syrup",
@@ -156,6 +171,7 @@ struct VanHomeView: View {
     /// `-MapleDemoPip <act>` plays that act a second after home opens; `<act>:<seconds>` holds its frame that far in.
     /// `idle:<seconds>` holds a frame of him just standing.
     private func showDemoPip() {
+        heldAmbience = UserDefaults.standard.string(forKey: "MapleDemoAmbience").flatMap(Double.init)
         guard let value = UserDefaults.standard.string(forKey: "MapleDemoPip") else { return }
         let parts = value.split(separator: ":").map(String.init)
         let seconds = parts.count > 1 ? Double(parts[1]) : nil

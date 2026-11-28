@@ -287,7 +287,7 @@ struct LeafDetailView: View {
 
     private func statusActions(_ species: LeafSpecies) -> StatusTile.Actions {
         StatusTile.Actions(
-            showOnMaple: {
+            showOnMaple: collection.context.features.syrupVan ? nil : {
                 if let showOnMapleHere { showOnMapleHere(speciesID) } else { router.showOnMaple(speciesID) }
             },
             open: { presentingRevealWithoutSlide { showsReveal = true } },

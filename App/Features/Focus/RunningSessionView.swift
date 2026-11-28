@@ -366,7 +366,8 @@ struct RunningSessionView: View {
         }
     }
 
-    /// The sheet has gone: the breath starts if its way out was taken; otherwise the member kept going.
+    /// The sheet has gone: the breath starts if its way out was taken; otherwise the member kept going. With the van
+    /// there is no breath (the owner, 28 Nov 2026): the sheet's "End session" ends it, and Pip tumbles.
     private func endEarlyDismissed() {
         wake()
         guard breathesWhenDismissed else {
@@ -375,7 +376,11 @@ struct RunningSessionView: View {
         }
         breathesWhenDismissed = false
         isEnding = false
-        breathStartedAt = sessions.now
+        if collection.context.features.syrupVan {
+            endAfterBreath()
+        } else {
+            breathStartedAt = sessions.now
+        }
     }
 
     /// "Keep going", during the breath or at the second question: back to the session, nothing changed.
