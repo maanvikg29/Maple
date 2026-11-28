@@ -60,9 +60,6 @@ struct VanHomeView: View {
     /// where 60 frames a second for as long as home is open isn't worth the battery.
     private var holdsStill: Bool { isCovered || isLowPower }
 
-    /// How the counters and buttons sit over the picture (`VanHud`).
-    private let hud = VanHud.current
-
     /// He does things of his own, and can be tapped.
     private var pipPlays: Bool { !reduceMotion && !isSessionRunning && heldPip == nil }
 
@@ -259,10 +256,10 @@ struct VanHomeView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.horizontal, hud == .board ? 12 : 0)
-            .padding(.vertical, hud == .board ? 6 : 0)
-            .background { if hud == .board { VanBoard() } }
-            .padding(.horizontal, hud == .board ? 10 : 16)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background { VanBoard() }
+            .padding(.horizontal, 10)
             .padding(.top, 8)
             .frame(maxHeight: .infinity, alignment: .top)
             GeometryReader { proxy in
@@ -361,23 +358,23 @@ struct VanHomeView: View {
             .accessibilityHint(model.enterHint)
             roundButton("VanIconTools", label: "Machines", action: onMachines)
         }
-        .padding(.horizontal, hud == .board ? 10 : 0)
-        .padding(.vertical, hud == .board ? 8 : 0)
-        .background { if hud == .board { VanBoard() } }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background { VanBoard() }
         .padding(.horizontal, 16)
         .padding(.bottom, 20)
     }
 
     @ViewBuilder
     private func counters(compact: Bool) -> some View {
-        if let leaves = model.leavesText { VanCounter(value: leaves, icon: "VanIconBasket", label: "leaves", compact: compact, hud: hud) }
-        if let syrup = model.syrupText { VanCounter(value: syrup, icon: "VanIconJug", label: "bottles of syrup", compact: compact, hud: hud) }
+        if let leaves = model.leavesText { VanCounter(value: leaves, icon: "VanIconBasket", label: "leaves", compact: compact) }
+        if let syrup = model.syrupText { VanCounter(value: syrup, icon: "VanIconJug", label: "bottles of syrup", compact: compact) }
     }
 
     @ViewBuilder
     private func buttons(compact: Bool) -> some View {
         if streak >= 2 {
-            Button(action: onStreak) { VanCounter(value: "\(streak)", icon: "VanIconFire", label: "day streak", compact: compact, hud: hud) }
+            Button(action: onStreak) { VanCounter(value: "\(streak)", icon: "VanIconFire", label: "day streak", compact: compact) }
                 .buttonStyle(.plain)
         }
         roundButton("VanIconLeaf", label: "Herbarium", action: onHerbarium)
@@ -387,7 +384,7 @@ struct VanHomeView: View {
     /// A round window onto the picture, as a button.
     private func roundButton(_ icon: String, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            VanMedallion(name: icon, size: hud == .floating ? 46 : 44)
+            VanMedallion(name: icon, size: 44)
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)

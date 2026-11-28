@@ -37,8 +37,7 @@ struct VanPlate: ViewModifier {
     private var shape: RoundedRectangle { RoundedRectangle(cornerRadius: 22, style: .continuous) }
 }
 
-/// A number with its picture: the leaves, the syrup, the streak. The picture is a round window onto the concept
-/// (`VanMedallion`); how the number sits over the scene is the HUD's look (`VanHud`).
+/// A number with its picture: the leaves, the syrup, the streak. It sits on home's wooden board (`VanBoard`).
 struct VanCounter: View {
     let value: String
     /// A `VanIcon…` picture.
@@ -47,36 +46,11 @@ struct VanCounter: View {
     let label: String
     /// Tighter, for a row that has more on it than fits at full size.
     var compact = false
-    var hud = VanHud.current
 
     var body: some View {
-        Group {
-            switch hud {
-            case .plates:
-                HStack(spacing: 6) {
-                    VanMedallion(name: icon, size: compact ? 24 : 28)
-                    number
-                }
-                .padding(.leading, 5)
-                .padding(.trailing, compact ? 10 : 12)
-                .padding(.vertical, 5)
-                .background(VanPalette.cream, in: Capsule())
-                .overlay(Capsule().strokeBorder(VanPalette.outline, lineWidth: 2.5))
-            case .board:
-                HStack(spacing: 5) {
-                    VanMedallion(name: icon, size: compact ? 26 : 30)
-                    number
-                }
-            case .floating:
-                HStack(spacing: 5) {
-                    VanMedallion(name: icon, size: compact ? 32 : 38)
-                    number
-                        // A cream edge round the dark numerals, so they read on the canopy and the sky alike.
-                        .shadow(color: VanPalette.cream, radius: 0.6)
-                        .shadow(color: VanPalette.cream, radius: 1.4)
-                        .shadow(color: VanPalette.cream, radius: 2.4)
-                }
-            }
+        HStack(spacing: 5) {
+            VanMedallion(name: icon, size: compact ? 26 : 30)
+            number
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(value) \(label)")
@@ -109,27 +83,8 @@ struct VanMedallion: View {
     }
 }
 
-/// How home's counters and buttons sit over the picture. Three looks, while the owner picks one (the owner, 28 Nov
-/// 2026: "the hud at the top of screen give options to replace"); DEBUG `-MapleDemoHud plates|board|floating` shows
-/// each.
-enum VanHud: String, CaseIterable {
-    /// Each number on its own small cream plate, the buttons round windows onto the picture.
-    case plates
-    /// Everything on one wooden board across the top, and one along the bottom.
-    case board
-    /// No plates at all: the pictures and numbers stand on the scene.
-    case floating
-
-    static var current: VanHud {
-        #if DEBUG
-        if let value = UserDefaults.standard.string(forKey: "MapleDemoHud"), let hud = VanHud(rawValue: value) { return hud }
-        #endif
-        return .plates
-    }
-}
-
-/// A wooden board, drawn in the picture's wood with its outline, a few grain lines and a nail at each end: the
-/// `board` HUD's backing.
+/// A wooden board, drawn in the picture's wood with its outline, a few grain lines and a nail at each end: what home's
+/// counters and buttons sit on (the owner picked it from three looks, 28 Nov 2026).
 struct VanBoard: View {
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
