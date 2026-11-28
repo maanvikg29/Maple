@@ -53,7 +53,7 @@ public enum FallingLeaves {
     }
 
     /// A number from 0 up to (not including) 1 that depends only on its three inputs.
-    private static func unit(_ a: Int, _ b: Int, _ salt: Int) -> Double {
+    static func unit(_ a: Int, _ b: Int, _ salt: Int) -> Double {
         var z = UInt64(bitPattern: Int64(a)) &* 0x9E37_79B9_7F4A_7C15
         z ^= UInt64(bitPattern: Int64(b)) &* 0xBF58_476D_1CE4_E5B9
         z ^= UInt64(bitPattern: Int64(salt)) &* 0x94D0_49BB_1331_11EB

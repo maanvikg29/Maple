@@ -16,6 +16,8 @@ enum VanPalette {
     static let face = Color(hex: 0xFFF4E2)
     static let grass = Color(hex: 0xA09F5F)
     static let copper = Color(hex: 0xC87445)
+    /// Dust off the grass: its colour, paled toward the cream.
+    static let dust = Color(hex: 0xD9D1A6)
 }
 
 /// A rounded, outlined plate: the look of every button and label that sits over the scene.

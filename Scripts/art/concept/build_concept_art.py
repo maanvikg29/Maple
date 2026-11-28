@@ -261,6 +261,23 @@ def pip_cutout():
 
 def pip_with_pail(leaves):
     """Pip as he stands in the concept, the ladle gone, a pail of leaves hanging from the same paw."""
+    sprite = pail_alone(leaves)
+    sprite.alpha_composite(pip_alone())
+    return sprite
+
+
+def pip_alone():
+    """Pip without his pail, in the same square: for the tumble, where the pail flies off on its own."""
+    return pip_cutout().crop(PIP_BOX)
+
+
+# The pail's middle and its mouth's middle, upright, in Pip's square (`PailPose` turns it about the first).
+PAIL_MIDDLE = (494, 476)
+PAIL_MOUTH = (494, 397)
+
+
+def pail_alone(leaves):
+    """The pail of leaves he holds, drawn by Maple (the leaves are the concept's), in Pip's square."""
     x0, y0 = PIP_BOX[0], PIP_BOX[1]
     size = (PIP_BOX[2] - x0, PIP_BOX[3] - y0)
     sprite = Image.new("RGBA", size, (0, 0, 0, 0))
@@ -289,7 +306,6 @@ def pip_with_pail(leaves):
     front.line(at(lip), LINE, 5)
     front.line(at(curve([(cx - 68, rim + 58), (cx, rim + 76), (cx + 68, rim + 58)])), METAL_DARK, 3.5)
     front.onto(sprite)
-    sprite.alpha_composite(pip_cutout().crop(PIP_BOX))
     return sprite
 
 
@@ -799,6 +815,8 @@ def main():
     imageset("VanHomePicture", "syrup-van.jpg", copy=CONCEPTS / "syrup-van.jpg")
     imageset("VanTreeScene", "tree-scene.jpg", scene, quality=93)
     imageset("VanTreePip", "pip-pail.png", pip)
+    imageset("VanTreePipAlone", "pip-alone.png", pip_alone())
+    imageset("VanTreePail", "pail.png", pail_alone(leaves))
     for name, leaf in zip(["VanLeafOrange", "VanLeafYellow", "VanLeafRed"], leaves):
         imageset(name, name.lower() + ".png", leaf)
 

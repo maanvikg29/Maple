@@ -2,6 +2,11 @@
 
 Newest first. Each entry: what was decided, why, and what it affects.
 
+## 2026-11-28 — The tumble: the pail flies off and spills its leaves
+The owner asked for "a better falling animation with leaves scattering out of the bucket". When a session ends early, Pip still slips, turns over once and lands on the grass, and now the pail leaves his paw as he slips: it is flung up and out, turns upside down so 16 leaves pour out of its mouth, lands on its side with a little bounce, and 6 more leaves jump out. Every leaf flutters down side to side, tilting as it swings, and stays where it lands on the grass. Dust puffs where he and the pail land, and he sways a moment, dazed, before sitting still. It lasts 3.5 seconds (it was 1.8), then the receipt.
+- **What is the picture's.** Pip is his own pixels, as before, and the leaves are the concept's three. The pail was always drawn by Maple; it is now its own picture, so it can fly. The dust is drawn by Maple, in the grass's colour made pale.
+Affects: `PipFall` (`pail(at:)`, `mouth(at:)`, `spill(at:)`, `dust(at:)`, `PailPose`), `VanTreeMomentView`, `VanPalette.dust`, `Scripts/art/concept/build_concept_art.py` (`pip_alone`, `pail_alone`), the `VanTreePipAlone` and `VanTreePail` image sets.
+
 ## 2026-11-28 — Home's picture is alive; the breath and the old tree go with the van
 The owner: "none of the leafs are falling theres no animation", and "why is there still a maple tree from the old version of the app and a breath in breath out feature remove it".
 - **What moves on home.** Leaves come down from the maple over everything, seven at a time, each on its own path to the grass. The leaves already in the sky drift a little. The chimney's smoke leans with the wind and puffs of its cloud rise away. The flag flaps and each pennant of the bunting swings on its own beat. The string lights twinkle. The stove's fire and the lantern flicker and light the room round them. Steam rises off the pot, and the cat breathes. Pip blinks; his first act comes 3 to 7 seconds after home opens, then one every 10 to 20 seconds (it was 20 to 40, and he looked still). With Reduce Motion all of it is the picture as it is.

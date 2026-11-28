@@ -27,42 +27,69 @@ struct VanTreeMomentView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var start = Date()
     @State private var finished = false
+    /// DEBUG `-MapleDemoMomentAt <seconds>`: the moment held at that time, for a screenshot.
+    private let heldAt: Double? = {
+        #if DEBUG
+        UserDefaults.standard.string(forKey: "MapleDemoMomentAt").flatMap(Double.init)
+        #else
+        nil
+        #endif
+    }()
 
     private static let leaves = ["VanLeafOrange", "VanLeafYellow", "VanLeafRed"]
 
     var body: some View {
         ZStack {
             VanPalette.sky.ignoresSafeArea()
-            TimelineView(.animation(minimumInterval: 1 / 60, paused: reduceMotion || finished)) { timeline in
+            TimelineView(.animation(minimumInterval: 1 / 60, paused: reduceMotion || finished || heldAt != nil)) { timeline in
                 // Still: the tumble's last frame (Pip sitting up on the grass), the walk's first steps on the grass.
-                let time = reduceMotion ? (kind == .tumble ? kind.seconds : 1.2) : timeline.date.timeIntervalSince(start)
+                let time = heldAt ?? (reduceMotion ? (kind == .tumble ? kind.seconds : 1.2) : timeline.date.timeIntervalSince(start))
                 GeometryReader { proxy in
                     let canvas = VanCanvas.tree
                     let scale = canvas.scale(width: proxy.size.width, height: proxy.size.height)
                     let pose = kind == .tumble ? PipFall.pose(at: time) : PipWalk.pose(at: time)
+                    let place = { (x: Double, y: Double) in canvas.point(VanTreePip.centreX + x, VanTreePip.centreY + y, in: proxy.size) }
                     ZStack {
                         Image("VanTreeScene")
                             .resizable()
                             .frame(width: canvas.width * scale, height: canvas.height * scale)
                             .position(x: proxy.size.width / 2, y: proxy.size.height / 2)
                         if kind == .tumble {
-                            ForEach(Array(PipFall.scatter(at: time).enumerated()), id: \.offset) { _, leaf in
-                                Image(Self.leaves[leaf.colour])
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 96 * scale)
-                                    .rotationEffect(.radians(leaf.turn))
-                                    .opacity(leaf.opacity)
-                                    .position(canvas.point(VanTreePip.centreX + leaf.x, VanTreePip.centreY + leaf.y, in: proxy.size))
+                            // Dust where he and the pail land (drawn by Maple, in the grass's colour made pale).
+                            ForEach(Array(PipFall.dust(at: time).enumerated()), id: \.offset) { _, puff in
+                                Circle()
+                                    .fill(VanPalette.dust)
+                                    .frame(width: 2 * puff.radius * scale, height: 2 * puff.radius * scale)
+                                    .opacity(puff.opacity)
+                                    .position(place(puff.x, puff.y))
                             }
+                            // The pail, out of his paw: it turns about its own middle.
+                            let pail = PipFall.pail(at: time)
+                            Image("VanTreePail")
+                                .resizable()
+                                .frame(width: VanTreePip.width * scale, height: VanTreePip.height * scale)
+                                .rotationEffect(.radians(pail.turn), anchor: VanTreePip.pailMiddle)
+                                .position(place(pail.x, pail.y))
                         }
-                        Image("VanTreePip")
+                        Image(kind == .tumble ? "VanTreePipAlone" : "VanTreePip")
                             .resizable()
                             .frame(width: VanTreePip.width * scale, height: VanTreePip.height * scale)
                             // He squashes onto his feet, and turns about his middle.
                             .scaleEffect(x: 1 + (1 - pose.squash) * 0.5, y: pose.squash, anchor: .bottom)
                             .rotationEffect(.radians(pose.turn))
-                            .position(canvas.point(VanTreePip.centreX + pose.x, VanTreePip.centreY + pose.y, in: proxy.size))
+                            .position(place(pose.x, pose.y))
+                        if kind == .tumble {
+                            // The pail's leaves, out of its mouth and fluttering down over everything.
+                            ForEach(Array(PipFall.spill(at: time).enumerated()), id: \.offset) { _, leaf in
+                                Image(Self.leaves[leaf.colour])
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 92 * leaf.size * scale)
+                                    .rotationEffect(.radians(leaf.turn))
+                                    .opacity(leaf.opacity)
+                                    .position(place(leaf.x, leaf.y))
+                            }
+                        }
                     }
                     .frame(width: proxy.size.width, height: proxy.size.height)
                     .clipped()
@@ -86,6 +113,7 @@ struct VanTreeMomentView: View {
         .accessibilityAddTraits(kind == .walkBack ? .isButton : [])
         .task {
             start = Date()
+            guard heldAt == nil else { return }
             try? await Task.sleep(for: .seconds(reduceMotion ? 1.0 : kind.seconds + 0.25))
             finish()
         }
@@ -105,4 +133,6 @@ enum VanTreePip {
     static let height = 580 * 0.61
     static let centreX = 440 + (305 - 310) * 0.61
     static let centreY = 668 + (290 - 555) * 0.61
+    /// The pail's middle in his square (`PAIL_MIDDLE`), which it turns about once it flies.
+    static let pailMiddle = UnitPoint(x: 494.0 / 610, y: 476.0 / 580)
 }
