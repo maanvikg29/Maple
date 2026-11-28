@@ -62,12 +62,13 @@ public struct VanHomeModel: Sendable, Equatable {
 }
 
 extension NowState.Action {
-    /// The van's home offers this beside its own button: the waiting leaves' reveal and wind-down, which were the tree
-    /// home's one button at those moments. The focus actions are the van's own button.
+    /// The van's home offers this beside its own button: wind-down, which was the tree home's one button at those
+    /// moments. Never a leaf to open: the van has no leaf types (the owner, 28 Nov 2026: "i dont want the herbarium or
+    /// any diff type of leaf"). The focus actions are the van's own button.
     public var showsOnVan: Bool {
         switch self {
-        case .openReveals, .startWindDown, .returnToWindDown: true
-        case .startFocus, .returnToSession, .turnOnBlocking: false
+        case .startWindDown, .returnToWindDown: true
+        case .openReveals, .startFocus, .returnToSession, .turnOnBlocking: false
         }
     }
 }

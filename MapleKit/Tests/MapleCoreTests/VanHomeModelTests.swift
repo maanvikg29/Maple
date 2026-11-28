@@ -64,9 +64,10 @@ struct VanHomeModelTests {
         #expect(model(left: 32).enterHint == "Returns to your session")
     }
 
-    @Test("Home still offers the reveal and wind-down, which the tree home's one button did; the van's own button is the timer's")
+    @Test("Home offers wind-down, which the tree home's one button did, but never a leaf to open: the van has no leaf types; the van's own button is the timer's")
     func prompts() {
-        #expect(NowState.Action.openReveals(count: 2).showsOnVan)
+        // The owner, 28 Nov 2026: "i dont want the herbarium or any diff type of leaf".
+        #expect(!NowState.Action.openReveals(count: 2).showsOnVan)
         #expect(NowState.Action.startWindDown.showsOnVan)
         #expect(NowState.Action.returnToWindDown.showsOnVan)
         #expect(!NowState.Action.returnToSession.showsOnVan)

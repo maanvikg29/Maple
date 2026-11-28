@@ -77,11 +77,14 @@ private struct ProfileHome: View {
                         .tracking(-0.3)
                         .foregroundStyle(theme.colors.textPrimary)
                         .accessibilityAddTraits(.isHeader)
-                    Text(ProfileSummary.line(totals, stage: !van))
-                        .font(MapleFont.callout)
-                        .monospacedDigit()
-                        .foregroundStyle(theme.colors.textSecondary)
-                        .accessibilityLabel(ProfileSummary.spoken(totals, stage: !van))
+                    // The van has no leaf types, so no count of species: only the days.
+                    if let line = van ? ProfileSummary.days(totals) : ProfileSummary.line(totals) {
+                        Text(line)
+                            .font(MapleFont.callout)
+                            .monospacedDigit()
+                            .foregroundStyle(theme.colors.textSecondary)
+                            .accessibilityLabel(van ? line : ProfileSummary.spoken(totals))
+                    }
                 }
                 .multilineTextAlignment(.center)
                 .padding(.top, theme.spacing.lg)
@@ -150,8 +153,14 @@ private struct FeaturedLeaf: View {
 }
 
 /// "Young maple · 23 leaves · 41 days", and its spoken form. `totals.leaves` counts opened leaves only (spec §5.2).
-/// Without `stage` (the van has no growing tree) it starts at the leaves.
+/// Without `stage` it starts at the leaves. With the van (no growing tree, no leaf types) only the days show (`days`).
 enum ProfileSummary {
+    /// "41 days", or nil before the first.
+    static func days(_ totals: ProfileTotals) -> String? {
+        guard totals.tendedDays > 0 else { return nil }
+        return totals.tendedDays == 1 ? "1 day" : "\(totals.tendedDays.formatted()) days"
+    }
+
     static func line(_ totals: ProfileTotals, stage: Bool = true) -> String {
         var parts = stage ? [totals.stage.displayName] : []
         parts.append(totals.leaves == 1 ? "1 leaf" : "\(totals.leaves.formatted()) leaves")

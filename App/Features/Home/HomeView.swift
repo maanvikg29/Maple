@@ -63,8 +63,8 @@ struct HomeView: View {
                         now: now, streak: content.streak, prompt: vanPrompt(content.state.action),
                         // Only time that counts is saved: as the tree home's numeral, once blocking is ready.
                         savedTodaySeconds: focus.map { $0.blocking == .ready ? $0.savedTodaySeconds : 0 } ?? 0,
-                        // The maple in the picture is the member's leaves: the old Tree view has no place with the van.
-                        onProfile: { sheet = .profile }, onTree: { router.showHerbarium() }, onStreak: { sheet = .streak },
+                        // The van has no leaf types: no Herbarium, and the maple in the picture is only the picture.
+                        onProfile: { sheet = .profile }, onStreak: { sheet = .streak },
                         onSavedToday: { sheet = .savedToday }
                     )
                 } else {

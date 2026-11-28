@@ -11,6 +11,13 @@ public enum ReceiptFlow {
         !features.syrupVan
     }
 
+    /// Whether the receipt names the species this session reached or opened, and draws its leaf in the dial. The van
+    /// has no leaf types (the owner, 28 Nov 2026: "i dont want the herbarium or any diff type of leaf"): its leaves are
+    /// a plain count, so while the van is home neither shows.
+    public static func showsLeafTypes(_ features: ShippedFeatures) -> Bool {
+        !features.syrupVan
+    }
+
     /// What "Again · 50m" does, from the start readiness of the session's preset at its planned length, now.
     public enum Again: Sendable, Equatable {
         /// One tap starts it.

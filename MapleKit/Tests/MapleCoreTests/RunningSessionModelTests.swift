@@ -70,6 +70,8 @@ struct RunningSessionModelTests {
         #expect(screen.leafMinute == 35)
         #expect(!screen.leafOpened)
         #expect(screen.spoken == "32 minutes left of 50. Field maple at minute 35.")
+        // With the van there are no leaf types, so its tree reads the time alone.
+        #expect(screen.spokenTime == "32 minutes left of 50.")
         #expect(screen.leafAnnouncement == nil)
         #expect(screen.firstSessionLine == nil)
         #expect(screen.breakTitle == nil)

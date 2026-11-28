@@ -65,7 +65,8 @@ private struct PlantYourMapleScreen: View {
 
     private var step: Step { stepOverride ?? initialStep }
 
-    /// The questions and primers until they are done, then the sprout (with the van, the closed first leaf).
+    /// The questions and primers until they are done, then the sprout. (The van has no leaf types, so with it the first
+    /// run ends at the van straight after them: `placeQuietly`.)
     private var initialStep: Step {
         guard setupStep == .sprout || setupStep == nil else { return .setup }
         return van ? .reveal : .sprout
@@ -96,7 +97,7 @@ private struct PlantYourMapleScreen: View {
                 scene
                     .transition(.opacity)
             case .reveal:
-                if let leaf = firstLeaf {
+                if !van, let leaf = firstLeaf {
                     RevealView(
                         leaf: leaf,
                         ritual: RevealRitual(tier: leaf.tier, revealsBefore: collection.revealsOpened, reduceMotion: reduceMotion),
@@ -263,6 +264,7 @@ private struct PlantYourMapleScreen: View {
             onboarding.go(to: .schedule)
             stepOverride = .setup
         }
+        if van, step == .reveal { return placeQuietly() }
         if step == .sprout { ripenBud() }
         #if DEBUG
         applyDemo()
@@ -273,11 +275,7 @@ private struct PlantYourMapleScreen: View {
     /// The questions and primers are done: the scene with the sprout, whose bud then ripens.
     private func showSprout() {
         guard step == .setup else { return }
-        if van {
-            // Straight to the first leaf, closed, waiting for its tap.
-            withAnimation(theme.motion.calm) { stepOverride = .reveal }
-            return
-        }
+        if van { return placeQuietly() }
         withAnimation(theme.motion.calm) { stepOverride = .sprout }
         ripenBud()
     }
@@ -308,8 +306,14 @@ private struct PlantYourMapleScreen: View {
         openings += 1
     }
 
-    /// "Place on your maple": the Sugar maple goes onto the tree, the sprout becomes a seedling, then Home. With the
-    /// van, "Add to your herbarium": the van comes in at once.
+    /// With the van: no leaf to reveal (the owner, 28 Nov 2026: "i dont want the herbarium or any diff type of leaf").
+    /// The first leaf is still taken out of the way unseen, so nothing waits to be opened, and the van comes in at once.
+    private func placeQuietly() {
+        _ = collection.openReveals([firstLeafID], at: clock.now())
+        onFinish()
+    }
+
+    /// "Place on your maple": the Sugar maple goes onto the tree, the sprout becomes a seedling, then Home.
     private func place() {
         let placed = collection.openReveals([firstLeafID], at: clock.now())
         if let name = placed.first.flatMap({ LeafCatalog.shared.species(id: $0.speciesID)?.displayName }) {

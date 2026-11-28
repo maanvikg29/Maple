@@ -218,7 +218,8 @@ struct RunningSessionView: View {
                 VanTreeSessionView(
                     title: model.title, subtitle: model.restingLine, time: model.remaining, caption: model.caption,
                     // Breaks are dropped with the van (syrup van design §6.3).
-                    spoken: model.spoken, progress: Self.progress(session, at: now), endTitle: endPath.title, breakTitle: nil,
+                    // The van has no leaf types, so its tree reads the time alone.
+                    spoken: model.spokenTime, progress: Self.progress(session, at: now), endTitle: endPath.title, breakTitle: nil,
                     dimmed: dimmed, onMinimise: minimise, onEnd: takeEndPath, onBreak: takeBreak, controlsFocused: $controlsFocused
                 )
             } else {
@@ -461,7 +462,8 @@ struct RunningSessionView: View {
     /// Each leaf opening, announced once as it happens (a milestone, §4.9), on the break too: "Field maple is yours. It
     /// opens after this session.", and "2 new leaves are yours." when a second opens. `count` is how many have opened.
     private func announceLeaf(_ text: String?, count: Int) {
-        guard let text, count > announcedLeaves else { return }
+        // The van has no leaf types: no species is announced.
+        guard !collection.context.features.syrupVan, let text, count > announcedLeaves else { return }
         announcedLeaves = count
         AccessibilityNotification.Announcement(text).post()
     }

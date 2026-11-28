@@ -25,9 +25,7 @@ struct VanHomeView: View {
     let onCook: () -> Void
     let onMachines: () -> Void
     let onHistory: () -> Void
-    let onHerbarium: () -> Void
     let onProfile: () -> Void
-    let onTree: () -> Void
     let onStreak: () -> Void
     /// Today's saved time, under the clock, opens Saved today (focus spec §5.9).
     let onSavedToday: () -> Void
@@ -98,10 +96,8 @@ struct VanHomeView: View {
                             }
                         }
                     }
-                    // For VoiceOver, which can't tap a place in a picture: the maple, the pot and Pip. (The timer and
-                    // the machines have their own buttons below.)
-                    spoken("Pip's maple", hint: "Opens your leaves", width: length(1000), height: length(900), action: onTree)
-                        .position(canvas.point(500, 560, in: proxy.size))
+                    // For VoiceOver, which can't tap a place in a picture: the pot and Pip. (The timer and the machines
+                    // have their own buttons below.)
                     spoken(
                         "Cooking pot", hint: model.potHint == nil ? "No leaves to cook" : "Cooks one leaf into syrup",
                         width: length(210), height: length(180), action: onCook
@@ -127,7 +123,8 @@ struct VanHomeView: View {
                     case .pot: onCook()
                     case .machines: onMachines()
                     case .timer: onEnter()
-                    case .maple: onTree()
+                    // The maple is only the picture: the van has no leaf types and no Herbarium.
+                    case .maple: break
                     case nil: break
                     }
                 })
@@ -377,7 +374,6 @@ struct VanHomeView: View {
             Button(action: onStreak) { VanCounter(value: "\(streak)", icon: "VanIconFire", label: "day streak", compact: compact) }
                 .buttonStyle(.plain)
         }
-        roundButton("VanIconLeaf", label: "Herbarium", action: onHerbarium)
         roundButton("VanIconPip", label: "Profile and settings", action: onProfile)
     }
 

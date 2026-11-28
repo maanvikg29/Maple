@@ -53,8 +53,11 @@ struct SettingsView: View {
                         SleepGoalStepper()
                     }
                 }
-                ProfileSettingRow("Reveal sound", detail: Text("A soft chime as a new leaf opens.")) {
-                    ProfileToggle("Reveal sound", isOn: $settings.revealSound)
+                // The van has no leaf types, so no leaf is ever revealed (the owner, 28 Nov 2026).
+                if !collection.context.features.syrupVan {
+                    ProfileSettingRow("Reveal sound", detail: Text("A soft chime as a new leaf opens.")) {
+                        ProfileToggle("Reveal sound", isOn: $settings.revealSound)
+                    }
                 }
             }
             // The reminders, with iOS's permission (RemindersSettingsGroup).
