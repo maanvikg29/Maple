@@ -19,6 +19,13 @@ public struct Theme: Sendable {
     public var elevation = Elevation()
     /// The minute-marks dial's colours (F1 design §4.2), in `Focus/DialTokens.swift`.
     public var dial: Dial = .maple
+    /// The night sky's look, or the syrup van's (`VanTheme.swift`): light, with solid dark outlines and no glass.
+    public var look: Look = .night
+
+    public enum Look: Sendable, Hashable {
+        case night
+        case van
+    }
 
     public init(colors: Colors, spacing: Spacing = Spacing(), radius: Radius = Radius(), motion: Motion = Motion()) {
         self.colors = colors

@@ -109,7 +109,7 @@ extension Theme {
     /// vanish. They lift with white instead, as `ScheduleEditor`'s segments do.
     var onSheet: Theme {
         var sheet = self
-        sheet.colors.surface2 = .white.opacity(0.12)
+        sheet.colors.surface2 = look == .van ? .white.opacity(0.6) : .white.opacity(0.12)
         return sheet
     }
 }

@@ -57,8 +57,9 @@ struct RunningSessionView: View {
     @State private var breathStartedAt: Date?
     /// "End session" was tapped after the breath: the store is ending the session.
     @State private var isEnding = false
-    /// With the van, ending early is seen first: Pip tumbles out of the tree while the session ends behind it.
-    @State private var isTumbling = false
+    /// The session as it last ran. After it ends this screen fades out (the van's cross-fades, `FocusView`) while the
+    /// next one fades in, and it keeps drawing its last frame meanwhile rather than an empty sky.
+    @State private var lastRunning: SessionRecord?
     /// Settings' "Release all apps" came this way: completing the way out also clears every store (§5.12).
     @State private var releasesAll = false
 
@@ -68,10 +69,7 @@ struct RunningSessionView: View {
 
     var body: some View {
         Group {
-            if isTumbling {
-                // The store ends the session when the tumble is over (`endAfterBreath`), and the receipt follows.
-                VanTreeMomentView(kind: .tumble) {}
-            } else if showsEmergency, let session {
+            if showsEmergency, let session {
                 EmergencyReleaseView(
                     session: session, stage: emergencyStage, frozenSeconds: frozenBreath,
                     onKeepGoing: keepGoing, onRelease: release, onDone: releaseDone
@@ -149,15 +147,17 @@ struct RunningSessionView: View {
         sessions.running.flatMap { $0.id == sessionID ? $0 : nil }
     }
 
-    /// By the strictness that applies to the session: a plain timer's is Gentle's whatever its preset.
+    /// By the strictness that applies to the session: a plain timer's is Gentle's whatever its preset. With the van
+    /// every session has the one way out, "End session" on the sheet (syrup van design §6.3, §6.6).
     private var endPath: SessionEndPath {
-        session.map { SessionEndPath($0.plan) } ?? .steady
+        if collection.context.features.syrupVan { return .gentle }
+        return session.map { SessionEndPath($0.plan) } ?? .steady
     }
 
     /// The break while one runs, otherwise the running dial, sampled once a second. Past the planned end it keeps its
     /// last frame, never 0:00, until the refresh that ends the session brings the receipt (`FocusRoute.frameTime`).
     private var sessionScreen: some View {
-        let session = self.session
+        let session = self.session ?? lastRunning
         return TimelineView(.periodic(from: .now, by: 1)) { _ in
             if let session {
                 screen(session, now: FocusRoute.frameTime(session, now: sessions.now))
@@ -168,6 +168,9 @@ struct RunningSessionView: View {
         // Any touch counts, on the break too (§4.6).
         .simultaneousGesture(TapGesture().onEnded(wake))
         .onAppear(perform: appeared)
+        .onChange(of: self.session, initial: true) { _, running in
+            if let running { lastRunning = running }
+        }
         .onChange(of: scenePhase) { _, phase in
             // Coming back to Maple counts as a touch.
             if phase == .active { wake() }
@@ -214,7 +217,9 @@ struct RunningSessionView: View {
             if collection.context.features.syrupVan {
                 VanTreeSessionView(
                     title: model.title, subtitle: model.restingLine, time: model.remaining, caption: model.caption,
-                    spoken: model.spoken, endTitle: model.endPath.title, breakTitle: isTakingBreak ? nil : model.breakTitle,
+                    // Breaks are dropped with the van (syrup van design §6.3).
+                    // The van has no leaf types, so its tree reads the time alone.
+                    spoken: model.spokenTime, progress: Self.progress(session, at: now), endTitle: endPath.title, breakTitle: nil,
                     dimmed: dimmed, onMinimise: minimise, onEnd: takeEndPath, onBreak: takeBreak, controlsFocused: $controlsFocused
                 )
             } else {
@@ -230,6 +235,13 @@ struct RunningSessionView: View {
                     .accessibilityHidden(true)
             }
         }
+    }
+
+    /// How far through its planned length the session is, 0 to 1.
+    private static func progress(_ session: SessionRecord, at now: Date) -> Double {
+        let length = session.plannedEnd.timeIntervalSince(session.countdownStart)
+        guard length > 0 else { return 1 }
+        return min(1, max(0, now.timeIntervalSince(session.countdownStart) / length))
     }
 
     private func dialScreen(_ model: RunningSessionModel, session: SessionRecord, now: Date, dimmed: Bool) -> some View {
@@ -366,7 +378,9 @@ struct RunningSessionView: View {
         }
     }
 
-    /// The sheet has gone: the breath starts if its way out was taken; otherwise the member kept going.
+    /// The sheet has gone: the breath starts if its way out was taken; otherwise the member kept going. With the van
+    /// there is no breath (the owner, 28 Nov 2026): the sheet's "End session" ends it at once, and Pip tumbles once it
+    /// has ended (`FocusView`, `PipMoment`), so the apps never wait on the tumble.
     private func endEarlyDismissed() {
         wake()
         guard breathesWhenDismissed else {
@@ -375,7 +389,11 @@ struct RunningSessionView: View {
         }
         breathesWhenDismissed = false
         isEnding = false
-        breathStartedAt = sessions.now
+        if collection.context.features.syrupVan {
+            endAfterBreath()
+        } else {
+            breathStartedAt = sessions.now
+        }
     }
 
     /// "Keep going", during the breath or at the second question: back to the session, nothing changed.
@@ -393,20 +411,15 @@ struct RunningSessionView: View {
         isEnding = true
         let clearsAll = releasesAll
         releasesAll = false
-        let tumbles = collection.context.features.syrupVan
-        isTumbling = tumbles
         Task {
-            // The tumble is watched to its end before the receipt takes the screen; the session's time is the same.
-            if tumbles { try? await Task.sleep(for: .seconds(reduceMotion ? 1.0 : PipFall.seconds + 0.3)) }
             // Through Release all apps the store ends the session as `.releaseAll` while it clears every store (R4).
             if clearsAll {
                 await sessions.releaseAll()
             } else {
                 await sessions.end(.endedEarly)
             }
-            isEnding = false
             // If the store couldn't end it, the question is there to answer again.
-            isTumbling = false
+            isEnding = false
         }
     }
 
@@ -449,7 +462,8 @@ struct RunningSessionView: View {
     /// Each leaf opening, announced once as it happens (a milestone, §4.9), on the break too: "Field maple is yours. It
     /// opens after this session.", and "2 new leaves are yours." when a second opens. `count` is how many have opened.
     private func announceLeaf(_ text: String?, count: Int) {
-        guard let text, count > announcedLeaves else { return }
+        // The van has no leaf types: no species is announced.
+        guard !collection.context.features.syrupVan, let text, count > announcedLeaves else { return }
         announcedLeaves = count
         AccessibilityNotification.Announcement(text).post()
     }

@@ -47,11 +47,17 @@ struct SettingsView: View {
                 }
                 .buttonStyle(.profileRow)
                 .accessibilityValue(Text(RestCopy.spokenSchedule(tonight, locale: locale)))
-                ProfileSettingRow("Sleep goal", detail: Text("A full night is this much sleep, or within 30 minutes of it.")) {
-                    SleepGoalStepper()
+                // With the van Maple has no sleep feature (the owner, 28 Nov 2026).
+                if !collection.context.features.syrupVan {
+                    ProfileSettingRow("Sleep goal", detail: Text("A full night is this much sleep, or within 30 minutes of it.")) {
+                        SleepGoalStepper()
+                    }
                 }
-                ProfileSettingRow("Reveal sound", detail: Text("A soft chime as a new leaf opens.")) {
-                    ProfileToggle("Reveal sound", isOn: $settings.revealSound)
+                // The van has no leaf types, so no leaf is ever revealed (the owner, 28 Nov 2026).
+                if !collection.context.features.syrupVan {
+                    ProfileSettingRow("Reveal sound", detail: Text("A soft chime as a new leaf opens.")) {
+                        ProfileToggle("Reveal sound", isOn: $settings.revealSound)
+                    }
                 }
             }
             // The reminders, with iOS's permission (RemindersSettingsGroup).

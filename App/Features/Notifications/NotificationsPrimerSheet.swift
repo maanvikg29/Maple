@@ -16,7 +16,8 @@ struct NotificationsPrimerSheet: View {
     var body: some View {
         let leaf = PrimerLeaf(collection: collection, season: season)
         NotificationsPrimerView(
-            species: leaf.species, colourway: leaf.colourway, isAsking: reminders.isRequesting, onAllow: allow,
+            // The van has no leaf types: the words alone.
+            species: collection.context.features.syrupVan ? nil : leaf.species, colourway: leaf.colourway, isAsking: reminders.isRequesting, onAllow: allow,
             onNotNow: { dismiss() }
         )
         .presentationDetents([.medium])
@@ -61,7 +62,8 @@ struct NotificationsPrimerStep: View {
     var body: some View {
         let leaf = PrimerLeaf(collection: collection, season: season)
         NotificationsPrimerView(
-            species: leaf.species, colourway: leaf.colourway, isAsking: reminders.isRequesting,
+            // The van has no leaf types: the words alone.
+            species: collection.context.features.syrupVan ? nil : leaf.species, colourway: leaf.colourway, isAsking: reminders.isRequesting,
             page: theme.colors.background, onAllow: allow, onNotNow: onContinue
         )
         .background(theme.colors.background)

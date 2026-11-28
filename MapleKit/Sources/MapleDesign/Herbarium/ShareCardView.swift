@@ -61,7 +61,8 @@ public struct ShareCardView: View {
                 Spacer(minLength: 8)
                 Text(verbatim: "maple")
                     .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.6))
+                    // On the van's cream, its dark brown: white would vanish.
+                    .foregroundStyle(theme.look == .van ? colors.textSecondary : .white.opacity(0.6))
                     .padding(.bottom, 18)
             }
             .padding(.horizontal, 20)
@@ -73,7 +74,7 @@ public struct ShareCardView: View {
         .frame(width: Self.size.width, height: Self.size.height)
         // A share card is a fixed picture: text stays at its designed size whatever the reader's setting.
         .dynamicTypeSize(.large)
-        .environment(\.colorScheme, .dark)
+        .environment(\.colorScheme, theme.look == .van ? .light : .dark)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
     }

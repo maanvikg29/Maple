@@ -2,12 +2,12 @@ import MapleCore
 import MapleDesign
 import SwiftUI
 
-/// A running session with the van: Pip up in the maple with his pail, leaves coming down, and the time left under
-/// the tree (syrup van design §6.5).
+/// A running session with the van: Pip up in the maple collecting leaves in his wicker basket, leaves coming down,
+/// and the time left over the meadow (syrup van design §6.5).
 ///
-/// The maple, Pip and the leaves are cut from the concept picture, pixel for pixel
-/// (`Scripts/art/concept/build_concept_art.py`). The leaves in the air are an animation only: the screen never shows
-/// how many leaves the session has earned, or how fast.
+/// The maple, Pip and the leaves are cut from the concept picture, pixel for pixel; the land round them and the basket
+/// are drawn (`Scripts/art/concept/session_scene.py`). The leaves in the air and in the basket are a picture only:
+/// the screen never shows how many leaves the session has earned, or how fast.
 struct VanTreeSessionView: View {
     let title: String
     let subtitle: String?
@@ -17,6 +17,8 @@ struct VanTreeSessionView: View {
     let caption: String
     /// What VoiceOver reads for the time.
     let spoken: String
+    /// How far through the session, 0 to 1: Pip's basket fills with it.
+    let progress: Double
     let endTitle: String
     let breakTitle: String?
     /// After 30 seconds without a touch the scene goes dim.
@@ -27,7 +29,7 @@ struct VanTreeSessionView: View {
     var controlsFocused: AccessibilityFocusState<Bool>.Binding
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var bobs = false
+    @State private var start = Date()
 
     var body: some View {
         ZStack {
@@ -35,40 +37,33 @@ struct VanTreeSessionView: View {
             GeometryReader { proxy in
                 let canvas = VanCanvas.tree
                 let scale = canvas.scale(width: proxy.size.width, height: proxy.size.height)
-                ZStack {
-                    Image("VanTreeScene")
-                        .resizable()
-                        .frame(width: canvas.width * scale, height: canvas.height * scale)
-                        .position(x: proxy.size.width / 2, y: proxy.size.height / 2)
-                    // The leaves come down behind Pip, so none lands on his face.
-                    VanFallingLeaves(canvas: canvas, isPaused: dimmed)
-                    Image("VanTreePip")
-                        .resizable()
-                        .frame(width: VanTreePip.width * scale, height: VanTreePip.height * scale)
-                        .offset(y: bobs ? -2.5 : 0)
+                // The clouds drift, Pip breathes, blinks and catches leaves for his basket, and the string lights
+                // twinkle; dimmed, all of it rests.
+                TimelineView(.animation(minimumInterval: 1.0 / 30, paused: dimmed || reduceMotion)) { timeline in
+                    let time = reduceMotion ? 0 : timeline.date.timeIntervalSince(start)
+                    ZStack {
+                        VanTreeLandscape(canvas: canvas, size: proxy.size, time: time)
+                        VanTreeLights(time: time, canvas: canvas)
+                        // The leaves come down behind Pip, so none lands on his face.
+                        VanFallingLeaves(canvas: canvas, time: time, count: 13)
+                        VanTreePipCollecting(
+                            fraction: progress, time: time, still: reduceMotion || dimmed, idle: PipIdle.pose(at: time), scale: scale
+                        )
                         .position(canvas.point(VanTreePip.centreX, VanTreePip.centreY, in: proxy.size))
+                    }
                 }
                 .frame(width: proxy.size.width, height: proxy.size.height)
                 .clipped()
             }
             .ignoresSafeArea()
             .accessibilityHidden(true)
-            // The system's clock and battery are white: a soft shade keeps them readable on the canopy.
-            LinearGradient(colors: [VanPalette.outline.opacity(0.35), .clear], startPoint: .top, endPoint: .bottom)
-                .frame(height: 110)
-                .frame(maxHeight: .infinity, alignment: .top)
-                .ignoresSafeArea()
-                .allowsHitTesting(false)
+            VanStatusShade()
             if dimmed {
                 VanPalette.outline.opacity(0.45).ignoresSafeArea().allowsHitTesting(false)
             }
             words
         }
         .animation(.easeInOut(duration: 0.6), value: dimmed)
-        .onAppear {
-            guard !reduceMotion else { return }
-            withAnimation(.easeInOut(duration: 1.8).repeatForever(autoreverses: true)) { bobs = true }
-        }
     }
 
     private var words: some View {
@@ -146,14 +141,15 @@ struct VanTreeSessionView: View {
     }
 }
 
-/// Leaves coming down from the canopy to the grass: the concept's own three leaves, placed by `FallingLeaves`. With
-/// Reduce Motion they hang still.
+/// Leaves coming down from the canopy to the grass: the concept's own three leaves, placed by `FallingLeaves`, swinging
+/// as they fall and carried by its gusts. With Reduce Motion they hang still.
 struct VanFallingLeaves: View {
     let canvas: VanCanvas
-    let isPaused: Bool
+    /// Seconds since the scene appeared.
+    let time: Double
+    var count = FallingLeaves.defaultCount
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var start = Date()
 
     private static let names = ["VanLeafOrange", "VanLeafYellow", "VanLeafRed"]
     /// In the canvas's own units: out of the canopy, down to the grass; a leaf is about this wide.
@@ -162,25 +158,56 @@ struct VanFallingLeaves: View {
     private static let leafWidth = 104.0
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1 / 30, paused: isPaused || reduceMotion)) { timeline in
-            let seconds = reduceMotion ? 4 : timeline.date.timeIntervalSince(start)
-            Canvas { context, size in
-                let scale = canvas.scale(width: size.width, height: size.height)
-                let left = (size.width - canvas.width * scale) / 2
-                let topEdge = (size.height - canvas.height * scale) / 2
-                for leaf in FallingLeaves.leaves(at: seconds) {
-                    let image = context.resolve(Image(Self.names[leaf.colour]))
-                    let width = Self.leafWidth * leaf.size * scale
-                    let height = width * image.size.height / max(1, image.size.width)
-                    var drawing = context
-                    drawing.opacity = leaf.opacity
-                    drawing.translateBy(
-                        x: left + leaf.x * canvas.width * scale,
-                        y: topEdge + (Self.top + (Self.bottom - Self.top) * leaf.fall) * scale
+        let seconds = reduceMotion ? 4 : time
+        Canvas { context, size in
+            let scale = canvas.scale(width: size.width, height: size.height)
+            let left = (size.width - canvas.width * scale) / 2
+            let topEdge = (size.height - canvas.height * scale) / 2
+            for leaf in FallingLeaves.leaves(at: seconds, count: count) {
+                let image = context.resolve(Image(Self.names[leaf.colour]))
+                let width = Self.leafWidth * leaf.size * scale
+                let height = width * image.size.height / max(1, image.size.width)
+                var drawing = context
+                drawing.opacity = leaf.opacity
+                drawing.translateBy(
+                    x: left + leaf.x * canvas.width * scale,
+                    y: topEdge + (Self.top + (Self.bottom - Self.top) * leaf.fall) * scale
+                )
+                drawing.rotate(by: .radians(leaf.turn))
+                drawing.draw(image, in: CGRect(x: -width / 2, y: -height / 2, width: width, height: height))
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+/// The string lights round the maple's trunk, twinkling: a soft glow over each bulb, drawn by Maple in the bulbs' own
+/// colour (`VanAmbience.bulb`).
+struct VanTreeLights: View {
+    let time: Double
+    let canvas: VanCanvas
+
+    /// The bulbs in the tree picture.
+    private static let bulbs: [(x: Double, y: Double)] = [(238, 875), (295, 917), (370, 937), (442, 933)]
+
+    var body: some View {
+        Canvas { context, size in
+            let scale = canvas.scale(width: size.width, height: size.height)
+            var glow = context
+            glow.blendMode = .screen
+            for (index, bulb) in Self.bulbs.enumerated() {
+                let middle = canvas.point(bulb.x, bulb.y, in: size)
+                let radius = 48 * scale
+                var drawing = glow
+                drawing.opacity = 0.15 + 0.6 * VanAmbience.bulb(index, at: time)
+                let colour = Color(red: 1, green: 0.93, blue: 0.62)
+                drawing.fill(
+                    Path(ellipseIn: CGRect(x: middle.x - radius, y: middle.y - radius, width: 2 * radius, height: 2 * radius)),
+                    with: .radialGradient(
+                        Gradient(colors: [colour, colour.opacity(0.5), colour.opacity(0)]), center: middle, startRadius: 0,
+                        endRadius: radius
                     )
-                    drawing.rotate(by: .radians(leaf.turn))
-                    drawing.draw(image, in: CGRect(x: -width / 2, y: -height / 2, width: width, height: height))
-                }
+                )
             }
         }
         .allowsHitTesting(false)

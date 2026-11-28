@@ -33,8 +33,11 @@ struct RemindersSettingsGroup: View {
         let window = studyWindow
         VStack(alignment: .leading, spacing: theme.spacing.sm) {
             ProfileListGroup {
-                ProfileSettingRow("Wind-down reminder", detail: Text("As wind-down begins, with your bedtime.")) {
-                    ProfileToggle("Wind-down reminder", isOn: binding(\.windDownReminder))
+                // With the van Maple has no sleep feature, and no wind-down (`ReminderInputs`).
+                if !collection.context.features.syrupVan {
+                    ProfileSettingRow("Wind-down reminder", detail: Text("As wind-down begins, with your bedtime.")) {
+                        ProfileToggle("Wind-down reminder", isOn: binding(\.windDownReminder))
+                    }
                 }
                 if collection.context.features.focus {
                     ProfileSettingRow(FocusSettingsCopy.sessionEndTitle, detail: Text(FocusSettingsCopy.sessionEndDetail)) {

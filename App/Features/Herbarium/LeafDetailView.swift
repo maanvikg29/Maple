@@ -133,7 +133,8 @@ struct LeafDetailView: View {
                         .padding(.top, theme.spacing.lg)
                         .padding(.horizontal, theme.spacing.md)
                 }
-                if entry.isEarned {
+                // With the van no maple shows a featured leaf (Profile shows Pip), so there is nothing to feature it on.
+                if entry.isEarned, !collection.context.features.syrupVan {
                     featureButton
                         .padding(.top, theme.spacing.lg)
                 }
@@ -287,7 +288,7 @@ struct LeafDetailView: View {
 
     private func statusActions(_ species: LeafSpecies) -> StatusTile.Actions {
         StatusTile.Actions(
-            showOnMaple: {
+            showOnMaple: collection.context.features.syrupVan ? nil : {
                 if let showOnMapleHere { showOnMapleHere(speciesID) } else { router.showOnMaple(speciesID) }
             },
             open: { presentingRevealWithoutSlide { showsReveal = true } },

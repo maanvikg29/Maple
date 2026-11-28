@@ -26,12 +26,15 @@ struct PrivacyView: View {
         ProfilePage("Privacy") {
             VStack(alignment: .leading, spacing: theme.spacing.sm) {
                 ProfileListGroup {
-                    ProfileSettingRow(
-                        "Include my leaves in rarity stats",
-                        detail: Text("Maple adds the leaves you hold to anonymous counts, so each leaf can show how many members have it. No account, no device ID, no health data."),
-                        link: TextLink("How rarity works") { showsExplainer = true }
-                    ) {
-                        ProfileToggle("Include my leaves in rarity stats", isOn: included)
+                    // The van has no leaf types, so no rarity (the owner, 28 Nov 2026).
+                    if !collection.context.features.syrupVan {
+                        ProfileSettingRow(
+                            "Include my leaves in rarity stats",
+                            detail: Text("Maple adds the leaves you hold to anonymous counts, so each leaf can show how many members have it. No account, no device ID, no health data."),
+                            link: TextLink("How rarity works") { showsExplainer = true }
+                        ) {
+                            ProfileToggle("Include my leaves in rarity stats", isOn: included)
+                        }
                     }
                     appleHealthRow
                 }

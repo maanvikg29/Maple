@@ -16,6 +16,9 @@ import MapleServices
 /// 5. The full reveal of the Sugar maple ("For setting your sleep schedule"), at any hour.
 /// 6. "Place on your maple" grafts it onto the tree, which becomes a seedling, then `onFinish` shows Home.
 ///
+/// With the van (syrup van design) there is no maple on home, so steps 4 and 6 have no scene: after the primers the
+/// Sugar maple waits closed in the reveal ("Tap to open"), and "Add to your herbarium" brings in the van at once.
+///
 /// Every step is saved as it happens (`OnboardingStore`, `ScheduleStore`, the collection), and the first frame shows
 /// the step those files name, so a run stopped anywhere resumes on the same screen: the schedule is never asked for
 /// twice once saved, and the leaf is never awarded twice.
@@ -62,10 +65,15 @@ private struct PlantYourMapleScreen: View {
 
     private var step: Step { stepOverride ?? initialStep }
 
-    /// The questions and primers until they are done, then the sprout.
+    /// The questions and primers until they are done, then the sprout. (The van has no leaf types, so with it the first
+    /// run ends at the van straight after them: `placeQuietly`.)
     private var initialStep: Step {
-        setupStep == .sprout || setupStep == nil ? .sprout : .setup
+        guard setupStep == .sprout || setupStep == nil else { return .setup }
+        return van ? .reveal : .sprout
     }
+
+    /// The van is home: no maple to sprout or graft onto.
+    private var van: Bool { collection.context.features.syrupVan }
 
     /// The setup screen the files name (`OnboardingProgress.resume`); nil once the Sugar maple is placed.
     private var setupStep: OnboardingStep? {
@@ -89,7 +97,7 @@ private struct PlantYourMapleScreen: View {
                 scene
                     .transition(.opacity)
             case .reveal:
-                if let leaf = firstLeaf {
+                if !van, let leaf = firstLeaf {
                     RevealView(
                         leaf: leaf,
                         ritual: RevealRitual(tier: leaf.tier, revealsBefore: collection.revealsOpened, reduceMotion: reduceMotion),
@@ -154,6 +162,10 @@ private struct PlantYourMapleScreen: View {
         // Saving the first schedule earns the Sugar maple; `resumeFirstRun` repairs a save that didn't record it.
         guard schedule.resumeFirstRun(at: now) == .sprout else { return onFinish() }
         go(to: .health)
+        // The primers were answered on an earlier run (its schedule since lost, or the DEBUG sandbox, whose schedule
+        // is its own while the onboarding file isn't): straight on to the leaf, as the last primer's answer does,
+        // rather than an empty screen.
+        if setupStep == .sprout { showSprout() }
     }
 
     // MARK: The sprout and the seedling
@@ -246,11 +258,13 @@ private struct PlantYourMapleScreen: View {
             return
         }
         stepOverride = initialStep
-        // A sprout with no leaf behind it would be a dead end, so ask for the schedule instead.
-        if step == .sprout, collection.firstLeaf == nil {
+        // A sprout (with the van, a closed bud) with no leaf behind it would be a dead end, so ask for the schedule
+        // instead.
+        if step != .setup, collection.firstLeaf == nil {
             onboarding.go(to: .schedule)
             stepOverride = .setup
         }
+        if van, step == .reveal { return placeQuietly() }
         if step == .sprout { ripenBud() }
         #if DEBUG
         applyDemo()
@@ -261,6 +275,7 @@ private struct PlantYourMapleScreen: View {
     /// The questions and primers are done: the scene with the sprout, whose bud then ripens.
     private func showSprout() {
         guard step == .setup else { return }
+        if van { return placeQuietly() }
         withAnimation(theme.motion.calm) { stepOverride = .sprout }
         ripenBud()
     }
@@ -291,12 +306,20 @@ private struct PlantYourMapleScreen: View {
         openings += 1
     }
 
+    /// With the van: no leaf to reveal (the owner, 28 Nov 2026: "i dont want the herbarium or any diff type of leaf").
+    /// The first leaf is still taken out of the way unseen, so nothing waits to be opened, and the van comes in at once.
+    private func placeQuietly() {
+        _ = collection.openReveals([firstLeafID], at: clock.now())
+        onFinish()
+    }
+
     /// "Place on your maple": the Sugar maple goes onto the tree, the sprout becomes a seedling, then Home.
     private func place() {
         let placed = collection.openReveals([firstLeafID], at: clock.now())
         if let name = placed.first.flatMap({ LeafCatalog.shared.species(id: $0.speciesID)?.displayName }) {
-            AccessibilityNotification.Announcement("\(name) placed on your maple.").post()
+            AccessibilityNotification.Announcement(RevealCopy.placed([name], theme.look)).post()
         }
+        if van { return onFinish() }
         withAnimation(theme.motion.graft) { stepOverride = .placed }
         guard !holdsAtEnd else { return }
         Task {
@@ -344,6 +367,9 @@ private struct PlantYourMapleScreen: View {
     /// The onboarding end's demo steps: `seed`, `sprout`, `reveal`, `placed`.
     private func applyEndDemo(_ demo: String) {
         switch demo {
+        case "seed" where van, "sprout" where van:
+            // With the van there is no sprout: the first leaf, closed.
+            stepOverride = .reveal
         case "seed":
             stepOverride = .sprout
         case "sprout":
@@ -396,9 +422,9 @@ private struct PlantYourMapleScreen: View {
                     try? await Task.sleep(for: .seconds(0.3))
                 }
             }
-            // The bud turns amber 1.2 s after the sprout appears.
+            // The bud turns amber 1.2 s after the sprout appears; with the van the closed leaf is tapped instead.
             try? await Task.sleep(for: .seconds(1.2 + pause))
-            openFromSprout()
+            if van { open() } else { openFromSprout() }
             // The bud opens 0.6 s after the tap; the Sugar maple's first reveal is the full ritual.
             let ritual = RevealRitual(tier: firstLeaf?.tier ?? .common, revealsBefore: 0, reduceMotion: reduceMotion)
             try? await Task.sleep(for: .seconds(0.6 + ritual.settledTime + pause))

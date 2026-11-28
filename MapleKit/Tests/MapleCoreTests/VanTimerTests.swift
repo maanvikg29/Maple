@@ -81,4 +81,11 @@ struct VanTimerTests {
         #expect(!ReceiptFlow.offersAgain(ShippedFeatures.current))
         #expect(ReceiptFlow.offersAgain(ShippedFeatures(releases: [.m1, .f1])))
     }
+
+    @Test("With the van there are no leaf types: the receipt names no species and draws no species leaf")
+    func noLeafTypes() {
+        // The owner, 28 Nov 2026: "i dont want the herbarium or any diff type of leaf".
+        #expect(!ReceiptFlow.showsLeafTypes(ShippedFeatures.current))
+        #expect(ReceiptFlow.showsLeafTypes(ShippedFeatures(releases: [.m1, .f1])))
+    }
 }

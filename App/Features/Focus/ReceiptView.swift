@@ -99,7 +99,9 @@ struct ReceiptView: View {
                 frozenSeconds: frozenFinish, onDone: done
             )
         } else {
-            let centre = ReceiptFlow.centreLeaf(unlocks: unlocks, next: next, canCount: session.plan.canCount)
+            // With the van there are no leaf types: no species leaf in the dial.
+            let centre = ReceiptFlow.showsLeafTypes(collection.context.features)
+                ? ReceiptFlow.centreLeaf(unlocks: unlocks, next: next, canCount: session.plan.canCount) : nil
             let fill = centreFill(centre, next: next, countedSeconds: model.countedSeconds)
             let frame = DialFrame.receipt(marks: model.marks, isGold: model.isGold, fill: fill)
             let plays = model.playsFinish && frozenFinish == nil
@@ -161,7 +163,7 @@ struct ReceiptView: View {
                     .accessibilityHidden(true)
                     .opacity(finish.numeralOpacity)
             }
-            if let parts = model.leafLineParts {
+            if ReceiptFlow.showsLeafTypes(collection.context.features), let parts = model.leafLineParts {
                 // The running screen's line, so its look doesn't change at the handover: the name, then the rest in
                 // the secondary colour; the amber bud before a line that says a leaf is yours (§4.3).
                 LeafLineRow(words: LeafLineWords(line: parts, opened: model.leafLineOpened))

@@ -14,7 +14,6 @@ struct RootView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(NotificationRouter.self) private var notifications
     @Environment(CollectionStore.self) private var collection
-    @Environment(FocusSessionStore.self) private var sessions
     @State private var router = AppRouter(selectedTab: .initial)
     /// Latched at launch and cleared only by onboarding's `onFinish`: the First-steps leaf is placed mid-flow, and
     /// the seedling it grows still has to be shown before Home takes over.
@@ -49,9 +48,11 @@ struct RootView: View {
             // Each tab owns its navigation stack, so screens can push, present sheets and add toolbars.
             Tab("Home", image: "maple.tree", value: AppTab.home) {
                 NavigationStack { HomeView().toolbarVisibility(hidesTabBar, for: .tabBar) }
+                    .vanArrival(.home, .home)
             }
             Tab(value: AppTab.focus) {
                 NavigationStack { FocusView().toolbarVisibility(hidesTabBar, for: .tabBar) }
+                    .vanArrival(.focus, .clock)
             } label: {
                 // SF `timer` (P10), selected or not. Given the symbol itself, the bar can draw another variant when
                 // selected, so it gets the outline as a plain template image, as the Rest tab's moon did.
@@ -61,15 +62,16 @@ struct RootView: View {
                 NavigationStack {
                     HerbariumView()
                         .toolbarVisibility(hidesTabBar, for: .tabBar)
-                        .overlay(alignment: .bottomLeading) {
+                        // The way back to the van, at the top as on the clock, so it never covers a leaf or a line.
+                        .safeAreaInset(edge: .top, alignment: .leading, spacing: 0) {
                             if collection.context.features.syrupVan {
                                 VanBackButton(title: "Van") { router.selectedTab = .home }
-                                    .padding(16)
-                                    // Clear of the Herbarium's session bar, which sits along the bottom while one runs.
-                                    .padding(.bottom, sessions.running == nil ? 0 : 56)
+                                    .padding(.horizontal, 16)
+                                    .padding(.top, 4)
                             }
                         }
                 }
+                .vanArrival(.herbarium, .rise)
             }
         }
         .tint(theme.colors.textPrimary)

@@ -243,7 +243,7 @@ public struct RevealView: View {
                     .buttonStyle(.moonlight)
                 TextLink("Open all \(total)", chevron: false, action: actions.openAll)
             case .place:
-                Button("Place on your maple", action: actions.place)
+                Button(RevealCopy.place(theme.look), action: actions.place)
                     .buttonStyle(.moonlight)
                     .padding(.bottom, theme.spacing.md)
             }

@@ -266,13 +266,17 @@ struct PipAtHomeTests {
 
     // MARK: When
 
-    @Test("The next unprompted act comes 20 to 40 seconds later and is never the one he just did")
+    @Test("He does something of his own soon after home opens, then every 10 to 20 seconds, never the same twice")
     func director() {
+        for roll in 0 ..< 200 {
+            let first = PipDirector.next(after: nil, roll: UInt64(roll) &* 0x9E37_79B9_7F4A_7C15)
+            #expect(first.wait >= 3 && first.wait <= 7)
+        }
         var seen: Set<PipAct> = []
-        var last: PipAct?
+        var last: PipAct? = .juggle
         for roll in 0 ..< 600 {
             let next = PipDirector.next(after: last, roll: UInt64(roll) &* 0x9E37_79B9_7F4A_7C15)
-            #expect(next.wait >= 20 && next.wait <= 40)
+            #expect(next.wait >= 10 && next.wait <= 20)
             #expect(next.act != last)
             #expect(PipAct.unprompted.contains(next.act))
             seen.insert(next.act)
@@ -331,6 +335,29 @@ struct PipAtHomeTests {
         stage.tapped(at: 102)
         #expect(stage.act(at: 102.5) == .rake)
         #expect(stage.isBusy(at: 100 + PipAct.rake.seconds - 0.1))
+    }
+
+    @Test("Standing about, he blinks every few seconds, quickly, and is otherwise wide awake")
+    func blinks() {
+        let frames = stride(from: 0.0, through: 30, by: 1.0 / 60).map { PipIdle.pose(at: $0) }
+        let shut = frames.filter(\.asleep).count
+        #expect(shut > 0)
+        #expect(Double(shut) / Double(frames.count) < 0.08)
+        // Every closing is short.
+        var run = 0
+        var longest = 0
+        for frame in frames {
+            run = frame.asleep ? run + 1 : 0
+            longest = max(longest, run)
+        }
+        #expect(longest <= 12)
+        // At least four blinks in half a minute.
+        let openings = zip(frames, frames.dropFirst()).filter { $0.asleep && !$1.asleep }.count
+        #expect(openings >= 4)
+        // He blinks in the middle of an act too, but never wakes from a nap by blinking.
+        var stage = PipStage()
+        stage.play(.nap, at: 0)
+        #expect(stride(from: 3.0, through: 10, by: 0.05).allSatisfy { stage.scene(at: $0).pose.asleep })
     }
 
     @Test("Stilled, he stands exactly as the picture has him whatever is asked of him")

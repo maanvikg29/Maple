@@ -281,7 +281,7 @@ private struct RevealFlowScreen: View {
     private func announce(_ leaves: [LeafUnlock]) {
         let names = leaves.compactMap { LeafCatalog.shared.species(id: $0.speciesID)?.displayName }
         guard !names.isEmpty else { return }
-        AccessibilityNotification.Announcement("\(names.formatted(.list(type: .and))) placed on your maple.").post()
+        AccessibilityNotification.Announcement(RevealCopy.placed(names, theme.look)).post()
     }
 
     /// Renders the share card once the ritual has settled, so the render never lands on an animating frame; the

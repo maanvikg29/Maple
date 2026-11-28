@@ -6,7 +6,7 @@ import SwiftUI
 /// Settings in the Profile sheet, which then opens the schedule editor (`SleepDemo`). Feature-level routes are
 /// handled by the features themselves, and `onboarding` by `RootView`'s first-run gate (`MapleApp.needsOnboarding`).
 private enum DemoPresentation: String, Identifiable {
-    case reveal, profile, winddown, schedule
+    case reveal, profile, winddown, schedule, tumble, walk
 
     var id: String { rawValue }
 
@@ -30,6 +30,9 @@ private struct DemoPresenter: ViewModifier {
                 switch presentation {
                 case .reveal: RevealFlow()
                 case .winddown: WindDownView()
+                // The van's two moments at the maple, played (or held, `-MapleDemoMomentAt`) over the app.
+                case .tumble: VanTreeMomentView(kind: .tumble) {}
+                case .walk: VanTreeMomentView(kind: .walkBack) {}
                 case .profile, .schedule: EmptyView()
                 }
             }

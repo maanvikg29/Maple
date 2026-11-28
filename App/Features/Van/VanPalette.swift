@@ -16,6 +16,8 @@ enum VanPalette {
     static let face = Color(hex: 0xFFF4E2)
     static let grass = Color(hex: 0xA09F5F)
     static let copper = Color(hex: 0xC87445)
+    /// Dust off the grass: its colour, paled toward the cream.
+    static let dust = Color(hex: 0xD9D1A6)
 }
 
 /// A rounded, outlined plate: the look of every button and label that sits over the scene.
@@ -35,24 +37,110 @@ struct VanPlate: ViewModifier {
     private var shape: RoundedRectangle { RoundedRectangle(cornerRadius: 22, style: .continuous) }
 }
 
-/// A number with its picture, on a plate: the leaves, the syrup, the streak.
+/// A number with its picture: the leaves, the syrup, the streak. It sits on home's wooden board (`VanBoard`).
 struct VanCounter: View {
     let value: String
-    let image: String
+    /// A `VanIcon…` picture.
+    let icon: String
     /// What the number counts, for VoiceOver: "leaves".
     let label: String
-    /// A tighter plate, for a row that has more on it than fits at full size.
+    /// Tighter, for a row that has more on it than fits at full size.
     var compact = false
 
     var body: some View {
-        Label(value, systemImage: image)
+        HStack(spacing: 5) {
+            VanIcon(name: icon, size: compact ? 28 : 32)
+            number
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(value) \(label)")
+    }
+
+    private var number: some View {
+        Text(value)
             .font(.system(compact ? .footnote : .subheadline, design: .rounded).weight(.heavy))
-            .labelStyle(.titleAndIcon)
+            .monospacedDigit()
             .foregroundStyle(VanPalette.outline)
             .lineLimit(1)
             .fixedSize()
-            .modifier(VanPlate(horizontal: compact ? 9 : 12))
-            .accessibilityLabel("\(value) \(label)")
+    }
+}
+
+/// One of home's drawn icons (`Scripts/art/icons/build_van_icons.py`), on its own: the counters' pictures.
+struct VanIcon: View {
+    let name: String
+    var size: CGFloat = 30
+
+    var body: some View {
+        Image(name)
+            .resizable()
+            .scaledToFit()
+            .frame(width: size, height: size)
+            .accessibilityHidden(true)
+    }
+}
+
+/// A drawn icon on a cream disc with the picture's outline: the round buttons on home's board.
+struct VanMedallion: View {
+    let name: String
+    var size: CGFloat = 44
+
+    var body: some View {
+        Image(name)
+            .resizable()
+            .scaledToFit()
+            .padding(size * 0.13)
+            .frame(width: size, height: size)
+            .background(VanPalette.cream, in: Circle())
+            .overlay(Circle().strokeBorder(VanPalette.outline, lineWidth: size >= 34 ? 2.5 : 2))
+            .accessibilityHidden(true)
+    }
+}
+
+/// A wooden board, drawn in the picture's wood with its outline, a few grain lines and a nail at each end: what home's
+/// counters and buttons sit on (the owner picked it from three looks, 28 Nov 2026).
+struct VanBoard: View {
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
+        shape
+            .fill(VanPalette.wood)
+            .overlay {
+                Canvas { context, size in
+                    // Grain: three long, gently waving lines in the wood's darker tone.
+                    for (index, height) in [0.3, 0.55, 0.8].enumerated() {
+                        var line = Path()
+                        let y = size.height * height
+                        line.move(to: CGPoint(x: 14, y: y))
+                        let wave = index.isMultiple(of: 2) ? 2.0 : -2.0
+                        line.addCurve(
+                            to: CGPoint(x: size.width - 14, y: y + wave), control1: CGPoint(x: size.width * 0.35, y: y - wave),
+                            control2: CGPoint(x: size.width * 0.65, y: y + 2 * wave)
+                        )
+                        context.stroke(line, with: .color(VanPalette.copper.opacity(0.55)), lineWidth: 1.5)
+                    }
+                    // A nail at each end.
+                    for x in [9.0, size.width - 9] {
+                        let nail = CGRect(x: x - 2.5, y: size.height / 2 - 2.5, width: 5, height: 5)
+                        context.fill(Path(ellipseIn: nail), with: .color(VanPalette.outline.opacity(0.8)))
+                    }
+                }
+                .clipShape(shape)
+            }
+            .overlay(shape.strokeBorder(VanPalette.outline, lineWidth: 2.5))
+            .accessibilityHidden(true)
+    }
+}
+
+/// The top of a scene, under the system's clock and battery. With the van's light look those are dark, so a soft haze
+/// of the sky lifts the canopy behind them (a darker canopy leaves them about 3.6 : 1, the haze about 6 : 1).
+struct VanStatusShade: View {
+    var body: some View {
+        LinearGradient(colors: [VanPalette.sky.opacity(0.45), .clear], startPoint: .top, endPoint: .bottom)
+            .frame(height: 110)
+            .frame(maxHeight: .infinity, alignment: .top)
+            .ignoresSafeArea()
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
     }
 }
 

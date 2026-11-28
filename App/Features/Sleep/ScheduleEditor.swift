@@ -247,12 +247,8 @@ struct ScheduleEditor: View {
     }
 
     /// The segment thumb is `surface2`, which is also the sheet's own fill, so on the sheet it would vanish. Here
-    /// it lifts with white instead, the same way the time tiles do.
-    private var sheetTheme: Theme {
-        var sheet = theme
-        sheet.colors.surface2 = .white.opacity(0.12)
-        return sheet
-    }
+    /// it lifts with white instead, the same way the time tiles do (more white on the van's cream: `onSheet`).
+    private var sheetTheme: Theme { theme.onSheet }
 
     private var summary: String {
         let shown = draft.wrappedValue

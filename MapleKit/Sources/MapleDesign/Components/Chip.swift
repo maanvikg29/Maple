@@ -148,7 +148,7 @@ public struct SmallChip: View {
 
     /// White 30%, raised with the other borders under Increase Contrast (`borderHighlight` 22% → 40%).
     private var approximateBorder: Color {
-        .white.opacity(max(0.30, theme.colors.borderHighlight.opacityValue + 0.05))
+        theme.look == .van ? theme.colors.borderHighlight : .white.opacity(max(0.30, theme.colors.borderHighlight.opacityValue + 0.05))
     }
 }
 

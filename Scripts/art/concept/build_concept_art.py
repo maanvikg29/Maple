@@ -171,62 +171,6 @@ class Ink:
         image.alpha_composite(small, at)
 
 
-# ---------- the maple, for the session view ----------
-
-def blob(cx, cy, a, b, n=2.6, steps=240):
-    import math
-    out = []
-    for i in range(steps):
-        t = 2 * math.pi * i / steps
-        c, s = math.cos(t), math.sin(t)
-        out.append((cx + a * abs(c) ** (2 / n) * (1 if c >= 0 else -1), cy + b * abs(s) ** (2 / n) * (1 if s >= 0 else -1)))
-    return out
-
-
-def tree_scene(van):
-    tree = van.crop((0, 0, TREE_W, TREE_CUT)).copy()
-    d = ImageDraw.Draw(tree)
-    # Everything that is not the tree, painted out in the sky's colour: the bunting, the wire to the van, the smoke
-    # and the chimney. The line runs a few pixels outside the tree's own outline and never crosses it.
-    d.polygon([(536, 682), (545, 669), (880, 669), (880, 428), (1012, 428), (1045, 395), (1045, 318), (TREE_W, 318),
-               (TREE_W, TREE_CUT), (483, TREE_CUT), (483, 862), (485, 822), (489, 783), (497, 763), (508, 738),
-               (524, 704)], fill=PEACH)
-    # The one loose leaf the cut would slice.
-    d.rectangle([70, 950, 180, TREE_CUT], fill=PEACH)
-
-    scene = Image.new("RGBA", (TREE_W, TREE_H), PEACH + (255,))
-    scene.paste(tree, (0, 0))
-    # The trunk below the cut is hidden by the van in the concept. Its sides are straight there, so each column of
-    # the last clear rows carries straight on down.
-    band = np.asarray(tree.crop((228, TREE_CUT - 16, 492, TREE_CUT - 2))).astype(np.float32).mean(axis=0)
-    column = Image.fromarray(band.round().astype(np.uint8)[None, :, :])
-    scene.paste(column.resize((492 - 228, 1470 - TREE_CUT + 2), Image.NEAREST), (228, TREE_CUT - 2))
-
-    # Where the outline's two dark lines are in that band: the foot's own outline starts on them.
-    darkness = 255 - band.mean(axis=1)
-    lx = 228 + float(np.average(np.arange(0, 40), weights=np.clip(darkness[:40] - 190, 0, None)))
-    rx = 228 + float(np.average(np.arange(224, 264), weights=np.clip(darkness[224:] - 190, 0, None)))
-
-    ink = Ink((TREE_W, TREE_H), k=4)
-    ink.fill(blob(600, 1674, 565, 172), GRASS_RIM)
-    ink.fill(blob(600, 1640, 565, 172), GRASS)
-    # The foot of the trunk, flaring into the grass.
-    left = [(lx, 1400)] + curve([(lx, 1440), (lx - 3, 1492), (lx - 20, 1538), (lx - 58, 1566), (lx - 94, 1578)])
-    right = [(rx, 1400)] + curve([(rx, 1440), (rx + 3, 1492), (rx + 20, 1538), (rx + 58, 1566), (rx + 94, 1578)])
-    foot = curve([(lx - 94, 1578), (lx + 10, 1590), ((lx + rx) / 2, 1594), (rx - 10, 1590), (rx + 94, 1578)])
-    ink.fill(left + foot + right[::-1], BARK)
-    ink.line(left + foot[1:] + right[::-1][1:], LINE, 3.6)
-    ink.onto(scene)
-
-    # Mushrooms and a fallen leaf from the concept's own grass.
-    mushrooms = cut_from(van, (1372, 1606, 1502, 1734), is_grass)
-    scene.alpha_composite(mushrooms, (700, 1568))
-    leaf = cut_from(van, (1632, 1574, 1722, 1660), is_grass)
-    scene.alpha_composite(leaf, (250, 1668))
-    scene.alpha_composite(leaf.transpose(Image.FLIP_LEFT_RIGHT).rotate(24, resample=Image.BICUBIC, expand=True), (905, 1640))
-    return scene.convert("RGB")
-
-
 # ---------- Pip ----------
 
 PIP_BOX = (190, 135, 800, 715)
@@ -259,38 +203,33 @@ def pip_cutout():
     return out
 
 
-def pip_with_pail(leaves):
-    """Pip as he stands in the concept, the ladle gone, a pail of leaves hanging from the same paw."""
+def pip_alone():
+    """Pip on his own, in his square: the basket is drawn apart (`session_scene.py`), so it can fill and fly off."""
+    return pip_cutout().crop(PIP_BOX)
+
+
+def tree_eyelids():
+    """His eyes closed, in his close-up's square: each covered in the pale fur round it, with one dark curve. Drawn,
+    for blinking in the tree."""
+    src = Image.open(CONCEPTS / "pip-from-van.jpg").convert("RGB")
+    pixels = np.asarray(src).astype(np.int32)
     x0, y0 = PIP_BOX[0], PIP_BOX[1]
     size = (PIP_BOX[2] - x0, PIP_BOX[3] - y0)
-    sprite = Image.new("RGBA", size, (0, 0, 0, 0))
-    at = lambda pts: [(x - x0, y - y0) for x, y in pts]  # noqa: E731
-    grip, cx, rim, bottom, half = (636, 430), 684, 532, 690, 80
-
-    back = Ink(size)
-    for end in (cx - half + 4, cx + half - 4):
-        bend = 10 if end > cx else -6
-        handle = curve([(end, rim), ((end + grip[0]) / 2 + bend, (rim + grip[1]) / 2 + 4), grip])
-        back.line(at(handle), LINE, 13)
-        back.line(at(handle), METAL, 5.5)
-    back.ellipse(cx - x0, rim - y0, half, 21, METAL_DARK, LINE, 5)
-    back.onto(sprite)
-    # The heap: the concept's own leaves.
-    for leaf, (lx, ly), turn, k in [(leaves[1], (620, 468), 30, 0.8), (leaves[0], (676, 446), -24, 0.86),
-                                    (leaves[2], (634, 476), 4, 0.95), (leaves[0], (700, 472), -52, 0.7)]:
-        small = leaf.resize((round(leaf.width * k), round(leaf.height * k)), Image.LANCZOS)
-        sprite.alpha_composite(small.rotate(turn, resample=Image.BICUBIC, expand=True), (lx - x0, ly - y0))
-    front = Ink(size)
-    foot = half - 22
-    side = [(cx - half, rim), (cx - foot, bottom - 8)] + curve([(cx - foot, bottom - 8), (cx, bottom + 4), (cx + foot, bottom - 8)]) + [(cx + half, rim)]
-    lip = curve([(cx - half, rim), (cx - 40, rim + 17), (cx, rim + 21), (cx + 40, rim + 17), (cx + half, rim)])
-    front.fill(at(side + lip[::-1]), METAL)
-    front.line(at(side), LINE, 5)
-    front.line(at(lip), LINE, 5)
-    front.line(at(curve([(cx - 68, rim + 58), (cx, rim + 76), (cx + 68, rim + 58)])), METAL_DARK, 3.5)
-    front.onto(sprite)
-    sprite.alpha_composite(pip_cutout().crop(PIP_BOX))
-    return sprite
+    ink = Ink(size)
+    yy, xx = np.mgrid[0:pixels.shape[0], 0:pixels.shape[1]]
+    for cx, cy in [(489.5, 316.9), (571.1, 300.8)]:
+        # The pale fur in a thin ring just outside the eye, leaving out its dark edge.
+        inner = ((xx - cx) / 12) ** 2 + ((yy - cy) / 15) ** 2
+        outer = ((xx - cx) / 15) ** 2 + ((yy - cy) / 18) ** 2
+        ring = pixels[(inner > 1) & (outer <= 1)]
+        ring = ring[(ring[:, 0] * 299 + ring[:, 1] * 587 + ring[:, 2] * 114) // 1000 > 150]
+        fur = tuple(int(v) for v in np.median(ring, axis=0))
+        ink.ellipse(cx - x0, cy - y0, 12.5, 15.5, fur)
+        lid = curve([(cx - 10.5, cy + 1), (cx, cy + 8), (cx + 10.5, cy + 1)])
+        ink.line([(x - x0, y - y0) for x, y in lid], LINE, 4.6)
+    out = Image.new("RGBA", size, (0, 0, 0, 0))
+    ink.onto(out)
+    return out
 
 
 # ---------- Pip at home, in pieces, and the van behind him ----------
@@ -635,6 +574,221 @@ def props():
     return out
 
 
+# ---------- home, alive ----------
+
+# The pieces of the home picture that move (`VanAmbience`), each cut along its own outline and saved with the box
+# it was cut from, so it lies exactly where the picture has it. Those that sway over the sky also get a "gap": the
+# piece's shape in the sky's own colour there, laid under the moving copy so the picture's still one never shows.
+AMBIENT_BOXES = {
+    "Smoke": (1004, 334, 1200, 538),
+    "Flag": (1167, 512, 1292, 594),
+    "Fire": (808, 1366, 888, 1438),
+    "Flame": (1132, 1198, 1164, 1236),
+    "Cat": (782, 1572, 992, 1700),
+    "SkyLeaf0": (1290, 262, 1406, 372),
+    "SkyLeaf1": (1490, 420, 1610, 540),
+    "SkyLeaf2": (1640, 770, 1740, 880),
+    "SkyLeaf3": (40, 925, 200, 1075),
+}
+PENNANT_SEEDS = [(580, 735), (650, 760), (735, 765), (800, 745), (880, 735)]
+BUNTING_BAND = (550, 672, 915, 812)
+
+
+def outlined(src_box_pixels, seeds, reach=8, dark_below=72):
+    """A part of the picture with its own dark outline: the closed regions round the seeds, the outline that hugs
+    them, and anything they enclose."""
+    a = src_box_pixels.astype(np.int32)
+    luma = (a[..., 0] * 299 + a[..., 1] * 587 + a[..., 2] * 114) // 1000
+    dark = luma < dark_below
+    lab = label(~dark)
+    fill = np.zeros(dark.shape, bool)
+    for x, y in seeds:
+        if not dark[y, x]:
+            fill |= lab == lab[y, x]
+    mask = fill | (dark & grow(fill, reach))
+    return mask | ~outside(~mask)
+
+
+def sky_colour(van, box, mask):
+    """The sky round a piece: the median of the sky-coloured pixels just outside it."""
+    pad = 16
+    wide = (box[0] - pad, box[1] - pad, box[2] + pad, box[3] + pad)
+    pixels = np.asarray(van.crop(wide)).astype(np.int32)
+    placed = np.zeros(pixels.shape[:2], bool)
+    placed[pad:pad + mask.shape[0], pad:pad + mask.shape[1]] = mask
+    ring = grow(placed, 12) & ~grow(placed, 3)
+    sky = near(PEACH, 30)(pixels) & ring
+    chosen = pixels[sky] if sky.sum() > 20 else np.array([PEACH])
+    return tuple(int(v) for v in np.median(chosen.reshape(-1, 3), axis=0))
+
+
+def piece_and_gap(van, box, mask, gap=True, soften=0.7):
+    crop = van.crop(box)
+    piece = crop.convert("RGBA")
+    piece.putalpha(as_image(mask).filter(ImageFilter.GaussianBlur(soften)))
+    if not gap:
+        return piece, None
+    hole = grow(mask, 3)
+    colour = sky_colour(van, box, mask)
+    filler = Image.new("RGBA", crop.size, colour + (255,))
+    filler.putalpha(as_image(hole).filter(ImageFilter.GaussianBlur(1.2)))
+    return piece, filler
+
+
+def home_ambience(van):
+    """{name: (image, box)} for every moving piece of home and its gap."""
+    out = {}
+    is_sky = near(PEACH, 30)
+
+    def crop_pixels(box):
+        return np.asarray(van.crop(box)).astype(np.int32)
+
+    # The chimney's smoke and the flag on the roof: whatever is not sky round a point inside them.
+    for name, seed in [("Smoke", (1100, 420)), ("Flag", (1225, 545))]:
+        box = AMBIENT_BOXES[name]
+        pixels = crop_pixels(box)
+        parts = label(~is_sky(pixels))
+        mask = parts == parts[seed[1] - box[1], seed[0] - box[0]]
+        mask = mask | ~outside(~mask)
+        piece, gap = piece_and_gap(van, box, mask)
+        out[f"VanAmb{name}"] = (piece, box)
+        out[f"VanAmb{name}Gap"] = (gap, box)
+
+    # The leaves hanging in the open sky.
+    for index in range(4):
+        name = f"SkyLeaf{index}"
+        box = AMBIENT_BOXES[name]
+        pixels = crop_pixels(box)
+        solid = ~outside(is_sky(pixels))
+        solid &= ~outside(solid)
+        piece, gap = piece_and_gap(van, box, solid)
+        out[f"VanAmb{name}"] = (piece, box)
+        out[f"VanAmb{name}Gap"] = (gap, box)
+
+    # The bunting: each pennant below the line it hangs from, so the line itself never moves or breaks.
+    band = BUNTING_BAND
+    pixels = crop_pixels(band)
+    luma = (pixels[..., 0] * 299 + pixels[..., 1] * 587 + pixels[..., 2] * 114) // 1000
+    dark = luma < 80
+    line_y = np.full(pixels.shape[1], pixels.shape[0], int)
+    for x in range(pixels.shape[1]):
+        found = np.nonzero(dark[:, x])[0]
+        if len(found):
+            line_y[x] = found[0]
+    below = np.arange(pixels.shape[0])[:, None] >= (line_y[None, :] + 6)
+    for index, seed in enumerate(PENNANT_SEEDS):
+        mask = outlined(pixels, [(seed[0] - band[0], seed[1] - band[1])], reach=7, dark_below=80) & below
+        ys, xs = np.nonzero(mask)
+        box = (int(band[0] + xs.min() - 4), int(band[1] + ys.min() - 2), int(band[0] + xs.max() + 5), int(band[1] + ys.max() + 5))
+        # The band with a margin round it, so the box can reach a little past it.
+        pad = 12
+        padded = np.zeros((mask.shape[0] + 2 * pad, mask.shape[1] + 2 * pad), bool)
+        padded[pad:-pad, pad:-pad] = mask
+        lines = np.concatenate([np.full(pad, line_y[0]), line_y, np.full(pad, line_y[-1])])
+        x0, y0 = box[0] - band[0] + pad, box[1] - band[1] + pad
+        local = padded[y0:y0 + box[3] - box[1], x0:x0 + box[2] - box[0]]
+        piece, gap = piece_and_gap(van, box, local)
+        # The gap never reaches above the line.
+        gap_alpha = np.asarray(gap.getchannel("A")).copy()
+        top = lines[x0:x0 + box[2] - box[0]] + band[1] - box[1] + 6
+        rows = np.arange(gap_alpha.shape[0])[:, None]
+        gap_alpha[rows < top[None, :]] = 0
+        gap.putalpha(Image.fromarray(gap_alpha))
+        out[f"VanAmbPennant{index}"] = (piece, box)
+        out[f"VanAmbPennant{index}Gap"] = (gap, box)
+
+    # The stove's fire, the lantern's flame and the cat: they only ever grow from how they are drawn, so no gap.
+    for name, seeds, reach in [("Fire", [(852, 1410), (830, 1412), (868, 1392), (840, 1426)], 6),
+                               ("Flame", [(1148, 1222)], 4),
+                               ("Cat", [(900, 1625), (830, 1650), (960, 1655), (880, 1684), (812, 1624), (845, 1610)], 8)]:
+        box = AMBIENT_BOXES[name]
+        local = [(x - box[0], y - box[1]) for x, y in seeds]
+        mask = outlined(crop_pixels(box), local, reach=reach)
+        piece, _ = piece_and_gap(van, box, mask, gap=False)
+        out[f"VanAmb{name}"] = (piece, box)
+    return out
+
+
+# The leaves the picture paints in mid-air over the canopy (the four over the sky are in AMBIENT_BOXES). Each is cut
+# along its own outline, and the canopy behind it is carried in from round it (its flat colours, spread smoothly), so
+# the leaf can swing, let go and fall (`VanAmbience.paintedLeaf`).
+CANOPY_LEAVES = [((556, 92, 662, 190), [(610, 140), (590, 128), (632, 150), (600, 165)]),
+                 ((74, 165, 190, 288), [(130, 230), (110, 214), (160, 222), (125, 255)]),
+                 ((286, 265, 405, 392), [(345, 320), (322, 306), (372, 330), (340, 350)])]
+
+CANOPY_MARK = (286, 6, 386, 88)
+
+
+def spread_in(pixels, hole, rounds=600):
+    """The hole's pixels carried in smoothly from the ones round it."""
+    out = pixels.astype(np.float32).copy()
+    out[hole] = out[~hole].mean(axis=0)
+    for _ in range(rounds):
+        around = (np.roll(out, 1, 0) + np.roll(out, -1, 0) + np.roll(out, 1, 1) + np.roll(out, -1, 1)) / 4
+        out[hole] = around[hole]
+    return out
+
+
+def canopy_leaves(van):
+    out = {}
+    for index, (box, seeds) in enumerate(CANOPY_LEAVES):
+        pad = 10
+        wide = (box[0] - pad, box[1] - pad, box[2] + pad, box[3] + pad)
+        pixels = np.asarray(van.crop(wide))
+        mask = outlined(pixels, [(x - wide[0], y - wide[1]) for x, y in seeds], reach=6)
+        piece = van.crop(wide).convert("RGBA")
+        piece.putalpha(as_image(mask).filter(ImageFilter.GaussianBlur(0.7)))
+        hole = grow(mask, 3)
+        filled = spread_in(pixels, hole)
+        gap = Image.fromarray(np.clip(filled, 0, 255).astype(np.uint8)).convert("RGBA")
+        gap.putalpha(as_image(grow(mask, 4)).filter(ImageFilter.GaussianBlur(1.2)))
+        out[f"VanAmbCanopyLeaf{index}"] = (piece, wide)
+        out[f"VanAmbCanopyLeaf{index}Gap"] = (gap, wide)
+    # A stray stroke near the canopy's top, the outline of half a leaf with nothing in it: painted out for good.
+    box = CANOPY_MARK
+    pixels = np.asarray(van.crop(box))
+    a = pixels.astype(np.int32)
+    luma = (a[..., 0] * 299 + a[..., 1] * 587 + a[..., 2] * 114) // 1000
+    hole = grow(luma < 150, 3)
+    gap = Image.fromarray(np.clip(spread_in(pixels, hole), 0, 255).astype(np.uint8)).convert("RGBA")
+    gap.putalpha(as_image(grow(hole, 1)).filter(ImageFilter.GaussianBlur(1.2)))
+    out["VanAmbCanopyMarkGap"] = (gap, box)
+    return out
+
+
+# The steam the picture paints over the pot: three clean puffs above it (the two lower ones touch the pot's rim and
+# stay as they are). Each is cut along its own light edge, so the app can swell it in place and send copies of the
+# biggest rising off the pot (`VanAmbience.steamSwell`, `steam`).
+STEAM_BOX = (715, 1060, 855, 1200)
+STEAM_SEEDS = [(759, 1126), (820, 1132), (777, 1096)]
+
+
+def pot_steam(van):
+    a = np.asarray(van.crop(STEAM_BOX)).astype(np.int32)
+    r, g, b = a[..., 0], a[..., 1], a[..., 2]
+    lab = label((r > 220) & (g > 180) & (b > 150))
+    out = {}
+    for index, (sx, sy) in enumerate(STEAM_SEEDS):
+        mask = lab == lab[sy - STEAM_BOX[1], sx - STEAM_BOX[0]]
+        # A margin round the box, so the puff's soft edge is never cut.
+        pad = 4
+        mask = np.pad(grow(mask, 1), pad)
+        ys, xs = np.nonzero(mask)
+        y0, y1, x0, x1 = int(ys.min()) - 2, int(ys.max()) + 3, int(xs.min()) - 2, int(xs.max()) + 3
+        box = (STEAM_BOX[0] + x0 - pad, STEAM_BOX[1] + y0 - pad, STEAM_BOX[0] + x1 - pad, STEAM_BOX[1] + y1 - pad)
+        piece, _ = piece_and_gap(van, box, mask[y0:y1, x0:x1], gap=False)
+        # The wall's lines show faintly through the painted steam; once the puff moves they would move with it, so
+        # they take the puff's own colour.
+        px = np.asarray(piece).copy()
+        solid = px[..., 3] > 200
+        steam = np.median(px[solid][:, :3], axis=0)
+        dark = (px[..., 3] > 0) & (px[..., :3].astype(np.int32).sum(axis=2) < steam.sum() - 60)
+        px[dark, :3] = steam.astype(np.uint8)
+        piece = Image.fromarray(px, "RGBA")
+        out[f"VanAmbSteam{index}"] = (piece, box)
+    return out
+
+
 # ---------- writing ----------
 
 def imageset(name, filename, image=None, copy=None, quality=None):
@@ -658,12 +812,10 @@ def main():
     leaves = [cut_from(van, (1474, 410, 1606, 536), is_sky),   # an orange maple leaf
               cut_from(van, (1284, 262, 1396, 356), is_sky),   # a plain yellow one
               cut_from(van, (1632, 1574, 1722, 1660), is_grass)]  # a red maple leaf
-    scene = tree_scene(van)
-    pip = pip_with_pail(leaves)
-
     imageset("VanHomePicture", "syrup-van.jpg", copy=CONCEPTS / "syrup-van.jpg")
-    imageset("VanTreeScene", "tree-scene.jpg", scene, quality=93)
-    imageset("VanTreePip", "pip-pail.png", pip)
+    imageset("VanTreePipAlone", "pip-alone.png", pip_alone())
+    lids = tree_eyelids()
+    imageset("VanTreePipLids", "pip-lids.png", lids)
     for name, leaf in zip(["VanLeafOrange", "VanLeafYellow", "VanLeafRed"], leaves):
         imageset(name, name.lower() + ".png", leaf)
 
@@ -677,18 +829,19 @@ def main():
     pieces.update(props())
     for name, piece in pieces.items():
         imageset(name, name.lower() + ".png", piece)
+    ambience = home_ambience(van)
+    ambience.update(pot_steam(van))
+    ambience.update(canopy_leaves(van))
+    for name, (piece, box) in ambience.items():
+        imageset(name, name.lower() + ".png", piece)
+    print("ambient boxes:", {name: box for name, (_, box) in ambience.items() if not name.endswith("Gap")})
 
     if len(sys.argv) > 1:
         out = pathlib.Path(sys.argv[1])
         out.mkdir(parents=True, exist_ok=True)
-        whole = scene.convert("RGBA")
-        w = round(pip.width * PIP_SCALE)
-        small = pip.resize((w, round(pip.height * PIP_SCALE)), Image.LANCZOS)
-        # His feet (500, 690 in his own picture) stand on PIP_FEET.
-        whole.alpha_composite(small, (round(PIP_FEET[0] - (500 - PIP_BOX[0]) * PIP_SCALE), round(PIP_FEET[1] - (690 - PIP_BOX[1]) * PIP_SCALE)))
-        whole.convert("RGB").save(out / "tree-scene.png")
-        scene.save(out / "tree-only.png")
-        pip.save(out / "pip-pail.png")
+        blink = pip_alone()
+        blink.alpha_composite(lids)
+        blink.crop((200, 100, 480, 260)).resize((840, 480), Image.LANCZOS).save(out / "pip-blink.png")
         for i, leaf in enumerate(leaves):
             leaf.save(out / f"leaf-{i}.png")
         for name, piece in pieces.items():
@@ -706,9 +859,16 @@ def main():
             ys, xs = np.nonzero(masks[name])
             print(name, "in the picture: x", HOME_BOX[0] + xs.min() / 2, HOME_BOX[0] + xs.max() / 2, "y", HOME_BOX[1] + ys.min() / 2,
                   HOME_BOX[1] + ys.max() / 2, "middle", HOME_BOX[0] + xs.mean() / 2, HOME_BOX[1] + ys.mean() / 2)
+        alive = van.convert("RGBA")
+        for name, (piece, box) in ambience.items():
+            if name.endswith("Gap"):
+                alive.alpha_composite(piece, box[:2])
+        alive.save(out / "home-gaps.png")
+        for name, (piece, box) in ambience.items():
+            piece.save(out / f"{name}.png")
         apart = np.abs(np.asarray(whole.convert("RGB")).astype(int) - np.asarray(van).astype(int)).max(axis=2)
         print("home put back together: differs by more than 12 at", int((apart > 12).sum()), "pixels, most", int(apart.max()))
-    print("pip sprite", pip.size, "scene", scene.size, "leaves", [leaf.size for leaf in leaves])
+    print("leaves", [leaf.size for leaf in leaves])
 
 
 if __name__ == "__main__":

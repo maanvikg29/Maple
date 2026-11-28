@@ -178,8 +178,16 @@ struct RevealSessionTests {
         #expect(leaf.species.common == "Sugar maple")
         #expect(leaf.tier == .firstSteps)
         #expect(leaf.categoryName == "First leaf")
-        #expect(leaf.earnedLine == "For planting your maple")
+        #expect(leaf.earnedLine == "For setting up Maple")
         #expect(RevealLeaf(unlock: unlock("not-a-maple"), share: .loading) == nil)
+    }
+
+    @Test("With the van the leaves go into the herbarium: there is no maple on home to place them on")
+    func placeWords() {
+        #expect(RevealCopy.place(.night) == "Place on your maple")
+        #expect(RevealCopy.place(.van) == "Add to your herbarium")
+        #expect(RevealCopy.placed(["Sugar maple"], .night) == "Sugar maple placed on your maple.")
+        #expect(RevealCopy.placed(["Sugar maple", "Vine maple"], .van) == "Sugar maple and Vine maple added to your herbarium.")
     }
 
     @Test("Unnamed species show their series under the scientific name")

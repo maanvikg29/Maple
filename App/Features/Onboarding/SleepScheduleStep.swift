@@ -110,7 +110,8 @@ struct SleepScheduleStep: View {
             VStack(spacing: 0) {
                 Text(schedule == proposal ? "Proposed from your answers." : "Adjusted from your answers.")
                     .contentTransition(.opacity)
-                Text("Saving it plants your maple.")
+                // With the van there is no maple to plant and no leaf types to earn.
+                Text(theme.look == .van ? "You can change it any time in Settings." : "Saving it plants your maple.")
             }
             .font(MapleFont.callout)
             .foregroundStyle(theme.colors.textSecondary)

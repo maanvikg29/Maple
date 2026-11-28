@@ -80,10 +80,12 @@ final class ActivityKitController: LiveActivityController {
         }
     }
 
-    /// The store's state with the intention, the season's tint and the next hours leaf (none for a plain timer).
+    /// The store's state with the intention, the season's tint and the next hours leaf (none for a plain timer, and
+    /// none with the van, which has no leaf types).
     private func described(_ state: FocusActivityState) -> FocusActivityState {
         guard let collection else { return state }
-        let leaf = collection.progress(at: state.start).first { $0.category == .hoursSaved && $0.state == .locked }
+        let leaf = collection.context.features.syrupVan
+            ? nil : collection.progress(at: state.start).first { $0.category == .hoursSaved && $0.state == .locked }
         return state.described(
             intention: notes?.intention(for: state.sessionID),
             subject: subjects?.name(for: state.subjectID),

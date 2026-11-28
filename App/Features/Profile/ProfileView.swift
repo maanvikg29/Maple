@@ -55,27 +55,42 @@ private struct ProfileHome: View {
 
     var body: some View {
         let totals = collection.totals
+        let van = collection.context.features.syrupVan
         ScrollView {
             VStack(spacing: 0) {
-                FeaturedLeaf()
-                    .padding(.top, theme.spacing.xs)
+                if van {
+                    // With the van, Pip (his own picture) in place of the maple's leaf.
+                    Image("VanTreePipAlone")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(height: 132)
+                        .padding(.top, theme.spacing.xs)
+                        .accessibilityHidden(true)
+                } else {
+                    FeaturedLeaf()
+                        .padding(.top, theme.spacing.xs)
+                }
 
                 VStack(spacing: theme.spacing.xxs) {
-                    Text("Your maple")
+                    Text(van ? "Pip's van" : "Your maple")
                         .font(MapleFont.screenTitle)
                         .tracking(-0.3)
                         .foregroundStyle(theme.colors.textPrimary)
                         .accessibilityAddTraits(.isHeader)
-                    Text(ProfileSummary.line(totals))
-                        .font(MapleFont.callout)
-                        .monospacedDigit()
-                        .foregroundStyle(theme.colors.textSecondary)
-                        .accessibilityLabel(ProfileSummary.spoken(totals))
+                    // The van has no leaf types, so no count of species: only the days.
+                    if let line = van ? ProfileSummary.days(totals) : ProfileSummary.line(totals) {
+                        Text(line)
+                            .font(MapleFont.callout)
+                            .monospacedDigit()
+                            .foregroundStyle(theme.colors.textSecondary)
+                            .accessibilityLabel(van ? line : ProfileSummary.spoken(totals))
+                    }
                 }
                 .multilineTextAlignment(.center)
                 .padding(.top, theme.spacing.lg)
 
-                let items = ProfileTotalItem.items(totals)
+                // Nights of sleep are no part of the van (the owner, 28 Nov 2026).
+                let items = ProfileTotalItem.items(totals).filter { !van || !$0.caption.contains("night") }
                 if !items.isEmpty {
                     ProfileTotalsRow(items: items)
                         .padding(.top, theme.spacing.xl)
@@ -138,19 +153,29 @@ private struct FeaturedLeaf: View {
 }
 
 /// "Young maple · 23 leaves · 41 days", and its spoken form. `totals.leaves` counts opened leaves only (spec §5.2).
+/// Without `stage` it starts at the leaves. With the van (no growing tree, no leaf types) only the days show (`days`).
 enum ProfileSummary {
-    static func line(_ totals: ProfileTotals) -> String {
-        var parts = [totals.stage.displayName, totals.leaves == 1 ? "1 leaf" : "\(totals.leaves.formatted()) leaves"]
+    /// "41 days", or nil before the first.
+    static func days(_ totals: ProfileTotals) -> String? {
+        guard totals.tendedDays > 0 else { return nil }
+        return totals.tendedDays == 1 ? "1 day" : "\(totals.tendedDays.formatted()) days"
+    }
+
+    static func line(_ totals: ProfileTotals, stage: Bool = true) -> String {
+        var parts = stage ? [totals.stage.displayName] : []
+        parts.append(totals.leaves == 1 ? "1 leaf" : "\(totals.leaves.formatted()) leaves")
         if totals.tendedDays > 0 {
             parts.append(totals.tendedDays == 1 ? "1 day" : "\(totals.tendedDays.formatted()) days")
         }
         return parts.joined(separator: " · ")
     }
 
-    static func spoken(_ totals: ProfileTotals) -> String {
-        var sentence = "\(totals.stage.displayName), \(LeafCount(opened: totals.leaves, total: LeafCatalog.shared.species.count).spoken)"
+    static func spoken(_ totals: ProfileTotals, stage: Bool = true) -> String {
+        let leaves = LeafCount(opened: totals.leaves, total: LeafCatalog.shared.species.count).spoken
+        var sentence = stage ? "\(totals.stage.displayName), \(leaves)" : leaves.prefix(1).uppercased() + leaves.dropFirst()
         if totals.tendedDays > 0 {
-            sentence += totals.tendedDays == 1 ? ", grown over 1 day" : ", grown over \(totals.tendedDays) days"
+            let over = stage ? "grown over" : "over"
+            sentence += totals.tendedDays == 1 ? ", \(over) 1 day" : ", \(over) \(totals.tendedDays) days"
         }
         return sentence + "."
     }

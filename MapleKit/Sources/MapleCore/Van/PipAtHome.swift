@@ -136,14 +136,25 @@ public enum PipIdle {
         pose.stretchX = 1 - 0.006 * breath
         pose.tail = tail(t)
         pose.ear = ear(t)
+        pose.asleep = blinking(t)
         return pose
     }
 
-    /// His tail and ear go on while he does something else.
+    /// His tail and ear go on while he does something else, and he blinks.
     public static func liven(_ pose: inout PipHomePose, at time: Double) {
         let t = clock(time)
         pose.tail += tail(t) * (pose.asleep ? 0.4 : 1)
         pose.ear += pose.asleep ? 0 : ear(t)
+        pose.asleep = pose.asleep || blinking(t)
+    }
+
+    /// A blink of 0.12 seconds every 3 to 5 seconds, its moment in each stretch set by the stretch alone.
+    private static func blinking(_ t: Double) -> Bool {
+        let stretch = 4.0
+        let index = (t / stretch).rounded(.down)
+        let within = t - index * stretch
+        let at = 0.4 + 3.2 * (0.5 + 0.5 * sin(index * 12.9898))
+        return within >= at && within < at + 0.12
     }
 
     private static func clock(_ time: Double) -> Double {
@@ -167,9 +178,10 @@ public enum PipIdle {
 
 /// Which act comes next unprompted, and how long he waits first. Pure: the dice are the caller's.
 public enum PipDirector {
+    /// The first, with nothing before it, comes 3 to 7 seconds after home opens; then one every 10 to 20 seconds.
     public static func next(after last: PipAct?, roll: UInt64) -> (wait: Double, act: PipAct) {
         let acts = PipAct.unprompted.filter { $0 != last }
-        let wait = 20 + Double(roll % 2001) / 100
+        let wait = last == nil ? 3 + Double(roll % 401) / 100 : 10 + Double(roll % 1001) / 100
         return (wait, acts[Int((roll / 2001) % UInt64(acts.count))])
     }
 }

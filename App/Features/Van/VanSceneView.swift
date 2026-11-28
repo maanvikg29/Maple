@@ -13,7 +13,6 @@ struct VanSceneView: View {
     /// Time saved today (`FocusStatus.savedTodaySeconds`), 0 when nothing counts.
     let savedTodaySeconds: Int
     let onProfile: () -> Void
-    let onTree: () -> Void
     let onStreak: () -> Void
     /// Opens Saved today, from the line under the time.
     let onSavedToday: () -> Void
@@ -44,7 +43,7 @@ struct VanSceneView: View {
             onEnter: openTimer,
             onCook: { if workshop.cook() > 0 { cooked += 1 } },
             onMachines: { showsMachines = true }, onHistory: { showsHistory = true },
-            onHerbarium: { router.showHerbarium() }, onProfile: onProfile, onTree: onTree, onStreak: onStreak,
+            onProfile: onProfile, onStreak: onStreak,
             onSavedToday: onSavedToday
         )
         .sheet(isPresented: $showsHistory) {

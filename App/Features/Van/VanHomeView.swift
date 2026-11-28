@@ -1,3 +1,4 @@
+import Combine
 import MapleCore
 import MapleDesign
 import SwiftUI
@@ -24,9 +25,7 @@ struct VanHomeView: View {
     let onCook: () -> Void
     let onMachines: () -> Void
     let onHistory: () -> Void
-    let onHerbarium: () -> Void
     let onProfile: () -> Void
-    let onTree: () -> Void
     let onStreak: () -> Void
     /// Today's saved time, under the clock, opens Saved today (focus spec §5.9).
     let onSavedToday: () -> Void
@@ -47,6 +46,17 @@ struct VanHomeView: View {
     @State private var pip = PipStage()
     /// DEBUG `-MapleDemoPip <act>:<seconds>`: one frame of him, held.
     @State private var heldPip: PipScene?
+    /// DEBUG `-MapleDemoAmbience <seconds>`: the picture's movement held at that moment.
+    @State private var heldAmbience: Double?
+    /// When home came up: the picture's movement counts from here.
+    @State private var appeared = Date()
+    /// Under a full-screen cover (the reveal) nothing here is seen (`HomeView`).
+    @Environment(\.treeScenesPaused) private var isCovered
+    @State private var isLowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
+
+    /// The picture holds its frame where the old maple's scenes did (spec §4.9): under a cover, and in Low Power Mode,
+    /// where 60 frames a second for as long as home is open isn't worth the battery.
+    private var holdsStill: Bool { isCovered || isLowPower }
 
     /// He does things of his own, and can be tapped.
     private var pipPlays: Bool { !reduceMotion && !isSessionRunning && heldPip == nil }
@@ -69,16 +79,25 @@ struct VanHomeView: View {
                         .frame(width: length(canvas.width), height: length(VanCanvas.homePictureHeight))
                         .position(canvas.point(canvas.width / 2, VanCanvas.homePictureHeight / 2, in: proxy.size))
                         .accessibilityHidden(true)
-                    TimelineView(.animation(minimumInterval: 1.0 / 60, paused: reduceMotion || heldPip != nil)) { timeline in
-                        VanPipLayer(
-                            scene: heldPip ?? pip.scene(at: timeline.date.timeIntervalSinceReferenceDate, still: reduceMotion),
-                            canvas: canvas, size: proxy.size
-                        )
+                    // The picture, alive: its smoke, flags, fire, lights and cat, Pip, and the maple's leaves coming
+                    // down over everything. With Reduce Motion the picture is as it is, and Pip with it.
+                    TimelineView(.animation(minimumInterval: 1.0 / 60, paused: reduceMotion || heldPip != nil || holdsStill)) { timeline in
+                        let alive = timeline.date.timeIntervalSince(appeared)
+                        ZStack {
+                            if !reduceMotion {
+                                VanAmbientLayer(part: .behind, time: heldAmbience ?? alive, canvas: canvas, size: proxy.size)
+                            }
+                            VanPipLayer(
+                                scene: heldPip ?? pip.scene(at: timeline.date.timeIntervalSinceReferenceDate, still: reduceMotion),
+                                canvas: canvas, size: proxy.size
+                            )
+                            if !reduceMotion {
+                                VanAmbientLayer(part: .front, time: heldAmbience ?? alive, canvas: canvas, size: proxy.size)
+                            }
+                        }
                     }
-                    // For VoiceOver, which can't tap a place in a picture: the maple, the pot and Pip. (The timer and
-                    // the machines have their own buttons below.)
-                    spoken("Your maple", hint: "Opens the tree and its leaves", width: length(1000), height: length(900), action: onTree)
-                        .position(canvas.point(500, 560, in: proxy.size))
+                    // For VoiceOver, which can't tap a place in a picture: the pot and Pip. (The timer and the machines
+                    // have their own buttons below.)
                     spoken(
                         "Cooking pot", hint: model.potHint == nil ? "No leaves to cook" : "Cooks one leaf into syrup",
                         width: length(210), height: length(180), action: onCook
@@ -104,7 +123,8 @@ struct VanHomeView: View {
                     case .pot: onCook()
                     case .machines: onMachines()
                     case .timer: onEnter()
-                    case .maple: onTree()
+                    // The maple is only the picture: the van has no leaf types and no Herbarium.
+                    case .maple: break
                     case nil: break
                     }
                 })
@@ -117,13 +137,11 @@ struct VanHomeView: View {
                 .sensoryFeedback(.impact(weight: .light), trigger: cooked)
             }
             .ignoresSafeArea()
-            // The system's clock and battery are white: a soft shade keeps them readable on the canopy.
-            LinearGradient(colors: [VanPalette.outline.opacity(0.35), .clear], startPoint: .top, endPoint: .bottom)
-                .frame(height: 110)
-                .frame(maxHeight: .infinity, alignment: .top)
-                .ignoresSafeArea()
-                .allowsHitTesting(false)
+            VanStatusShade()
             words
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange).receive(on: DispatchQueue.main)) { _ in
+            isLowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
         }
         // Syrup cooked, or home from a finished session: a happy dance, unless he is in the middle of something.
         .onChange(of: cooked) { _, _ in
@@ -156,6 +174,7 @@ struct VanHomeView: View {
     /// `-MapleDemoPip <act>` plays that act a second after home opens; `<act>:<seconds>` holds its frame that far in.
     /// `idle:<seconds>` holds a frame of him just standing.
     private func showDemoPip() {
+        heldAmbience = UserDefaults.standard.string(forKey: "MapleDemoAmbience").flatMap(Double.init)
         guard let value = UserDefaults.standard.string(forKey: "MapleDemoPip") else { return }
         let parts = value.split(separator: ":").map(String.init)
         let seconds = parts.count > 1 ? Double(parts[1]) : nil
@@ -234,7 +253,10 @@ struct VanHomeView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background { VanBoard() }
+            .padding(.horizontal, 10)
             .padding(.top, 8)
             .frame(maxHeight: .infinity, alignment: .top)
             GeometryReader { proxy in
@@ -319,7 +341,7 @@ struct VanHomeView: View {
             .padding(.bottom, 10)
         }
         HStack(spacing: 12) {
-            roundButton("clock.arrow.circlepath", label: "Study record", action: onHistory)
+            roundButton("VanIconGauge", label: "Study record", action: onHistory)
             Button(action: onEnter) {
                 Text(model.enterTitle)
                     .font(.system(.title3, design: .rounded).weight(.heavy))
@@ -331,36 +353,35 @@ struct VanHomeView: View {
             }
             .buttonStyle(.plain)
             .accessibilityHint(model.enterHint)
-            roundButton("wrench.and.screwdriver.fill", label: "Machines", action: onMachines)
+            roundButton("VanIconTools", label: "Machines", action: onMachines)
         }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background { VanBoard() }
         .padding(.horizontal, 16)
         .padding(.bottom, 20)
     }
 
     @ViewBuilder
     private func counters(compact: Bool) -> some View {
-        if let leaves = model.leavesText { VanCounter(value: leaves, image: "leaf.fill", label: "leaves", compact: compact) }
-        if let syrup = model.syrupText { VanCounter(value: syrup, image: "drop.fill", label: "bottles of syrup", compact: compact) }
+        if let leaves = model.leavesText { VanCounter(value: leaves, icon: "VanIconBasket", label: "leaves", compact: compact) }
+        if let syrup = model.syrupText { VanCounter(value: syrup, icon: "VanIconJug", label: "bottles of syrup", compact: compact) }
     }
 
     @ViewBuilder
     private func buttons(compact: Bool) -> some View {
         if streak >= 2 {
-            Button(action: onStreak) { VanCounter(value: "\(streak)", image: "flame.fill", label: "day streak", compact: compact) }
+            Button(action: onStreak) { VanCounter(value: "\(streak)", icon: "VanIconFire", label: "day streak", compact: compact) }
                 .buttonStyle(.plain)
         }
-        roundButton("book.closed.fill", label: "Herbarium", action: onHerbarium)
-        roundButton("person.fill", label: "Profile and settings", action: onProfile)
+        roundButton("VanIconPip", label: "Profile and settings", action: onProfile)
     }
 
-    private func roundButton(_ image: String, label: String, action: @escaping () -> Void) -> some View {
+    /// A round window onto the picture, as a button.
+    private func roundButton(_ icon: String, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: image)
-                .font(.system(.body, design: .rounded).weight(.bold))
-                .foregroundStyle(VanPalette.outline)
-                .frame(width: 44, height: 44)
-                .background(VanPalette.cream, in: Circle())
-                .overlay(Circle().strokeBorder(VanPalette.outline, lineWidth: 2.5))
+            VanMedallion(name: icon, size: 44)
+                .contentShape(Circle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)

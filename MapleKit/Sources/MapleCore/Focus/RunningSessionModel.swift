@@ -194,6 +194,8 @@ public struct RunningSessionModel: Sendable, Equatable {
     /// The dial for VoiceOver (§4.9): "32 minutes left of 50. Field maple at minute 35.", the length a plain minute
     /// count ("of 90"). The time alone once the leaf has opened, for a plain timer, or with no dot.
     public let spoken: String
+    /// The time left alone, with no leaf: what the van's tree reads, since the van has no leaf types.
+    public let spokenTime: String
     /// Announced once when the leaf opens (a milestone, §4.9): "Field maple is yours. It opens after this session."
     public let leafAnnouncement: String?
 
@@ -278,7 +280,8 @@ public struct RunningSessionModel: Sendable, Equatable {
         leafAnnouncement = announcement
 
         // §4.9: the length is a plain minute count ("of 90"); the leaf sentence only while the dot is ahead.
-        spoken = "\(FocusTimeText.spokenRemaining(left, locale: locale)) of \(plan.plannedMinutes)." + (dotSentence.map { " \($0)" } ?? "")
+        spokenTime = "\(FocusTimeText.spokenRemaining(left, locale: locale)) of \(plan.plannedMinutes)."
+        spoken = spokenTime + (dotSentence.map { " \($0)" } ?? "")
     }
 
     /// The hours leaves among `unlocks` (`FocusSessionStore.sessionUnlocks`), oldest first, each at the session minute

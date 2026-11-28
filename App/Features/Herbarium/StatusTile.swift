@@ -6,7 +6,8 @@ import MapleDesign
 /// earn a locked one, what a leaf needs, or that a new leaf is waiting.
 struct StatusTile: View {
     struct Actions {
-        var showOnMaple: () -> Void
+        /// nil with the van, which has no Tree view.
+        var showOnMaple: (() -> Void)?
         var open: () -> Void
         var startWindDown: () -> Void
         var turnOn: () -> Void
@@ -51,9 +52,11 @@ struct StatusTile: View {
             .font(MapleFont.callout)
             .foregroundStyle(theme.colors.textSecondary)
             .padding(.top, 4)
-        TextLink("Show on my maple", action: actions.showOnMaple)
-            .padding(.top, 4)
-            .padding(.bottom, -12)
+        if let showOnMaple = actions.showOnMaple {
+            TextLink("Show on my maple", action: showOnMaple)
+                .padding(.top, 4)
+                .padding(.bottom, -12)
+        }
     }
 
     @ViewBuilder
