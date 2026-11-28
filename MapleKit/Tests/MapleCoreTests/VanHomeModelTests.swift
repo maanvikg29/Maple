@@ -5,9 +5,32 @@ import Testing
 @Suite("The van's home view: its words")
 struct VanHomeModelTests {
     private func model(
-        _ phase: NowPhase = .day, hour: Int = 15, leaves: Int = 0, syrup: Int = 0, available: Bool = true, left: Int? = nil
+        _ phase: NowPhase = .day, hour: Int = 15, leaves: Int = 0, syrup: Int = 0, available: Bool = true, left: Int? = nil,
+        saved: Int = 0
     ) -> VanHomeModel {
-        VanHomeModel(phase: phase, hour: hour, leaves: leaves, syrupTenths: syrup, isAvailable: available, minutesLeft: left)
+        VanHomeModel(
+            phase: phase, hour: hour, leaves: leaves, syrupTenths: syrup, isAvailable: available, minutesLeft: left,
+            savedTodaySeconds: saved
+        )
+    }
+
+    @Test("Today's saved time is a line of its own, in hours and minutes, once there is a minute of it")
+    func savedToday() {
+        #expect(model(saved: 80 * 60).savedToday == "1h 20m saved today")
+        #expect(model(saved: 45 * 60 + 59).savedToday == "45m saved today")
+        #expect(model(saved: 2 * 3600).savedToday == "2h saved today")
+        #expect(model(saved: 45 * 60).savedTodayMinutes == 45)
+        // Under a minute, or none, says nothing rather than "0m".
+        #expect(model(saved: 59).savedToday == nil)
+        #expect(model(saved: 0).savedTodayMinutes == nil)
+        #expect(model(saved: -300).savedToday == nil)
+    }
+
+    @Test("While a session runs, the line about it stands alone: today's saved time waits until it ends")
+    func savedTodayWhileRunning() {
+        #expect(model(left: 20, saved: 3600).savedToday == nil)
+        // It doesn't depend on the van's own file.
+        #expect(model(available: false, saved: 3600).savedToday == "1h saved today")
     }
 
     @Test("The end of the day follows the member's own schedule: evening, winding down, night", arguments: [

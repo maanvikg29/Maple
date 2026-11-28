@@ -28,6 +28,8 @@ struct VanHomeView: View {
     let onProfile: () -> Void
     let onTree: () -> Void
     let onStreak: () -> Void
+    /// Today's saved time, under the clock, opens Saved today (focus spec §5.9).
+    let onSavedToday: () -> Void
 
     /// One more thing to do from home, above the van's own button: a waiting leaf's reveal, or wind-down.
     struct Prompt {
@@ -36,6 +38,7 @@ struct VanHomeView: View {
     }
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.locale) private var locale
     /// How the picture is being looked at: pinched in, dragged about.
     @State private var view = VanView.fit
     /// Where it was when the fingers came down.
@@ -268,6 +271,22 @@ struct VanHomeView: View {
                 .font(.system(size: 56, weight: .heavy, design: .rounded))
                 .minimumScaleFactor(0.6)
                 .lineLimit(1)
+            if let saved = model.savedToday, let minutes = model.savedTodayMinutes {
+                Button(action: onSavedToday) {
+                    HStack(spacing: 4) {
+                        Text(saved)
+                        Image(systemName: "chevron.right")
+                            .font(.system(.caption, design: .rounded).weight(.heavy))
+                            .opacity(0.6)
+                    }
+                    .font(.system(.subheadline, design: .rounded).weight(.heavy))
+                    .padding(.bottom, 4)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(FocusTimeText.spokenLength(minutes: minutes, locale: locale)) saved today")
+                .accessibilityHint(FocusSheetCopy.savedTodayHint)
+            }
             if !model.status.isEmpty {
                 Text(model.status)
                     .font(.system(.subheadline, design: .rounded).weight(.semibold))

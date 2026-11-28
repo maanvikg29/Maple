@@ -10,9 +10,13 @@ struct VanSceneView: View {
     let streak: Int
     /// The reveal or wind-down, when the tree home's one button would have offered it now (`NowState.Action.showsOnVan`).
     let prompt: VanHomeView.Prompt?
+    /// Time saved today (`FocusStatus.savedTodaySeconds`), 0 when nothing counts.
+    let savedTodaySeconds: Int
     let onProfile: () -> Void
     let onTree: () -> Void
     let onStreak: () -> Void
+    /// Opens Saved today, from the line under the time.
+    let onSavedToday: () -> Void
 
     @Environment(AppRouter.self) private var router
     @Environment(CollectionStore.self) private var collection
@@ -32,14 +36,16 @@ struct VanSceneView: View {
         let minutesLeft = running.map { max(0, Int(($0.plannedEnd.timeIntervalSince(now) / 60).rounded(.up))) }
         let model = VanHomeModel(
             phase: collection.phase(at: now), hour: collection.context.calendar.component(.hour, from: now),
-            leaves: workshop.leaves, syrupTenths: workshop.syrupTenths, isAvailable: workshop.isAvailable, minutesLeft: minutesLeft
+            leaves: workshop.leaves, syrupTenths: workshop.syrupTenths, isAvailable: workshop.isAvailable, minutesLeft: minutesLeft,
+            savedTodaySeconds: savedTodaySeconds
         )
         VanHomeView(
             model: model, now: now, streak: streak, prompt: prompt, cooked: cooked, cheers: cheers, isSessionRunning: running != nil,
             onEnter: openTimer,
             onCook: { if workshop.cook() > 0 { cooked += 1 } },
             onMachines: { showsMachines = true }, onHistory: { showsHistory = true },
-            onHerbarium: { router.showHerbarium() }, onProfile: onProfile, onTree: onTree, onStreak: onStreak
+            onHerbarium: { router.showHerbarium() }, onProfile: onProfile, onTree: onTree, onStreak: onStreak,
+            onSavedToday: onSavedToday
         )
         .sheet(isPresented: $showsHistory) {
             NavigationStack { HistoryView() }
