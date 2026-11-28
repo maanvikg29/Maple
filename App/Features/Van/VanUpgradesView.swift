@@ -30,8 +30,11 @@ struct VanUpgradesView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(model.yieldText)
                             .font(.system(.headline, design: .rounded).weight(.bold))
-                        Label(model.leavesText, systemImage: "leaf.fill")
-                            .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                        HStack(spacing: 6) {
+                            VanMedallion(name: "VanIconBasket", size: 24)
+                            Text(model.leavesText)
+                        }
+                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
                     }
                     ForEach(model.rows) { row in
                         card(row)
