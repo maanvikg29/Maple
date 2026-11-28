@@ -20,8 +20,8 @@ public struct VanView: Sendable, Equatable {
     public static let maxZoom = 3.0
     /// Below this the picture counts as not zoomed, and settles back to fit.
     private static let barely = 1.05
-    /// How much of a pull past a limit shows while the fingers are down.
-    private static let give = 1.0 / 3
+    /// How much of a pinch past the closest zoom shows while the fingers are down.
+    private static let give = 0.3
 
     public var isFit: Bool { zoom < Self.barely }
 
@@ -49,18 +49,15 @@ public struct VanView: Sendable, Equatable {
         return VanView(zoom: inside, x: min(limitX, max(-limitX, x)), y: min(limitY, max(-limitY, y)))
     }
 
-    /// What is drawn while the fingers are down: past a limit it follows a third of the way, so the edge can be felt.
+    /// What is drawn while the fingers are down. The picture's edge never shows (the owner, 28 Nov 2026: "why is this
+    /// tree ending it should be smooth and continued"): it is never smaller than the screen and stops where its edge
+    /// meets the screen's. Only past the closest zoom, where no edge can show, does it give a little.
     public func shown(width: Double, height: Double) -> VanView {
         let inside = min(Self.maxZoom, max(1, zoom))
         let limitX = (inside - 1) * max(0, width) / 2
         let limitY = (inside - 1) * max(0, height) / 2
-        func soft(_ value: Double, _ limit: Double) -> Double {
-            if value > limit { return limit + (value - limit) * Self.give }
-            if value < -limit { return -limit + (value + limit) * Self.give }
-            return value
-        }
-        let shownZoom = zoom < 1 ? 1 - (1 - zoom) * 0.3 : zoom > Self.maxZoom ? Self.maxZoom + (zoom - Self.maxZoom) * 0.3 : zoom
-        return VanView(zoom: shownZoom, x: soft(x, limitX), y: soft(y, limitY))
+        let shownZoom = zoom > Self.maxZoom ? Self.maxZoom + (zoom - Self.maxZoom) * Self.give : inside
+        return VanView(zoom: shownZoom, x: min(limitX, max(-limitX, x)), y: min(limitY, max(-limitY, y)))
     }
 }
 

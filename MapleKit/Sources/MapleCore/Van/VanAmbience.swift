@@ -108,14 +108,25 @@ public enum VanAmbience {
 
     public static let steamCount = 4
 
-    /// Steam off the pot: soft and quick.
+    /// New steam off the pot: puffs of the picture's own steam leave the pot, rise, swell and fade.
     public static func steam(at time: Double) -> [Puff] {
         let t = clock(time)
         return (0 ..< steamCount).map { index in
-            let u = frac(t / 2.6 + Double(index) / Double(steamCount))
+            let u = frac(t / 2.8 + Double(index) / Double(steamCount))
             let side = index.isMultiple(of: 2) ? 1.0 : -1.0
             return puff(rise: u, drift: side * (14 * u + 6 * sin(5 * u + Double(index))))
         }
+    }
+
+    /// The steam puffs the picture has painted over the pot (`STEAM_SEEDS` in the art script).
+    public static let paintedSteamCount = 3
+
+    /// How big one of the picture's own steam puffs is drawn now: it swells and settles, and only ever grows from how
+    /// it is drawn, so the still puff under it never shows.
+    public static func steamSwell(_ index: Int, at time: Double) -> Double {
+        let t = clock(time)
+        let i = Double(index)
+        return 1.12 + 0.07 * sin(2 * .pi * t / (2.2 + 0.45 * i) + 2.3 * i) + 0.02 * sin(2 * .pi * t / 0.9 + i)
     }
 
     // MARK: Flags

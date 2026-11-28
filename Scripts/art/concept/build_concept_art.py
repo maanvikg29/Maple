@@ -810,6 +810,39 @@ def home_ambience(van):
     return out
 
 
+# The steam the picture paints over the pot: three clean puffs above it (the two lower ones touch the pot's rim and
+# stay as they are). Each is cut along its own light edge, so the app can swell it in place and send copies of the
+# biggest rising off the pot (`VanAmbience.steamSwell`, `steam`).
+STEAM_BOX = (715, 1060, 855, 1200)
+STEAM_SEEDS = [(759, 1126), (820, 1132), (777, 1096)]
+
+
+def pot_steam(van):
+    a = np.asarray(van.crop(STEAM_BOX)).astype(np.int32)
+    r, g, b = a[..., 0], a[..., 1], a[..., 2]
+    lab = label((r > 220) & (g > 180) & (b > 150))
+    out = {}
+    for index, (sx, sy) in enumerate(STEAM_SEEDS):
+        mask = lab == lab[sy - STEAM_BOX[1], sx - STEAM_BOX[0]]
+        # A margin round the box, so the puff's soft edge is never cut.
+        pad = 4
+        mask = np.pad(grow(mask, 1), pad)
+        ys, xs = np.nonzero(mask)
+        y0, y1, x0, x1 = int(ys.min()) - 2, int(ys.max()) + 3, int(xs.min()) - 2, int(xs.max()) + 3
+        box = (STEAM_BOX[0] + x0 - pad, STEAM_BOX[1] + y0 - pad, STEAM_BOX[0] + x1 - pad, STEAM_BOX[1] + y1 - pad)
+        piece, _ = piece_and_gap(van, box, mask[y0:y1, x0:x1], gap=False)
+        # The wall's lines show faintly through the painted steam; once the puff moves they would move with it, so
+        # they take the puff's own colour.
+        px = np.asarray(piece).copy()
+        solid = px[..., 3] > 200
+        steam = np.median(px[solid][:, :3], axis=0)
+        dark = (px[..., 3] > 0) & (px[..., :3].astype(np.int32).sum(axis=2) < steam.sum() - 60)
+        px[dark, :3] = steam.astype(np.uint8)
+        piece = Image.fromarray(px, "RGBA")
+        out[f"VanAmbSteam{index}"] = (piece, box)
+    return out
+
+
 # ---------- the buttons' pictures ----------
 
 # Round windows onto the picture for the buttons and counters over the scene: each a square of the picture, centred
@@ -876,6 +909,7 @@ def main():
     for name, icon in hud_icons(van).items():
         imageset(name, name.lower() + ".png", icon)
     ambience = home_ambience(van)
+    ambience.update(pot_steam(van))
     for name, (piece, box) in ambience.items():
         imageset(name, name.lower() + ".png", piece)
     print("ambient boxes:", {name: box for name, (_, box) in ambience.items() if not name.endswith("Gap")})

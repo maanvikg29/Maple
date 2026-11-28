@@ -83,6 +83,18 @@ struct VanAmbienceTests {
         }
     }
 
+    @Test("The picture's own steam billows: each puff swells and settles, never smaller than drawn, each on its own beat")
+    func steamBillows() {
+        // The owner, 28 Nov 2026: "the smoke isnt moving in the cooking pot".
+        for index in 0 ..< VanAmbience.paintedSteamCount {
+            let swells = times.map { VanAmbience.steamSwell(index, at: $0) }
+            // It only ever grows from how it is drawn, so the picture's still puff never shows from behind.
+            #expect(swells.allSatisfy { $0 >= 1.03 && $0 <= 1.25 })
+            #expect(swells.max()! - swells.min()! > 0.06)
+        }
+        #expect(VanAmbience.steamSwell(0, at: 1) != VanAmbience.steamSwell(1, at: 1))
+    }
+
     @Test("The flag flaps and the bunting sways, each flag on its own beat, a few degrees at most")
     func flags() {
         let flag = times.map { VanAmbience.flag(at: $0) }

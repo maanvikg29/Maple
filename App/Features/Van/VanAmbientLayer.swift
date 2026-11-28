@@ -2,8 +2,8 @@ import MapleCore
 import SwiftUI
 
 /// Home's picture, alive (`VanAmbience`): the picture's own smoke, flag, bunting, sky leaves, fire, lantern flame and
-/// cat, moving where the picture has them, and the maple's leaves coming down. Drawn by Maple and not the picture's:
-/// the glow of the fire, the lantern and the string lights, and the steam off the pot.
+/// cat and the steam over the pot, moving where the picture has them, and the maple's leaves coming down. Drawn by
+/// Maple and not the picture's: the glow of the fire, the lantern and the string lights.
 ///
 /// Pieces that swing over the sky are laid on their "gap" (the piece's shape in the sky's colour there), so the
 /// picture's still copy never shows behind them. `.behind` goes under Pip; `.front`, the falling leaves, over him.
@@ -32,6 +32,8 @@ struct VanAmbientLayer: View {
     private static let fire: Box = (808, 1366, 888, 1438)
     private static let flame: Box = (1132, 1198, 1164, 1236)
     private static let cat: Box = (782, 1572, 992, 1700)
+    /// The steam puffs painted over the pot (`STEAM_SEEDS`).
+    private static let steam: [Box] = [(738, 1101, 779, 1151), (805, 1120, 836, 1148), (771, 1088, 787, 1107)]
     /// The string lights round the trunk and along to the van.
     private static let bulbs: [(Double, Double)] = [(240, 876), (300, 920), (380, 937), (450, 932), (530, 940)]
     /// Where the smoke leaves the chimney, and the pot's middle.
@@ -101,11 +103,16 @@ struct VanAmbientLayer: View {
         paint.glow(at: (1148, 1214), radius: 80, colour: Color(red: 1, green: 0.85, blue: 0.45), strength: 0.2 + 0.3 * lantern)
         paint.image("VanAmbFlame", in: Self.flame, about: (1148, Self.flame.y1 - 3), scale: (1 + 0.04 * lantern, 1 + 0.14 * lantern))
 
-        // Steam off the pot.
+        // Steam off the pot: the picture's own puffs swell and settle where it painted them, and copies of one rise off
+        // the pot, growing and fading.
+        for (index, box) in Self.steam.enumerated() {
+            let swell = VanAmbience.steamSwell(index, at: time)
+            paint.image("VanAmbSteam\(index)", in: box, about: ((box.x0 + box.x1) / 2, (box.y0 + box.y1) / 2), scale: (swell, swell))
+        }
         for (index, puff) in VanAmbience.steam(at: time).enumerated() {
-            let x = Self.potTop.x + Double(index - 2) * 22 + puff.drift
-            let y = Self.potTop.y - 20 - 120 * puff.rise
-            paint.glow(at: (x, y), radius: 16 + 22 * puff.scale, colour: Color(red: 1, green: 0.98, blue: 0.95), strength: 0.55 * puff.opacity, blend: .normal)
+            let x = Self.potTop.x + Double(index) * 12 - 18 + puff.drift
+            let y = Self.potTop.y - 6 - 118 * puff.rise
+            paint.centred("VanAmbSteam1", at: (x, y), width: 30 * (0.5 + puff.scale), turn: 0.3 * puff.rise * (index.isMultiple(of: 2) ? 1 : -1), opacity: 0.85 * puff.opacity)
         }
 
         // The cat breathes.

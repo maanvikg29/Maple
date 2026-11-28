@@ -37,14 +37,20 @@ struct VanViewTests {
         #expect(VanView(zoom: 1.03, x: 4, y: 2).settled(width: width, height: height) == .fit)
     }
 
-    @Test("While the fingers are down, going past a limit gives a little and no more")
-    func gives() {
+    @Test("While the fingers are down the picture's edge never shows: it stops at the screen's edge and never gets smaller than the screen")
+    func neverShowsItsEdge() {
+        // The owner, 28 Nov 2026: "why is this tree ending it should be smooth and continued".
         let pulled = VanView.fit.moved(byX: 90, y: -30).shown(width: width, height: height)
-        #expect(pulled.x == 30 && pulled.y == -10 && pulled.zoom == 1)
+        #expect(pulled == .fit)
+        let pastTheSide = VanView(zoom: 2, x: 500, y: -900).shown(width: width, height: height)
+        #expect(pastTheSide == VanView(zoom: 2, x: 200, y: -400))
         let inside = VanView(zoom: 2, x: 50, y: 0).shown(width: width, height: height)
         #expect(inside == VanView(zoom: 2, x: 50, y: 0))
-        let pinchedOut = VanView(zoom: 0.4, x: 0, y: 0).shown(width: width, height: height)
-        #expect(pinchedOut.zoom > 0.75 && pinchedOut.zoom < 1)
+        let pinchedOut = VanView(zoom: 0.4, x: 30, y: 0).shown(width: width, height: height)
+        #expect(pinchedOut == .fit)
+        // Past the closest zoom there is no edge to show, so it still gives a little there.
+        let pinchedIn = VanView(zoom: 5, x: 0, y: 0).shown(width: width, height: height)
+        #expect(pinchedIn.zoom > VanView.maxZoom && pinchedIn.zoom < 5)
     }
 
     @Test("Numbers that aren't numbers change nothing")

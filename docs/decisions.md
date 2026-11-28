@@ -2,6 +2,10 @@
 
 Newest first. Each entry: what was decided, why, and what it affects.
 
+## 2026-11-28 — Home's picture never shows its edge; the pot's steam moves
+Pinching home smaller than the screen showed the picture's hard edges, the maple cut off mid-canopy (the owner: "why is this tree ending it should be smooth and continued"). Now, even while the fingers are down, the picture is never smaller than the screen and stops where its edge meets the screen's; only past the closest zoom does it still give a little. The steam over the pot was the picture's own paint and never moved ("the smoke isnt moving in the cooking pot"): its three clean puffs are cut out (`pot_steam`) and swell and settle in place, and copies of one rise off the pot, growing and fading. The soft glows that stood in for steam are gone.
+Affects: `VanView.shown`, `VanAmbience.steamSwell`, `VanAmbientLayer`, `Scripts/art/concept/build_concept_art.py`, `VanAmbSteam0…2`.
+
 ## 2026-11-28 — Home's top bar is the wooden board
 The owner picked the board from the three looks ("the board 2 top bar and buttons look nice lets go with it"). The counters and buttons now always sit on one wooden board across the top and one along the bottom; the cream plates, the floating look and DEBUG `-MapleDemoHud` are gone.
 Affects: `VanCounter`, `VanBoard`, `VanHomeView`, `docs/debug-launch-arguments.md`.
