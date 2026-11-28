@@ -1,3 +1,4 @@
+import Combine
 import MapleCore
 import MapleDesign
 import SwiftUI
@@ -51,6 +52,13 @@ struct VanHomeView: View {
     @State private var heldAmbience: Double?
     /// When home came up: the picture's movement counts from here.
     @State private var appeared = Date()
+    /// Under a full-screen cover (the reveal) nothing here is seen (`HomeView`).
+    @Environment(\.treeScenesPaused) private var isCovered
+    @State private var isLowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
+
+    /// The picture holds its frame where the old maple's scenes did (spec §4.9): under a cover, and in Low Power Mode,
+    /// where 60 frames a second for as long as home is open isn't worth the battery.
+    private var holdsStill: Bool { isCovered || isLowPower }
 
     /// How the counters and buttons sit over the picture (`VanHud`).
     private let hud = VanHud.current
@@ -78,7 +86,7 @@ struct VanHomeView: View {
                         .accessibilityHidden(true)
                     // The picture, alive: its smoke, flags, fire, lights and cat, Pip, and the maple's leaves coming
                     // down over everything. With Reduce Motion the picture is as it is, and Pip with it.
-                    TimelineView(.animation(minimumInterval: 1.0 / 60, paused: reduceMotion || heldPip != nil)) { timeline in
+                    TimelineView(.animation(minimumInterval: 1.0 / 60, paused: reduceMotion || heldPip != nil || holdsStill)) { timeline in
                         let alive = timeline.date.timeIntervalSince(appeared)
                         ZStack {
                             if !reduceMotion {
@@ -137,6 +145,9 @@ struct VanHomeView: View {
             .ignoresSafeArea()
             VanStatusShade()
             words
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange).receive(on: DispatchQueue.main)) { _ in
+            isLowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
         }
         // Syrup cooked, or home from a finished session: a happy dance, unless he is in the middle of something.
         .onChange(of: cooked) { _, _ in

@@ -31,10 +31,28 @@ struct FocusView: View {
     @Environment(AppRouter.self) private var router
     @Environment(CollectionStore.self) private var collection
     @State private var tab = FocusTabState()
-    /// The session whose walk back has been seen, so it plays once (`VanTreeMomentView`).
+    /// The session whose moment at the maple (the walk back or the tumble) has been seen, so it plays once
+    /// (`VanTreeMomentView`, `PipMoment`).
     @AppStorage("van.walkedBack") private var walkedBack = ""
     /// Bumped when the route can change with time alone (a break running out), so the route is read again.
     @State private var tick = 0
+    /// With the van, the screen on show: it follows the route a moment later, inside `crossFade`.
+    @State private var shown: FocusRoute?
+    /// The session whose moment has just been seen, set inside `crossFade` so the receipt fades in; `walkedBack`
+    /// keeps it across launches.
+    @State private var momentSeen: UUID?
+
+    /// How one screen of the timer gives way to the next with the van.
+    private static let crossFade = Animation.easeInOut(duration: 0.5)
+
+    /// Each of a session's screens by its own identity, so the next one is always a new view, with its own state.
+    private enum Screen: Hashable {
+        /// Running, on a break, or (with the van, for a frame) minimised: one view, so it keeps its state.
+        case session(UUID)
+        /// Pip's walk back or tumble.
+        case moment(UUID)
+        case receipt(UUID)
+    }
 
     var body: some View {
         @Bindable var tab = tab
@@ -50,12 +68,22 @@ struct FocusView: View {
         )
         // Read, so a tick reads the route again.
         let _ = tick
-        destination(route, now: now)
+        let van = collection.context.features.syrupVan
+        destination(van ? (shown ?? route) : route, now: now)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             // With the van, one screen of the timer gives way to the next with a cross-fade: the clock to the maple,
-            // the maple to Pip's walk back, the walk to the receipt.
-            .animation(collection.context.features.syrupVan ? .easeInOut(duration: 0.5) : nil, value: route)
-            .animation(collection.context.features.syrupVan ? .easeInOut(duration: 0.5) : nil, value: walkedBack)
+            // the maple to Pip's moment, the moment to the receipt. The change comes from the stores, outside any
+            // animation (an `.animation(_:value:)` here left it a cut), so the screen on show follows the route
+            // inside one, on a turn of its own: changes made alongside it (the receipt held at a session's end)
+            // would otherwise carry it unanimated.
+            .onChange(of: route, initial: true) { _, new in
+                guard shown != new else { return }
+                if van, shown != nil {
+                    Task { @MainActor in withAnimation(Self.crossFade) { shown = new } }
+                } else {
+                    shown = new
+                }
+            }
             // With the van, minimising a session is going home to the van, where the gauge and the button lead back
             // (syrup van design §6.5). The tab keeps the session's screen, so whatever selects it again finds it there.
             .onChange(of: tab.isMinimised, initial: true) { _, minimised in
@@ -130,22 +158,39 @@ struct FocusView: View {
                 // With the van nothing stays minimised (see `leaveForVan`): the session's screen holds for the frame
                 // before home shows.
                 RunningSessionView(sessionID: id)
-                    .id(id)
+                    .id(Screen.session(id))
             } else {
                 FocusStartView(minimised: id)
             }
         case .running(let id), .breakTime(let id):
             // One view for both, so the screen keeps its state as a break starts and runs out (§5.5).
             RunningSessionView(sessionID: id)
-                .id(id)
+                .id(Screen.session(id))
         case .receipt(let id):
-            if collection.context.features.syrupVan, walkedBack != id.uuidString, session(id)?.endReason == .completed {
-                // A session that ran to its end: Pip walks back with his pail, once, and then the receipt.
-                VanTreeMomentView(kind: .walkBack) { walkedBack = id.uuidString }
-                    .id(id)
-            } else {
-                ReceiptView(sessionID: id)
-                    .id(id)
+            // One over the other, so the moment fades out as the receipt fades in.
+            ZStack {
+                if collection.context.features.syrupVan, walkedBack != id.uuidString, momentSeen != id,
+                   let moment = session(id)?.endReason.flatMap({ PipMoment(after: $0) }) {
+                    // Pip's moment at the maple, once, and then the receipt: the walk back with his pail after a
+                    // session that ran to its end, the tumble after one ended early. The session has already ended
+                    // (the apps are back); this only shows it.
+                    VanTreeMomentView(kind: moment == .tumble ? .tumble : .walkBack) {
+                        // On a turn of its own, apart from the moment's own last change, so the receipt fades in.
+                        // The stored copy reaches the screen outside any animation and would cut the fade short, so
+                        // it is written once the fade is over.
+                        Task { @MainActor in
+                            withAnimation(Self.crossFade) { momentSeen = id }
+                            try? await Task.sleep(for: .seconds(0.6))
+                            walkedBack = id.uuidString
+                        }
+                    }
+                    .id(Screen.moment(id))
+                    .transition(.opacity)
+                } else {
+                    ReceiptView(sessionID: id)
+                        .id(Screen.receipt(id))
+                        .transition(.opacity)
+                }
             }
         }
     }

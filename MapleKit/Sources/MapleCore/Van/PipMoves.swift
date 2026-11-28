@@ -1,5 +1,23 @@
 import Foundation
 
+/// What Pip does at the maple once a session has ended, before its receipt: it plays once, after the end, so the
+/// session's end never waits on it (the apps come back the moment the member ends it).
+public enum PipMoment: Sendable, Equatable {
+    /// Finished: he walks back with his pail (`PipWalk`).
+    case walkBack
+    /// Ended early, or released: he tumbles out of the tree and the pail spills (`PipFall`).
+    case tumble
+
+    /// Nil for a way out the van doesn't offer (Locked's 10-second hold): the receipt comes straight away.
+    public init?(after reason: EndReason) {
+        switch reason {
+        case .completed: self = .walkBack
+        case .endedEarly, .releaseAll: self = .tumble
+        case .emergencyRelease: return nil
+        }
+    }
+}
+
 /// Where Pip is, measured from where he sits in the fork of the maple, in the tree picture's own units
 /// (`VanCanvas.tree`). Pure.
 public struct PipPose: Sendable, Equatable {

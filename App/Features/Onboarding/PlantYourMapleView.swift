@@ -161,6 +161,10 @@ private struct PlantYourMapleScreen: View {
         // Saving the first schedule earns the Sugar maple; `resumeFirstRun` repairs a save that didn't record it.
         guard schedule.resumeFirstRun(at: now) == .sprout else { return onFinish() }
         go(to: .health)
+        // The primers were answered on an earlier run (its schedule since lost, or the DEBUG sandbox, whose schedule
+        // is its own while the onboarding file isn't): straight on to the leaf, as the last primer's answer does,
+        // rather than an empty screen.
+        if setupStep == .sprout { showSprout() }
     }
 
     // MARK: The sprout and the seedling

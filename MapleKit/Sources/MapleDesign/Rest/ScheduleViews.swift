@@ -56,19 +56,28 @@ private struct ScheduleTimeFieldStyle: ButtonStyle {
         var body: some View {
             let shape = RoundedRectangle(cornerRadius: theme.radius.tile, style: .continuous)
             configuration.label
-                .background {
-                    // Sheets are `surface2`, so a tile lifts with white rather than a darker surface.
-                    shape.fill(.white.opacity(isSelected ? 0.09 : 0.04))
-                }
-                .overlay {
-                    shape.strokeBorder(
-                        theme.topLitHairline(isSelected ? theme.selectedHairline : theme.colors.hairlineTop),
-                        lineWidth: theme.elevation.hairlineWidth
-                    )
-                }
+                .background { shape.fill(fill) }
+                .overlay { shape.strokeBorder(edge, lineWidth: theme.elevation.hairlineWidth) }
                 .opacity(configuration.isPressed ? 0.7 : 1)
                 .mapleAnimation(theme.motion.press, value: configuration.isPressed)
                 .mapleAnimation(theme.motion.gentle, value: isSelected)
+        }
+
+        /// Sheets are `surface2`, so a tile lifts with white rather than a darker surface. On the van's cream white
+        /// barely shows, so the chosen tile takes the gold of the one primary button and the other a faint brown.
+        private var fill: AnyShapeStyle {
+            if theme.look == .van {
+                return AnyShapeStyle(isSelected ? theme.colors.primaryFillTop.opacity(0.6) : theme.colors.textPrimary.opacity(0.04))
+            }
+            return AnyShapeStyle(.white.opacity(isSelected ? 0.09 : 0.04))
+        }
+
+        /// With the van, the chosen tile has the picture's full outline and the other a faint line.
+        private var edge: AnyShapeStyle {
+            if theme.look == .van {
+                return AnyShapeStyle(isSelected ? theme.colors.textPrimary : theme.colors.divider)
+            }
+            return AnyShapeStyle(theme.topLitHairline(isSelected ? theme.selectedHairline : theme.colors.hairlineTop))
         }
     }
 }

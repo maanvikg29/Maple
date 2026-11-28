@@ -57,8 +57,9 @@ struct RunningSessionView: View {
     @State private var breathStartedAt: Date?
     /// "End session" was tapped after the breath: the store is ending the session.
     @State private var isEnding = false
-    /// With the van, ending early is seen first: Pip tumbles out of the tree while the session ends behind it.
-    @State private var isTumbling = false
+    /// The session as it last ran. After it ends this screen fades out (the van's cross-fades, `FocusView`) while the
+    /// next one fades in, and it keeps drawing its last frame meanwhile rather than an empty sky.
+    @State private var lastRunning: SessionRecord?
     /// Settings' "Release all apps" came this way: completing the way out also clears every store (§5.12).
     @State private var releasesAll = false
 
@@ -68,10 +69,7 @@ struct RunningSessionView: View {
 
     var body: some View {
         Group {
-            if isTumbling {
-                // The store ends the session when the tumble is over (`endAfterBreath`), and the receipt follows.
-                VanTreeMomentView(kind: .tumble) {}
-            } else if showsEmergency, let session {
+            if showsEmergency, let session {
                 EmergencyReleaseView(
                     session: session, stage: emergencyStage, frozenSeconds: frozenBreath,
                     onKeepGoing: keepGoing, onRelease: release, onDone: releaseDone
@@ -159,7 +157,7 @@ struct RunningSessionView: View {
     /// The break while one runs, otherwise the running dial, sampled once a second. Past the planned end it keeps its
     /// last frame, never 0:00, until the refresh that ends the session brings the receipt (`FocusRoute.frameTime`).
     private var sessionScreen: some View {
-        let session = self.session
+        let session = self.session ?? lastRunning
         return TimelineView(.periodic(from: .now, by: 1)) { _ in
             if let session {
                 screen(session, now: FocusRoute.frameTime(session, now: sessions.now))
@@ -170,6 +168,9 @@ struct RunningSessionView: View {
         // Any touch counts, on the break too (§4.6).
         .simultaneousGesture(TapGesture().onEnded(wake))
         .onAppear(perform: appeared)
+        .onChange(of: self.session, initial: true) { _, running in
+            if let running { lastRunning = running }
+        }
         .onChange(of: scenePhase) { _, phase in
             // Coming back to Maple counts as a touch.
             if phase == .active { wake() }
@@ -370,7 +371,8 @@ struct RunningSessionView: View {
     }
 
     /// The sheet has gone: the breath starts if its way out was taken; otherwise the member kept going. With the van
-    /// there is no breath (the owner, 28 Nov 2026): the sheet's "End session" ends it, and Pip tumbles.
+    /// there is no breath (the owner, 28 Nov 2026): the sheet's "End session" ends it at once, and Pip tumbles once it
+    /// has ended (`FocusView`, `PipMoment`), so the apps never wait on the tumble.
     private func endEarlyDismissed() {
         wake()
         guard breathesWhenDismissed else {
@@ -401,20 +403,15 @@ struct RunningSessionView: View {
         isEnding = true
         let clearsAll = releasesAll
         releasesAll = false
-        let tumbles = collection.context.features.syrupVan
-        isTumbling = tumbles
         Task {
-            // The tumble is watched to its end before the receipt takes the screen; the session's time is the same.
-            if tumbles { try? await Task.sleep(for: .seconds(reduceMotion ? 1.0 : PipFall.seconds + 0.3)) }
             // Through Release all apps the store ends the session as `.releaseAll` while it clears every store (R4).
             if clearsAll {
                 await sessions.releaseAll()
             } else {
                 await sessions.end(.endedEarly)
             }
-            isEnding = false
             // If the store couldn't end it, the question is there to answer again.
-            isTumbling = false
+            isEnding = false
         }
     }
 

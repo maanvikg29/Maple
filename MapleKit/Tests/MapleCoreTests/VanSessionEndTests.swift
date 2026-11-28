@@ -32,4 +32,13 @@ struct VanSessionEndTests {
         )
         #expect(breathing.body == nil)
     }
+
+    @Test("Once a session has ended, Pip walks back if it finished and tumbles if it was ended early or released")
+    func momentAfterTheEnd() {
+        #expect(PipMoment(after: .completed) == .walkBack)
+        #expect(PipMoment(after: .endedEarly) == .tumble)
+        #expect(PipMoment(after: .releaseAll) == .tumble)
+        // Locked's 10-second hold isn't a van way out: straight to the receipt.
+        #expect(PipMoment(after: .emergencyRelease) == nil)
+    }
 }
