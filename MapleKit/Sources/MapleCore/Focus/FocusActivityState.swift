@@ -19,6 +19,10 @@ public struct FocusActivityState: Sendable, Hashable {
     public var breakEnd: Date?
     /// The session's intention, trimmed and capped at `intentionLimit` characters; nil when there is none.
     public private(set) var intention: String?
+    /// The session's subject (F2 Study record); the controller turns it into `subject`, its name.
+    public var subjectID: UUID?
+    /// The session's subject by name; nil when there is none.
+    public private(set) var subject: String?
     /// The Lock Screen leaf's colour: the season tint as 0xRRGGBB, never gold. Nil until described.
     public private(set) var tint: LeafColor?
     /// The next hours leaf, drawn as a skeleton. Always nil for a plain timer, which shows no leaf.
@@ -27,13 +31,14 @@ public struct FocusActivityState: Sendable, Hashable {
     public init(session: SessionRecord, now: Date) {
         self.init(
             sessionID: session.id, presetName: session.plan.presetName, start: session.countdownStart,
-            plannedEnd: session.plannedEnd, isPlainTimer: session.plan.kind == .plainTimer, breakEnd: session.breakEnd(at: now)
+            plannedEnd: session.plannedEnd, isPlainTimer: session.plan.kind == .plainTimer, breakEnd: session.breakEnd(at: now),
+            subjectID: session.subjectID
         )
     }
 
     public init(
         sessionID: UUID, presetName: String, start: Date, plannedEnd: Date, isPlainTimer: Bool, breakEnd: Date? = nil,
-        intention: String? = nil, tint: LeafColor? = nil, leafID: String? = nil
+        subjectID: UUID? = nil, intention: String? = nil, subject: String? = nil, tint: LeafColor? = nil, leafID: String? = nil
     ) {
         self.sessionID = sessionID
         self.presetName = presetName
@@ -41,17 +46,19 @@ public struct FocusActivityState: Sendable, Hashable {
         self.plannedEnd = plannedEnd
         self.isPlainTimer = isPlainTimer
         self.breakEnd = breakEnd
+        self.subjectID = subjectID
         self.intention = Self.capped(intention)
+        self.subject = subject.flatMap(Subject.normalizedName)
         self.tint = tint
         self.leafID = isPlainTimer ? nil : leafID
     }
 
-    /// This state with what the store doesn't know: the session's intention, the season's tint and the next hours
-    /// leaf (none for a plain timer).
-    public func described(intention: String?, tint: LeafColor, leafID: String?) -> FocusActivityState {
+    /// This state with what the store doesn't know: the session's intention, its subject's name, the season's tint and
+    /// the next hours leaf (none for a plain timer).
+    public func described(intention: String?, subject: String? = nil, tint: LeafColor, leafID: String?) -> FocusActivityState {
         FocusActivityState(
             sessionID: sessionID, presetName: presetName, start: start, plannedEnd: plannedEnd, isPlainTimer: isPlainTimer,
-            breakEnd: breakEnd, intention: intention, tint: tint, leafID: leafID
+            breakEnd: breakEnd, subjectID: subjectID, intention: intention, subject: subject, tint: tint, leafID: leafID
         )
     }
 
@@ -89,10 +96,12 @@ public struct FocusActivityState: Sendable, Hashable {
         let title = isPlainTimer ? "Plain timer" : presetName
         let until = breakEnd.map { "break until \(clock($0))" }
         let breakLine = until.map { "\(title) · \($0)" }
+        // "Study · Biology": the subject sits beside the preset outside a break (F2 Study record).
+        let named = ([title] + [subject].compactMap { $0 }).joined(separator: " · ")
         return Lines(
             title: title,
-            lockLine: breakLine ?? "until \(clock(plannedEnd)) · \(title)",
-            expandedLine: breakLine ?? ([title] + [intention].compactMap { $0 }).joined(separator: " · "),
+            lockLine: breakLine ?? "until \(clock(plannedEnd)) · \(named)",
+            expandedLine: breakLine ?? ([named] + [intention].compactMap { $0 }).joined(separator: " · "),
             complete: "Session complete",
             breakSpoken: until.map { "\(title), \($0)" }
         )

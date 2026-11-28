@@ -142,6 +142,54 @@ struct FocusStoresTests {
         #expect(store.set(id: AppSet.distractionsID)?.tokensExpired == false)
     }
 
+    @Test("Subjects are saved as they change: added, renamed, reordered, removed, and each preset's last one")
+    func subjects() throws {
+        let file = try url(SubjectStore.file)
+        let store = SubjectStore(storage: JSONStorage(.file(file)))
+        #expect(store.active.isEmpty && store.isAvailable)
+        guard case .added(let biology) = store.add(" Biology "), case .added(let maths) = store.add("Maths") else {
+            Issue.record("not added")
+            return
+        }
+        #expect(store.add("biology") == .existing(biology))
+        #expect(store.rename(maths.id, to: "Further maths"))
+        store.move(fromOffsets: IndexSet(integer: 1), toOffset: 0)
+        let study = UUID()
+        store.markUsed(biology.id, with: study)
+
+        let reopened = SubjectStore(storage: JSONStorage(.file(file)))
+        #expect(reopened.active.map(\.name) == ["Further maths", "Biology"])
+        #expect(reopened.lastUsed(with: study) == biology.id)
+        #expect(reopened.name(for: maths.id) == "Further maths")
+
+        reopened.remove(biology.id)
+        let again = SubjectStore(storage: JSONStorage(.file(file)))
+        #expect(again.active.map(\.name) == ["Further maths"])
+        #expect(again.name(for: biology.id) == "Biology")
+        #expect(again.lastUsed(with: study) == nil)
+    }
+
+    @Test("Subjects that can't be read yet are never overwritten: nothing changes until they can")
+    func subjectsUnavailable() throws {
+        let file = try url(SubjectStore.file)
+        let saved = SubjectStore(storage: JSONStorage(.file(file)))
+        _ = saved.add("Biology")
+        let before = try Data(contentsOf: file)
+
+        try lock(file)
+        defer { try? unlock(file) }
+        let store = SubjectStore(storage: JSONStorage(.file(file)))
+        #expect(!store.isAvailable)
+        #expect(store.add("Maths") == nil)
+        #expect(store.active.isEmpty)
+
+        try unlock(file)
+        #expect(try Data(contentsOf: file) == before)
+        #expect(store.add("Maths") != nil)
+        #expect(store.isAvailable)
+        #expect(SubjectStore(storage: JSONStorage(.file(file))).active.map(\.name) == ["Biology", "Maths"])
+    }
+
     @Test("Session notes: one intention per session, cleared by an empty field, erased on request, newest 200 kept")
     func notes() throws {
         let file = try url(SessionNotesStore.file)

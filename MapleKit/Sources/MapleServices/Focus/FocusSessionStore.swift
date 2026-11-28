@@ -12,6 +12,8 @@ import Observation
 ///   block at once. Final clears (a session's end, "Release all apps") always run, written or not.
 /// - While the ledger can't be read the store is in an unknown state: it neither writes nor clears.
 /// - A running session whose shields go missing is marked `shieldLost` and carries on as a plain timer.
+/// - The replay holds the open ledger only. History (F2 Study record) reads the whole ledger on its own, when asked
+///   (`loadHistory()`), and keeps it in `history`.
 /// - Each command replays the open ledger. When the open read shows a sign of a missing start (an unended session's
 ///   events without its `sessionStarted`, or applied shields whose session it doesn't show running), it also reads the
 ///   whole ledger and adds the events of every session it holds unended, and nothing else of the history: a clock set
@@ -27,13 +29,18 @@ public final class FocusSessionStore {
         /// The member chose "Use a plain timer".
         public var plainTimer: Bool
         public var from: StartSource
+        /// The subject picked on the start screen (F2 Study record); nil for none.
+        public var subject: UUID?
 
-        public init(preset: FocusPreset, minutes: Int, appSet: AppSet?, plainTimer: Bool = false, from: StartSource) {
+        public init(
+            preset: FocusPreset, minutes: Int, appSet: AppSet?, plainTimer: Bool = false, from: StartSource, subject: UUID? = nil
+        ) {
             self.preset = preset
             self.minutes = minutes
             self.appSet = appSet
             self.plainTimer = plainTimer
             self.from = from
+            self.subject = subject
         }
     }
 
@@ -53,6 +60,16 @@ public final class FocusSessionStore {
         public var today: Int
         public var yesterday: Int
         public var total: Int
+    }
+
+    /// Everything History shows (F2 Study record): the whole ledger's sessions, their credit, and the ones History lists.
+    nonisolated public struct History: Sendable, Equatable {
+        public var records: [SessionRecord]
+        public var credits: [SessionCredit]
+        public var sessions: [StudySession]
+
+        public func record(_ id: UUID) -> SessionRecord? { records.first { $0.id == id } }
+        public func credit(_ id: UUID) -> SessionCredit? { credits.first { $0.id == id } }
     }
 
     /// The shortest gap between two written checkpoints.
@@ -75,6 +92,9 @@ public final class FocusSessionStore {
     /// first sees the session after a relaunch (still running, or ended while away by its first refresh) starts from the
     /// focus leaves the collection dated inside it.
     public private(set) var sessionUnlocks: [LeafUnlock] = []
+
+    /// The whole ledger, for History; nil until `loadHistory()` has read it.
+    public private(set) var history: History?
 
     @ObservationIgnored public let blocking: any BlockingService
     @ObservationIgnored private let ledger: any FocusLedgerStore
@@ -267,7 +287,60 @@ public final class FocusSessionStore {
             guard replay() else { return }
             _ = try? write(.reflected(reflection), session: session)
             absorb()
+            if history != nil { await readHistory() }
         }
+    }
+
+    // MARK: Study record (F2)
+
+    /// Changes a session's subject afterwards (the receipt, History's session detail); nil for "No subject". The
+    /// newest change wins, and it never touches credit. History, once loaded, is read again.
+    public func setSubject(_ subject: UUID?, for session: UUID) async {
+        await serially { [self] in
+            guard replay() else { return }
+            _ = try? write(.subjectChanged(subject), session: session)
+            absorb()
+            if history != nil { await readHistory() }
+        }
+    }
+
+    /// History's "Remove from History": hides an ended session from History for good. Everything it earned stays:
+    /// its credit, the leaves it opened and the day's streak are untouched. The running session can't be removed.
+    /// - Returns: False for the running session, or when it couldn't be recorded.
+    public func removeFromHistory(_ session: UUID) async -> Bool {
+        await serially { [self] in
+            guard replay(), running?.id != session, (try? write(.sessionHidden, session: session)) != nil else { return false }
+            absorb()
+            if history != nil { await readHistory() }
+            return true
+        }
+    }
+
+    /// Reads the whole ledger for History, off the main actor. A ledger that can't be read keeps the last history.
+    public func loadHistory() async {
+        await serially { [self] in await readHistory() }
+    }
+
+    /// The open read's sessions as History counts them, without a full read: enough for this week (the open read holds
+    /// this month and the last), for the Focus tab's "This week" strip.
+    public var recentStudySessions: [StudySession] {
+        let records = sessions.filter { credited.contains($0.source) }
+        return StudyHistory.sessions(records, credits: HoursCredit.credit(records, crediting: credited, now: now), running: running?.id)
+    }
+
+    private func readHistory() async {
+        let ledger = self.ledger
+        let credited = self.credited
+        let now = self.now
+        let running = self.running?.id
+        let read: History? = await Task.detached {
+            guard let events = ledger.readAll() else { return nil }
+            let records = FocusLedger(events).sessions().filter { credited.contains($0.source) }
+            let credits = HoursCredit.credit(records, crediting: credited, now: now)
+            return History(records: records, credits: credits,
+                           sessions: StudyHistory.sessions(records, credits: credits, running: running))
+        }.value
+        if let read, read != history { history = read }
     }
 
     /// Asks for Screen Time once (Needs Screen Time's "Turn on Screen Time").
@@ -440,7 +513,8 @@ public final class FocusSessionStore {
             breakSeconds: request.preset.hasBreak ? FocusPreset.breakSeconds : 0, strictness: request.preset.strictness(on: frozen.day),
             kind: blocks ? .blocking : .plainTimer, appSetID: blocks ? request.appSet?.id : nil,
             selection: blocks ? request.appSet?.summary : nil, startedFrom: request.from, mapleDay: frozen.day.description,
-            window: frozen.window, zone: context.calendar.timeZone.identifier, appBuild: appBuild, rulesVersion: FocusRules.version
+            window: frozen.window, zone: context.calendar.timeZone.identifier, appBuild: appBuild, rulesVersion: FocusRules.version,
+            subjectID: request.subject
         )
         let id = UUID()
         if blocks, let appSet = request.appSet {

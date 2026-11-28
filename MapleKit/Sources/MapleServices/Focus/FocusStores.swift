@@ -47,6 +47,7 @@ public struct FocusStores {
     public let presets: PresetStore
     public let appSets: AppSetStore
     public let notes: SessionNotesStore
+    public let subjects: SubjectStore
     public let mode: LaunchMode
 
     /// Files in `directory`. The blocker follows the build's tier (an ordinary DEBUG launch behaves like its tier).
@@ -79,6 +80,7 @@ public struct FocusStores {
             presets: PresetStore(storage: JSONStorage(.file(directory.appending(path: PresetStore.file))), defaultAppSetID: AppSet.distractionsID),
             appSets: AppSetStore(storage: JSONStorage(.file(directory.appending(path: AppSetStore.file)))),
             notes: SessionNotesStore(storage: JSONStorage(.file(directory.appending(path: SessionNotesStore.file)))),
+            subjects: SubjectStore(storage: JSONStorage(.file(directory.appending(path: SubjectStore.file)))),
             mode: mode
         )
     }
@@ -117,6 +119,7 @@ public struct FocusStores {
             presets: PresetStore(storage: JSONStorage(.memory, initial: seed?.presets), defaultAppSetID: AppSet.distractionsID),
             appSets: AppSetStore(storage: JSONStorage(.memory, initial: seed?.appSets)),
             notes: SessionNotesStore(storage: JSONStorage(.memory, initial: seed?.notes)),
+            subjects: SubjectStore(storage: JSONStorage(.memory, initial: seed?.subjects)),
             mode: .demo
         )
     }

@@ -55,6 +55,7 @@ struct FocusView: View {
                     .revealDemoMotion()
                     #endif
             }
+            .navigationDestination(isPresented: $tab.showsHistory) { HistoryView() }
             .onChange(of: pending?.id, initial: true) { _, id in holdReceipt(id) }
             .onChange(of: sessions.running?.id) { old, new in sessionChanged(from: old, to: new) }
             // A receipt a notification tap asked for before the first replay goes once the ledger can't draw it.
@@ -196,6 +197,21 @@ final class FocusTabState {
     var lastStarted: UUID?
     /// Settings' "Release all apps" arrived during a session: the session screen opens its way out and clears this.
     var releasesAll = false
+    /// The subject picked for the next session (F2 Study record); nil follows the one the preset was last used with.
+    /// Choosing another preset and starting a session both clear it.
+    var subjectPick: SubjectPick?
+    /// History is pushed over the tab.
+    var showsHistory = false
+
+    /// The next session's subject for `preset`: the pick, else the preset's last-used one. Never a subject that is no
+    /// longer offered.
+    func subjectID(preset: UUID, subjects: SubjectStore) -> UUID? {
+        switch subjectPick {
+        case .noSubject: nil
+        case .subject(let id): subjects.active.contains { $0.id == id } ? id : nil
+        case nil: subjects.lastUsed(with: preset)
+        }
+    }
 
     /// Why the start screen starts a plain timer now: the tab's own choice since the last start, else the plain timer
     /// that a build that can never block remembers (`AppSettings.opensPlainTimer(capability:)`, owner 2026-10-29); nil
@@ -203,6 +219,12 @@ final class FocusTabState {
     func plainTimer(settings: AppSettings, capability: BlockingCapability) -> PlainTimerReason? {
         plainTimer ?? (settings.opensPlainTimer(capability: capability) ? .chosen : nil)
     }
+}
+
+/// What the member picked on the subject sheet for the next session.
+enum SubjectPick: Hashable {
+    case noSubject
+    case subject(UUID)
 }
 
 /// Why the start screen starts a plain timer (§5.1, §5.3).
@@ -226,6 +248,10 @@ enum FocusTabSheet: Identifiable, Hashable {
     case saved(LocalDay?, earlier: Bool = false)
     /// The streak sheet (§5.15).
     case streak
+    /// The start screen's subject line: the next session's subject (F2 Study record).
+    case subject
+    /// The receipt's subject line: that session's subject, changed afterwards.
+    case retag(UUID)
 
     var id: String {
         switch self {
@@ -234,6 +260,8 @@ enum FocusTabSheet: Identifiable, Hashable {
         case .intention: "intention"
         case .saved: "saved"
         case .streak: "streak"
+        case .subject: "subject"
+        case .retag(let id): "retag.\(id.uuidString)"
         }
     }
 }

@@ -28,4 +28,27 @@ extension SessionRecord {
     public func breakSecondsLeft(at date: Date) -> TimeInterval? {
         breakEnd(at: date).map { max(0, $0.timeIntervalSince(date)) }
     }
+
+    /// When the session's focus stopped (F2 Study record): its end, never past the planned end; for a session whose end
+    /// was never written, its last confirmed moment (the countdown's start when there is none).
+    public var focusEnd: Date {
+        max(countdownStart, min(end?.placed ?? lastCheckpoint ?? countdownStart, plannedEnd))
+    }
+
+    /// The session's breaks as they ran: each from its start to "Back to studying", its planned end or the session's
+    /// focus end, whichever came first.
+    public var breakIntervals: [DateInterval] {
+        let limit = focusEnd
+        return breaks.compactMap { taken in
+            let from = max(taken.start, countdownStart), to = min(taken.end ?? taken.plannedEnd, taken.plannedEnd, limit)
+            return to > from ? DateInterval(start: from, end: to) : nil
+        }
+    }
+
+    /// Seconds focused (History's measure): from the countdown's start to the focus end, without the breaks. Unlocks
+    /// reduce time saved, never time focused.
+    public var focusedSeconds: Int {
+        let whole = focusEnd.timeIntervalSince(countdownStart)
+        return max(0, Int((whole - breakIntervals.reduce(0) { $0 + $1.duration }).rounded()))
+    }
 }

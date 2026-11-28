@@ -107,7 +107,8 @@ public struct SelectionSummary: Codable, Sendable, Hashable {
 }
 
 /// Everything about a session that is fixed when it starts, written into `sessionStarted` (F1 design §7.1).
-/// It holds no free text beyond the preset's name; intentions live in `session-notes.json`.
+/// It holds no free text beyond the preset's name; intentions live in `session-notes.json`, and subject names in
+/// `subjects.json`.
 public struct FocusPlan: Codable, Sendable, Hashable {
     /// The shortest and longest sessions (R8, F1-15).
     public static let minimumSeconds = 20 * 60
@@ -131,12 +132,15 @@ public struct FocusPlan: Codable, Sendable, Hashable {
     public var zone: String
     public var appBuild: String
     public var rulesVersion: Int
+    /// The subject picked at the start (F2 Study record); nil for none, and in every plan written before subjects.
+    /// An id only: subject names are the member's words, which never go into the ledger (F1-19).
+    public var subjectID: UUID?
 
     public init(
         presetID: UUID, presetName: String, verb: FocusVerb, plannedSeconds: Int, breakSeconds: Int,
         strictness: Strictness, kind: SessionKind, appSetID: UUID?, selection: SelectionSummary?,
         startedFrom: StartSource, mapleDay: String, window: AwakeWindow, zone: String, appBuild: String,
-        rulesVersion: Int
+        rulesVersion: Int, subjectID: UUID? = nil
     ) {
         self.presetID = presetID
         self.presetName = presetName
@@ -153,6 +157,7 @@ public struct FocusPlan: Codable, Sendable, Hashable {
         self.zone = zone
         self.appBuild = appBuild
         self.rulesVersion = rulesVersion
+        self.subjectID = subjectID
     }
 
     /// A blocking session whose selection qualifies: the only kind that can count (R2, R3, R12).

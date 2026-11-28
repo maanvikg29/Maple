@@ -333,6 +333,25 @@ struct FocusStartTests {
         #expect(settings.hasStartedFocus)
     }
 
+    @Test("A start remembers the subject its preset was used with (no subject too), and drops one that isn't offered")
+    func startRemembersSubject() async throws {
+        let stores = stores()
+        let settings = AppSettings(storage: JSONStorage(.memory))
+        guard case .added(let biology) = stores.subjects.add("Biology") else { Issue.record("not added"); return }
+        let quick = stores.presets.presets[1]
+        var request = FocusSessionStore.StartRequest(preset: quick, minutes: 25, appSet: six, from: .focusTab)
+        request.subject = biology.id
+        guard case .started = await stores.start(request, intention: nil, settings: settings) else { Issue.record("not started"); return }
+        #expect(stores.sessions.running?.subjectID == biology.id)
+        #expect(stores.subjects.lastUsed(with: quick.id) == biology.id)
+        await stores.sessions.end(.endedEarly)
+
+        request.subject = UUID()
+        guard case .started = await stores.start(request, intention: nil, settings: settings) else { Issue.record("not started"); return }
+        #expect(stores.sessions.running?.subjectID == nil)
+        #expect(stores.subjects.lastUsed(with: quick.id) == nil)
+    }
+
     @Test("Nothing is kept when the session doesn't start, and a blank intention keeps no note")
     func notStarted() async throws {
         let stores = stores()

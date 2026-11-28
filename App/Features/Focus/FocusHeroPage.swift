@@ -26,6 +26,7 @@ struct FocusHeroPage<Dial: View, Below: View, Primary: View>: View {
     @State private var measured = FocusHeroMeasurements()
 
     private let hasPrimary: Bool
+    private let headerLink: HeaderLink?
     private let dial: (CGFloat) -> Dial
     private let below: Below
     private let primary: Primary
@@ -33,12 +34,14 @@ struct FocusHeroPage<Dial: View, Below: View, Primary: View>: View {
     /// - Parameters:
     ///   - hasPrimary: False when the screen's action sits inside `below` (Needs Screen Time's card): nothing is
     ///     pinned, and `primary` isn't shown.
+    ///   - headerLink: A link at the header's trailing edge ("History ›"); nil for none.
     ///   - dial: The dial at the diameter it is given.
     init(
-        hasPrimary: Bool = true, @ViewBuilder dial: @escaping (CGFloat) -> Dial, @ViewBuilder below: () -> Below,
-        @ViewBuilder primary: () -> Primary
+        hasPrimary: Bool = true, headerLink: HeaderLink? = nil, @ViewBuilder dial: @escaping (CGFloat) -> Dial,
+        @ViewBuilder below: () -> Below, @ViewBuilder primary: () -> Primary
     ) {
         self.hasPrimary = hasPrimary
+        self.headerLink = headerLink
         self.dial = dial
         self.below = below()
         self.primary = primary()
@@ -106,13 +109,27 @@ struct FocusHeroPage<Dial: View, Below: View, Primary: View>: View {
     private var primaryBottomGap: CGFloat { theme.spacing.xl }
 
     private var header: some View {
-        Text(FocusStartLines.title)
-            .font(MapleFont.screenTitle)
-            .tracking(-0.3)
-            .foregroundStyle(theme.colors.textPrimary)
-            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-            .accessibilityAddTraits(.isHeader)
+        HStack(alignment: .firstTextBaseline, spacing: theme.spacing.sm) {
+            Text(FocusStartLines.title)
+                .font(MapleFont.screenTitle)
+                .tracking(-0.3)
+                .foregroundStyle(theme.colors.textPrimary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityAddTraits(.isHeader)
+            if let headerLink {
+                TextLink(headerLink.title, action: headerLink.action)
+            }
+        }
+        .frame(minHeight: 44)
     }
+}
+
+/// A link at the trailing edge of a Focus screen's header: "History ›" (F2 Study record).
+struct HeaderLink {
+    let title: String
+    /// VoiceOver's words, when the title alone doesn't say what it is ("Subject, Biology").
+    var spoken: String?
+    let action: () -> Void
 }
 
 /// The heights `FocusHeroPage` measures. None depends on the dial's size, so fitting it settles in one pass.

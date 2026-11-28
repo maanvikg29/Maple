@@ -22,17 +22,20 @@ import os
 final class ActivityKitController: LiveActivityController {
     private var collection: CollectionStore?
     private var notes: SessionNotesStore?
+    private var subjects: SubjectStore?
     /// What was last sent to each session's activity, so a refresh with nothing new sends nothing.
     private var sent: [UUID: FocusActivityAttributes.ContentState] = [:]
     /// Which sessions this launch may still ask ActivityKit for.
     private var asks = LiveActivityAsks()
     private let log = Logger(subsystem: "com.maanvikgupta.maple", category: "LiveActivity")
 
-    /// Gives the controller what the store's state doesn't carry: intentions (`session-notes.json`), the season and
+    /// Gives the controller what the store's state doesn't carry: intentions (`session-notes.json`), subject names
+    /// (`subjects.json`), the season and
     /// the next hours leaf. `MapleApp` calls it once the stores exist.
-    func attach(collection: CollectionStore, notes: SessionNotesStore) {
+    func attach(collection: CollectionStore, notes: SessionNotesStore, subjects: SubjectStore) {
         self.collection = collection
         self.notes = notes
+        self.subjects = subjects
     }
 
     func reconcile(running state: FocusActivityState?) async {
@@ -83,6 +86,7 @@ final class ActivityKitController: LiveActivityController {
         let leaf = collection.progress(at: state.start).first { $0.category == .hoursSaved && $0.state == .locked }
         return state.described(
             intention: notes?.intention(for: state.sessionID),
+            subject: subjects?.name(for: state.subjectID),
             tint: Theme.SeasonTints.leafColor(for: collection.season(at: state.start)),
             leafID: leaf?.speciesID
         )

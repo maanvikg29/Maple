@@ -30,6 +30,7 @@ struct RunningSessionView: View {
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(FocusSessionStore.self) private var sessions
     @Environment(SessionNotesStore.self) private var notes
+    @Environment(SubjectStore.self) private var subjects
     @Environment(CollectionStore.self) private var collection
     @Environment(FocusTabState.self) private var tab
 
@@ -176,8 +177,8 @@ struct RunningSessionView: View {
         let model = model(session, now: now)
         Group {
             if inBreak, let breakModel = BreakScreenModel(
-                session: session, now: now, intention: notes.intention(for: session.id), locale: locale,
-                calendar: collection.context.calendar
+                session: session, now: now, intention: notes.intention(for: session.id),
+                subject: subjects.name(for: session.subjectID), locale: locale, calendar: collection.context.calendar
             ) {
                 BreakView(
                     model: breakModel, isEndingBreak: isEndingBreak, onMinimise: minimise, onBackToStudying: backToStudying,
@@ -287,7 +288,7 @@ struct RunningSessionView: View {
             RevealSchedule.isHeld(unlock, at: now, schedule: schedule, calendar: calendar)
         }
         return RunningSessionModel(
-            session: session, now: now, intention: notes.intention(for: session.id),
+            session: session, now: now, intention: notes.intention(for: session.id), subject: subjects.name(for: session.subjectID),
             leaf: RunningSessionModel.Leaf(next: collection.progress(at: now)), opened: opened,
             counted: counted, displaySeconds: sessions.countedSoFar(session.id),
             roomLeftToday: max(0, HoursCredit.dailyCap - sessions.displayCredit(at: now).today),

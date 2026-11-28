@@ -83,10 +83,15 @@ public enum FocusCopy {
         "Session length, \(FocusTimeText.spokenLength(minutes: minutes, locale: locale))"
     }
 
-    /// A session's header (§5.4, §5.8): "Study · Chemistry ch. 4", or the preset alone without an intention.
-    public static func sessionTitle(presetName: String, intention: String?) -> String {
-        guard let intention = intention.flatMap({ RecentIntentions.normalized($0) }) else { return presetName }
-        return "\(presetName) · \(intention)"
+    /// A session's header (§5.4, §5.8): "Study · Chemistry ch. 4", or the preset alone without an intention. With a
+    /// subject (F2 Study record) it is "Study · Biology", and the subject stands in for the preset once there is an
+    /// intention too: "Biology · Chemistry ch. 4".
+    public static func sessionTitle(presetName: String, subject: String? = nil, intention: String?) -> String {
+        let subject = subject.flatMap(Subject.normalizedName)
+        guard let intention = intention.flatMap({ RecentIntentions.normalized($0) }) else {
+            return subject.map { "\(presetName) · \($0)" } ?? presetName
+        }
+        return "\(subject ?? presetName) · \(intention)"
     }
 
     // MARK: Needs Screen Time (§5.3, F1-17)
