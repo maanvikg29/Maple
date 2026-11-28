@@ -31,6 +31,8 @@ struct FocusView: View {
     @Environment(AppRouter.self) private var router
     @Environment(CollectionStore.self) private var collection
     @State private var tab = FocusTabState()
+    /// The session whose walk back has been seen, so it plays once (`VanTreeMomentView`).
+    @AppStorage("van.walkedBack") private var walkedBack = ""
     /// Bumped when the route can change with time alone (a break running out), so the route is read again.
     @State private var tick = 0
 
@@ -133,8 +135,14 @@ struct FocusView: View {
             RunningSessionView(sessionID: id)
                 .id(id)
         case .receipt(let id):
-            ReceiptView(sessionID: id)
-                .id(id)
+            if collection.context.features.syrupVan, walkedBack != id.uuidString, session(id)?.endReason == .completed {
+                // A session that ran to its end: Pip walks back with his pail, once, and then the receipt.
+                VanTreeMomentView(kind: .walkBack) { walkedBack = id.uuidString }
+                    .id(id)
+            } else {
+                ReceiptView(sessionID: id)
+                    .id(id)
+            }
         }
     }
 

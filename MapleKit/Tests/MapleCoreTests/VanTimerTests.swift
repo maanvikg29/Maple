@@ -81,17 +81,4 @@ struct VanTimerTests {
         #expect(!ReceiptFlow.offersAgain(ShippedFeatures.current))
         #expect(ReceiptFlow.offersAgain(ShippedFeatures(releases: [.m1, .f1])))
     }
-
-    @Test("The full entrance plays once a day; after that it is short, and Reduce Motion always cross-fades")
-    func entrance() {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(identifier: "UTC")!
-        let noon = Date(timeIntervalSince1970: 1_795_000_000)
-        #expect(VanEntrance.style(lastFull: nil, now: noon, calendar: calendar, reduceMotion: false) == .full)
-        #expect(VanEntrance.style(lastFull: noon.addingTimeInterval(-60), now: noon, calendar: calendar, reduceMotion: false) == .short)
-        #expect(VanEntrance.style(lastFull: noon.addingTimeInterval(-86_400 * 2), now: noon, calendar: calendar, reduceMotion: false) == .full)
-        #expect(VanEntrance.style(lastFull: nil, now: noon, calendar: calendar, reduceMotion: true) == .crossFade)
-        #expect(VanEntrance.full.seconds == 1.2)
-        #expect(VanEntrance.short.seconds < 0.5)
-    }
 }

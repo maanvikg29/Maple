@@ -19,10 +19,13 @@ public struct VanCanvas: Sendable, Equatable {
         self.originY = originY
     }
 
-    /// The home view: `Scripts/art/vanart/build.py`, `HOME_BOX`.
-    public static let home = VanCanvas(width: 1600, height: 3460, originX: 0, originY: -1120)
-    /// The workshop, the same room from the front: `Scripts/art/vanart/inside.py`, `BOX`.
-    public static let workshop = VanCanvas(width: 852, height: 1846, originX: 0, originY: 0)
+    /// Home: the concept picture of the van (1856 wide, `homePictureHeight` tall) at the top of a page as tall as a
+    /// phone, in the picture's own pixels. Below the picture the page is the picture's sky colour.
+    public static let home = VanCanvas(width: 1856, height: 4036, originX: 0, originY: 0)
+    public static let homePictureHeight = 2304.0
+    /// The maple while a session runs, cut from the same picture in its own pixels:
+    /// `Scripts/art/concept/build_concept_art.py`, `TREE_W` and `TREE_H`.
+    public static let tree = VanCanvas(width: 1200, height: 2600, originX: 0, originY: 0)
 
     public func scale(width screenWidth: Double, height screenHeight: Double) -> Double {
         guard width > 0, height > 0, screenWidth > 0, screenHeight > 0 else { return 0 }
@@ -34,6 +37,13 @@ public struct VanCanvas: Sendable, Equatable {
         let scale = scale(width: screenWidth, height: screenHeight)
         guard scale > 0 else { return (0, 0) }
         return ((screenWidth - width * scale) / 2 + (x - originX) * scale, (screenHeight - height * scale) / 2 + (y - originY) * scale)
+    }
+
+    /// The other way: the place in the drawing that is under the screen's point (x, y).
+    public func source(x: Double, y: Double, width screenWidth: Double, height screenHeight: Double) -> (x: Double, y: Double) {
+        let scale = scale(width: screenWidth, height: screenHeight)
+        guard scale > 0 else { return (0, 0) }
+        return ((x - (screenWidth - width * scale) / 2) / scale + originX, (y - (screenHeight - height * scale) / 2) / scale + originY)
     }
 
     /// A length in the drawing's units, on that screen.
