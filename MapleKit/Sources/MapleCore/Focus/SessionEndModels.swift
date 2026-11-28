@@ -24,10 +24,11 @@ public struct EndEarlyModel: Sendable, Equatable {
     ///   - countedSeconds: This session's counted seconds so far (`FocusSessionStore.countedSoFar(_:)`).
     ///   - breakAvailable: The preset has a break, it is unused, time is left, and apps are locked
     ///     (`RunningSessionModel.breakAvailable(_:at:)`).
-    public init(path: SessionEndPath, countedSeconds: Int, breakAvailable: Bool) {
+    ///   - losesLeaves: The syrup van is home: the session's leaves are lost, and the line says so.
+    public init(path: SessionEndPath, countedSeconds: Int, breakAvailable: Bool, losesLeaves: Bool = false) {
         self.path = path
         title = FocusCopy.EndEarly.title
-        body = FocusCopy.EndEarly.savedLine(countedSeconds: countedSeconds)
+        body = losesLeaves ? FocusCopy.EndEarly.leavesLostLine : FocusCopy.EndEarly.savedLine(countedSeconds: countedSeconds)
         keepGoingTitle = FocusCopy.keepGoing
         holdTitle = path == .steady ? FocusCopy.EndEarly.holdToEnd : nil
         endTitle = path == .gentle ? FocusCopy.EndEarly.gentleEnd : nil
@@ -91,7 +92,7 @@ public struct EndBreathModel: Sendable, Equatable {
     ///   - seconds: Since the breath began, on trusted time.
     public init(
         path: SessionEndPath, countedSeconds: Int, focusedSeconds: Int, canCount: Bool, seconds: Double, reduceMotion: Bool,
-        locale: Locale = .current
+        losesLeaves: Bool = false, locale: Locale = .current
     ) {
         let t = seconds.isNaN ? 0 : max(0, seconds)
         let total = Self.breathSeconds(for: path)
@@ -122,7 +123,7 @@ public struct EndBreathModel: Sendable, Equatable {
             spoken = "\(FocusTimeText.spokenLength(minutes: shown, locale: locale)) \(caption)"
             line = nil
             title = FocusCopy.EndEarly.askAgain
-            body = FocusCopy.EndEarly.savedLine(countedSeconds: countedSeconds)
+            body = losesLeaves ? FocusCopy.EndEarly.leavesLostLine : FocusCopy.EndEarly.savedLine(countedSeconds: countedSeconds)
             timeLine = "\(numeral) \(caption)"
             let fade = min(1, (t - total) / Self.askFade)
             askOpacity = fade

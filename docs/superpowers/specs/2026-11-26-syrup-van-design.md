@@ -1,6 +1,6 @@
 # The syrup van: design
 
-Status: **approved by the owner on 2026-11-26** ("yes to all, drop the tab bar"). Nothing in this document is built yet. The build plans are in `docs/superpowers/plans/`.
+Status: **approved by the owner on 2026-11-26** ("yes to all, drop the tab bar"). Steps 2 and 3 of §12 are built (the economy, and the scene with the clock timer); the rest is not. The build plans are in `docs/superpowers/plans/`.
 
 Every rule below carries one of two marks:
 - **Decided**: the owner chose it in the 2026-11-26 design conversation.
@@ -97,7 +97,7 @@ The whole app is one place: the van parked under the maple tree. The camera has 
 | Camera | What it is for | How the member gets there |
 |---|---|---|
 | The whole scene | Home, and decorating | Opening the app; tapping "decorate" |
-| Inside the van, straight-on side view | The workshop: the timer, cooking, the shelf | Tapping the enter button on home |
+| The van's room, from the front | The workshop: the timer, cooking, the shelf | Tapping the enter button on home |
 | Up in the tree | A session that is running | Starting the timer |
 
 ### 5.1 Home
@@ -113,7 +113,10 @@ The whole app is one place: the van parked under the maple tree. The camera has 
 
 ### 5.2 The workshop
 
-- **A proper side view of the inside of the van.** **Decided.**
+- **The van's room seen straight on from the front at eye level, like a dollhouse, with both rear doors shut.** The floor is a thin strip, and the walls at either end are edge-on, so the round window does not show in this view. **Decided**: the owner turned down a flat room, a turned side view and home's angle closer in ("i dont want a top view like that i want a front view"), was shown five front views (`docs/design/art/2026-11-26-workshop-angles/`), tried one between the second and third, and settled on the first ("actually 1 works").
+- The room fills the screen's width. The maple and the sky are above it and the lawn below. **Proposed.**
+- **The van's room is long, not boxy.** The longer van is drawn in both views so they agree. **Decided** for the workshop; the home view following it is **Proposed**.
+- From the front the shut doors are edge-on, at the room's left end, so they show only as the end of the room. **Proposed.**
 - **What is in it** (**Proposed**):
   - the boiler with its round gauge, which is the timer (§6);
   - the stove and the pot, which the member taps to cook;
@@ -127,7 +130,7 @@ The whole app is one place: the van parked under the maple tree. The camera has 
 **Proposed**, about 1.2 seconds in all:
 1. The enter button fades and a latch clicks, with a light tap from the phone.
 2. The camera pushes in toward the van.
-3. The view turns to the straight-on side view and warm light fills it.
+3. The picture cross-fades to the room seen from the front, its rear doors shut, and warm light fills it.
 4. Pip hops in ahead.
 5. The gauge and the pot settle into place.
 
@@ -137,7 +140,7 @@ The full entrance plays once a day. After that it takes under half a second. Wit
 
 - **Tapping the decoration button goes back to the home view, where the van can be edited.** **Decided.**
 - In edit mode the member taps a place on the van, the roof or the grass and picks what goes there. **Proposed.**
-- Every indoor decoration is drawn twice: once at home's angle and once for the workshop's side view. The owner accepted this cost. **Decided.**
+- Every indoor decoration is placed once, in the van, and both views show it: the two views are the same room under two cameras. A flat picture (a bottle, a plant, the cat) serves both views as it is; a solid piece (a counter, a crate, the boiler) is drawn again for each camera by the art generator. **Proposed.**
 
 ---
 
@@ -265,7 +268,7 @@ Everything about when a session counts is unchanged (F1 design §3). This sectio
 - **It takes the format of cosy room games as inspiration and copies no other app's character or room.** **Decided.**
 - **The concept images are not the app's art.** They are single pictures. **Proposed** for the real thing:
   - every object is its own piece, so it can be placed, bought, animated and swapped;
-  - indoor objects have two drawings (§5.4);
+  - indoor objects are placed once and show in both views (§5.4);
   - Pip has a set of poses: standing, stirring, carrying the bucket, climbing, sitting, asleep;
   - everything has a night version, or is lit by the scene.
 - Who draws it: Claude, for now (§13, question 5).
@@ -287,8 +290,8 @@ Everything about when a session counts is unchanged (F1 design §3). This sectio
 **Proposed.** Each step ends with something that runs in the simulator.
 
 1. **The art list.** Every object, pose and angle needed for steps 2 to 4, and a decision on who draws it.
-2. **The economy, in logic only.** Leaves, syrup, cooking, upgrades, with tests. No screens.
-3. **The scene shell.** The home view, the entrance and the workshop, with the gauge driving the timer that exists today.
+2. **The economy, in logic only.** Leaves, syrup, cooking, upgrades, with tests. No screens. **Built.**
+3. **The scene shell.** The home view, the entrance and the workshop, with the gauge opening the clock that sets the length. **Built** (plan: `docs/superpowers/plans/2026-11-26-syrup-van-scene.md`). The running session, End early and the receipt are still today's screens.
 4. **The session.** The tree view, the falling leaves, the walk back and the summary.
 5. **The shop and decorating.**
 6. **Special syrups, the tasting shelf and Pip's clothes.**

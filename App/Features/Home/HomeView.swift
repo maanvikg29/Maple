@@ -55,8 +55,18 @@ struct HomeView: View {
                 lastNight: sleep.lastNightSleep(at: now), noSleepHint: sleep.showsNoSleepHint(at: now),
                 focus: focusStatus(), provisionalSeconds: provisionalSeconds()
             )
-            GeometryReader { proxy in
-                screen(content, proxy: proxy)
+            Group {
+                if collection.context.features.syrupVan {
+                    // The van is home (syrup van design §5.1). The sheets, covers and requests below stay this view's.
+                    VanSceneView(
+                        now: now, streak: content.streak, prompt: vanPrompt(content.state.action), onProfile: { sheet = .profile },
+                        onTree: { cover = .tree(focusing: nil) }, onStreak: { sheet = .streak }
+                    )
+                } else {
+                    GeometryReader { proxy in
+                        screen(content, proxy: proxy)
+                    }
+                }
             }
             .onChange(of: content.state.refreshesEverySecond, initial: true) { _, running in
                 everySecond = running
@@ -306,6 +316,12 @@ struct HomeView: View {
     }
 
     // MARK: Actions
+
+    /// The reveal or wind-down, which the tree home's capsule offered and the van's own button doesn't.
+    private func vanPrompt(_ action: NowState.Action?) -> VanHomeView.Prompt? {
+        guard let action, action.showsOnVan else { return nil }
+        return VanHomeView.Prompt(title: action.title) { perform(action) }
+    }
 
     private func perform(_ action: NowState.Action) {
         switch action {

@@ -5,17 +5,22 @@ import MapleFocusCore
 /// that hasn't shipped is absent everywhere (spec §2.2, §8).
 public struct ShippedFeatures: Sendable, Hashable {
     public var releases: Set<RewardRelease>
+    /// The syrup van is the app's home: the scene replaces the tree home's stage, the tab bar and the start screen
+    /// (syrup van design §9, §12 step 3). Off, the app is as it was before the van.
+    public var syrupVan: Bool
 
-    public init(releases: Set<RewardRelease>) {
+    public init(releases: Set<RewardRelease>, syrupVan: Bool = false) {
         self.releases = releases
+        self.syrupVan = syrupVan
     }
 
-    /// What this build ships: the M1 sleep loop and F1's Focus. F2 (phone-free mornings, bedtime kept, sleep sounds)
+    /// What this build ships: the M1 sleep loop, F1's Focus and the syrup van. F2 (phone-free mornings, bedtime kept, sleep sounds)
     /// hasn't shipped, so its categories are "Not earnable yet". Tests of the build before F1 use
-    /// `ShippedFeatures(releases: [.m1])`, and DEBUG demos show it with `-MapleDemoShip m1`.
-    public static let current = ShippedFeatures(releases: [.m1, .f1])
+    /// `ShippedFeatures(releases: [.m1])`, and DEBUG demos show it with `-MapleDemoShip m1`; `-MapleDemoShip f1` is the
+    /// app before the van.
+    public static let current = ShippedFeatures(releases: [.m1, .f1], syrupVan: true)
     /// Every release, for previews and tests of later screens.
-    public static let all = ShippedFeatures(releases: Set(RewardRelease.allCases))
+    public static let all = ShippedFeatures(releases: Set(RewardRelease.allCases), syrupVan: true)
 
     public func isShipped(_ category: RewardCategoryID) -> Bool {
         releases.contains(RewardCategoryInfo(category).release)

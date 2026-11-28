@@ -206,6 +206,9 @@ public enum FocusCopy {
             return "\(minutes) minutes saved so far. They stay yours either way."
         }
 
+        /// With the syrup van, a session ended before its timer runs out earns no leaves (syrup van design §2, §6.6).
+        public static let leavesLostLine = "Ending now loses this session's leaves."
+
         // The breath, then the question again (F1-32).
 
         /// Each half of a breath, in and out, as the emergency release's.
