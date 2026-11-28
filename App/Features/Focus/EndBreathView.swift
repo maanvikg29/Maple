@@ -33,6 +33,7 @@ struct EndBreathView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(FocusSessionStore.self) private var sessions
+    @Environment(CollectionStore.self) private var collection
     @Environment(SessionNotesStore.self) private var notes
     @Environment(SubjectStore.self) private var subjects
 
@@ -187,7 +188,7 @@ struct EndBreathView: View {
         return EndBreathModel(
             path: path, countedSeconds: sessions.countedSoFar(session.id),
             focusedSeconds: Int(max(0, now.timeIntervalSince(session.countdownStart))), canCount: session.plan.canCount,
-            seconds: seconds, reduceMotion: reduceMotion, locale: locale
+            seconds: seconds, reduceMotion: reduceMotion, losesLeaves: collection.context.features.syrupVan, locale: locale
         )
     }
 

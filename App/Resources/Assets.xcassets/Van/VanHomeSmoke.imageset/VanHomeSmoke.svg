@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -1120 1600 3460" width="1600" height="3460">
-<g id="chimney-smoke">
-  <path d="M861 516 C857.7 510 860 489 865 478 C870 467 887.7 461 891 450 C894.3 439 881.7 424.7 885 412 C888.3 399.4 899.3 382.4 911 374 C922.7 365.7 942 369 955 362 C968 355 975 335.7 989 332 C1003 328.4 1027.7 332 1039 340 C1050.3 348 1058.3 368 1057 380 C1055.7 392 1042.3 406 1031 412 C1019.7 418 1000.3 411 989 416 C977.7 421 973.3 436.4 963 442 C952.7 447.7 935.7 442.4 927 450 C918.3 457.7 918 477.4 911 488 C904 498.7 893.3 509.4 885 514 C876.7 518.7 864.3 522 861 516 Z" fill="#d9c7bb" stroke="#3a1c0e" stroke-width="4.5" stroke-linejoin="round" stroke-linecap="round"/>
-  <path d="M929 390 C935.3 389 956.7 388.7 967 384 C977.3 379.4 987 365.7 991 362" fill="none" stroke="#eadcd2" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>
-  <path d="M881 482 L901 460" fill="none" stroke="#eadcd2" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>
-</g>
-</svg>

@@ -26,15 +26,27 @@ struct VanCanvasTests {
         #expect(inside.x == 192.75 && inside.y == 266.25)
     }
 
-    @Test("The workshop's gauge lands where it is drawn")
-    func workshopGauge() {
-        let gauge = VanCanvas.workshop.point(x: 720, y: 881, width: 426, height: 923)
-        #expect(gauge.x == 360 && gauge.y == 440.5)
+    @Test("The pot on home's stove lands where the picture has it")
+    func homePot() {
+        let pot = VanCanvas.home.point(x: 764, y: 1220, width: 464, height: 1009)
+        #expect(pot.x == 191 && pot.y == 305)
+    }
+
+    @Test("Home is the concept picture at the top of a tall page: its full width, its corner at the screen's")
+    func homePicture() {
+        let canvas = VanCanvas.home
+        #expect(canvas.width == 1856 && VanCanvas.homePictureHeight == 2304)
+        // A phone's shape: the picture's width is the screen's, and the sky's colour carries on below it.
+        let scale = canvas.scale(width: 464, height: 1009)
+        #expect(scale == 0.25)
+        let corner = canvas.point(x: 0, y: 0, width: 464, height: 1009)
+        #expect(corner.x == 0 && corner.y == 0)
+        #expect(VanCanvas.homePictureHeight * scale < 1009 * 0.6)
     }
 
     @Test("A screen with no size places everything at the origin instead of dividing by nothing")
     func empty() {
-        let canvas = VanCanvas.workshop
+        let canvas = VanCanvas.home
         #expect(canvas.scale(width: 0, height: 0) == 0)
         let point = canvas.point(x: 720, y: 881, width: 0, height: 0)
         #expect(point.x == 0 && point.y == 0)

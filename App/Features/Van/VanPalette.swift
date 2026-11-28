@@ -1,7 +1,7 @@
 import MapleDesign
 import SwiftUI
 
-/// The van's colours, the same values the art is drawn with (`Scripts/art/vanart/core.py`).
+/// The van's colours, sampled from the concept picture.
 enum VanPalette {
     static let sky = Color(hex: 0xFFDDC2)
     static let outline = Color(hex: 0x3A1C0E)
@@ -77,23 +77,6 @@ struct VanBackButton: View {
                 .lineLimit(1)
                 .fixedSize()
                 .modifier(VanPlate())
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-/// A button with nothing drawn: the picture under it is the button (the pot, the logbook, the maple). The tap area is
-/// inside the label, because a button takes its taps from its label and a clear colour alone takes none.
-struct VanHotspot: View {
-    let width: CGFloat
-    let height: CGFloat
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Color.clear
-                .frame(width: max(44, width), height: max(44, height))
-                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
