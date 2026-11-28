@@ -100,7 +100,7 @@ public struct RevealOpenAllView: View {
                     .padding(.top, RevealLayout.headerInset)
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                Button("Place on your maple", action: onPlace)
+                Button(RevealCopy.place(theme.look), action: onPlace)
                     .buttonStyle(.moonlight)
                     .padding(.horizontal, theme.spacing.homeMargin)
                     .padding(.top, theme.spacing.sm)

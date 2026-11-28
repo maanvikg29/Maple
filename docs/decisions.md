@@ -2,6 +2,15 @@
 
 Newest first. Each entry: what was decided, why, and what it affects.
 
+## 2026-11-28 — No "your maple" left with the van; the first run ends at the van
+The owner: "there are still lot of hints of the old maple app remove and replace them all" and "why is there still a maple tree from the old version of the app". With the van, home is the van and no screen shows the member's maple, so:
+- **The reveal's last button** says "Add to your herbarium" instead of "Place on your maple", and VoiceOver says the leaves were added to the herbarium (`RevealCopy`). What the button does is unchanged.
+- **A leaf page** no longer offers "Feature on your maple": no screen shows a featured leaf with the van (Profile shows Pip).
+- **The first run** keeps its questions and primers (sleep's removal still needs its own spec), but after them the Sugar maple waits closed in the reveal ("Tap to open") instead of as a bud on the night-sky seedling, and "Add to your herbarium" brings in the van at once instead of the grafted seedling. The schedule step says "Saving it earns your first leaf."
+- **The first leaf's line**, for both looks, is "For setting up Maple" (was "For planting your maple"), and its rule "Finish setting up Maple."
+- **The launch screen** is the van's sky instead of the night's near-black, and every place fades in over that sky instead of the window's white. **The shade under the clock and battery** is now a light haze of the sky: with the light colour scheme they are dark, and the old dark shade made them harder to read on the canopy.
+Affects: `RevealCopy` (new), `RevealView`, `RevealOpenAllView`, `RevealFlow`, `LeafDetailView`, `PlantYourMapleView`, `SleepScheduleStep`, `RewardCategoryInfo`, `VanArrival`, `VanStatusShade` (new, in `VanPalette`), `LaunchBackground`.
+
 ## 2026-11-28 — Home's buttons are windows onto the picture; three looks for the top bar
 The owner: "the buttons look very ai and the hud at the top of screen give options to replace". The system symbols in outlined circles (a leaf, a drop, a flame, a book, a person, a clock, a wrench) are gone from home. Each button and counter now shows one thing from the concept picture in a round window with the picture's outline (`VanMedallion`, `HUD_ICONS` in the art script): the leaf basket for the leaves waiting, the syrup jug for the syrup, the stove's fire for the streak, a sky leaf for the Herbarium, Pip's face for Profile, the boiler's gauge for the study record, and the pegboard's tools for the machines. Nothing in them is drawn. Three looks for how they sit over the scene, for the owner to pick (`VanHud`, DEBUG `-MapleDemoHud`): `plates` (each number on a small cream plate; the default for now), `board` (one wooden board across the top and one along the bottom, drawn by Maple in the picture's wood), and `floating` (no plates; the numbers have a cream edge). The two not picked will be removed.
 Affects: `VanCounter`, `VanMedallion`, `VanHud`, `VanBoard`, `VanHomeView`, the `VanIcon…` image sets, `Scripts/art/concept/build_concept_art.py`.

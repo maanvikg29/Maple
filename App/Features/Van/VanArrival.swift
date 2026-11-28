@@ -63,15 +63,20 @@ private struct VanArrival: ViewModifier {
     func body(content: Content) -> some View {
         if collection.context.features.syrupVan {
             let moving = !arrived && !reduceMotion
-            content
-                .scaleEffect(moving ? style.scale : 1, anchor: style.anchor)
-                .offset(y: moving ? style.offset : 0)
-                .opacity(arrived ? 1 : 0)
-                .onAppear(perform: arrive)
-                .onChange(of: router.selectedTab) { old, new in
-                    if old == tab, new != tab { leave() }
-                    if new == tab, old != tab { arrive() }
-                }
+            ZStack {
+                // The sky stays put while the place comes in over it: without it the window's own white shows
+                // through the fade, and round the edges while the place is still small.
+                VanPalette.sky.ignoresSafeArea()
+                content
+                    .scaleEffect(moving ? style.scale : 1, anchor: style.anchor)
+                    .offset(y: moving ? style.offset : 0)
+                    .opacity(arrived ? 1 : 0)
+            }
+            .onAppear(perform: arrive)
+            .onChange(of: router.selectedTab) { old, new in
+                if old == tab, new != tab { leave() }
+                if new == tab, old != tab { arrive() }
+            }
         } else {
             content
         }

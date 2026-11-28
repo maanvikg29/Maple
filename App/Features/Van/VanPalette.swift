@@ -162,6 +162,19 @@ struct VanBoard: View {
     }
 }
 
+/// The top of a scene, under the system's clock and battery. With the van's light look those are dark, so a soft haze
+/// of the sky lifts the canopy behind them (a darker canopy leaves them about 3.6 : 1, the haze about 6 : 1).
+struct VanStatusShade: View {
+    var body: some View {
+        LinearGradient(colors: [VanPalette.sky.opacity(0.45), .clear], startPoint: .top, endPoint: .bottom)
+            .frame(height: 110)
+            .frame(maxHeight: .infinity, alignment: .top)
+            .ignoresSafeArea()
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+}
+
 extension View {
     /// The words and buttons over the scene grow with the member's text size up to the second accessibility size;
     /// past that they would cover the picture they sit on.

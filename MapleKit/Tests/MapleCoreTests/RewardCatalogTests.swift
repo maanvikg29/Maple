@@ -181,7 +181,8 @@ struct FocusCategoryTests {
         #expect(RewardCategoryInfo(.sessionsFinished).earnedLine(10) == "For 10 finished sessions")
         #expect(RewardCategoryInfo(.focusStreak).shortRule(7) == "7-day streak")
         #expect(RewardCategoryInfo(.restedNights).earnedLine(3) == "For 3 rested nights")
-        #expect(RewardCategoryInfo(.firstLeaf).earnedLine(1) == "For planting your maple")
+        #expect(RewardCategoryInfo(.firstLeaf).earnedLine(1) == "For setting up Maple")
+        #expect(RewardCategoryInfo(.firstLeaf).definition == "Finish setting up Maple.")
         #expect(RewardCategoryInfo(.sessionsFinished).definition
             == "A session you started that ran to its planned end, with at least 20 minutes and three quarters of it locked while you were awake. Up to 3 count a day.")
         #expect(RewardCategoryInfo(.focusStreak).definition

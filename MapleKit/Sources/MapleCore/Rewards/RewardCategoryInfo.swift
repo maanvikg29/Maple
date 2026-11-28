@@ -60,8 +60,9 @@ public struct RewardCategoryInfo: Sendable {
         switch id {
         case .firstLeaf:
             self.init(id, order: 0, requirement: .none, action: nil, release: .m1, designPace: 1,
-                      definition: "Plant your maple at the end of setup.",
-                      short: { _ in "Setup" }, earned: { _ in "For planting your maple" })
+                      // Not "plant your maple": with the van there is no maple on home (syrup van design).
+                      definition: "Finish setting up Maple.",
+                      short: { _ in "Setup" }, earned: { _ in "For setting up Maple" })
             return
         case .hoursSaved:
             self.init(id, order: 1, requirement: .screenTime, action: .startFocus, release: .f1, designPace: 1.9,

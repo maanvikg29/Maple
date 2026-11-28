@@ -96,12 +96,7 @@ struct VanTreeMomentView: View {
                 }
                 .ignoresSafeArea()
             }
-            // The system's clock and battery are white: a soft shade keeps them readable on the canopy.
-            LinearGradient(colors: [VanPalette.outline.opacity(0.35), .clear], startPoint: .top, endPoint: .bottom)
-                .frame(height: 110)
-                .frame(maxHeight: .infinity, alignment: .top)
-                .ignoresSafeArea()
-                .allowsHitTesting(false)
+            VanStatusShade()
         }
         .contentShape(Rectangle())
         .onTapGesture {

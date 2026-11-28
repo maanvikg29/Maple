@@ -95,7 +95,7 @@ struct VanHomeView: View {
                     }
                     // For VoiceOver, which can't tap a place in a picture: the maple, the pot and Pip. (The timer and
                     // the machines have their own buttons below.)
-                    spoken("Your maple", hint: "Opens your leaves", width: length(1000), height: length(900), action: onTree)
+                    spoken("Pip's maple", hint: "Opens your leaves", width: length(1000), height: length(900), action: onTree)
                         .position(canvas.point(500, 560, in: proxy.size))
                     spoken(
                         "Cooking pot", hint: model.potHint == nil ? "No leaves to cook" : "Cooks one leaf into syrup",
@@ -135,12 +135,7 @@ struct VanHomeView: View {
                 .sensoryFeedback(.impact(weight: .light), trigger: cooked)
             }
             .ignoresSafeArea()
-            // The system's clock and battery are white: a soft shade keeps them readable on the canopy.
-            LinearGradient(colors: [VanPalette.outline.opacity(0.35), .clear], startPoint: .top, endPoint: .bottom)
-                .frame(height: 110)
-                .frame(maxHeight: .infinity, alignment: .top)
-                .ignoresSafeArea()
-                .allowsHitTesting(false)
+            VanStatusShade()
             words
         }
         // Syrup cooked, or home from a finished session: a happy dance, unless he is in the middle of something.
