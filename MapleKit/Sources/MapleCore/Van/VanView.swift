@@ -61,25 +61,20 @@ public struct VanView: Sendable, Equatable {
     }
 }
 
-/// What a tap on home's picture does, by where it lands in the picture's own pixels.
+/// What a tap on home's picture does, by where it lands in the picture's own pixels. Only the pot and the boiler are
+/// buttons: a tap anywhere else in the van or the maple is only a touch on the picture (the owner, 28 Nov 2026: "if i
+/// tap anywhere randomly it accidentally opens the timer remove that"). The timer has its own button.
 public enum VanHomeTarget: Sendable, Equatable {
     /// The pot on the stove: cooks a leaf.
     case pot
     /// The boiler: the machines.
     case machines
-    /// The van: the timer.
-    case timer
-    /// The maple: the tree and its leaves.
-    case maple
 
     public static func at(x: Double, y: Double) -> VanHomeTarget? {
         guard x.isFinite, y.isFinite else { return nil }
         func within(_ x0: Double, _ y0: Double, _ x1: Double, _ y1: Double) -> Bool { x >= x0 && x <= x1 && y >= y0 && y <= y1 }
-        // Small things first: the pot and the boiler stand inside the van.
         if within(659, 1130, 869, 1310) { return .pot }
         if within(895, 980, 1085, 1280) { return .machines }
-        if within(180, 1060, 1580, 2060) { return .timer }
-        if within(0, 110, 1000, 1010) { return .maple }
         return nil
     }
 }

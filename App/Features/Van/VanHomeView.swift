@@ -113,18 +113,16 @@ struct VanHomeView: View {
                 .contentShape(Rectangle())
                 .gesture(SpatialTapGesture().onEnded { tap in
                     let at = canvas.source(x: tap.location.x, y: tap.location.y, width: proxy.size.width, height: proxy.size.height)
-                    // Pip first, wherever he has got to: he stands inside the van, whose tap is the timer.
+                    // Pip first, wherever he has got to: he can stand in front of the pot.
                     let moment = Self.moment()
                     if pipPlays, pip.scene(at: moment).pose.contains(x: at.x, y: at.y) {
                         pip.tapped(at: moment)
                         return
                     }
+                    // Only the pot and the boiler; the timer has its own button, so a stray tap never opens it.
                     switch VanHomeTarget.at(x: at.x, y: at.y) {
                     case .pot: onCook()
                     case .machines: onMachines()
-                    case .timer: onEnter()
-                    // The maple is only the picture: the van has no leaf types and no Herbarium.
-                    case .maple: break
                     case nil: break
                     }
                 })
@@ -237,26 +235,26 @@ struct VanHomeView: View {
             // One row when it fits, tighter when the numbers are long; at large text sizes the counters go above the
             // buttons.
             ViewThatFits(in: .horizontal) {
-                HStack(spacing: 8) {
+                HStack(spacing: 10) {
                     counters(compact: false)
                     Spacer(minLength: 0)
-                    buttons(compact: false)
+                    profile(size: 50)
                 }
                 HStack(spacing: 6) {
                     counters(compact: true)
                     Spacer(minLength: 0)
-                    buttons(compact: true)
+                    profile(size: 44)
                 }
                 VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 8) { counters(compact: false) }
-                    HStack(spacing: 8) { buttons(compact: false) }
+                    HStack(spacing: 8) {
+                        Spacer(minLength: 0)
+                        profile(size: 44)
+                    }
+                    counters(compact: true)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background { VanBoard() }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 14)
             .padding(.top, 8)
             .frame(maxHeight: .infinity, alignment: .top)
             GeometryReader { proxy in
@@ -326,64 +324,77 @@ struct VanHomeView: View {
         .padding(.horizontal, 24)
     }
 
-    @ViewBuilder
+    /// Home's big buttons along the bottom, drawn things rather than words (the owner, 28 Nov 2026: "increase the size
+    /// of the buttons down and instead set the timer add a clock and return to wind down we add zzz"): the study
+    /// record's notebook, the timer's clock on a wooden sign in the middle, and the machines' tools; in the evening,
+    /// wind-down's moon and Zs above the tools.
     private var enter: some View {
-        if let prompt {
-            Button(action: prompt.action) {
-                Text(prompt.title)
-                    .font(.system(.subheadline, design: .rounded).weight(.heavy))
-                    .foregroundStyle(VanPalette.outline)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                    .modifier(VanPlate())
-            }
-            .buttonStyle(.plain)
-            .padding(.bottom, 10)
-        }
-        HStack(spacing: 12) {
-            roundButton("VanIconGauge", label: "Study record", action: onHistory)
+        HStack(alignment: .bottom, spacing: 0) {
+            pictureButton("VanIconRecord", label: "Study record", size: 66, action: onHistory)
+            Spacer(minLength: 8)
             Button(action: onEnter) {
-                Text(model.enterTitle)
-                    .font(.system(.title3, design: .rounded).weight(.heavy))
-                    .foregroundStyle(VanPalette.outline)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                    .frame(maxWidth: 220)
-                    .modifier(VanPlate(fill: VanPalette.goldLight))
+                VanIcon(name: "VanIconClock", size: 88)
+                    .padding(.horizontal, 30)
+                    .padding(.vertical, 12)
+                    .background { VanBoard() }
+                    .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(VanPressStyle())
+            .accessibilityLabel(model.enterTitle)
             .accessibilityHint(model.enterHint)
-            roundButton("VanIconTools", label: "Machines", action: onMachines)
+            Spacer(minLength: 8)
+            VStack(spacing: 8) {
+                if let prompt {
+                    pictureButton("VanIconSleep", label: prompt.title, size: 58, action: prompt.action)
+                        .transition(.scale.combined(with: .opacity))
+                }
+                pictureButton("VanIconTools", label: "Machines", size: 66, action: onMachines)
+            }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background { VanBoard() }
-        .padding(.horizontal, 16)
-        .padding(.bottom, 20)
+        .padding(.horizontal, 22)
+        .padding(.bottom, 14)
     }
 
     @ViewBuilder
     private func counters(compact: Bool) -> some View {
         if let leaves = model.leavesText { VanCounter(value: leaves, icon: "VanIconBasket", label: "leaves", compact: compact) }
         if let syrup = model.syrupText { VanCounter(value: syrup, icon: "VanIconJug", label: "bottles of syrup", compact: compact) }
-    }
-
-    @ViewBuilder
-    private func buttons(compact: Bool) -> some View {
         if streak >= 2 {
             Button(action: onStreak) { VanCounter(value: "\(streak)", icon: "VanIconFire", label: "day streak", compact: compact) }
-                .buttonStyle(.plain)
+                .buttonStyle(VanPressStyle())
         }
-        roundButton("VanIconPip", label: "Profile and settings", action: onProfile)
     }
 
-    /// A round window onto the picture, as a button.
-    private func roundButton(_ icon: String, label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            VanMedallion(name: icon, size: 44)
+    /// Pip's face, on its own at the top right: the profile and settings.
+    private func profile(size: CGFloat) -> some View {
+        Button(action: onProfile) {
+            VanMedallion(name: "VanIconPip", size: size)
                 .contentShape(Circle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(VanPressStyle())
+        .accessibilityLabel("Profile and settings")
+    }
+
+    /// A drawn thing standing on its own as a button, like the things in the picture.
+    private func pictureButton(_ icon: String, label: String, size: CGFloat, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VanIcon(name: icon, size: size)
+                .frame(width: max(44, size), height: max(44, size))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(VanPressStyle())
         .accessibilityLabel(label)
+    }
+}
+
+/// A drawn button pressed: it sinks a little, as a thing pushed with a finger.
+struct VanPressStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.93 : 1)
+            .opacity(configuration.isPressed && reduceMotion ? 0.7 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
