@@ -50,17 +50,21 @@ struct HomeView: View {
         // it inside a phase for DEBUG demos.
         TimelineView(.periodic(from: timelineStart, by: everySecond ? 1 : 60)) { timeline in
             let now = clock.date(forTimeline: timeline.date)
+            let focus = focusStatus()
             let content = HomeContent(
                 collection: collection, now: now, bedside: bedside.state(at: now, collection: collection),
                 lastNight: sleep.lastNightSleep(at: now), noSleepHint: sleep.showsNoSleepHint(at: now),
-                focus: focusStatus(), provisionalSeconds: provisionalSeconds()
+                focus: focus, provisionalSeconds: provisionalSeconds()
             )
             Group {
                 if collection.context.features.syrupVan {
                     // The van is home (syrup van design §5.1). The sheets, covers and requests below stay this view's.
                     VanSceneView(
-                        now: now, streak: content.streak, prompt: vanPrompt(content.state.action), onProfile: { sheet = .profile },
-                        onTree: { cover = .tree(focusing: nil) }, onStreak: { sheet = .streak }
+                        now: now, streak: content.streak, prompt: vanPrompt(content.state.action),
+                        // Only time that counts is saved: as the tree home's numeral, once blocking is ready.
+                        savedTodaySeconds: focus.map { $0.blocking == .ready ? $0.savedTodaySeconds : 0 } ?? 0,
+                        onProfile: { sheet = .profile }, onTree: { cover = .tree(focusing: nil) }, onStreak: { sheet = .streak },
+                        onSavedToday: { sheet = .savedToday }
                     )
                 } else {
                     GeometryReader { proxy in

@@ -14,6 +14,10 @@ public struct VanHomeModel: Sendable, Equatable {
     public let enterHint: String
     /// A second line under the status when the pot has something to cook; nil otherwise, and while a session runs.
     public let potHint: String?
+    /// "1h 20m saved today", under the time; nil under a minute, and while a session runs (its own line says so).
+    public let savedToday: String?
+    /// The same, in whole minutes, for VoiceOver to read in words.
+    public let savedTodayMinutes: Int?
 
     /// - Parameters:
     ///   - hour: The hour on the clock, 0 to 23. Before the evening the greeting follows it: the schedule's "day"
@@ -22,7 +26,11 @@ public struct VanHomeModel: Sendable, Equatable {
     ///   - syrupTenths: `WorkshopStore.syrupTenths`.
     ///   - isAvailable: `WorkshopStore.isAvailable`.
     ///   - minutesLeft: The running session's minutes left; nil when none runs.
-    public init(phase: NowPhase, hour: Int, leaves: Int, syrupTenths: Int, isAvailable: Bool, minutesLeft: Int?) {
+    ///   - savedTodaySeconds: Time saved today (`FocusStatus.savedTodaySeconds`): 0 when nothing counts.
+    public init(
+        phase: NowPhase, hour: Int, leaves: Int, syrupTenths: Int, isAvailable: Bool, minutesLeft: Int?,
+        savedTodaySeconds: Int = 0
+    ) {
         greeting = switch phase {
         case .morning, .day: hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening"
         case .evening: "Good evening"
@@ -44,6 +52,9 @@ public struct VanHomeModel: Sendable, Equatable {
             }
         }
         enterTitle = minutesLeft == nil ? "Set the timer" : "Return to session"
+        let savedMinutes = max(0, savedTodaySeconds) / 60
+        savedTodayMinutes = minutesLeft == nil && savedMinutes > 0 ? savedMinutes : nil
+        savedToday = savedTodayMinutes.map { "\(FocusTimeText.length(minutes: $0)) saved today" }
         leavesText = isAvailable ? "\(max(0, leaves))" : nil
         let tenths = max(0, syrupTenths)
         syrupText = isAvailable ? "\(tenths / 10).\(tenths % 10)" : nil

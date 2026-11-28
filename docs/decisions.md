@@ -2,6 +2,10 @@
 
 Newest first. Each entry: what was decided, why, and what it affects.
 
+## 2026-11-28 — The van's home shows today's saved time
+The owner chose "saved today" on home and the next leaf in the Herbarium (which already has it, in its "Almost there" rail). Under the clock, "1h 20m saved today ›" shows once a minute has been saved today, as the tree home's numeral did (only once blocking is ready); a tap opens Saved today. It is left off while a session runs, whose own line says how long is left. The tree home's next-leaf row has no place on the van's home: beside "leaves waiting to cook" it would read as the same kind of leaf.
+Affects: `VanHomeModel.savedToday`, `VanHomeView`, `VanSceneView`, `HomeView`.
+
 ## 2026-11-28 — Pip is alive at home: nine playful things, in his own pixels
 The owner: "pip has no animations also like playful animation doing random stuff", then picked all eight ideas shown and added "him randomly raking up leafs".
 - **What he does.** Always: he breathes, his tail swishes, one ear flicks. Tapped: he hops and hearts pop. Syrup cooked, or home after a finished session: a happy dance. Every 20 to 40 seconds, one of six at random, never the same twice running: juggles three leaves, runs out and jumps for a falling leaf, naps by the cat (a tap wakes him), leaps into the leaf basket and pops up with a leaf on his head, twirls his ladle, rakes the fallen leaves into a pile. While a session runs he only stands and breathes (he is at the maple then), and with Reduce Motion he is the picture as it is.
