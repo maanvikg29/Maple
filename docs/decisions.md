@@ -2,6 +2,10 @@
 
 Newest first. Each entry: what was decided, why, and what it affects.
 
+## 2026-11-28 — Home's icons are drawn, not windows onto the picture
+The round crops of the picture looked like screenshots of the van (the owner: "the icons of the maple syrup and the leafs just look like a screenshot of the ones in the van fix that same with pip"). Shown cut-outs of the picture's objects beside icons drawn in its look, the owner picked the drawn ones ("B looks better"), with Pip's face made more like him. `Scripts/art/icons/build_van_icons.py` draws them: a wicker basket of leaves, a syrup jug, a flame, Pip's face with his tail, a clock and crossed tools. Counters show the icon alone; buttons put it on a cream disc. The crop step is gone from the concept art script, and the unused pot and lantern crops are deleted. (The leaf crop stays until the Herbarium's button goes.)
+Affects: `VanIcon` (new), `VanMedallion`, `VanCounter`, `VanUpgradesView`, `VanIcon…` image sets, `Scripts/art/concept/build_concept_art.py`; comparison sheet `docs/design/art/2026-11-28-van-alive/icons-compare.jpg`.
+
 ## 2026-11-28 — Home's picture never shows its edge; the pot's steam moves
 Pinching home smaller than the screen showed the picture's hard edges, the maple cut off mid-canopy (the owner: "why is this tree ending it should be smooth and continued"). Now, even while the fingers are down, the picture is never smaller than the screen and stops where its edge meets the screen's; only past the closest zoom does it still give a little. The steam over the pot was the picture's own paint and never moved ("the smoke isnt moving in the cooking pot"): its three clean puffs are cut out (`pot_steam`) and swell and settle in place, and copies of one rise off the pot, growing and fading. The soft glows that stood in for steam are gone.
 Affects: `VanView.shown`, `VanAmbience.steamSwell`, `VanAmbientLayer`, `Scripts/art/concept/build_concept_art.py`, `VanAmbSteam0…2`.

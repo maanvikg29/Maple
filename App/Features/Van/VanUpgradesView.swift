@@ -31,7 +31,7 @@ struct VanUpgradesView: View {
                         Text(model.yieldText)
                             .font(.system(.headline, design: .rounded).weight(.bold))
                         HStack(spacing: 6) {
-                            VanMedallion(name: "VanIconBasket", size: 24)
+                            VanIcon(name: "VanIconBasket", size: 26)
                             Text(model.leavesText)
                         }
                         .font(.system(.subheadline, design: .rounded).weight(.semibold))

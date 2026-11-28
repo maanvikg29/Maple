@@ -843,23 +843,6 @@ def pot_steam(van):
     return out
 
 
-# ---------- the buttons' pictures ----------
-
-# Round windows onto the picture for the buttons and counters over the scene: each a square of the picture, centred
-# on one thing in it, which the app shows in a circle with the picture's outline. Nothing is drawn.
-HUD_ICONS = {"Basket": (317, 1770, 212), "Jug": (488, 1408, 122), "Fire": (848, 1404, 104), "Leaf": (1548, 474, 140),
-             "Pip": (1200, 1468, 142), "Gauge": (1003, 1166, 72), "Tools": (482, 1250, 132), "Pot": (765, 1215, 170),
-             "Lantern": (1148, 1182, 150)}
-
-
-def hud_icons(van):
-    out = {}
-    for name, (cx, cy, size) in HUD_ICONS.items():
-        box = (round(cx - size / 2), round(cy - size / 2), round(cx + size / 2), round(cy + size / 2))
-        out["VanIcon" + name] = van.crop(box).resize((144, 144), Image.LANCZOS)
-    return out
-
-
 # ---------- writing ----------
 
 def imageset(name, filename, image=None, copy=None, quality=None):
@@ -906,8 +889,6 @@ def main():
     pieces.update(props())
     for name, piece in pieces.items():
         imageset(name, name.lower() + ".png", piece)
-    for name, icon in hud_icons(van).items():
-        imageset(name, name.lower() + ".png", icon)
     ambience = home_ambience(van)
     ambience.update(pot_steam(van))
     for name, (piece, box) in ambience.items():

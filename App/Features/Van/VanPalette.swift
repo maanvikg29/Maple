@@ -49,7 +49,7 @@ struct VanCounter: View {
 
     var body: some View {
         HStack(spacing: 5) {
-            VanMedallion(name: icon, size: compact ? 26 : 30)
+            VanIcon(name: icon, size: compact ? 28 : 32)
             number
         }
         .accessibilityElement(children: .ignore)
@@ -66,8 +66,21 @@ struct VanCounter: View {
     }
 }
 
-/// A round window onto the concept picture, centred on one thing in it (`HUD_ICONS` in the art script), with the
-/// picture's own outline round it: the buttons' and counters' pictures.
+/// One of home's drawn icons (`Scripts/art/icons/build_van_icons.py`), on its own: the counters' pictures.
+struct VanIcon: View {
+    let name: String
+    var size: CGFloat = 30
+
+    var body: some View {
+        Image(name)
+            .resizable()
+            .scaledToFit()
+            .frame(width: size, height: size)
+            .accessibilityHidden(true)
+    }
+}
+
+/// A drawn icon on a cream disc with the picture's outline: the round buttons on home's board.
 struct VanMedallion: View {
     let name: String
     var size: CGFloat = 44
@@ -75,9 +88,10 @@ struct VanMedallion: View {
     var body: some View {
         Image(name)
             .resizable()
-            .scaledToFill()
+            .scaledToFit()
+            .padding(size * 0.13)
             .frame(width: size, height: size)
-            .clipShape(Circle())
+            .background(VanPalette.cream, in: Circle())
             .overlay(Circle().strokeBorder(VanPalette.outline, lineWidth: size >= 34 ? 2.5 : 2))
             .accessibilityHidden(true)
     }
