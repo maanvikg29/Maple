@@ -64,7 +64,7 @@ struct FocusView: View {
                 guard collection.context.features.syrupVan, case .receipt = old, new == .start || new == .needsScreenTime else { return }
                 router.selectedTab = .home
             }
-            // Still stars and a low glow in the season's tint (F1-34).
+            // Still stars and a low glow in the season's tint (F1-34); with the van, its plain sky.
             .background { FocusSky().ignoresSafeArea() }
             .background(theme.colors.background)
             .toolbarVisibility(.hidden, for: .navigationBar)

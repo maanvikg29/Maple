@@ -78,7 +78,7 @@ private struct FilterChipBody: View {
             .frame(minHeight: 32)
             .background {
                 if isSelected {
-                    capsule.fill(.white.opacity(0.14))
+                    capsule.fill(theme.look == .van ? theme.colors.textPrimary.opacity(0.12) : .white.opacity(0.14))
                         .overlay { capsule.strokeBorder(theme.topLitHairline(theme.selectedHairline), lineWidth: 1) }
                 } else {
                     capsule.fill(theme.colors.chipFill)

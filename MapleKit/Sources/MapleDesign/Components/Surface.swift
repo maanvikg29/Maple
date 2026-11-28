@@ -42,8 +42,15 @@ private struct SurfaceModifier: ViewModifier {
                     shape.fill(pressed ? theme.colors.surface2 : theme.colors.surface1)
                 }
                 .overlay {
-                    shape.strokeBorder(theme.topLitHairline, lineWidth: theme.elevation.hairlineWidth)
-                        .allowsHitTesting(false)
+                    // The van's plates have the picture's solid outline; the night's tiles are lit from the top.
+                    Group {
+                        if theme.look == .van {
+                            shape.strokeBorder(theme.colors.hairlineTop, lineWidth: theme.elevation.hairlineWidth)
+                        } else {
+                            shape.strokeBorder(theme.topLitHairline, lineWidth: theme.elevation.hairlineWidth)
+                        }
+                    }
+                    .allowsHitTesting(false)
                 }
         case .level2:
             content
@@ -82,7 +89,7 @@ extension Theme {
     /// The hairline on selected chips and segment thumbs (spec §7.3): white 14%, 6 points above `hairlineTop`,
     /// so it rises with it under Increase Contrast (8% → 24% gives 30%).
     var selectedHairline: Color {
-        .white.opacity(max(0.14, colors.hairlineTop.opacityValue + 0.06))
+        look == .van ? colors.hairlineTop : .white.opacity(max(0.14, colors.hairlineTop.opacityValue + 0.06))
     }
 }
 

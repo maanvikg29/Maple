@@ -14,8 +14,11 @@ public enum ReminderInputs {
         runningSession: ReminderPlan.RunningSession?, lastSessionStart: Date?, now: Date, locale: Locale
     ) -> ReminderPlan {
         let calendar = collection.context.calendar
+        var switches = settings.reminders
+        // With the van Maple has no sleep feature (the owner, 28 Nov 2026), so no wind-down reminder.
+        if collection.context.features.syrupVan { switches.windDown = false }
         return ReminderPlan(.init(
-            nights: UpcomingNight.nights(for: schedule.weekly, around: now, calendar: calendar), settings: settings.reminders,
+            nights: UpcomingNight.nights(for: schedule.weekly, around: now, calendar: calendar), settings: switches,
             windDownOpenedAt: windDownOpenedAt, now: now, calendar: calendar, locale: locale, schedule: schedule.weekly,
             runningSession: runningSession, lastSessionStart: lastSessionStart
         ))

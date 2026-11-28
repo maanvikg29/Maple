@@ -148,14 +148,21 @@ private struct ThemedRoot: View {
     /// The moment the season was last read for; nil until the first foreground.
     @State private var seasonDate: Date?
 
+    /// The syrup van's warm theme when the van is home, otherwise the night's.
+    private var theme: Theme {
+        if collection.context.features.syrupVan { return contrast == .increased ? .vanIncreasedContrast : .van }
+        return contrast == .increased ? .mapleIncreasedContrast : .maple
+    }
+
     var body: some View {
         RootView(firstRun: launch.firstRun)
             .id(launch.generation)
             .reminderUpkeep()
             .focusUpkeep()
-            .environment(\.theme, contrast == .increased ? .mapleIncreasedContrast : .maple)
+            .environment(\.theme, theme)
             .environment(\.season, collection.season(at: seasonDate ?? clock.now()))
-            .preferredColorScheme(.dark)
+            // The van's screens are light (its picture's sky); the night's are dark.
+            .preferredColorScheme(collection.context.features.syrupVan ? .light : .dark)
             .task(id: scenePhase) {
                 guard scenePhase == .active else { return }
                 seasonDate = clock.now()

@@ -96,7 +96,9 @@ public struct SpecimenView: View {
             .overlay {
                 // Frost leaves carry a thin white rim from 14pt up (spec §6.1).
                 if colourway.hasFrostRim(for: species) && size >= 14 {
-                    LeafView(species, style: .skeleton(stroke: .white.opacity(0.4), vein: .clear, outlineWidth: 0.75))
+                    LeafView(species, style: .skeleton(
+                        stroke: theme.look == .van ? theme.colors.skeletonStroke : .white.opacity(0.4), vein: .clear, outlineWidth: 0.75
+                    ))
                         .frame(width: size, height: size)
                 }
             }

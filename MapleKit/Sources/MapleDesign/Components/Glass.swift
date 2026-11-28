@@ -25,7 +25,8 @@ private struct GlassSurface<S: InsettableShape>: ViewModifier {
 
     func body(content: Content) -> some View {
         Group {
-            if reduceTransparency || drawsGlassAsSolid {
+            // The van draws no glass: its plates are solid cream, outlined like the picture's.
+            if reduceTransparency || drawsGlassAsSolid || theme.look == .van {
                 content.background { shape.fill(theme.colors.surface2) }
             } else {
                 content.glassEffect(.regular.tint(theme.colors.glassTint), in: shape)

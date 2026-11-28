@@ -282,7 +282,17 @@ struct ReminderSettingsTests {
                                        runningSession: running, lastSessionStart: nil, now: at(2026, 10, 12, 14),
                                        locale: Locale(identifier: "en_GB"))
         #expect(plan.requests.contains { $0.kind == .sessionEnd })
-        #expect(plan.requests.contains { $0.kind == .windDown })
+        // The shipped build is the van's, which has no wind-down; the build before it had one.
+        #expect(!plan.requests.contains { $0.kind == .windDown })
+        var night = testContext
+        night.features = ShippedFeatures(releases: [.m1, .f1], syrupVan: false)
+        let before = CollectionStore(storage: JSONStorage(.memory), context: night, now: at(2026, 10, 12, 9))
+        let beforePlan = ReminderInputs.plan(
+            collection: before, schedule: ScheduleStore(storage: JSONStorage(.memory), collection: before), settings: settings,
+            windDownOpenedAt: nil, runningSession: running, lastSessionStart: nil, now: at(2026, 10, 12, 14),
+            locale: Locale(identifier: "en_GB")
+        )
+        #expect(beforePlan.requests.contains { $0.kind == .windDown })
     }
 
     @Test("A settings file from before the reminders existed turns wind-down on")

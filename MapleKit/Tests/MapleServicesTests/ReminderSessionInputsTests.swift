@@ -16,8 +16,10 @@ private final class InputsHarness {
     let six = AppSet(id: AppSet.distractionsID, name: "Distractions", selection: Data("six".utf8),
                      summary: SelectionSummary(mode: .blockThese, apps: 6, sites: 0, categories: 0))
 
-    init() {
-        collection = CollectionStore(storage: JSONStorage(.memory), context: testContext, now: at(2026, 10, 1, 9))
+    init(features: ShippedFeatures = .current) {
+        var context = testContext
+        context.features = features
+        collection = CollectionStore(storage: JSONStorage(.memory), context: context, now: at(2026, 10, 1, 9))
         collection.raise(.firstLeaf, to: 1, at: at(2026, 10, 1, 9))
         collection.openReveals(at: at(2026, 10, 1, 9, 5))
         schedule = ScheduleStore(storage: JSONStorage(.memory), collection: collection)
@@ -48,13 +50,24 @@ private final class InputsHarness {
 struct ReminderSessionInputsTests {
     @Test("Nothing is planned before the store's first replay, so a pending end is never removed")
     func waitsForReplay() async throws {
-        let h = InputsHarness()
+        // The build before the van, which still has wind-down.
+        let h = InputsHarness(features: ShippedFeatures(releases: [.m1, .f1], syrupVan: false))
         #expect(!h.sessions.isLedgerReadable)
         #expect(h.plan() == nil)
         await h.sessions.refresh()
         let plan = try #require(h.plan())
         #expect(plan.requests.contains { $0.kind == .windDown })
         #expect(!plan.requests.contains { $0.kind == .sessionEnd })
+    }
+
+    @Test("With the van there is no wind-down reminder, whatever the switch says: Maple has no sleep feature now")
+    func noWindDownWithTheVan() async throws {
+        let h = InputsHarness()
+        #expect(h.collection.context.features.syrupVan)
+        #expect(h.settings.windDownReminder)
+        await h.sessions.refresh()
+        let plan = try #require(h.plan())
+        #expect(!plan.requests.contains { $0.kind == .windDown })
     }
 
     @Test("A running session's end is planned at its planned end, named by its id")

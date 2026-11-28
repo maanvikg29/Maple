@@ -44,10 +44,19 @@ public struct FocusSky: View {
     public init() {}
 
     public var body: some View {
+        // The van's screens have its plain sky: no stars, no glow.
+        if theme.look == .van {
+            theme.colors.background
+        } else {
+            night
+        }
+    }
+
+    private var night: some View {
         let star = theme.colors.textPrimary
         let tint = theme.colors.seasonTint(season)
         let background = theme.colors.background
-        Canvas { context, size in
+        return Canvas { context, size in
             context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(background))
             // The glow: widest at the foot, gone by two fifths of the way up.
             let centre = CGPoint(x: size.width / 2, y: size.height * 1.08)
