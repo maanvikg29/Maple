@@ -44,25 +44,53 @@ public enum VanAmbience {
         }
     }
 
-    // MARK: The leaves already in the sky
+    // MARK: The leaves the picture paints in mid-air
 
-    /// The concept's leaves that hang in the open sky (not over the canopy), in the order of `skyLeafBoxes`.
-    public static let skyLeafCount = 4
+    /// The concept's leaves painted in mid-air: four in the open sky, then three over the canopy (`PAINTED_LEAVES` in
+    /// the art script).
+    public static let paintedLeafCount = 7
 
-    public struct Drift: Sendable, Equatable {
+    public struct Hanging: Sendable, Equatable {
+        /// From where the picture has it, in its pixels.
         public let dx: Double
         public let dy: Double
         public let turn: Double
+        public let opacity: Double
     }
 
-    /// A slow, small loop about where the picture has it.
-    public static func skyLeaf(_ index: Int, at time: Double) -> Drift {
+    /// A painted leaf now (the owner, 28 Nov 2026: "there are still frozen leaves in the air"). It swings where the
+    /// picture has it; now and then it lets go and falls, turning and fading, and a little later it is back in its
+    /// place, fading in. At the start every leaf is where it is drawn.
+    public static func paintedLeaf(_ index: Int, at time: Double) -> Hanging {
         let t = clock(time)
         let i = Double(index)
-        let period = 4.2 + 1.3 * i
-        let phase = 1.7 * i
-        let angle = 2 * .pi * t / period + phase
-        return Drift(dx: 9 * sin(angle * 0.5 + i), dy: 11 * sin(angle), turn: 0.22 * sin(angle + 0.8))
+        let swingX = 7 * sin(2 * .pi * t / (3.3 + 0.4 * i) + i)
+        let swingY = 9 * sin(2 * .pi * t / (4.1 + 0.5 * i) + 1.7 * i)
+        let swingTurn = 0.28 * sin(2 * .pi * t / (2.6 + 0.3 * i) + 0.8 * i)
+        // One long beat for all of them, like a gust passing through: each lets go in its turn, about two seconds
+        // apart, so no more than a few are ever falling. Hanging, then falling, then gone, then fading back in.
+        let turnOrder = [0, 3, 5, 1, 6, 2, 4]
+        let order = Double(turnOrder[((index % 7) + 7) % 7])
+        let u = frac(t / 26 + 0.52 - 0.07 * order)
+        let letGo = 0.64
+        let landed = 0.84
+        if u < letGo {
+            return Hanging(dx: swingX, dy: swingY, turn: swingTurn, opacity: 1)
+        }
+        if u < landed {
+            let f = (u - letGo) / (landed - letGo)
+            let side = index.isMultiple(of: 2) ? 1.0 : -1.0
+            return Hanging(
+                dx: swingX + side * (110 * f + 26 * sin(3 * .pi * f)), dy: swingY + 560 * pow(f, 1.4),
+                turn: swingTurn + side * (1.6 * f + 0.5 * sin(6 * .pi * f)), opacity: 1 - smoothstep(0.55, 1, f)
+            )
+        }
+        return Hanging(dx: swingX, dy: swingY, turn: swingTurn, opacity: smoothstep(0.9, 1, u))
+    }
+
+    private static func smoothstep(_ a: Double, _ b: Double, _ x: Double) -> Double {
+        let t = min(1, max(0, (x - a) / (b - a)))
+        return t * t * (3 - 2 * t)
     }
 
     // MARK: Smoke and steam

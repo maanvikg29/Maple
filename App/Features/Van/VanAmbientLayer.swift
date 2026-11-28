@@ -27,7 +27,15 @@ struct VanAmbientLayer: View {
     private static let smokeCloud: Box = (1040, 334, 1200, 466)
     private static let smokeCloudMiddle = (x: 1124.0, y: 400.0)
     private static let flag: Box = (1167, 512, 1292, 594)
-    private static let skyLeaves: [Box] = [(1290, 262, 1406, 372), (1490, 420, 1610, 540), (1640, 770, 1740, 880), (40, 925, 200, 1075)]
+    /// The leaves painted in mid-air, in the order of `VanAmbience.paintedLeaf`: four over the sky, three over the canopy.
+    private static let paintedLeaves: [(name: String, box: Box)] = [
+        ("VanAmbSkyLeaf0", (1290, 262, 1406, 372)), ("VanAmbSkyLeaf1", (1490, 420, 1610, 540)),
+        ("VanAmbSkyLeaf2", (1640, 770, 1740, 880)), ("VanAmbSkyLeaf3", (40, 925, 200, 1075)),
+        ("VanAmbCanopyLeaf0", (546, 82, 672, 200)), ("VanAmbCanopyLeaf1", (64, 155, 200, 298)),
+        ("VanAmbCanopyLeaf2", (276, 255, 415, 402)),
+    ]
+    /// A stray stroke near the canopy's top, painted out (`CANOPY_MARK`).
+    private static let canopyMark: Box = (286, 6, 386, 88)
     private static let pennants: [Box] = [(550, 696, 616, 773), (622, 724, 690, 795), (700, 736, 770, 805), (779, 723, 847, 796), (854, 697, 919, 774)]
     private static let fire: Box = (808, 1366, 888, 1438)
     private static let flame: Box = (1132, 1198, 1164, 1236)
@@ -61,12 +69,15 @@ struct VanAmbientLayer: View {
     // MARK: Under Pip
 
     private func drawBehind(_ paint: Painter) {
-        // The sky leaves drift a little round their places.
-        for (index, box) in Self.skyLeaves.enumerated() {
-            let drift = VanAmbience.skyLeaf(index, at: time)
-            paint.image("VanAmbSkyLeaf\(index)Gap", in: box)
+        // The leaves painted in mid-air, over the sky and over the canopy, swing where they hang; now and then one lets
+        // go and falls, and later it is back.
+        paint.image("VanAmbCanopyMarkGap", in: Self.canopyMark)
+        for (index, leaf) in Self.paintedLeaves.enumerated() {
+            let now = VanAmbience.paintedLeaf(index, at: time)
+            let box = leaf.box
+            paint.image(leaf.name + "Gap", in: box)
             let middle = (x: (box.x0 + box.x1) / 2, y: (box.y0 + box.y1) / 2)
-            paint.image("VanAmbSkyLeaf\(index)", in: box, about: middle, turn: drift.turn, offset: (drift.dx, drift.dy))
+            paint.image(leaf.name, in: box, about: middle, turn: now.turn, offset: (now.dx, now.dy), opacity: now.opacity)
         }
 
         // Smoke: the picture's own wisp leans with the wind about the chimney's top, and puffs of its cloud (the

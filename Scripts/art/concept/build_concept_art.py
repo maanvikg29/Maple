@@ -810,6 +810,53 @@ def home_ambience(van):
     return out
 
 
+# The leaves the picture paints in mid-air over the canopy (the four over the sky are in AMBIENT_BOXES). Each is cut
+# along its own outline, and the canopy behind it is carried in from round it (its flat colours, spread smoothly), so
+# the leaf can swing, let go and fall (`VanAmbience.paintedLeaf`).
+CANOPY_LEAVES = [((556, 92, 662, 190), [(610, 140), (590, 128), (632, 150), (600, 165)]),
+                 ((74, 165, 190, 288), [(130, 230), (110, 214), (160, 222), (125, 255)]),
+                 ((286, 265, 405, 392), [(345, 320), (322, 306), (372, 330), (340, 350)])]
+
+CANOPY_MARK = (286, 6, 386, 88)
+
+
+def spread_in(pixels, hole, rounds=600):
+    """The hole's pixels carried in smoothly from the ones round it."""
+    out = pixels.astype(np.float32).copy()
+    out[hole] = out[~hole].mean(axis=0)
+    for _ in range(rounds):
+        around = (np.roll(out, 1, 0) + np.roll(out, -1, 0) + np.roll(out, 1, 1) + np.roll(out, -1, 1)) / 4
+        out[hole] = around[hole]
+    return out
+
+
+def canopy_leaves(van):
+    out = {}
+    for index, (box, seeds) in enumerate(CANOPY_LEAVES):
+        pad = 10
+        wide = (box[0] - pad, box[1] - pad, box[2] + pad, box[3] + pad)
+        pixels = np.asarray(van.crop(wide))
+        mask = outlined(pixels, [(x - wide[0], y - wide[1]) for x, y in seeds], reach=6)
+        piece = van.crop(wide).convert("RGBA")
+        piece.putalpha(as_image(mask).filter(ImageFilter.GaussianBlur(0.7)))
+        hole = grow(mask, 3)
+        filled = spread_in(pixels, hole)
+        gap = Image.fromarray(np.clip(filled, 0, 255).astype(np.uint8)).convert("RGBA")
+        gap.putalpha(as_image(grow(mask, 4)).filter(ImageFilter.GaussianBlur(1.2)))
+        out[f"VanAmbCanopyLeaf{index}"] = (piece, wide)
+        out[f"VanAmbCanopyLeaf{index}Gap"] = (gap, wide)
+    # A stray stroke near the canopy's top, the outline of half a leaf with nothing in it: painted out for good.
+    box = CANOPY_MARK
+    pixels = np.asarray(van.crop(box))
+    a = pixels.astype(np.int32)
+    luma = (a[..., 0] * 299 + a[..., 1] * 587 + a[..., 2] * 114) // 1000
+    hole = grow(luma < 150, 3)
+    gap = Image.fromarray(np.clip(spread_in(pixels, hole), 0, 255).astype(np.uint8)).convert("RGBA")
+    gap.putalpha(as_image(grow(hole, 1)).filter(ImageFilter.GaussianBlur(1.2)))
+    out["VanAmbCanopyMarkGap"] = (gap, box)
+    return out
+
+
 # The steam the picture paints over the pot: three clean puffs above it (the two lower ones touch the pot's rim and
 # stay as they are). Each is cut along its own light edge, so the app can swell it in place and send copies of the
 # biggest rising off the pot (`VanAmbience.steamSwell`, `steam`).
@@ -891,6 +938,7 @@ def main():
         imageset(name, name.lower() + ".png", piece)
     ambience = home_ambience(van)
     ambience.update(pot_steam(van))
+    ambience.update(canopy_leaves(van))
     for name, (piece, box) in ambience.items():
         imageset(name, name.lower() + ".png", piece)
     print("ambient boxes:", {name: box for name, (_, box) in ambience.items() if not name.endswith("Gap")})

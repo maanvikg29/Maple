@@ -2,6 +2,10 @@
 
 Newest first. Each entry: what was decided, why, and what it affects.
 
+## 2026-11-28 — No leaf hangs still in the air
+The owner: "there are still frozen leaves in the air". Home's picture paints seven leaves in mid-air: four over the sky (they only drifted a few pixels) and three over the canopy (they never moved), plus a stray half-leaf stroke near the top. Now all seven swing where they hang, and in turn, one about every two seconds like a gust going through, each lets go, falls turning and fading, and later fades back in at its place (`VanAmbience.paintedLeaf`, replacing `skyLeaf`). The canopy behind each is carried in from round it (`canopy_leaves` in the art script), and the stray stroke is painted out.
+Affects: `VanAmbience`, `VanAmbientLayer`, `Scripts/art/concept/build_concept_art.py`, `VanAmbCanopyLeaf0…2`, `VanAmbCanopyMarkGap`.
+
 ## 2026-11-28 — Home's icons are drawn, not windows onto the picture
 The round crops of the picture looked like screenshots of the van (the owner: "the icons of the maple syrup and the leafs just look like a screenshot of the ones in the van fix that same with pip"). Shown cut-outs of the picture's objects beside icons drawn in its look, the owner picked the drawn ones ("B looks better"), with Pip's face made more like him. `Scripts/art/icons/build_van_icons.py` draws them: a wicker basket of leaves, a syrup jug, a flame, Pip's face with his tail, a clock and crossed tools. Counters show the icon alone; buttons put it on a cream disc. The crop step is gone from the concept art script, and the unused pot and lantern crops are deleted. (The leaf crop stays until the Herbarium's button goes.)
 Affects: `VanIcon` (new), `VanMedallion`, `VanCounter`, `VanUpgradesView`, `VanIcon…` image sets, `Scripts/art/concept/build_concept_art.py`; comparison sheet `docs/design/art/2026-11-28-van-alive/icons-compare.jpg`.

@@ -41,15 +41,33 @@ struct VanAmbienceTests {
         }
     }
 
-    @Test("The leaves already in the sky drift a little round where the picture has them")
-    func skyLeaves() {
-        for index in 0 ..< VanAmbience.skyLeafCount {
-            let path = times.map { VanAmbience.skyLeaf(index, at: $0) }
-            #expect(path.allSatisfy { abs($0.dx) <= 14 && abs($0.dy) <= 14 && abs($0.turn) <= 0.3 })
-            #expect(path.map(\.dy).max()! - path.map(\.dy).min()! > 6)
+    @Test("The leaves the picture paints in mid-air never hang still: each swings where it is drawn, lets go and falls, and comes back")
+    func paintedLeaves() {
+        // The owner, 28 Nov 2026: "there are still frozen leaves in the air".
+        let long = stride(from: 0.0, through: 120, by: 1.0 / 20).map { $0 }
+        for index in 0 ..< VanAmbience.paintedLeafCount {
+            let path = long.map { VanAmbience.paintedLeaf(index, at: $0) }
+            #expect(path.allSatisfy { $0.opacity >= 0 && $0.opacity <= 1 })
+            // At the start, the picture is as drawn.
+            let first = VanAmbience.paintedLeaf(index, at: 0)
+            #expect(first.opacity == 1 && abs(first.dx) < 16 && abs(first.dy) < 16)
+            // It swings where it hangs.
+            let hanging = path.filter { $0.opacity > 0.99 && $0.dy < 16 }
+            #expect(hanging.map(\.turn).max()! - hanging.map(\.turn).min()! > 0.3)
+            // Within two minutes it has fallen well down, and been back at its place.
+            #expect(path.map(\.dy).max()! > 300)
+            #expect(path.last(where: { $0.dy > 300 }) != nil && path.contains { $0.opacity > 0.99 && abs($0.dy) < 16 })
+            // While it is far from its place it is falling, and it is gone before it could show back there.
+            for (a, b) in zip(path, path.dropFirst()) where a.dy > 200 && b.dy < 16 {
+                #expect(a.opacity < 0.05)
+            }
         }
-        // They don't move together.
-        #expect(VanAmbience.skyLeaf(0, at: 3) != VanAmbience.skyLeaf(1, at: 3))
+        // They don't all go at once: at any moment most are hanging.
+        for time in long {
+            let falling = (0 ..< VanAmbience.paintedLeafCount).filter { VanAmbience.paintedLeaf($0, at: time).dy > 40 }
+            #expect(falling.count <= 3)
+        }
+        #expect(VanAmbience.paintedLeaf(0, at: .nan) == VanAmbience.paintedLeaf(0, at: 0))
     }
 
     @Test("Smoke sways about the chimney's top, and new puffs rise from it, grow and fade")
