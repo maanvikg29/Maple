@@ -52,6 +52,10 @@ struct FocusView: View {
         let _ = tick
         destination(route, now: now)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // With the van, one screen of the timer gives way to the next with a cross-fade: the clock to the maple,
+            // the maple to Pip's walk back, the walk to the receipt.
+            .animation(collection.context.features.syrupVan ? .easeInOut(duration: 0.5) : nil, value: route)
+            .animation(collection.context.features.syrupVan ? .easeInOut(duration: 0.5) : nil, value: walkedBack)
             // With the van, minimising a session is going home to the van, where the gauge and the button lead back
             // (syrup van design §6.5). The tab keeps the session's screen, so whatever selects it again finds it there.
             .onChange(of: tab.isMinimised, initial: true) { _, minimised in

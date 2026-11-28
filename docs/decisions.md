@@ -2,6 +2,10 @@
 
 Newest first. Each entry: what was decided, why, and what it affects.
 
+## 2026-11-28 — Moving between the van's places is animated
+The owner: "no transitin animations are there". With the van the tab bar is gone and the places were switched with a cut. Now each place arrives as it is shown (`VanArrival`): home settles from a little closer, as if the camera were pulling back out of the van; the clock (and whatever the timer is showing) comes up from the gauge; the Herbarium rises into view. Inside the timer, each screen gives way to the next with a half-second cross-fade: the clock to the maple, the maple to Pip's walk back, the walk to the receipt. With Reduce Motion each is a short fade. The Herbarium's way back to the van moved to its top-left, as on the clock, so it no longer covers a leaf or a line.
+Affects: `VanArrival` (new), `RootView`, `FocusView`.
+
 ## 2026-11-28 — Every screen takes the van's look; the sleep parts are hidden with the van
 The owner: "there are still lot of hints of the old maple app remove and replace them all". With the van as home, the app now uses `Theme.van` (`MapleDesign/VanTheme.swift`) and the light colour scheme everywhere: the picture's peach sky as the background, cream plates with its thick dark-brown outline (2.5 points), dark-brown words, the gold of "Set the timer" for each screen's one primary button, no glass and no glow (`Theme.look == .van`), no stars behind the Focus screens, and buds in the trunk's browns. So the receipt, End early, the Herbarium and leaf pages, the reveal, Profile, Settings, About, Privacy, Saved today, the streak, History and every sheet are warm instead of night-dark. The night's theme is untouched for the build before the van.
 - **Profile** shows Pip (his own picture) and "Pip's van" instead of the featured leaf and "Your maple", and drops the tree's growth stage and the rested nights. **About** says what Maple is now: a focus timer with a syrup van.
