@@ -135,4 +135,6 @@ enum VanTreePip {
     static let centreY = 668 + (290 - 555) * 0.61
     /// The pail's middle in his square (`PAIL_MIDDLE`), which it turns about once it flies.
     static let pailMiddle = UnitPoint(x: 494.0 / 610, y: 476.0 / 580)
+    /// His feet in his square, which he breathes up from.
+    static let feet = UnitPoint(x: 310.0 / 610, y: 555.0 / 580)
 }

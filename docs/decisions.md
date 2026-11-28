@@ -2,6 +2,10 @@
 
 Newest first. Each entry: what was decided, why, and what it affects.
 
+## 2026-11-28 — The session's maple: livelier, and one way out
+The owner asked for "a better tree in the session". While a session runs, 13 leaves come down (it was 9), each swinging side to side and tilting into its swing, slowing at each end of the swing as a real leaf does; every 17 seconds or so a gust blows for a few seconds and carries the leaves along with it (`FallingLeaves.gust`, `drift`), on home too. The string lights round the trunk twinkle, and Pip breathes and blinks (his closed eyelids are drawn by Maple, in the fur's colour round his eyes). The spec's own decisions are now built for the van: no "Take a break" (§6.3, breaks are dropped), and every session's way out is the sheet's "End session", with no hold and no break instead (§6.3, §6.6).
+Affects: `FallingLeaves`, `VanTreeSessionView`, `VanFallingLeaves`, `VanTreeLights`, `RunningSessionView`, `EndEarlySheet`, `Scripts/art/concept/build_concept_art.py` (`tree_eyelids`), the `VanTreePipLids` image set.
+
 ## 2026-11-28 — The tumble: the pail flies off and spills its leaves
 The owner asked for "a better falling animation with leaves scattering out of the bucket". When a session ends early, Pip still slips, turns over once and lands on the grass, and now the pail leaves his paw as he slips: it is flung up and out, turns upside down so 16 leaves pour out of its mouth, lands on its side with a little bounce, and 6 more leaves jump out. Every leaf flutters down side to side, tilting as it swings, and stays where it lands on the grass. Dust puffs where he and the pail land, and he sways a moment, dazed, before sitting still. It lasts 3.5 seconds (it was 1.8), then the receipt.
 - **What is the picture's.** Pip is his own pixels, as before, and the leaves are the concept's three. The pail was always drawn by Maple; it is now its own picture, so it can fly. The dust is drawn by Maple, in the grass's colour made pale.

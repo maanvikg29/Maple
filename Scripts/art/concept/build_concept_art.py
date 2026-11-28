@@ -271,6 +271,30 @@ def pip_alone():
     return pip_cutout().crop(PIP_BOX)
 
 
+def tree_eyelids():
+    """His eyes closed, in his close-up's square: each covered in the pale fur round it, with one dark curve. Drawn,
+    for blinking in the tree."""
+    src = Image.open(CONCEPTS / "pip-from-van.jpg").convert("RGB")
+    pixels = np.asarray(src).astype(np.int32)
+    x0, y0 = PIP_BOX[0], PIP_BOX[1]
+    size = (PIP_BOX[2] - x0, PIP_BOX[3] - y0)
+    ink = Ink(size)
+    yy, xx = np.mgrid[0:pixels.shape[0], 0:pixels.shape[1]]
+    for cx, cy in [(489.5, 316.9), (571.1, 300.8)]:
+        # The pale fur in a thin ring just outside the eye, leaving out its dark edge.
+        inner = ((xx - cx) / 12) ** 2 + ((yy - cy) / 15) ** 2
+        outer = ((xx - cx) / 15) ** 2 + ((yy - cy) / 18) ** 2
+        ring = pixels[(inner > 1) & (outer <= 1)]
+        ring = ring[(ring[:, 0] * 299 + ring[:, 1] * 587 + ring[:, 2] * 114) // 1000 > 150]
+        fur = tuple(int(v) for v in np.median(ring, axis=0))
+        ink.ellipse(cx - x0, cy - y0, 12.5, 15.5, fur)
+        lid = curve([(cx - 10.5, cy + 1), (cx, cy + 8), (cx + 10.5, cy + 1)])
+        ink.line([(x - x0, y - y0) for x, y in lid], LINE, 4.6)
+    out = Image.new("RGBA", size, (0, 0, 0, 0))
+    ink.onto(out)
+    return out
+
+
 # The pail's middle and its mouth's middle, upright, in Pip's square (`PailPose` turns it about the first).
 PAIL_MIDDLE = (494, 476)
 PAIL_MOUTH = (494, 397)
@@ -817,6 +841,8 @@ def main():
     imageset("VanTreePip", "pip-pail.png", pip)
     imageset("VanTreePipAlone", "pip-alone.png", pip_alone())
     imageset("VanTreePail", "pail.png", pail_alone(leaves))
+    lids = tree_eyelids()
+    imageset("VanTreePipLids", "pip-lids.png", lids)
     for name, leaf in zip(["VanLeafOrange", "VanLeafYellow", "VanLeafRed"], leaves):
         imageset(name, name.lower() + ".png", leaf)
 
@@ -846,6 +872,9 @@ def main():
         whole.convert("RGB").save(out / "tree-scene.png")
         scene.save(out / "tree-only.png")
         pip.save(out / "pip-pail.png")
+        blink = pip.copy()
+        blink.alpha_composite(lids)
+        blink.crop((200, 100, 480, 260)).resize((840, 480), Image.LANCZOS).save(out / "pip-blink.png")
         for i, leaf in enumerate(leaves):
             leaf.save(out / f"leaf-{i}.png")
         for name, piece in pieces.items():

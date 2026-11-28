@@ -149,9 +149,11 @@ struct RunningSessionView: View {
         sessions.running.flatMap { $0.id == sessionID ? $0 : nil }
     }
 
-    /// By the strictness that applies to the session: a plain timer's is Gentle's whatever its preset.
+    /// By the strictness that applies to the session: a plain timer's is Gentle's whatever its preset. With the van
+    /// every session has the one way out, "End session" on the sheet (syrup van design §6.3, §6.6).
     private var endPath: SessionEndPath {
-        session.map { SessionEndPath($0.plan) } ?? .steady
+        if collection.context.features.syrupVan { return .gentle }
+        return session.map { SessionEndPath($0.plan) } ?? .steady
     }
 
     /// The break while one runs, otherwise the running dial, sampled once a second. Past the planned end it keeps its
@@ -214,7 +216,8 @@ struct RunningSessionView: View {
             if collection.context.features.syrupVan {
                 VanTreeSessionView(
                     title: model.title, subtitle: model.restingLine, time: model.remaining, caption: model.caption,
-                    spoken: model.spoken, endTitle: model.endPath.title, breakTitle: isTakingBreak ? nil : model.breakTitle,
+                    // Breaks are dropped with the van (syrup van design §6.3).
+                    spoken: model.spoken, endTitle: endPath.title, breakTitle: nil,
                     dimmed: dimmed, onMinimise: minimise, onEnd: takeEndPath, onBreak: takeBreak, controlsFocused: $controlsFocused
                 )
             } else {

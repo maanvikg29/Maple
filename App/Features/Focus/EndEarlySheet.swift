@@ -106,7 +106,8 @@ struct EndEarlySheet: View {
         // The running screen's own rule: no break for a plain timer or a lost block.
         EndEarlyModel(
             path: path, countedSeconds: sessions.countedSoFar(session.id),
-            breakAvailable: RunningSessionModel.breakAvailable(session, at: now),
+            // With the van there are no breaks (syrup van design §6.3).
+            breakAvailable: !collection.context.features.syrupVan && RunningSessionModel.breakAvailable(session, at: now),
             losesLeaves: collection.context.features.syrupVan
         )
     }
