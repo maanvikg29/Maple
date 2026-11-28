@@ -30,7 +30,7 @@ struct FallingLeavesTests {
     func falls() {
         let first = FallingLeaves.leaves(at: 100, count: 1)[0]
         let cycle = FallingLeaves.seconds(ofLeaf: 0)
-        #expect((6 ... 13).contains(cycle))
+        #expect((12 ... 18).contains(cycle))
         // Find a moment early in a fall, then look a second later.
         var start = 100.0
         while FallingLeaves.leaves(at: start, count: 1)[0].fall > 0.2 { start += 0.25 }
@@ -99,6 +99,18 @@ struct FallingLeavesTests {
         #expect(during > before)
         #expect(after > during)
         #expect(FallingLeaves.drift(at: start + 8) == after)
+    }
+
+    @Test("They fall slowly: every leaf takes 12 to 18 seconds to come down, never quicker")
+    func slow() {
+        // The owner, 28 Nov 2026: "even generally just slow down the leafs falling too".
+        for index in 0 ..< 40 {
+            #expect((12 ... 18).contains(FallingLeaves.seconds(ofLeaf: index)))
+        }
+        // Down the whole picture, a second moves a leaf less than a tenth of the way.
+        let fall = (0 ..< 600).map { FallingLeaves.leaves(at: 200 + Double($0) / 60, count: 1)[0].fall }
+        let steps = zip(fall, fall.dropFirst()).map { $1 - $0 }.filter { $0 > 0 }
+        #expect(steps.allSatisfy { $0 * 60 < 0.16 })
     }
 
     @Test("They don't all fall together")

@@ -110,8 +110,7 @@ struct ClockTimerView: View {
             .disabled(blocking.rowAction == nil)
         }
         .padding(.horizontal, 16)
-        .background(VanPalette.cream, in: RoundedRectangle(cornerRadius: 22))
-        .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(VanPalette.outline, lineWidth: 2.5))
+        .vanInked(.roundedRect(radius: 22), fill: VanPalette.cream)
         .frame(maxWidth: 460)
     }
 
@@ -158,8 +157,7 @@ struct ClockTimerView: View {
                 .font(.system(size: 18, weight: .heavy, design: .rounded))
                 .foregroundStyle(VanPalette.outline)
                 .frame(width: 44, height: 44)
-                .background(VanPalette.cream, in: Circle())
-                .overlay(Circle().strokeBorder(VanPalette.outline, lineWidth: 2.5))
+                .vanInked(.ellipse, fill: VanPalette.cream)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)

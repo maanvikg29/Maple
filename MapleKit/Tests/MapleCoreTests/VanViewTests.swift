@@ -70,12 +70,15 @@ struct VanViewTests {
         #expect(none.x == 0 && none.y == 0)
     }
 
-    @Test("What a tap on home's picture does: the pot cooks, the boiler is the machines, the van is the timer, the maple is the tree")
+    @Test("What a tap on home's picture does: the pot cooks and the boiler is the machines; nothing else in it is a button")
     func targets() {
         #expect(VanHomeTarget.at(x: 764, y: 1220) == .pot)
         #expect(VanHomeTarget.at(x: 990, y: 1100) == .machines)
-        #expect(VanHomeTarget.at(x: 1500, y: 1700) == .timer)
-        #expect(VanHomeTarget.at(x: 300, y: 400) == .maple)
+        // The owner, 28 Nov 2026: "if i tap anywhere randomly it accidentally opens the timer remove that". The van's
+        // body and the maple are only the picture; the timer has its own button.
+        #expect(VanHomeTarget.at(x: 1500, y: 1700) == nil)
+        #expect(VanHomeTarget.at(x: 300, y: 400) == nil)
+        #expect(VanHomeTarget.at(x: 400, y: 1500) == nil)
         #expect(VanHomeTarget.at(x: 1700, y: 300) == nil)
         #expect(VanHomeTarget.at(x: 900, y: 2250) == nil)
         #expect(VanHomeTarget.at(x: .nan, y: 0) == nil)

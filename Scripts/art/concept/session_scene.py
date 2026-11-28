@@ -45,6 +45,87 @@ QUIET = (250, 1900, 950, 2420)
 HORIZON_SKY = (255, 233, 210)
 
 
+class RoughInk(art.Ink):
+    """The concept script's pen, by hand (the owner, 28 Nov 2026: "the lines they are not perfect they feel like they
+    have been drawn they are a bit rough"): an ellipse is a lumpy round, never a perfect one, and a line wanders a
+    little either side of its course while its ink thickens and thins, thinning toward the ends of an open line.
+
+    The same shape always comes out the same: an ellipse's wander is seeded by where its middle is, so the outline
+    ellipse drawn under a fill ellipse at the same middle wanders with it and the ring between them stays whole, with a
+    smaller swell of its own (seeded by its size too) that makes the ring thicker and thinner."""
+
+    @staticmethod
+    def _wave(t, seed, parts):
+        rng = random.Random(seed)
+        return sum(size * np.sin(2 * math.pi * cycles * t + rng.uniform(0, 2 * math.pi)) for cycles, size in parts)
+
+    def ellipse(self, cx, cy, rx, ry, colour, outline=None, width=0):
+        if rx <= 0 or ry <= 0:
+            return
+        perimeter = math.pi * (3 * (rx + ry) - math.sqrt((3 * rx + ry) * (rx + 3 * ry)))
+        n = max(32, int(perimeter / 2))
+        t = np.arange(n) / n
+        cycles = max(3, round(perimeter / 110))
+        where = round(cx) * 7919 + round(cy) * 104729
+        wander = min(3.4, 0.045 * max(rx, ry)) * self._wave(t, where, [(cycles, 0.7), (2 * cycles + 1, 0.3)])
+        swell = min(1.3, 0.02 * max(rx, ry) + 0.3) * self._wave(t, where + round(rx * 10), [(cycles + 1, 1.0)])
+        push = wander + swell
+        angle = 2 * math.pi * t
+        xs = cx + (rx + push) * np.cos(angle)
+        ys = cy + (ry + push) * np.sin(angle)
+        points = list(zip(xs, ys))
+        if colour:
+            self.fill(points, colour)
+        if outline and width:
+            self._ink(points, outline, width, closed=True, seed=where + 1)
+
+    def line(self, points, colour, width):
+        closed = len(points) > 2 and math.dist(points[0], points[-1]) < 0.5
+        self._ink(points[:-1] if closed else points, colour, width, closed=closed, seed=round(points[0][0] * 31 + points[0][1] * 17))
+
+    def _ink(self, points, colour, width, closed, seed):
+        pts = np.asarray(points, dtype=float)
+        if len(pts) < 2:
+            return
+        if closed:
+            pts = np.vstack([pts, pts[:1]])
+        seg = np.hypot(*np.diff(pts, axis=0).T)
+        total = float(seg.sum())
+        if total <= 0:
+            return
+        n = max(6, int(total / 2.5))
+        at = np.linspace(0, total, n, endpoint=not closed)
+        cum = np.concatenate([[0], np.cumsum(seg)])
+        line = np.stack([np.interp(at, cum, pts[:, 0]), np.interp(at, cum, pts[:, 1])], axis=1)
+        t = at / total
+        before = np.roll(line, 1, axis=0) if closed else np.vstack([line[:1], line[:-1]])
+        after = np.roll(line, -1, axis=0) if closed else np.vstack([line[1:], line[-1:]])
+        d = after - before
+        length = np.maximum(1e-9, np.hypot(d[:, 0], d[:, 1]))
+        normal = np.stack([d[:, 1] / length, -d[:, 0] / length], axis=1)
+        cycles = total / 150
+        cycles = max(1, round(cycles)) if closed else cycles
+        # Short strokes (a tuft, a wicker stitch) hardly wander; long ones do.
+        reach = min(1.0, total / 80)
+        line = line + normal * (reach * min(2.6, 0.45 * width + 0.6) * self._wave(t, seed, [(cycles, 0.75), (2 * cycles, 0.25)]))[:, None]
+        half = width / 2 * (1 + 0.3 * self._wave(t, seed + 7, [(max(1, round(total / 70)) if closed else total / 70, 1.0)]))
+        if not closed:
+            ends = np.minimum(at, total - at)
+            half = half * (0.55 + 0.45 * np.minimum(1, ends / max(4.0, 3 * width)))
+        k = self.k
+        outer = (line + normal * half[:, None]) * k
+        inner = (line - normal * half[:, None]) * k
+        fill = colour + (255,)
+        count = len(line) if closed else len(line) - 1
+        for i in range(count):
+            j = (i + 1) % len(line)
+            self.d.polygon([tuple(outer[i]), tuple(outer[j]), tuple(inner[j]), tuple(inner[i])], fill=fill)
+        for i in range(len(line)):
+            r = half[i] * k
+            x, y = line[i] * k
+            self.d.ellipse((x - r, y - r, x + r, y + r), fill=fill)
+
+
 def mix(a, b, t):
     return tuple(round(a[i] + (b[i] - a[i]) * t) for i in range(3))
 
@@ -139,7 +220,7 @@ def backdrop(van):
     img = gradient([(0, (249, 196, 142)), (0.22, (252, 210, 166)), (0.48, (255, 226, 198)), (HORIZON / H, HORIZON_SKY),
                     (1, HORIZON_SKY)])
     glow(img, 930, 1210, 520, (255, 244, 205), 0.7)
-    ink = art.Ink((W, H), k=2)
+    ink = RoughInk((W, H), k=2)
     ink.ellipse(930, 1250, 92, 92, (255, 238, 186))
 
     # Far hills, hazy, with a far row of trees on them.
@@ -178,7 +259,7 @@ def backdrop(van):
     ImageDraw.Draw(mask).polygon([(x * 2, y * 2) for x, y in edge + [(W + 60, H + 10), (-60, H + 10)]], fill=255)
     mask = mask.resize((W, H), Image.LANCZOS)
     img.paste(meadow, (0, 0), mask)
-    ink = art.Ink((W, H), k=2)
+    ink = RoughInk((W, H), k=2)
     ink.line(edge, (112, 112, 64), 4)
     # Gentle rises in the meadow: a lighter crest with a darker line under it.
     for base, amp, phase, x0, x1 in [(1760, 26, 0.3, 560, W + 60), (2010, 30, 2.2, -60, 470), (2470, 22, 1.0, 820, W + 60)]:
@@ -230,7 +311,7 @@ def clouds():
     for seed, (w, h) in enumerate([(300, 130), (220, 100), (170, 80)]):
         rng = random.Random(30 + seed)
         size = (w + 40, h + 40)
-        ink = art.Ink(size, k=3)
+        ink = RoughInk(size, k=3)
         puffs = [(0.22, 0.62, 0.2), (0.4, 0.42, 0.26), (0.62, 0.38, 0.24), (0.8, 0.6, 0.18), (0.5, 0.66, 0.22)]
         puffs = [(px * w + 20 + rng.uniform(-6, 6), py * h + 20 + rng.uniform(-4, 4), r * w * rng.uniform(0.95, 1.05)) for px, py, r in puffs]
         for x, y, r in puffs:
@@ -270,7 +351,7 @@ def maple(van):
     cut = Image.fromarray(np.dstack([unmixed, alpha * 255]).astype(np.uint8), "RGBA")
 
     out = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    ink = art.Ink((W, H), k=3)
+    ink = RoughInk((W, H), k=3)
     ink.ellipse(360, 1588, 230, 34, (128, 128, 76))
     ink.onto(out)
     out.alpha_composite(cut, (0, 0))
@@ -283,7 +364,7 @@ def maple(van):
     darkness = 255 - band.mean(axis=1)
     lx = 228 + float(np.average(np.arange(0, 40), weights=np.clip(darkness[:40] - 190, 0, None)))
     rx = 228 + float(np.average(np.arange(224, 264), weights=np.clip(darkness[224:] - 190, 0, None)))
-    ink = art.Ink((W, H), k=3)
+    ink = RoughInk((W, H), k=3)
     left = [(lx, 1400)] + art.curve([(lx, 1440), (lx - 3, 1492), (lx - 20, 1538), (lx - 58, 1566), (lx - 94, 1578)])
     right = [(rx, 1400)] + art.curve([(rx, 1440), (rx + 3, 1492), (rx + 20, 1538), (rx + 58, 1566), (rx + 94, 1578)])
     foot = art.curve([(lx - 94, 1578), (lx + 10, 1590), ((lx + rx) / 2, 1594), (rx - 10, 1590), (rx + 94, 1578)])
@@ -310,7 +391,7 @@ def basket_layers():
     size = (art.PIP_BOX[2] - x0, art.PIP_BOX[3] - y0)
     at = lambda pts: [(x - x0, y - y0) for x, y in pts]  # noqa: E731
 
-    back = art.Ink(size)
+    back = RoughInk(size)
     # The handle: one woven hoop from each side of the rim up to his paw.
     for end in (CX - HALF + 6, CX + HALF - 6):
         bend = 10 if end > CX else -6
@@ -327,7 +408,7 @@ def basket_layers():
     back_img = Image.new("RGBA", size, (0, 0, 0, 0))
     back.onto(back_img)
 
-    front = art.Ink(size)
+    front = RoughInk(size)
     side = [(CX - HALF, RIM), (CX - FOOT, BOTTOM - 10)] + art.curve([(CX - FOOT, BOTTOM - 10), (CX, BOTTOM + 4), (CX + FOOT, BOTTOM - 10)]) + [(CX + HALF, RIM)]
     lip = art.curve([(CX - HALF, RIM), (CX - 40, RIM + 18), (CX, RIM + 22), (CX + 40, RIM + 18), (CX + HALF, RIM)])
     front.fill(at(side + lip[::-1]), WICKER)

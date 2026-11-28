@@ -34,13 +34,15 @@ struct ClockFace: View {
             let side = min(proxy.size.width, proxy.size.height)
             let centre = CGPoint(x: proxy.size.width / 2, y: proxy.size.height / 2)
             ZStack {
-                // The rim: an outline, the brass, a bright edge, and the shadow the rim throws on the face.
-                Circle().fill(VanPalette.outline)
+                // The rim: an outline, the brass, a bright edge, and the shadow the rim throws on the face. The
+                // outlines are drawn by hand (`VanInked`), so they thicken and thin round the brass.
+                VanInked(outline: .ellipse, part: .fill, lineWidth: 0, wobble: side * 0.0028).fill(VanPalette.outline)
                 Circle().fill(LinearGradient(colors: [VanPalette.goldLight, VanPalette.gold, VanPalette.copper],
                                              startPoint: .topLeading, endPoint: .bottomTrailing))
                     .padding(side * 0.014)
                 Circle().strokeBorder(VanPalette.face.opacity(0.55), lineWidth: side * 0.012).padding(side * 0.03)
-                Circle().fill(VanPalette.outline).padding(side * 0.085)
+                VanInked(outline: .ellipse, part: .fill, lineWidth: 0, wobble: side * 0.0022).fill(VanPalette.outline)
+                    .padding(side * 0.085)
                 Circle().fill(VanPalette.face).padding(side * 0.098)
                 // Syrup colour, from the top to the long hand.
                 ClockSector(fraction: setting.faceFill)
@@ -57,7 +59,8 @@ struct ClockFace: View {
                 hand(length: side * 0.2, width: side * 0.042, angle: setting.hourAngle, side: side)
                 hand(length: side * 0.32, width: side * 0.03, angle: setting.minuteTurn, side: side)
                 // The hub, with the length in it.
-                Circle().fill(VanPalette.outline).frame(width: side * 0.3, height: side * 0.3)
+                VanInked(outline: .ellipse, part: .fill, lineWidth: 0, wobble: side * 0.0022).fill(VanPalette.outline)
+                    .frame(width: side * 0.3, height: side * 0.3)
                 Circle().fill(VanPalette.cream).frame(width: side * 0.272, height: side * 0.272)
                 Text(setting.hubText)
                     .font(.system(size: side * 0.1, weight: .heavy, design: .rounded))

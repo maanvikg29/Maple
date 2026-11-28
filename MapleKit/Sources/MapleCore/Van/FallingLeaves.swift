@@ -22,9 +22,10 @@ public enum FallingLeaves {
         public let opacity: Double
     }
 
-    /// How long one fall of leaf `index` lasts: 7 to 12 seconds, different for each leaf so they never fall in step.
+    /// How long one fall of leaf `index` lasts: 12 to 18 seconds, different for each leaf so they never fall in step.
+    /// Slow, so they drift rather than rain (the owner, 28 Nov 2026: "slow down the leafs falling").
     public static func seconds(ofLeaf index: Int) -> Double {
-        7 + unit(index, 0, 1) * 5
+        12 + unit(index, 0, 1) * 6
     }
 
     /// The leaves in the air at `seconds` (any clock that only runs forward).
@@ -40,7 +41,8 @@ public enum FallingLeaves {
             // Each fall is a new leaf: another place, another swing, another colour.
             let start = 0.08 + unit(index, cycle, 3) * 0.84
             let sway = 0.04 + unit(index, cycle, 4) * 0.035
-            let waves = 1.5 + unit(index, cycle, 5) * 1.5
+            // Two to three and a half swings on the way down: a swing every five or six seconds.
+            let waves = 2 + unit(index, cycle, 5) * 1.5
             let phase = unit(index, cycle, 6) * 2 * .pi
             let angle = 2 * .pi * waves * progress + phase
             // Carried by any gust since it left the canopy, a little more the further it has come.

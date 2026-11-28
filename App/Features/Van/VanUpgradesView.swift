@@ -88,8 +88,7 @@ struct VanUpgradesView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(VanPalette.cream, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(VanPalette.outline, lineWidth: 2.5))
+        .vanInked(.roundedRect(radius: 22), fill: VanPalette.cream)
         .accessibilityElement(children: .contain)
     }
 }

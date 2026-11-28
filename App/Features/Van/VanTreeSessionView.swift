@@ -30,6 +30,15 @@ struct VanTreeSessionView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var start = Date()
+    /// Calm: only Pip moves (the owner, 28 Nov 2026: "a button for making everything less distractive which disables
+    /// the leafs falling and ... just keeps pip moving"). Kept for the next session too.
+    @AppStorage("MapleVanCalm") private var calm = false
+    /// The clouds stand still while calm is on, and carry on from where they stood when it goes off: the seconds they
+    /// have stood still so far, and since when they have been standing now.
+    @State private var cloudsHeld = 0.0
+    @State private var cloudsHeldSince: Date?
+
+    private var motion: VanSessionMotion { .of(calm: calm, dimmed: dimmed, reduceMotion: reduceMotion) }
 
     var body: some View {
         ZStack {
@@ -38,16 +47,20 @@ struct VanTreeSessionView: View {
                 let canvas = VanCanvas.tree
                 let scale = canvas.scale(width: proxy.size.width, height: proxy.size.height)
                 // The clouds drift, Pip breathes, blinks and catches leaves for his basket, and the string lights
-                // twinkle; dimmed, all of it rests.
-                TimelineView(.animation(minimumInterval: 1.0 / 30, paused: dimmed || reduceMotion)) { timeline in
+                // twinkle; calm, only Pip; dimmed, all of it rests.
+                TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !motion.anything)) { timeline in
                     let time = reduceMotion ? 0 : timeline.date.timeIntervalSince(start)
+                    let cloudTime = reduceMotion ? 0 : time - cloudsHeld - (cloudsHeldSince.map { timeline.date.timeIntervalSince($0) } ?? 0)
                     ZStack {
-                        VanTreeLandscape(canvas: canvas, size: proxy.size, time: time)
-                        VanTreeLights(time: time, canvas: canvas)
-                        // The leaves come down behind Pip, so none lands on his face.
+                        VanTreeLandscape(canvas: canvas, size: proxy.size, time: cloudTime)
+                        VanTreeLights(time: time, canvas: canvas, twinkles: motion.lights)
+                        // The leaves come down behind Pip, so none lands on his face. Calm, they go altogether, so
+                        // none is left hanging in the air.
                         VanFallingLeaves(canvas: canvas, time: time, count: 13)
+                            .opacity(motion.showsFallingLeaves ? 1 : 0)
+                            .animation(.easeInOut(duration: 0.8), value: motion.showsFallingLeaves)
                         VanTreePipCollecting(
-                            fraction: progress, time: time, still: reduceMotion || dimmed, idle: PipIdle.pose(at: time), scale: scale
+                            fraction: progress, time: time, still: !motion.pip, idle: PipIdle.pose(at: time), scale: scale
                         )
                         .position(canvas.point(VanTreePip.centreX, VanTreePip.centreY, in: proxy.size))
                     }
@@ -64,6 +77,17 @@ struct VanTreeSessionView: View {
             words
         }
         .animation(.easeInOut(duration: 0.6), value: dimmed)
+        .onAppear {
+            if calm { cloudsHeldSince = start }
+        }
+        .onChange(of: calm) { _, isCalm in
+            if isCalm {
+                cloudsHeldSince = Date()
+            } else if let since = cloudsHeldSince {
+                cloudsHeld += Date().timeIntervalSince(since)
+                cloudsHeldSince = nil
+            }
+        }
     }
 
     private var words: some View {
@@ -74,8 +98,7 @@ struct VanTreeSessionView: View {
                         .font(.system(.body, design: .rounded).weight(.heavy))
                         .foregroundStyle(VanPalette.outline)
                         .frame(width: 44, height: 44)
-                        .background(VanPalette.cream, in: Circle())
-                        .overlay(Circle().strokeBorder(VanPalette.outline, lineWidth: 2.5))
+                        .vanInked(.ellipse, fill: VanPalette.cream)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Minimise")
@@ -86,6 +109,7 @@ struct VanTreeSessionView: View {
                     .foregroundStyle(VanPalette.outline)
                     .modifier(VanPlate(horizontal: 14))
                 Spacer(minLength: 0)
+                calmButton
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)
@@ -117,6 +141,23 @@ struct VanTreeSessionView: View {
             .padding(.bottom, 18)
         }
         .vanChrome()
+    }
+
+    /// Top right, over the sky: falling leaves when the scene is moving, a leaf lying still when it is calm.
+    private var calmButton: some View {
+        Button {
+            calm.toggle()
+        } label: {
+            VanMedallion(
+                name: calm ? "VanIconLeavesStill" : "VanIconLeavesFalling", size: 44, fill: calm ? VanPalette.goldLight : VanPalette.cream
+            )
+            .contentShape(Circle())
+        }
+        .buttonStyle(VanPressStyle())
+        .accessibilityLabel("Calm")
+        .accessibilityValue(calm ? "On" : "Off")
+        .accessibilityHint(calm ? "Lets the leaves and clouds move again" : "Stops the leaves and clouds; Pip keeps going")
+        .accessibilityAddTraits(.isToggle)
     }
 
     @ViewBuilder
@@ -186,6 +227,8 @@ struct VanFallingLeaves: View {
 struct VanTreeLights: View {
     let time: Double
     let canvas: VanCanvas
+    /// Calm: a steady glow.
+    var twinkles = true
 
     /// The bulbs in the tree picture.
     private static let bulbs: [(x: Double, y: Double)] = [(238, 875), (295, 917), (370, 937), (442, 933)]
@@ -199,7 +242,7 @@ struct VanTreeLights: View {
                 let middle = canvas.point(bulb.x, bulb.y, in: size)
                 let radius = 48 * scale
                 var drawing = glow
-                drawing.opacity = 0.15 + 0.6 * VanAmbience.bulb(index, at: time)
+                drawing.opacity = twinkles ? 0.15 + 0.6 * VanAmbience.bulb(index, at: time) : 0.5
                 let colour = Color(red: 1, green: 0.93, blue: 0.62)
                 drawing.fill(
                     Path(ellipseIn: CGRect(x: middle.x - radius, y: middle.y - radius, width: 2 * radius, height: 2 * radius)),

@@ -20,7 +20,8 @@ enum VanPalette {
     static let dust = Color(hex: 0xD9D1A6)
 }
 
-/// A rounded, outlined plate: the look of every button and label that sits over the scene.
+/// A rounded plate with a hand-drawn outline (`VanInked`): the look of every button and label that sits over the
+/// scene. A capsule round one line, a rounded box round several.
 struct VanPlate: ViewModifier {
     var fill = VanPalette.cream
     var horizontal: CGFloat = 16
@@ -29,15 +30,12 @@ struct VanPlate: ViewModifier {
         content
             .padding(.horizontal, horizontal)
             .padding(.vertical, 10)
-            .background(fill, in: shape)
-            .overlay(shape.strokeBorder(VanPalette.outline, lineWidth: 2.5))
+            .vanInked(.roundedRect(radius: 22), fill: fill)
     }
-
-    /// A capsule round one line, a rounded box round several.
-    private var shape: RoundedRectangle { RoundedRectangle(cornerRadius: 22, style: .continuous) }
 }
 
-/// A number with its picture: the leaves, the syrup, the streak. It sits on home's wooden board (`VanBoard`).
+/// A number on its own drawn bar, with its picture over the bar's left end: the leaves, the syrup, the streak, along
+/// the top of home (the owner, 28 Nov 2026, picked separate bars over the board: "the top bar looks too free").
 struct VanCounter: View {
     let value: String
     /// A `VanIcon…` picture.
@@ -48,21 +46,25 @@ struct VanCounter: View {
     var compact = false
 
     var body: some View {
-        HStack(spacing: 5) {
-            VanIcon(name: icon, size: compact ? 28 : 32)
-            number
+        let iconSize: CGFloat = compact ? 40 : 46
+        ZStack(alignment: .leading) {
+            Text(value)
+                .font(.system(compact ? .subheadline : .headline, design: .rounded).weight(.heavy))
+                .monospacedDigit()
+                .foregroundStyle(VanPalette.outline)
+                .lineLimit(1)
+                .fixedSize()
+                .frame(minWidth: compact ? 34 : 52, alignment: .trailing)
+                .padding(.leading, iconSize * 0.62)
+                .padding(.trailing, compact ? 11 : 14)
+                .padding(.vertical, 7)
+                .vanInked(.roundedRect(radius: 18), fill: VanPalette.cream, lineWidth: 2.4)
+                // The bar starts under the middle of its picture.
+                .padding(.leading, iconSize * 0.42)
+            VanIcon(name: icon, size: iconSize)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(value) \(label)")
-    }
-
-    private var number: some View {
-        Text(value)
-            .font(.system(compact ? .footnote : .subheadline, design: .rounded).weight(.heavy))
-            .monospacedDigit()
-            .foregroundStyle(VanPalette.outline)
-            .lineLimit(1)
-            .fixedSize()
     }
 }
 
@@ -80,30 +82,29 @@ struct VanIcon: View {
     }
 }
 
-/// A drawn icon on a cream disc with the picture's outline: the round buttons on home's board.
+/// A drawn icon on a cream disc with a hand-drawn outline: the round buttons.
 struct VanMedallion: View {
     let name: String
     var size: CGFloat = 44
+    var fill = VanPalette.cream
 
     var body: some View {
         Image(name)
             .resizable()
             .scaledToFit()
-            .padding(size * 0.13)
+            .padding(size * 0.14)
             .frame(width: size, height: size)
-            .background(VanPalette.cream, in: Circle())
-            .overlay(Circle().strokeBorder(VanPalette.outline, lineWidth: size >= 34 ? 2.5 : 2))
+            .vanInked(.ellipse, fill: fill, lineWidth: size >= 34 ? 2.6 : 2.1)
             .accessibilityHidden(true)
     }
 }
 
-/// A wooden board, drawn in the picture's wood with its outline, a few grain lines and a nail at each end: what home's
-/// counters and buttons sit on (the owner picked it from three looks, 28 Nov 2026).
+/// A wooden board, drawn in the picture's wood with a hand-drawn outline, a few grain lines and a nail at each end:
+/// what home's buttons sit on (the owner picked it from three looks, 28 Nov 2026).
 struct VanBoard: View {
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
-        shape
-            .fill(VanPalette.wood)
+        let shape = VanInked(outline: .roundedRect(radius: 14), part: .fill)
+        Color.clear
             .overlay {
                 Canvas { context, size in
                     // Grain: three long, gently waving lines in the wood's darker tone.
@@ -126,7 +127,7 @@ struct VanBoard: View {
                 }
                 .clipShape(shape)
             }
-            .overlay(shape.strokeBorder(VanPalette.outline, lineWidth: 2.5))
+            .vanInked(.roundedRect(radius: 14), fill: VanPalette.wood)
             .accessibilityHidden(true)
     }
 }
